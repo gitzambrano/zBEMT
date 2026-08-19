@@ -124,7 +124,7 @@ zBEMT ships with ready-to-run starter projects covering both rotary-wing and pro
 
 | Folder | Type | Radius | Blades | σ | Tip speed | Notable coverage |
 | --------------------- | ----------------------------- | ------ | ------ | ----- | --------- | --------------------------------------------------------- |
-| `starter_rotor` | Rotor / helicopter quickstart | 1.25 m | 4 | 0.095 | — | Smallest mesh, fastest to run, Coleman local inflow |
+| `starter_rotor` | Rotor / helicopter quickstart | 1.25 m | 4 | 0.095 | 78 m/s | `is_propeller=False`, Coleman local inflow |
 | `starter_propeller` | Airplane propeller quickstart | 0.94 m | 3 | 0.086 | 246 m/s | `is_propeller=True`, axial flight, Glauert local inflow |
 
 List and run saved batches:
