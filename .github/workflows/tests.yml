@@ -42,8 +42,8 @@ jobs:
           print("ok: sem PyQt6, como esperado")
           PY
 
-      - name: Testes (os de GUI pulam sozinhos sem Qt)
-        run: pytest -q --tb=short
+      - name: Testes (os de GUI pulam sozinhos sem Qt; um processo por arquivo)
+        run: python tests/run_all_tests.py
 
   gui:
     name: suíte completa com GUI (headless)
@@ -70,12 +70,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[all]"
 
-      - name: Suíte completa
+      - name: Suíte completa (um processo por arquivo)
         # QT_QPA_PLATFORM is also set in tests/conftest.py; repeated here
         # for anyone running the job without going through conftest.
+        # One process per file (tests/run_all_tests.py) avoids the native
+        # crash (segfault/access violation) seen when many GUI test files
+        # accumulate Qt/matplotlib canvases in a single pytest process --
+        # see the module docstring.
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest -q --tb=short
+        run: python tests/run_all_tests.py
 
   instalacao:
     name: instalação limpa (wheel, fora do repositório)
