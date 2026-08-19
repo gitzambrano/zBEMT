@@ -73,7 +73,10 @@ class TestTextosPorModo(unittest.TestCase):
         aircraft's speed in the in-plane field. It has to say that field
         is zero in straight cruise -- and where the speed goes instead."""
         _rotulo, dica = rotulo_e_dica_de_condicao(True, "inplane")
-        self.assertIn("Straight cruise", dica)
+        # The requirement is what the sentence SAYS, not how it opens:
+        # the text comes from `nomenclature`, which may word it as
+        # "In straight cruise ...".
+        self.assertIn("straight cruise", dica.lower())
         self.assertIn("V<sub>z</sub> = 0", dica)
         self.assertIn("axial field below", dica)
 
@@ -94,7 +97,9 @@ class TestTextosPorModo(unittest.TestCase):
         _rotulo, dica = rotulo_e_dica_de_condicao(True, "inplane")
         self.assertIn("&alpha;<sub>disk</sub>", dica)
         self.assertIn("shaft", dica)
-        self.assertIn("0°", dica)
+        # The tooltip is rich text, so the degree sign may be the entity.
+        self.assertTrue("0°" in dica or "0&deg;" in dica,
+                        "the tooltip does not state that 0 degrees is aligned flow")
 
 
 @unittest.skipUnless(_HAS_QT, "sem PyQt6")

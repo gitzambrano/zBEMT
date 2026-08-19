@@ -99,7 +99,7 @@ longitudinal axis). Because the shaft direction differs, the **same letter**
 
 | Mode | Slot (engine name) | Batch axis label | Physical flow |
 |------|-------------------|------------------|---------------|
-| Rotor | `inplane` | Edgewise (in-plane) flow | Advance in the disk plane |
+| Rotor | `inplane` | Edgewise (in-plane) Flow | Advance in the disk plane |
 | Rotor | `axial` | Axial (along-shaft) Flow | Climb/descent along the shaft |
 | Propeller | `inplane` | Cross (in-plane) Flow | Cross-flow across the shaft (vertical) |
 | Propeller | `axial` | Axial (along-shaft) Flow | Airspeed along the shaft |
@@ -179,6 +179,79 @@ physics and mathematics behind it. To hide a form field, use
 `form.setRowVisible(widget, …)` directly.
 
 When moving or adding a field, run `python tools/field_index.py --escrever`.
+
+## Documentation (`docs/documentation.html`)
+
+Structure is **foundations, then one chapter per GUI page, then the
+derivations**. Chapters 6-12 are the seven tabs, in tab order:
+
+```
+0-5   Foundations   how to think · the three interfaces · tutorial ·
+                    physics fundamentals · hover · forward flight
+6-12  THE PAGES     Project · Geometry · Airfoil · Config/Engine ·
+                    Run Case · Run Batch · Results
+13-15 Derivations   inflow models · physical corrections · numerical solver
+16-19 Reference     propeller mode · parameter index · CLI · limitations
+```
+
+A GUI page always gets a chapter of its own; never bury one inside a physics
+chapter (Config/Engine used to be a subsection of "Numerical solver"). Each
+page chapter opens with its screenshot from `docs/img/gui/`.
+
+- The foundation chapters hold only what stays true whichever option is
+  selected. If a passage stops being true when a dropdown changes, it
+  belongs with the field, not with the foundations. Named models (Glauert,
+  Coleman, Øye, Viterna, Newton, Prandtl…) are summarised with the field
+  that selects them and derived in chapters 13-15.
+- A page chapter has one subsection per field, in the **on-screen order**
+  from `tools/field_index.py`.
+
+Every field subsection, in this order:
+
+1. **The physics** — what it represents, in both modes.
+2. **The mathematics** — the equation it enters, restated inline. Never a
+   pointer to go read it elsewhere.
+3. **What can be entered** — every option the dropdown offers, per mode.
+4. **How to set it** — range, default, and what a wrong value looks like.
+5. **GUI**, **`.bemt`**, **CLI** — three *separate* paragraphs, that order,
+   using the `class="gui"`/`"bemt"`/`"cli"` spans.
+6. At most **one** background link into Part I. That is the only outbound
+   link allowed in Part II.
+
+Rules that a change must not break:
+
+- A field title never names one key when the field accepts several
+  ("In-plane flow", not "`mu_x`").
+- Use the letters of the mode being described. In propeller mode the
+  in-plane quantities are $V_z$, $\mu_z$, $J_z$ — never $\mu_x$.
+- State what `.bemt` actually stores. Only the in-plane ratio and the
+  along-shaft speed in m/s are stored; any other name is ignored with a
+  warning and falls back to the default.
+- Never name internal API (`api.vv_from_alpha_deg`, `solve_bemt`) in user
+  text.
+- Every link is underlined.
+- **Every field of a page is documented.** One chapter per GUI page, and
+  all 92 settable fields have a subsection naming GUI, `.bemt` and CLI
+  together. `tests/test_documentation.py::TestTodoCampoTemSecao` enforces
+  it; `python tools/field_inventory.py` lists field → page → default →
+  `.bemt` key → flag.
+
+**English:** plain, formal, explicative. Full sentences — no fragments
+("In m/s, signed."). No filler, no self-referential phrasing ("ways of
+typing the value, not ways of keeping it"). Say "set one of these" rather
+than "which are mutually exclusive". Write for a reader, not an agent.
+
+**Generated, never hand-edited** — regenerate and commit the result:
+
+```bash
+python tools/build_toc.py --escrever      # index at the top
+python tools/field_index.py --escrever    # per-tab field lists
+python tools/gui_screenshots.py           # docs/img/gui/*.png
+python tools/field_inventory.py           # field -> tab/default/.bemt/CLI
+```
+
+`tools/gui_screenshots.py` needs `QT_QPA_FONTDIR` on a machine whose Qt
+has no font backend, or every label renders as empty boxes.
 
 ## Math notation
 

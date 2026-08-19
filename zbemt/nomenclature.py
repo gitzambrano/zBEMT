@@ -630,7 +630,7 @@ def from_display_keys(mapping: dict, is_propeller: bool = False) -> dict:
 # propeller spends its life in.
 _SLOT_LABELS = {
     ("inplane", False): (
-        "Edgewise (in-plane) flow:",
+        "Edgewise (in-plane) Flow:",
         "The horizontal component of the flight velocity, V<sub>x</sub>. On a "
         "rotor the shaft is vertical, so x lies IN THE PLANE OF THE DISK: this "
         "is THE ADVANCE, the component that sweeps across the blades and makes "

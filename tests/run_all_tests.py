@@ -50,12 +50,17 @@ def _run_one(test_file: Path, env: dict) -> tuple[bool, str, str]:
     )
     saida_bruta = proc.stdout + proc.stderr
 
-    ok = proc.returncode == 0
+    # pytest returns 5 when it collected NOTHING. For a file whose whole
+    # module skips itself -- every GUI test file, in the CI job that installs
+    # the base dependencies only to prove the engine runs without Qt -- that
+    # is the correct outcome, not a crash.
+    tudo_pulado = proc.returncode == 5 and " skipped" in saida_bruta
+    ok = proc.returncode == 0 or tudo_pulado
 
     linhas = [l for l in saida_bruta.strip().splitlines() if l.strip()]
     resumo = linhas[-1] if linhas else "(sem saida nenhuma -- processo provavelmente travou/crashou antes de imprimir)"
 
-    if proc.returncode not in (0, 1):
+    if proc.returncode not in (0, 1) and not tudo_pulado:
         resumo = (f"codigo de saida {proc.returncode} (0x{proc.returncode & 0xFFFFFFFF:08X}) "
                    f"-- nao e um resultado normal do pytest, provavel crash nativo "
                    f"(access violation / segfault). {resumo}")

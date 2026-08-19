@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 430" width="920" height="430"
+     font-family="Segoe UI, Helvetica, Arial, sans-serif" role="img"
+     aria-label="Axis convention: rotor with a vertical shaft and propeller with a horizontal shaft. The same physical component changes letter between the two modes.">
+  <title>zBEMT axis convention: rotor and propeller</title>
+  <desc>Left panel, rotor: vertical shaft, x lies in the disk plane (edgewise) and z runs along
+  the shaft (axial); alpha_rotor is measured from the disk plane. Right panel, propeller:
+  horizontal shaft, x runs along the shaft (axial airspeed) and z is vertical (cross-flow);
+  alpha_disk is measured from the shaft.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#14181f"/>
+    </marker>
+    <marker id="arrowAcc" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f6f78"/>
+    </marker>
+    <marker id="arrowFlow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c1571f"/>
+    </marker>
+  </defs>
+
+  <style>
+    .panel  { fill:#ffffff; stroke:#e2e5ea; stroke-width:1.5; }
+    .head   { font-size:17px; font-weight:700; fill:#14181f; }
+    .sub    { font-size:12.5px; fill:#5b6472; }
+    .axis   { stroke:#14181f; stroke-width:2; fill:none; }
+    .acc    { stroke:#1f6f78; stroke-width:2.5; fill:none; }
+    .flow   { stroke:#c1571f; stroke-width:2.5; fill:none; }
+    .lbl    { font-size:14px; font-weight:600; fill:#14181f; }
+    .lblacc { font-size:14px; font-weight:600; fill:#1f6f78; }
+    .lblflw { font-size:14px; font-weight:600; fill:#c1571f; }
+    .sym    { font-size:13px; font-style:italic; fill:#5b6472; }
+    .symacc { font-size:13px; font-style:italic; fill:#1f6f78; }
+    .note   { font-size:12px; fill:#5b6472; }
+    .sb     { font-size:9px; font-style:normal; }
+    .shaft  { stroke:#5b6472; stroke-width:5; stroke-linecap:round; }
+    .disk   { fill:#1f6f78; fill-opacity:.10; stroke:#1f6f78; stroke-width:1.6; }
+    .ang    { stroke:#c1571f; stroke-width:1.3; fill:none; stroke-dasharray:3 2; }
+    .dash   { stroke:#9aa3af; stroke-width:1.2; fill:none; stroke-dasharray:5 4; }
+  </style>
+
+  <!-- ================= LEFT PANEL — ROTOR ================= -->
+  <rect class="panel" x="12" y="12" width="432" height="330" rx="8"/>
+  <text class="head" x="32" y="42">Rotor — vertical shaft</text>
+  <text class="sub"  x="32" y="62">x lies in the disk plane · z runs along the shaft</text>
+
+  <line class="shaft" x1="228" y1="112" x2="228" y2="276"/>
+  <ellipse class="disk" cx="228" cy="210" rx="112" ry="32"/>
+
+  <!-- z: up the shaft (axial) -->
+  <line class="acc" x1="228" y1="210" x2="228" y2="108" marker-end="url(#arrowAcc)"/>
+  <text class="lblacc" x="240" y="112">z — axial (along shaft)</text>
+  <text class="symacc" x="240" y="130">V<tspan class="sb" dy="4">z</tspan><tspan dy="-4">, λ</tspan><tspan class="sb" dy="4">z</tspan><tspan dy="-4">, μ</tspan><tspan class="sb" dy="4">z</tspan></text>
+  <text class="note" x="240" y="148">climb +, descent −</text>
+
+  <!-- x: in the disk plane (edgewise) -->
+  <line class="axis" x1="228" y1="210" x2="386" y2="210" marker-end="url(#arrow)"/>
+  <text class="lbl" x="286" y="200">x — edgewise</text>
+  <text class="sym" x="286" y="262">μ<tspan class="sb" dy="4">x</tspan><tspan dy="-4">, J</tspan><tspan class="sb" dy="4">x</tspan><tspan dy="-4">, V</tspan><tspan class="sb" dy="4">x</tspan></text>
+
+  <!-- free stream, alpha_rotor measured FROM THE DISK PLANE -->
+  <line class="dash" x1="228" y1="210" x2="108" y2="210"/>
+  <line class="flow" x1="108" y1="262" x2="228" y2="210" marker-end="url(#arrowFlow)"/>
+  <path class="ang" d="M 148 210 A 80 80 0 0 0 156 238"/>
+  <text class="lblflw" x="80" y="282">V<tspan class="sb" dy="4">∞</tspan></text>
+  <text class="lblflw" x="150" y="262">α<tspan class="sb" dy="4">rotor</tspan></text>
+  <text class="note" x="32" y="306">α<tspan class="sb" dy="3">rotor</tspan></text>
+  <text class="note" x="68" y="306">is measured from the DISK PLANE:</text>
+  <text class="note" x="32" y="324">α<tspan class="sb" dy="3">rotor</tspan></text>
+  <text class="note" x="68" y="324">= atan2(V<tspan class="sb" dy="3">z</tspan><tspan dy="-3">, V</tspan><tspan class="sb" dy="3">x</tspan><tspan dy="-3">) · 0° in level forward cruise</tspan></text>
+
+  <!-- ================= RIGHT PANEL — PROPELLER ================= -->
+  <rect class="panel" x="476" y="12" width="432" height="330" rx="8"/>
+  <text class="head" x="496" y="42">Propeller — horizontal shaft</text>
+  <text class="sub"  x="496" y="62">x runs along the shaft · z is vertical</text>
+
+  <line class="shaft" x1="616" y1="210" x2="796" y2="210"/>
+  <ellipse class="disk" cx="672" cy="210" rx="15" ry="76"/>
+
+  <!-- x: along the shaft (axial airspeed) -->
+  <line class="acc" x1="672" y1="210" x2="840" y2="210" marker-end="url(#arrowAcc)"/>
+  <text class="lblacc" x="716" y="200">x — axial (along shaft)</text>
+  <text class="symacc" x="716" y="238">J<tspan class="sb" dy="4">x</tspan><tspan dy="-4">, μ</tspan><tspan class="sb" dy="4">x</tspan><tspan dy="-4">, V</tspan><tspan class="sb" dy="4">x</tspan></text>
+  <text class="note" x="716" y="256">the aircraft airspeed</text>
+
+  <!-- z: vertical cross-flow -->
+  <line class="axis" x1="672" y1="210" x2="672" y2="108" marker-end="url(#arrow)"/>
+  <text class="lbl" x="688" y="112">z — cross-flow</text>
+  <text class="sym" x="688" y="130">V<tspan class="sb" dy="4">z</tspan><tspan dy="-4">, μ</tspan><tspan class="sb" dy="4">z</tspan><tspan dy="-4">, J</tspan><tspan class="sb" dy="4">z</tspan></text>
+  <text class="note" x="688" y="147">0 in straight cruise</text>
+
+  <!-- free stream, alpha_disk measured FROM THE SHAFT -->
+  <line class="flow" x1="540" y1="262" x2="672" y2="210" marker-end="url(#arrowFlow)"/>
+  <path class="ang" d="M 600 210 A 72 72 0 0 0 608 238"/>
+  <text class="lblflw" x="512" y="282">V<tspan class="sb" dy="4">∞</tspan></text>
+  <text class="lblflw" x="598" y="262">α<tspan class="sb" dy="4">disk</tspan></text>
+  <text class="note" x="496" y="306">α<tspan class="sb" dy="3">disk</tspan></text>
+  <text class="note" x="528" y="306">is measured from the SHAFT:</text>
+  <text class="note" x="496" y="324">α<tspan class="sb" dy="3">disk</tspan></text>
+  <text class="note" x="528" y="324">= atan2(V<tspan class="sb" dy="3">z</tspan><tspan dy="-3">, V</tspan><tspan class="sb" dy="3">x</tspan><tspan dy="-3">) · 0° when the stream aligns with the shaft</tspan></text>
+
+  <!-- ================= CAPTION STRIP ================= -->
+  <rect x="12" y="356" width="896" height="60" rx="8" fill="#f4f5f7" stroke="#e2e5ea" stroke-width="1.5"/>
+  <text x="32" y="380" font-size="13" fill="#14181f" font-weight="700">The same physical component changes letter with the mode.</text>
+  <text x="392" y="380" font-size="13" fill="#5b6472">The along-shaft component is z for a rotor and x for a propeller; the in-plane one is x for a rotor and z for a propeller.</text>
+  <text x="32" y="401" font-size="13" fill="#5b6472">The solver always works in disk axes. What rotates is what you see on screen, and what is written into .bemt files, CSV headers and CLI flags.</text>
+</svg>

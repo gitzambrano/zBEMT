@@ -42,7 +42,10 @@ class TestDocumentationIsSelfContained(unittest.TestCase):
             "fixed-$C_T$ trim",
             "\\sigma = \\frac{B S_b}{\\pi R^2}",
             "AR = \\frac{R^2}{S_b}",
-            "5.2.1 Solidity and blade aspect ratio",
+            # Title only, without its section number: chapters get renumbered
+            # when the document is restructured, and the number is not what
+            # this test is about.
+            "Solidity and blade aspect ratio",
         ):
             self.assertIn(trecho, html)
         self.assertNotIn("botão \"?\"", html)
@@ -274,6 +277,262 @@ class TestIndiceDeCamposSegueATela(unittest.TestCase):
         ids = set(re.findall(r'id="([\w-]+)"', html))
         for bloco in re.findall(r"<!-- INDICE-DE-CAMPOS:.*?<!-- /INDICE", html, re.S):
             for ancora in re.findall(r'href="#([\w-]+)"', bloco):
+                self.assertIn(ancora, ids)
+
+
+class TestReferenciasNumericasResolvem(unittest.TestCase):
+    """"Section N.M" in the prose must name a section that exists.
+
+    Anchors are checked elsewhere, but a reference written as plain text
+    is invisible to that check. Renumbering bumped the first number of
+    "Sections A and B" and left the second one alone, so several pointed
+    at sections that had ceased to exist -- 2.9, 2.8.4, 6.9, 9.3.3.
+    """
+
+    def test_toda_secao_citada_em_texto_existe(self):
+        html = _html()
+        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if inicio in html:
+            html = html[:html.index(inicio)] + html[html.index(fim):]
+
+        existentes = {
+            m.group(1)
+            for m in re.finditer(r'<h[2-6][^>]*>\s*(\d+(?:\.\d+)*)[.\s]', html)
+        }
+        self.assertGreater(len(existentes), 50, "no numbered headings found")
+
+        texto = re.sub(r"<[^>]+>", " ", html)
+        citadas = set()
+        for m in re.finditer(
+                r"\bSections?\s+(\d+(?:\.\d+)*)(?:\s*(?:,|and|to|&)\s*(\d+(?:\.\d+)*))?",
+                texto):
+            citadas.update(g for g in m.groups() if g)
+
+        quebradas = sorted(c for c in citadas if c not in existentes)
+        self.assertEqual(
+            quebradas, [],
+            f"prose points at sections that do not exist: {quebradas}")
+
+
+class TestExemplosCitadosExistem(unittest.TestCase):
+    """Every example the reader is told to run must actually be there.
+
+    The document sent people to `projects/heli_utility_medium` and
+    `projects/propeller_light_aircraft`, neither of which is in the
+    repository, and to a batch named "mu_x sweep" that no project
+    defines. A command that cannot run is worse than no example.
+    """
+
+    def test_todo_projeto_citado_existe(self):
+        # Real project folders are lowercase; a capitalised name is a
+        # placeholder standing in for the reader's own project.
+        citados = {c for c in re.findall(r"projects/([a-zA-Z_][\w]*)", _html())
+                   if not c[0].isupper()}
+        self.assertTrue(citados, "the examples stopped naming any project")
+        faltando = sorted(c for c in citados if not (RAIZ / "projects" / c).is_dir())
+        self.assertEqual(faltando, [], f"projects cited but absent: {faltando}")
+
+    def test_todo_batch_citado_existe(self):
+        import json
+        citados = set(re.findall(r'--from-bemt-batch\s+"([^"]+)"', _html()))
+        if not citados:
+            self.skipTest("no batch named in the examples")
+        nomes = set()
+        for arquivo in (RAIZ / "projects").glob("*/inputs/batches.bemt"):
+            try:
+                nomes.update(b.get("name") for b in json.loads(
+                    arquivo.read_text(encoding="utf-8")))
+            except (ValueError, OSError):
+                continue
+        faltando = sorted(c for c in citados if c not in nomes)
+        self.assertEqual(faltando, [], f"batches cited but not defined: {faltando}")
+
+
+class TestCaminhosDeCliCitados(unittest.TestCase):
+    """Every `--set` path cited must name a real field of that namespace.
+
+    The documentation repeatedly claimed a field was "not exposed" on the
+    command line when `--set config.X=...` reached it perfectly well, and
+    it cited `--set config.dynamic_stall_A` for a field that lives in the
+    airfoil namespace. Both send the reader to a command that fails.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        from dataclasses import fields
+        from zbemt.bemt import BEMTConfig
+        from zbemt.models import AirfoilDef, RotorGeometryDef
+        cls.namespaces = {
+            "config": {f.name for f in fields(BEMTConfig)},
+            "airfoil": {f.name for f in fields(AirfoilDef)},
+            "geom": {f.name for f in fields(RotorGeometryDef)},
+        }
+
+    def test_todo_set_citado_existe(self):
+        # `--set NAMESPACE.FIELD` is the placeholder in the CLI's own help
+        # text, not a path; real paths are lowercase.
+        citados = [(ns, c) for ns, c in re.findall(r"--set\s+(\w+)\.(\w+)", _html())
+                   if not ns.isupper()]
+        self.assertGreater(len(citados), 10, "the --set examples disappeared")
+        invalidos = []
+        for ns, campo in citados:
+            se = self.namespaces.get(ns)
+            if se is None:
+                invalidos.append(f"--set {ns}.{campo} (unknown namespace)")
+            elif campo not in se:
+                invalidos.append(f"--set {ns}.{campo} (no such field in {ns})")
+        self.assertEqual(sorted(set(invalidos)), [], f"broken --set paths: {invalidos}")
+
+    def test_nenhum_campo_e_declarado_sem_caminho_de_cli(self):
+        """No field may be documented as unreachable from the command line."""
+        html = _html()
+        for frase in ("CLI</span>: not exposed",
+                      "CLI</span>: <b>not exposed</b>"):
+            self.assertNotIn(
+                frase, html,
+                "a field is documented as having no CLI path; every field of "
+                "config/airfoil/geom is reachable with --set")
+
+
+class TestNumeracaoDosTitulos(unittest.TestCase):
+    """A heading's number must have as many parts as its depth.
+
+    Restructuring renumbers hundreds of references at once, and the way
+    that goes wrong is silent: a regex with `(\\.\\d+)*` keeps only the LAST
+    repetition, so "12.3.1.1" collapses to "9.1" and an `<h4>` ends up
+    numbered like an `<h3>`. The document still renders; the numbering is
+    simply wrong. This catches it.
+    """
+
+    def test_numero_do_titulo_bate_com_o_capitulo_e_o_nivel(self):
+        """A heading's number must name its chapter and match its depth.
+
+        Renumbering also caught headings that were never section numbers:
+        the workflow steps in the tutorial read 1..7 for the seven tabs,
+        and three renumbering passes bumped them to 2,3,4,5,7,8,13. They
+        are excluded here by their `uso-` ids, and everything else has to
+        agree with the chapter it sits in.
+        """
+        html = _html()
+        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if inicio in html:                       # the index repeats every number
+            html = html[:html.index(inicio)] + html[html.index(fim):]
+
+        capitulo, errados = None, []
+        for m in re.finditer(r'<h([2-6])([^>]*)>(.*?)</h\1>', html, re.S):
+            nivel, attrs = int(m.group(1)), m.group(2)
+            texto = re.sub(r"<[^>]+>", "", m.group(3)).strip()
+            achado = re.match(r"(\d+(?:\.\d+)*)[.\s]", texto)
+            if not achado or 'id="uso-' in attrs:
+                continue
+            numero = achado.group(1)
+            if nivel == 2:
+                capitulo = numero
+                continue
+            partes = numero.split(".")
+            if partes[0] != str(capitulo):
+                errados.append(f"h{nivel} '{numero}' in chapter {capitulo}: {texto[:40]}")
+            elif len(partes) != nivel - 1:
+                errados.append(f"h{nivel} '{numero}' needs {nivel - 1} parts: {texto[:40]}")
+        self.assertEqual(errados, [], f"heading numbers out of step: {errados}")
+
+    def test_capitulos_sao_sequenciais(self):
+        html = _html()
+        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if inicio in html:
+            html = html[:html.index(inicio)] + html[html.index(fim):]
+        numeros = [int(m.group(1))
+                   for m in re.finditer(r'<h2[^>]*>\s*(\d+)[.\s]', html)]
+        self.assertEqual(numeros, list(range(len(numeros))),
+                         f"chapter numbers are not 0,1,2,...: {numeros}")
+
+
+class TestTodoCampoTemSecao(unittest.TestCase):
+    """Every settable field is explained, and says how to set it in all three.
+
+    One chapter per GUI page, one subsection per field of that page. The
+    subsection has to state the widget, the `.bemt` key AND the CLI flag --
+    a field explained only for the window leaves the other two interfaces
+    undocumented, which is the gap this checks.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(RAIZ / "tools"))
+        from field_inventory import coletar
+        from zbemt.gui.field_help import secoes_da_documentacao
+        cls.registros = coletar()
+        cls.secoes = secoes_da_documentacao()
+
+    def _secoes_do_campo(self, campo: str) -> list:
+        alvo = re.compile(rf"<code>{re.escape(campo)}</code>")
+        return [s for s in self.secoes if alvo.search(s.corpo)]
+
+    @staticmethod
+    def _marcas(secao) -> int:
+        return sum(m in secao.corpo
+                   for m in ('class="gui"', 'class="bemt"', 'class="cli"'))
+
+    def test_todo_campo_tem_secao_com_gui_bemt_e_cli(self):
+        faltando = []
+        for reg in self.registros:
+            if not any(self._marcas(s) == 3 for s in self._secoes_do_campo(reg["field"])):
+                faltando.append(f"{reg['dataclass']}.{reg['field']}")
+        self.assertEqual(
+            faltando, [],
+            "fields with no subsection stating GUI, .bemt and CLI together: "
+            f"{faltando}")
+
+    def test_nenhum_campo_e_citado_so_em_tabela_de_indice(self):
+        """A field named only in the generated per-tab list is not documented."""
+        for reg in self.registros:
+            with self.subTest(campo=reg["field"]):
+                self.assertTrue(self._secoes_do_campo(reg["field"]),
+                                f"{reg['field']} is not cited anywhere")
+
+
+class TestIndiceGeral(unittest.TestCase):
+    """The table of contents is generated, so it must match the headings.
+
+    A hand-edited index is the classic way for a long document to start
+    lying: a chapter is renamed, the index keeps the old name, and the
+    reader concludes the section was removed.
+    """
+
+    def _construtor(self):
+        sys.path.insert(0, str(RAIZ / "tools"))
+        import build_toc
+        return build_toc
+
+    def test_indice_esta_presente(self):
+        html = _html()
+        self.assertIn("<!-- INDICE-GERAL -->", html)
+        self.assertIn('<nav class="indice-geral"', html)
+
+    def test_indice_bate_com_os_titulos(self):
+        build_toc = self._construtor()
+        atual = _html()
+        limpo = atual
+        i = limpo.index(build_toc.MARCA_INICIO)
+        j = limpo.index(build_toc.MARCA_FIM) + len(build_toc.MARCA_FIM)
+        if limpo[j:j + 1] == "\n":
+            j += 1
+        limpo = limpo[:i] + limpo[j:]
+        limpo, entradas = build_toc.coletar(limpo)
+        esperado = build_toc.aplicar(limpo, build_toc.renderizar(entradas))
+        self.assertEqual(
+            esperado, atual,
+            "table of contents out of sync -- run `python tools/build_toc.py --escrever`")
+
+    def test_todo_link_do_indice_resolve(self):
+        html = _html()
+        ids = set(re.findall(r'id="([\w-]+)"', html))
+        bloco = re.search(r"<!-- INDICE-GERAL -->(.*?)<!-- /INDICE-GERAL -->", html, re.S)
+        self.assertIsNotNone(bloco)
+        ancoras = re.findall(r'href="#([\w-]+)"', bloco.group(1))
+        self.assertGreater(len(ancoras), 50, "the index looks truncated")
+        for ancora in ancoras:
+            with self.subTest(ancora=ancora):
                 self.assertIn(ancora, ids)
 
 

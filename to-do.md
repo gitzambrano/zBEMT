@@ -24,3 +24,49 @@
 
 8. **Stability and control derivatives mode.**
    Numerically compute (perturbation around the trim point) the classic stability and control derivatives (e.g., dCT/dmu, dCT/dcollective, moment derivatives, etc.), including the effects of flapping, lead-lag (item 4), and dynamic inflow (item 3) on the response — needed for flight/control analysis beyond the static performance already covered.
+
+---
+
+## Documentation queue (raised while refactoring `documentation.html`)
+
+Standing rules for the whole document are in CLAUDE.md ("Documentation").
+These are the outstanding items.
+
+### Open
+
+- **D1. Installation chapter, at the beginning.** Before the tutorial: what to
+  install, the optional dependency groups (`gui`, `viz3d`, `neuralfoil`,
+  `interactive`, `all`), how to launch the GUI and the CLI, and what to do when
+  an optional package is missing.
+- **D2. Outputs per interface, explicitly.** Chapter 1 states them in prose but
+  not clearly enough. Add a table: for GUI, CLI and `.bemt`, for a single case
+  and for a batch — which files appear, where, and how to ask for each one
+  (`--outdir`, `--plots`, `--no-csv`, `--report`, `--export-layout`, and the
+  equivalent GUI controls).
+- **D3. Plain-English pass on the older chapters** (3, 4, 5, 13, 14, 15, 16-19).
+  Physics is correct and fields are covered; the writing is denser than the page
+  chapters and has missing commas and run-on sentences.
+- **D4. `test12` has no descriptive name.** Its `meta.bemt` name is literally
+  "test12", so it appears that way in the project table. Give it a real name.
+- **D5. `test6` is described as a drone propeller but runs in rotor mode**
+  (`is_propeller: false`). Confirm which is intended.
+- **D6. README project table disagrees with the project files.** It lists
+  `starter_propeller` at σ=0.086; the geometry gives 0.109. Recheck both
+  starters' figures.
+
+### Done
+
+- Index at the top, generated (`tools/build_toc.py`), 20 chapters.
+- One chapter per GUI page, chapters 6-12, in tab order, each with a screenshot
+  (`tools/gui_screenshots.py`).
+- Chapter 1 on GUI/CLI/`.bemt`, with the project-file table.
+- Chapter 6 (Project) written; Config/Engine promoted out of "Numerical solver".
+- All 92 settable fields documented with GUI + `.bemt` + CLI, test-enforced.
+- Axis-convention SVG in the nomenclature section.
+- Terminology fixed to GUI / CLI / `.bemt` throughout.
+- Removed: duplicated Project section, duplicated "three ways to configure",
+  "2.4 Worked walkthrough".
+- Corrected: 11 wrong CLI claims, 2 example projects that did not exist, a batch
+  name that did not exist, the propeller worked example (was showing
+  pre-rotation keys), the 13-project table (12 of them did not exist), and 6
+  dangling section references.

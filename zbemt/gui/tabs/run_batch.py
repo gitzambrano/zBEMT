@@ -94,7 +94,7 @@ class RunBatchTab(QWidget):
     # a second dropdown, never by two competing axes.
     _AXIS_SLOTS = [
         ("(none)", None),
-        ("Edgewise (in-plane) flow", "inplane"),
+        ("Edgewise (in-plane) Flow", "inplane"),
         ("Axial (along-shaft) Flow", "axial"),
         ("Collective", "collective_deg"),
         ("RPM", "rpm"),
@@ -115,7 +115,7 @@ class RunBatchTab(QWidget):
 
     _DICAS_DOS_SLOTS = {
         False: {
-            "inplane": "Edgewise (in-plane) flow: vehicle-axis component V<sub>x</sub> that sweeps across the disk.",
+            "inplane": "Edgewise (in-plane) Flow: vehicle-axis component V<sub>x</sub> that sweeps across the disk.",
             "axial": "Axial (along-shaft) Flow: vehicle-axis component V<sub>z</sub> along the rotor shaft.",
         },
         True: {

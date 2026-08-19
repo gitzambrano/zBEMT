@@ -53,6 +53,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolb
 from matplotlib.figure import Figure
 
 from .. import api
+from .. import nomenclature
 from .. import paths
 from ..models import Project, ResultEntry
 
@@ -364,106 +365,10 @@ def largura_de_unidade_de_condicao(combos=()) -> int:
     return largura
 
 
-# =============================================================================
-# Label and help for the two flight-velocity components, PER MODE
-# =============================================================================
-# FINAL NOMENCLATURE: the axes belong to the VEHICLE -- x is horizontal and
-# z is vertical. The displayed names are the SAME in both modes (`V_x`/
-# `mu_x`/`J_x` and `V_z`/`mu_z`/`J_z`); what changes with the mode is the
-# PHYSICAL COMPONENT each letter names, because the rotor's axis is
-# vertical and the propeller's is horizontal:
-#
-#   ROTOR      -- x = in the disk plane = ADVANCE;  z = along the shaft =
-#                 climb (+) / descent (-).
-#   PROPELLER  -- x = along the shaft = FLIGHT SPEED;  z = vertical =
-#                 CROSS flow, zero in straight cruise.
-#
-# In either mode, x is the PRIMARY component (it is the one carrying the
-# velocity scale in that mode's typical case). That is what the screen
-# used to fail to say: labeled just "Advance", the in-plane field invited
-# a PROPELLER user to put the aircraft's speed there, which for a
-# propeller is axial -- the number would go in as edgewise flow and
-# produce the solution of an edgewise rotor that no propeller in straight
-# flight ever experiences: plausible and wrong.
-#
-# There are TWO angles, one per mode, both alpha = atan2(V_z, V_x) in
-# that mode's axes:
-#   `alpha_rotor` -- measured from the DISK PLANE. The angle of ROTOR mode.
-#   `alpha_disk`  -- measured from the SHAFT. The angle of PROPELLER mode.
-# Each mode offers ONLY its own, so there is never doubt about which alpha
-# a number is. In both modes the angle lives in the z field, and the
-# reason is worth stating in the tooltip: an angle does not fix the
-# velocity scale, it only splits the KNOWN component into the other one --
-# and the known one is x in both modes.
-#
-# WATCH OUT for the "Vz"/"mu_x" that open the tooltips: these are the
-# engine's FIELD names (disk axes), not the displayed names. `field_help`
-# derives the field from the first token in quotes in the tooltip;
-# swapping them removes the "?" from the row. See the long comment in
-# `widgets.UNIDADES_DE_CONDICAO`.
-_ROTULOS_DE_CONDICAO = {
-    False: {   # rotor
-        "inplane": (
-            "Edgewise (in-plane) flow:",
-            '"mu_x" — the horizontal component of the flight velocity, V_x. '
-            'On a rotor the shaft is vertical, so x lies IN THE PLANE OF THE '
-            'DISK: this is THE ADVANCE, the component that sweeps across the '
-            'blades and makes the advancing and retreating sides differ.\n\n'
-            'Units offered: mu_x = V_x/(ΩR) (also written lambda_x), '
-            'J_x = V_x/(nD) = π·mu_x, and the dimensional speed Vx [m/s]. '
-            'The vertical component V_z is the field below.'),
-        "axial": (
-            "Axial (along-shaft) Flow:",
-            '"Vz" — the vertical component of the flight velocity, V_z. On a '
-            'rotor the shaft is vertical, so z runs ALONG THE SHAFT: this is '
-            'climb (positive) or descent (negative), and the engine adds the '
-            'induced velocity to it to form Vz_total = V_z + v_i.\n\n'
-            'Units offered: alpha_rotor [deg], Vz [m/s], and the ratios '
-            'mu_z = V_z/(ΩR) (also written lambda_z) and '
-            'J_z = V_z/(nD) = π·mu_z.\n\n'
-            'alpha_rotor = atan2(V_z, V_x) is THE angle of rotor mode, measured '
-            'FROM THE DISK PLANE: 0° is level forward flight — a helicopter '
-            'cruising — and it is POSITIVE when the flow arrives from below the '
-            'disk. Propeller mode offers alpha_disk instead, measured from the '
-            'shaft; each mode offers only its own angle, so there is never a '
-            'doubt about which alpha a number is.\n\n'
-            'The angle lives in this z field in both modes for one reason: an '
-            'angle never fixes the scale of the velocity, it only splits the '
-            'KNOWN component into the other one — and the known component is x '
-            'in both modes.'),
-    },
-    True: {    # propeller
-        "inplane": (
-            "Cross (in-plane) Flow:",
-            '"mu_x" (shown here as V_z) — cross-flow speed across the propeller shaft.\n\n'
-            'Propeller axes: x is along the shaft; z is in the disk plane.\n'
-            'Straight cruise: V_z = 0. Put aircraft airspeed V_x in the axial field below.\n\n'
-            'Choices: V_z [m/s], alpha_disk [deg], mu_z = V_z/(ΩR), or '
-            'J_z = V_z/(nD). J_z is cross-flow, not the propeller advance ratio.\n\n'
-            'alpha_disk = atan2(V_z, V_x): 0° means the free stream is aligned '
-            'with the shaft.'),
-        "axial": (
-            "Axial (along-shaft) Flow:",
-            '"Vz" — the horizontal component of the flight velocity, V_x: the '
-            'aircraft\'s AIRSPEED. On a propeller the shaft is horizontal, so x '
-            'runs ALONG THE SHAFT. (The engine keeps this component under its '
-            'own disk-axes field name, "Vz"; on screen and in the output table '
-            'it is V_x / mu_x / J_x, and the engine adds the induced velocity '
-            'to it to form Vx_total = V_x + v_i.)\n\n'
-            'THIS IS THE PROPELLER\'S ADVANCE RATIO. The default unit J_x is the '
-            'classic one of the propeller charts, J_x = V/(nD) = '
-            'V_x/((rpm/60)·2R), built from the AXIAL airspeed — the same J_x '
-            'that propulsive efficiency uses, since thrust acts along the '
-            'shaft.\n\n'
-            'Units offered: J_x, mu_x = J_x/π = V_x/(ΩR) (the same number in '
-            'the rotor vocabulary, also written lambda_x), and the dimensional '
-            'speed Vx [m/s].\n\n'
-            'No angle is offered here, on purpose: an angle only splits the '
-            'known component into the other one, and on a propeller the known '
-            'component is this one. The angle lives in the cross-flow field '
-            'above, measured from the shaft (alpha_disk).'),
-    },
-}
+#: Engine field each input slot is bound to. `field_help` identifies the row
+#: by the quoted token that opens the tooltip, so this has to be the ENGINE's
+#: name (disk axes) and not the one displayed, which rotates with the mode.
+_CAMPO_DO_SLOT = {"inplane": "mu_x", "axial": "Vz"}
 
 
 def resolver_par_de_condicao(advance, axial, rpm: float, radius_m: float) -> tuple:
@@ -506,27 +411,16 @@ def rotulo_e_dica_de_condicao(is_propeller: bool, slot: str) -> tuple:
     """``(row label, tooltip)`` for field ``slot``
     (``"inplane"``/``"axial"``) in the current mode's convention.
 
-    SINGLE source for Run Case and Run Batch (which have three pairs
-    of these fields across the two tabs) -- see
-    `_ROTULOS_DE_CONDICAO`."""
-    rotulo, dica = _ROTULOS_DE_CONDICAO[bool(is_propeller)][slot]
-    # The first token in quotes is the internal key used by field-help;
-    # it stays intact so the popup can still be located. The rest of
-    # the tooltip is user text and receives the same mathematical
-    # notation as the report.
-    import re
-    prefixo = re.match(r'^\s*"[\w.]+"', dica)
-    if prefixo:
-        inicio = prefixo.end()
-        dica = dica[:inicio] + api._descricao_com_simbolos(dica[inicio:])
-    else:
-        dica = api._descricao_com_simbolos(dica)
-    dica = dica.replace("V_x", "V<sub>x</sub>").replace(
-        "V_z", "V<sub>z</sub>")
-    # QToolTip interprets plain text as running text; converting line
-    # breaks to HTML keeps the paragraphs visible on hover.
+    The text itself lives in `nomenclature.slot_label`, which owns every
+    axis name the user meets. All this adds is the quoted engine key that
+    opens the tooltip: `field_help` reads it to find which field the row
+    belongs to, and without it the row loses its help popup.
+    """
+    rotulo, dica = nomenclature.slot_label(slot, is_propeller)
+    # QToolTip renders plain text as running text, so the paragraph breaks
+    # have to be HTML for them to survive the hover.
     dica = dica.replace("\n\n", "<br><br>").replace("\n", "<br>")
-    return rotulo, dica
+    return rotulo, f'"{_CAMPO_DO_SLOT[slot]}" — {dica}'
 
 
 def definir_rotulo_de_linha(form, widget, texto: str) -> bool:

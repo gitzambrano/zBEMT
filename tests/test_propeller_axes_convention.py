@@ -500,17 +500,17 @@ class TestNomenclaturaExibida(unittest.TestCase):
 
     @requires_qt
     def test_rotulos_dos_slots_sao_iguais_nas_abas(self):
-        from zbemt.gui.common import _ROTULOS_DE_CONDICAO
+        from zbemt.gui.common import rotulo_e_dica_de_condicao
         from zbemt.gui.tabs.run_batch import RunBatchTab
 
-        self.assertEqual(_ROTULOS_DE_CONDICAO[False]["inplane"][0],
-                         "Edgewise (in-plane) flow:")
-        self.assertEqual(_ROTULOS_DE_CONDICAO[False]["axial"][0],
+        self.assertEqual(rotulo_e_dica_de_condicao(False, "inplane")[0],
+                         "Edgewise (in-plane) Flow:")
+        self.assertEqual(rotulo_e_dica_de_condicao(False, "axial")[0],
                          "Axial (along-shaft) Flow:")
-        self.assertEqual(_ROTULOS_DE_CONDICAO[True]["inplane"][0],
+        self.assertEqual(rotulo_e_dica_de_condicao(True, "inplane")[0],
                          "Cross (in-plane) Flow:")
         self.assertEqual(RunBatchTab._AXIS_SLOTS[1][0],
-                         "Edgewise (in-plane) flow")
+                         "Edgewise (in-plane) Flow")
         self.assertEqual(RunBatchTab._AXIS_SLOTS_HELICE["inplane"],
                          "Cross (in-plane) Flow")
 
