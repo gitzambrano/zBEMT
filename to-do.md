@@ -1,26 +1,26 @@
 # To-do
 
-1. **Unificar nomenclatura de eixos (Vx, Vz, alpha, mu, J, lambda, etc.) entre GUI, `.bemt`, CLI e engine.**
-   Hoje a letra usada para "eixo do escoamento" (x vs z) muda de sentido entre modo rotor e modo hélice (ver CLAUDE.md, seção "Axes convention"), e o motor (`bemt.py`, `FlightCondition`) trabalha sempre em eixos de disco, enquanto GUI/relatório mostram eixos de veículo — isso já gera confusão mesmo estando documentado. Levantar TODOS os pontos onde uma grandeza de eixo aparece com nome diferente do que a GUI mostra: chaves de `FlightCondition`/`BEMTConfig`, campos salvos em `.bemt`, flags do CLI (`cli.py`), rótulos internos de `studies.py`/`api.py` (`_SIMBOLO_DE_COLUNA_HELICE` etc.). Não tocar no `bemt.py` (motor) nem na convenção de eixos de disco internos — só a camada de entrada/saída (`api.py`, `models.py`, `cli.py`, GUI, relatório, `.bemt`) deve passar a usar a nomenclatura da GUI como única fonte da verdade, com uma tabela de tradução centralizada e testada (não espalhada em comentários). Atualizar `docs/software_requirements.md` e o CLAUDE.md de acordo.
-   Criar um SVG com a convenção de eixos (rotor: shaft vertical, x edgewise/z axial; hélice: shaft horizontal, x axial/z cross-flow) para deixar visualmente inequívoco qual eixo é qual em cada modo — usar no `documentation.html` e talvez como help popup na GUI.
+1. **Unify axis nomenclature (Vx, Vz, alpha, mu, J, lambda, etc.) across GUI, `.bemt`, CLI, and engine.**
+   Today the letter used for "flow axis" (x vs z) flips meaning between rotor mode and propeller mode (see CLAUDE.md, "Axes convention" section), and the engine (`bemt.py`, `FlightCondition`) always works in disk axes, while the GUI/report show vehicle axes — this already causes confusion even though it's documented. Survey EVERY point where an axis quantity appears under a different name than what the GUI shows: `FlightCondition`/`BEMTConfig` keys, fields saved in `.bemt`, CLI flags (`cli.py`), internal labels in `studies.py`/`api.py` (`_SIMBOLO_DE_COLUNA_HELICE` etc.). Do not touch `bemt.py` (the engine) or the internal disk-axes convention — only the input/output layer (`api.py`, `models.py`, `cli.py`, GUI, report, `.bemt`) should switch to the GUI's nomenclature as the single source of truth, with a centralized, tested translation table (not scattered across comments). Update `docs/software_requirements.md` and CLAUDE.md accordingly.
+   Create an SVG with the axis convention (rotor: vertical shaft, x edgewise/z axial; propeller: horizontal shaft, x axial/z cross-flow) to make it visually unambiguous which axis is which in each mode — use it in `documentation.html` and possibly as a GUI help popup.
 
-2. **Refactor total do `documentation.html`.**
-   Reescrever para ficar mais claro, conciso e direto (hoje tem texto redundante/prolixo em vários pontos). Conferir cada seção contra o estado atual do código (`api.py`, `bemt.py`, `models.py`, GUI) — provavelmente há trechos que citam campos/fluxos que já mudaram. Já existe `tests/test_documentation.py` cobrindo âncoras, imagens, módulos citados etc.; manter esses testes passando e, se necessário, adicionar novas checagens de consistência durante o refactor.
+2. **Full refactor of `documentation.html`.**
+   Rewrite it to be clearer, more concise, and more direct (it currently has redundant/verbose text in several places). Check every section against the current state of the code (`api.py`, `bemt.py`, `models.py`, GUI) — there are likely passages citing fields/flows that have already changed. `tests/test_documentation.py` already covers anchors, images, cited modules, etc.; keep those tests passing and, if needed, add new consistency checks during the refactor.
 
-3. **Adicionar passos temporais: Pitt-Peters dinâmico e stall dinâmico transientes.**
-   Hoje o solver resolve estado estacionário/quase-estacionário por caso. Introduzir integração no tempo (mesmo que simples, tipo Euler/RK) do inflow dinâmico (Pitt-Peters com derivadas temporais, não só a forma estática já usada) e do modelo de stall dinâmico (histerese de Cl/Cd em função da taxa de variação de alfa), permitindo simular manobras/transientes e não só pontos de operação isolados.
+3. **Add time-stepping: dynamic Pitt-Peters and dynamic stall.**
+   The solver currently resolves a steady/quasi-steady state per case. Introduce time integration (even a simple Euler/RK scheme) of dynamic inflow (Pitt-Peters with time derivatives, not just the static form already in use) and of the dynamic stall model (Cl/Cd hysteresis as a function of alpha's rate of change), enabling maneuver/transient simulation instead of only isolated operating points.
 
-4. **Adicionar flapping e lead-lag simplificados (rigidez/offset virtual), acoplados ao Pitt-Peters.**
-   Modelar o batimento (flapping) e o avanço-atraso (lead-lag) das pás via aproximação de mola/offset virtual (não elasticidade real de pá), acoplado ao inflow dinâmico de Pitt-Peters do item 3, para capturar o efeito desses graus de liberdade na resposta do rotor sem precisar de um modelo aeroelástico completo.
+4. **Add simplified flapping and lead-lag (stiffness/virtual offset), coupled to Pitt-Peters.**
+   Model blade flapping and lead-lag via a simplified spring/virtual-offset approximation (not real blade elasticity), coupled to the dynamic Pitt-Peters inflow from item 3, to capture the effect of these degrees of freedom on rotor response without needing a full aeroelastic model.
 
-5. **Suporte para XFoil.**
-   Permitir gerar/importar polares de perfil via XFoil (hoje há NeuralFoil, ver `external_solvers.py`) como alternativa/complemento, seguindo o mesmo padrão de integração externa já usado (flag no CLI, opção na GUI, mesmo pipeline de tabela de perfil).
+5. **XFoil support.**
+   Allow generating/importing airfoil polars via XFoil (NeuralFoil already exists, see `external_solvers.py`) as an alternative/complement, following the same external-integration pattern already in use (CLI flag, GUI option, same airfoil-table pipeline).
 
-6. **Suporte para comparar diferentes geometrias.**
-   Permitir carregar/rodar múltiplas geometrias de rotor/hélice lado a lado (mesma condição de voo ou não) e visualizar os resultados sobrepostos/comparados em plots e tabela — hoje o fluxo é sempre um projeto/uma geometria por vez.
+6. **Support for comparing different geometries.**
+   Allow loading/running multiple rotor/propeller geometries side by side (same flight condition or not) and viewing results overlaid/compared in plots and tables — today the flow is always one project/one geometry at a time.
 
-7. **Modo de projeto (design mode): varredura fatorial de geometria + plots úteis.**
-   Além do fatorial de condições de voo que já existe (`sweep_kind="factorial"` em `studies.py`), permitir fatorial sobre parâmetros de geometria (torção, corda, twist, etc.) para fins de projeto/otimização, com plots comparativos entre as geometrias geradas (ex: FM vs. parâmetro, envelope de desempenho).
+7. **Design mode: geometry factorial sweep + useful plots.**
+   Beyond the flight-condition factorial that already exists (`sweep_kind="factorial"` in `studies.py`), allow a factorial over geometry parameters (twist, chord, etc.) for design/optimization purposes, with comparative plots across the generated geometries (e.g., FM vs. parameter, performance envelope).
 
-8. **Modo de derivadas de estabilidade e controle.**
-   Calcular numericamente (perturbação em torno do ponto de trim) as derivadas de estabilidade e controle clássicas (ex: dCT/dmu, dCT/dcolective, derivadas de momento, etc.), incluindo os efeitos de flapping, lead-lag (item 4) e inflow dinâmico (item 3) na resposta — necessário para análise de voo/controle além do desempenho estático já coberto.
+8. **Stability and control derivatives mode.**
+   Numerically compute (perturbation around the trim point) the classic stability and control derivatives (e.g., dCT/dmu, dCT/dcollective, moment derivatives, etc.), including the effects of flapping, lead-lag (item 4), and dynamic inflow (item 3) on the response — needed for flight/control analysis beyond the static performance already covered.
