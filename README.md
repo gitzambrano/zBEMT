@@ -48,7 +48,7 @@ Press **F1** to open the complete physics documentation and field-by-field help.
 
 ```bash
 # Run a single case from the example rotor
-zbemt --project projects/starter_rotor --rpm 300 --mu 0.2 --collective 8
+zbemt --project projects/starter_rotor --rpm 300 --mu-inplane 0.2 --collective 8
 
 # Validate before launching a long batch without supervision
 zbemt --project projects/starter_rotor --rpm 300 --validate-only
@@ -57,7 +57,7 @@ zbemt --project projects/starter_rotor --rpm 300 --validate-only
 Every config field is reachable via `--set` even without a dedicated flag, and reports come from the same execution:
 
 ```bash
-zbemt --project projects/starter_rotor --rpm 300 --mu 0.2 \
+zbemt --project projects/starter_rotor --rpm 300 --mu-inplane 0.2 \
     --set config.Ne=90 --set config.Npsi=144 \
     --report
 ```
@@ -151,7 +151,7 @@ for issue in api.validate_project(project):
 
 result = api.run_case(
     project,
-    FlightCondition(name="cruise", mu=0.25, collective_deg=8.0, rpm=300.0),
+    FlightCondition(name="cruise", mu_x=0.25, collective_deg=8.0, rpm=300.0),
 )
 print(result.summary["CT"], result.summary["FM"])
 
@@ -165,14 +165,15 @@ api.generate_report([result], "report.html", project=project,
 ## Tests
 
 ```bash
-pytest
+python tests/run_all_tests.py            # full suite
 
-# or without pytest:
-set QT_QPA_PLATFORM=offscreen
-python -m pytest tests -v
+python tests/run_all_tests.py -k airfoil # only files matching "airfoil"
+python -m pytest tests/test_bemt.py      # a single file
 ```
 
-560+ tests in ~5 minutes, including all GUI tests (headless via `QT_QPA_PLATFORM=offscreen`, already configured in `tests/conftest.py`).
+900+ tests in ~7 minutes, including all GUI tests (headless via `QT_QPA_PLATFORM=offscreen`, already configured in `tests/conftest.py`). A summary is printed and a full report, with a traceback per failure, is written to `tests/resultado_testes.txt`.
+
+Run the full suite through `run_all_tests.py`, which gives each test file its own process. A single `pytest tests/` over everything accumulates Qt/matplotlib canvases across dozens of files and eventually dies with a native access violation during teardown — not a test failure, but it aborts the run and hides every result after it. Individual files and classes run fine under plain `pytest`.
 
 The reference project `projects/starter_rotor/` and its end-to-end test suite (`tests/test_example_project.py`) exercise the full stack at production mesh resolution (Ne=90 / Npsi=144). `tools/check_project_configs.py` loads, validates, and smoke-solves every folder under `projects/` — run it after touching a project file or `models.py`'s dataclass defaults.
 

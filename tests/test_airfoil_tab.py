@@ -8,6 +8,17 @@ editable number of blades/radius in the dialog (item 2).
 import unittest
 
 import numpy as np
+
+from tests.helpers import HAS_QT
+
+# Every test here drives real widgets, so without Qt there is nothing to
+# check -- and the CI job that installs the base dependencies only (to prove
+# the engine runs without Qt) must see this module SKIPPED, not a collection
+# error saying the engine needs Qt.
+if not HAS_QT:                                   # pragma: no cover
+    raise unittest.SkipTest("PyQt6 is not installed (the engine and CLI run "
+                            "without it on purpose)")
+
 from PyQt6.QtWidgets import QApplication, QDoubleSpinBox, QLineEdit, QComboBox, QCheckBox
 from PyQt6.QtCore import Qt
 

@@ -169,7 +169,7 @@ def _smoke_test_solve(project) -> str | None:
         config={**project.config, **_SMOKE_TEST_MESH},
         geometry=project.geometry, airfoil=project.airfoil,
         airfoil_sections=project.airfoil_sections,
-        batch=project.batch, batches=project.batches,
+        batches=project.batches,
         saved_cases=project.saved_cases)
 
     try:

@@ -474,7 +474,7 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
 
         # one longitudinal axis, one axial, and one disabled: the case
         # where the three natural widths are different
-        for indice, slot_desejado in ((0, "longitudinal"), (1, "axial")):
+        for indice, slot_desejado in ((0, "inplane"), (1, "axial")):
             combo = aba.axis_rows[indice][0]
             combo.setCurrentIndex(next(i for i, (_r, s) in enumerate(aba._AXIS_SLOTS)
                                        if s == slot_desejado))

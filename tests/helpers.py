@@ -66,3 +66,26 @@ def patch_em_toda_gui(nome: str = "QMessageBox", valor=None):
             yield substituto
 
     return _cm()
+
+
+# --- skipping the GUI when Qt is absent ---------------------------------------
+# The engine and the CLI run without Qt ON PURPOSE (a batch on a headless
+# server must not need it), and CI has a job that installs the base
+# dependencies only, precisely to prove that. A test that imports a
+# `zbemt.gui` module must therefore SKIP there, not fail -- a collection
+# error in that job says "the engine needs Qt", which is the opposite of
+# what it is checking.
+
+try:                                     # noqa: SIM105
+    import PyQt6                          # noqa: F401
+    HAS_QT = True
+except ModuleNotFoundError:              # pragma: no cover -- depends on the env
+    HAS_QT = False
+
+
+def requires_qt(alvo):
+    """Class/method decorator: skip when PyQt6 is not installed."""
+    import unittest
+    return unittest.skipUnless(
+        HAS_QT, "PyQt6 is not installed (the engine and CLI run without it "
+                "on purpose -- see the 'motor' job in .github/workflows)")(alvo)

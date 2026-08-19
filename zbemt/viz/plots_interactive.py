@@ -30,50 +30,38 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from .. import nomenclature
+from . import plots
 from .plots import (_AXIS_TO_SUMMARY_KEY, _chave_de_agrupamento, _ordem_de_grupo,
                      mapa_de_agrupamento, TOLERANCIA_DE_AGRUPAMENTO_PADRAO)
 
-#: plain-text (unicode, no mathtext) versions of `plots._SUMMARY_KEY_LABELS`
-#: -- same rationale as `_AXIS_LABELS_PLAIN` above (no MathJax loaded).
-#: Keys not listed here fall back to the raw summary key (see `_xy_label`).
-_SUMMARY_KEY_LABELS_PLAIN = {
-    "mu_x": "μₓ [-]", "mu_z": "μ_z [-]",
-    "J_x": "Jₓ [-]", "J_z": "J_z [-]",
-    "Vz": "V_z [m/s]", "Vz_total": "V_z,total [m/s]",
-    "Vx": "Vₓ [m/s]",
-    "alpha_rotor_deg": "α_rotor [deg]",
-    "collective_deg": "collective [deg]",
-    "rpm": "RPM [-]", "lambda_z": "λ_z [-]",
-    "Thrust": "T [N]", "Torque": "Q [N·m]",
-    "Power": "P [W]", "Power_i": "Pi [W]", "Power_p": "Pp [W]",
-    "H": "H [N]", "Hi": "Hi [N]", "Hp": "Hp [N]",
-    "Y": "Y [N]", "Mx": "Mx [N·m]", "My": "My [N·m]",
-    "CT": "CT [-]", "CQ": "CQ [-]", "CP": "CP [-]",
-    "CPi": "CPi [-]", "CPp": "CPp [-]",
-    "CH": "CH [-]", "CHi": "CHi [-]", "CHp": "CHp [-]",
-    "CY": "CY [-]", "CMx": "CMx [-]", "CMy": "CMy [-]",
-    "FM": "FM [-]",
-    "CT_prop": "CT_prop [-]", "CQ_prop": "CQ_prop [-]",
-    "CP_prop": "CP_prop [-]", "eta_prop": "eta_prop [-]",
-    "convergence_pct": "convergence [%]", "mean_iter": "mean iterations [-]",
-    "elapsed_s": "elapsed [s]",
-    "rotor_R": "R [m]", "rotor_Nb": "Nb [-]", "rotor_Omega": "Omega [rad/s]",
-    "rotor_OmegaR": "OmegaR [m/s]", "rotor_rpm": "RPM [-]", "rotor_D": "D [m]",
-}
+def _xy_label(key: str, is_propeller: bool = False) -> str:
+    """Plain-text axis label for any `Results.summary` key.
+
+    There used to be a whole second copy of `plots._SUMMARY_KEY_LABELS` here,
+    hand-transcribed into Unicode -- and, having no mode argument, it labelled
+    a propeller's CROSS-flow "mu_x" on every custom X-Y plot. Both problems go
+    away by rendering the one label source into the target this file needs.
+    """
+    return plots.rotulo_de_summary_em_texto(key, is_propeller)
 
 
-def _xy_label(key: str) -> str:
-    return _SUMMARY_KEY_LABELS_PLAIN.get(key, key)
+#: Plotly gets PLAIN TEXT, not mathtext: MathJax is deliberately not loaded
+#: (the report has to open offline), so a r"$\mu_x$" would show literally.
+#: `nomenclature.symbol_text` is that same plain-text rendering of the one
+#: symbol source, so this file no longer keeps its own copy of the letters --
+#: it only picks the render target.
+def _rotulo_de_eixo_de_varredura(axis: str, is_propeller: bool = False) -> tuple:
+    """``(axis label, prose title)`` for a sweep panel, in plain text and in
+    the mode's own axis letters."""
+    titulos = plots._AXIS_TITLES.get(axis)
+    if titulos is None:
+        return axis, axis
+    simbolo = nomenclature.symbol_text(axis, is_propeller)
+    unidade = nomenclature.unit(axis)
+    rotulo = f"{simbolo} ({unidade})" if unidade and unidade != "-" else simbolo
+    return rotulo, f"{titulos[1] if is_propeller else titulos[0]} ({simbolo})"
 
-#: plain-text versions of `plots._AXIS_LABELS` (which uses matplotlib
-#: mathtext, e.g. r"$\mu_x$" -- Plotly shows that literally without MathJax,
-#: which we don't load, to stay offline).
-_AXIS_LABELS_PLAIN = {
-    "mu_x": ("μₓ", "advance ratio (μₓ)"),
-    "alpha_deg": ("α_rotor (deg)", "rotor disk angle of attack"),
-    "collective_deg": ("collective (deg)", "collective pitch"),
-    "rpm": ("RPM", "rotation speed"),
-}
 
 #: (summary key, y-axis label) -- plain text, no mathtext (see module
 #: docstring). Same 11 panels as `plots._MU_SWEEP_PANELS`, English titles.
@@ -106,7 +94,8 @@ def coefficients_vs_axis(results_list, axis: str = "mu_x", ncols: int = 4, serie
       _selection_ differs from auto-detected grouping by _secondary axes_.
     """
     key = _AXIS_TO_SUMMARY_KEY.get(axis, axis)
-    axis_label, axis_title = _AXIS_LABELS_PLAIN.get(axis, (axis, axis))
+    axis_label, axis_title = _rotulo_de_eixo_de_varredura(
+        axis, plots.modo_helice_dos_resultados(results_list))
     x_all = np.array([r.summary.get(key, np.nan) for r in results_list], dtype=float)
 
     # Group the results by label (if provided) or by secondary factorial
@@ -131,13 +120,6 @@ def coefficients_vs_axis(results_list, axis: str = "mu_x", ncols: int = 4, serie
             if len(set(chave_de.values())) > 1:
                 swept_other_vars.append((skey, ax_name))
 
-        # Short symbols for readable labels.
-        _SHORT_SYMBOLS = {
-            "mu_x": "μ",
-            "alpha_deg": "α",
-            "collective_deg": "θ_col",
-            "rpm": "RPM",
-        }
 
         ordem_por_label: dict = {}
         for i, r in enumerate(results_list):
@@ -147,7 +129,8 @@ def coefficients_vs_axis(results_list, axis: str = "mu_x", ncols: int = 4, serie
                 bruto = r.summary.get(skey)
                 val = chaves_por_grandeza[skey].get(bruto, _chave_de_agrupamento(bruto))
                 if val is not None and not (isinstance(val, float) and np.isnan(val)):
-                    symbol = _SHORT_SYMBOLS.get(ax_name, ax_name)
+                    symbol = nomenclature.symbol_name(
+                        ax_name, plots.modo_helice_dos_resultados(results_list))
                     label_parts.append(f"{symbol}={val:g}" if isinstance(val, (int, float)) else f"{symbol}={val}")
                     ordem.append(_ordem_de_grupo(val))
 
@@ -203,6 +186,8 @@ def xy_plot(results_list, x_key: str, y_key: str, group_by: str | None = None,
     plot from any two ``Results.summary`` keys, optionally grouped into one
     curve per distinct value of a third key. Same semantics as the
     matplotlib version: NaN/missing points skipped, curves sorted by X."""
+    is_propeller = plots.modo_helice_dos_resultados(results_list)
+
     def _val(r, key):
         v = r.summary.get(key, None)
         try:
@@ -224,7 +209,8 @@ def xy_plot(results_list, x_key: str, y_key: str, group_by: str | None = None,
     else:
         groups[None] = list(results_list)
 
-    group_symbol = _xy_label(group_by).split(" [")[0] if group_by else None
+    group_symbol = (_xy_label(group_by, is_propeller).split(" [")[0]
+                    if group_by else None)
     overlay = len([g for g in groups.values() if g]) > 1
 
     fig = go.Figure()
@@ -247,7 +233,8 @@ def xy_plot(results_list, x_key: str, y_key: str, group_by: str | None = None,
 
     fig.update_layout(
         title=f"{y_key} vs {x_key}",
-        xaxis_title=_xy_label(x_key), yaxis_title=_xy_label(y_key),
+        xaxis_title=_xy_label(x_key, is_propeller),
+        yaxis_title=_xy_label(y_key, is_propeller),
         template="plotly_white", height=520, margin=dict(t=60, l=60, r=25, b=50))
     if not any_point:
         fig.add_annotation(text="No valid data points (x/y missing or NaN for all results)",

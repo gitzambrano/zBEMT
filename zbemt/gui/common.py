@@ -403,7 +403,7 @@ def largura_de_unidade_de_condicao(combos=()) -> int:
 # `widgets.UNIDADES_DE_CONDICAO`.
 _ROTULOS_DE_CONDICAO = {
     False: {   # rotor
-        "longitudinal": (
+        "inplane": (
             "Edgewise (in-plane) flow:",
             '"mu_x" — the horizontal component of the flight velocity, V_x. '
             'On a rotor the shaft is vertical, so x lies IN THE PLANE OF THE '
@@ -433,7 +433,7 @@ _ROTULOS_DE_CONDICAO = {
             'in both modes.'),
     },
     True: {    # propeller
-        "longitudinal": (
+        "inplane": (
             "Cross (in-plane) Flow:",
             '"mu_x" (shown here as V_z) — cross-flow speed across the propeller shaft.\n\n'
             'Propeller axes: x is along the shaft; z is in the disk plane.\n'
@@ -504,7 +504,7 @@ def aplicar_par_de_condicao(advance, axial, mu_x: float, Vz: float,
 
 def rotulo_e_dica_de_condicao(is_propeller: bool, slot: str) -> tuple:
     """``(row label, tooltip)`` for field ``slot``
-    (``"longitudinal"``/``"axial"``) in the current mode's convention.
+    (``"inplane"``/``"axial"``) in the current mode's convention.
 
     SINGLE source for Run Case and Run Batch (which have three pairs
     of these fields across the two tabs) -- see

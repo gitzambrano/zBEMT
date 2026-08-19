@@ -9,6 +9,15 @@ screen: no unchecked checkbox in the GUI had a visible square.
 import re
 import unittest
 
+from tests.helpers import HAS_QT
+
+# Reads the GUI stylesheet: without Qt there is nothing to check, and the CI
+# job that installs the base dependencies only (to prove the engine runs
+# without Qt) must see this module SKIPPED, not a collection error.
+if not HAS_QT:                                   # pragma: no cover
+    raise unittest.SkipTest("PyQt6 is not installed (the engine and CLI run "
+                            "without it on purpose)")
+
 from zbemt.gui import styles
 
 

@@ -20,11 +20,17 @@ from the AXIS (alpha_disk, 0° in straight cruise), not from the plane.
 """
 import unittest
 
-try:
-    from PyQt6.QtWidgets import QApplication, QFormLayout
-    _HAS_QT = True
-except Exception:                                    # pragma: no cover
-    _HAS_QT = False
+from tests.helpers import HAS_QT as _HAS_QT
+
+# `zbemt.gui.common` itself needs Qt, so the import below cannot be reached
+# without it -- and the CI job that installs the base dependencies only (to
+# prove the engine runs without Qt) must see this module SKIPPED, not a
+# collection error.
+if not _HAS_QT:                                  # pragma: no cover
+    raise unittest.SkipTest("PyQt6 is not installed (the engine and CLI run "
+                            "without it on purpose)")
+
+from PyQt6.QtWidgets import QApplication, QFormLayout
 
 from zbemt.gui.common import rotulo_e_dica_de_condicao
 
@@ -33,8 +39,8 @@ class TestTextosPorModo(unittest.TestCase):
     """The texts themselves -- pure table, no GUI assembled."""
 
     def test_rotulo_longitudinal_muda_de_convencao(self):
-        rotor, _ = rotulo_e_dica_de_condicao(False, "longitudinal")
-        helice, _ = rotulo_e_dica_de_condicao(True, "longitudinal")
+        rotor, _ = rotulo_e_dica_de_condicao(False, "inplane")
+        helice, _ = rotulo_e_dica_de_condicao(True, "inplane")
         self.assertNotEqual(rotor, helice)
         self.assertIn("in-plane", rotor.lower())
         self.assertIn("cross", helice.lower())
@@ -57,7 +63,7 @@ class TestTextosPorModo(unittest.TestCase):
         """`field_help` derives the field from the first quoted token of
         the tooltip: without it, the "?" popup disappears from the row."""
         for modo in (False, True):
-            for slot, campo in (("longitudinal", '"mu_x"'), ("axial", '"Vz"')):
+            for slot, campo in (("inplane", '"mu_x"'), ("axial", '"Vz"')):
                 with self.subTest(propeller=modo, slot=slot):
                     _rotulo, dica = rotulo_e_dica_de_condicao(modo, slot)
                     self.assertTrue(dica.startswith(campo), dica[:40])
@@ -66,7 +72,7 @@ class TestTextosPorModo(unittest.TestCase):
         """The mistake this help exists to prevent: putting the
         aircraft's speed in the in-plane field. It has to say that field
         is zero in straight cruise -- and where the speed goes instead."""
-        _rotulo, dica = rotulo_e_dica_de_condicao(True, "longitudinal")
+        _rotulo, dica = rotulo_e_dica_de_condicao(True, "inplane")
         self.assertIn("Straight cruise", dica)
         self.assertIn("V<sub>z</sub> = 0", dica)
         self.assertIn("axial field below", dica)
@@ -85,7 +91,7 @@ class TestTextosPorModo(unittest.TestCase):
         aligned cruise. It lives in the in-plane field because it is the
         one that, from the known axial value, produces the cross-flow
         one."""
-        _rotulo, dica = rotulo_e_dica_de_condicao(True, "longitudinal")
+        _rotulo, dica = rotulo_e_dica_de_condicao(True, "inplane")
         self.assertIn("&alpha;<sub>disk</sub>", dica)
         self.assertIn("shaft", dica)
         self.assertIn("0°", dica)

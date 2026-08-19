@@ -55,6 +55,7 @@ if __name__ == "__main__" and __package__ in (None, ""):    # pragma: no cover
     __package__ = "zbemt"
 
 from . import api
+from . import nomenclature
 from .models import FlightCondition, BatchDefinition, RotorGeometryDef, AirfoilDef
 from . import geometry
 from . import airfoils
@@ -82,8 +83,8 @@ DEFAULT_RPM = 600.0
 # "every command-line flag must also be settable directly in Python"):
 #
 #   from zbemt.cli import main, RunOptions
-#   main(["--project", "projects/X", "--rpm", "300", "--mu_x", "0.2"])
-#   main(options=RunOptions(project="projects/X", rpm=300.0, mu_x=0.2))
+#   main(["--project", "projects/X", "--rpm", "300", "--mu-inplane", "0.2"])
+#   main(options=RunOptions(project="projects/X", rpm=300.0, mu_inplane=0.2))
 #
 # `RunOptions` is generated from the argparse.ArgumentParser itself (via
 # `_build_run_options_dataclass`), so the two forms can never diverge:
@@ -150,48 +151,69 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # --- ad hoc condition (used only if no --from-bemt-* is given and the
     # project has no batch.conditions) ----------------------------------
-    # Phase 8 (docs/CHANGELOG.md): mu_x/J_x and Vz/alpha-disk are
+    # Phase 8 (docs/CHANGELOG.md): the representations of one component are
     # INTERCHANGEABLE representation pairs of the same physical quantity
-    # (Sec.6c of bemt.py) -- --mu_x and --J_x are mutually exclusive (same
-    # for --vz and --alpha-rotor-deg), parity with the GUI's unit dropdown
-    # (RunCaseTab/RunBatchTab).
+    # (Sec.6c of bemt.py) -- one flag per SLOT: the representations of the
+    # in-plane component are mutually exclusive with each other, and so are
+    # those of the along-shaft one. Parity with the GUI's unit dropdown
+    # (RunCaseTab/RunBatchTab), which offers the same choice per row.
     p.add_argument("--rpm", type=float, default=None, help="RPM for ad hoc condition.")
-    long_group = p.add_mutually_exclusive_group()
-    long_group.add_argument("--mux", dest="mu_x", type=float, default=None,
-                             help="Ad hoc advance ratio, rotor convention (default 0.0, hover). "
-                                  "Alternative to --J_x.")
-    long_group.add_argument("--jx", dest="J_x", type=float, default=None,
-                             help="Ad hoc advance ratio, propeller convention (J_x=pi*mu_x). "
-                                  "IN-PLANE, like --mu_x: for the axial advance ratio of a "
-                                  "propeller use --jx. Alternative to --mu_x.")
-    long_group.add_argument("--alpha-disk-deg", dest="alpha_disk_deg", type=float, default=None,
+    # NAMED BY SLOT, NOT BY LETTER. The flags and `--project` are parsed in
+    # the same pass, so a flag cannot know the project's mode -- and the
+    # letter does: the in-plane component is mu_x on a rotor and mu_z on a
+    # propeller. `--mu-inplane` is the in-plane component in both, and which
+    # letter it is shown under is left to the surfaces that know the mode
+    # (GUI, results table, report, `.bemt`). See `zbemt/nomenclature.py`.
+    inplane_group = p.add_mutually_exclusive_group()
+    inplane_group.add_argument("--mu-inplane", dest="mu_inplane", type=float, default=None,
+                               help="IN-PLANE advance ratio (default 0.0, hover): "
+                                    "V_inplane/(Omega*R). The component in the plane of "
+                                    "the disk -- a rotor's forward-flight advance, a "
+                                    "propeller's CROSS-flow (zero in straight cruise). "
+                                    "Alternative to --j-inplane/--v-inplane.")
+    inplane_group.add_argument("--j-inplane", dest="J_inplane", type=float, default=None,
+                               help="IN-PLANE advance ratio in propeller form: "
+                                    "V_inplane/(n*D) = pi*mu_inplane. NOT a propeller's "
+                                    "own advance ratio -- that one is along the shaft, "
+                                    "--j-axial. Alternative to --mu-inplane.")
+    inplane_group.add_argument("--v-inplane", dest="V_inplane", type=float, default=None,
+                               help="IN-PLANE velocity [m/s]. Requires --rpm (the ratio "
+                                    "is V/(Omega*R), and Omega comes from the RPM). "
+                                    "Alternative to --mu-inplane.")
+    inplane_group.add_argument("--alpha-disk-deg", dest="alpha_disk_deg", type=float, default=None,
                              help="Angle [deg] between the free stream and the SHAFT "
                                   "(0 = straight axial cruise, the propeller convention). "
                                   "The IN-PLANE component is derived from it and from the "
-                                  "axial one (--vz/--jz/--muz), which is therefore required. "
+                                  "along-shaft one (--v-axial/--j-axial/--mu-axial), which "
+                                  "is therefore required. "
                                   "Complement of --alpha-rotor-deg; the two are mutually "
                                   "exclusive because neither would set the velocity scale.")
     axial_group = p.add_mutually_exclusive_group()
-    axial_group.add_argument("--vz", dest="vv", type=float, default=None,
-                              help="Velocity along the shaft [m/s] for ad hoc (default 0.0): "
-                                   "climb/descent for a rotor, AIRSPEED for a propeller. "
-                                   "Alternative to --jz/--muz/--alpha-rotor-deg.")
-    axial_group.add_argument("--jz", dest="J_z", type=float, default=None,
-                              help="AXIAL advance ratio, propeller convention: "
-                                   "J_x = V_axial/(n*D). This is the classic J_x of propeller "
-                                   "charts, and the one propulsive efficiency uses. Stored "
-                                   "under the key J_z (disk axes). Alternative to --vz.")
-    axial_group.add_argument("--muz", dest="mu_z", type=float, default=None,
-                              help="AXIAL advance ratio, rotor convention: "
-                                   "mu_x = V_axial/(Omega*R) = J_x/pi. Same number as "
-                                   "lambda_z; stored under the key mu_z. Alternative to --vz.")
+    axial_group.add_argument("--v-axial", dest="V_axial", type=float, default=None,
+                             help="ALONG-SHAFT velocity [m/s] (default 0.0): a rotor's "
+                                  "climb (+) or descent (-), a propeller's AIRSPEED. "
+                                  "Alternative to "
+                                  "--j-axial/--mu-axial/--alpha-rotor-deg.")
+    axial_group.add_argument("--j-axial", dest="J_axial", type=float, default=None,
+                             help="ALONG-SHAFT advance ratio in propeller form: "
+                                  "V_axial/(n*D). On a propeller this is THE J of the "
+                                  "propeller charts, the one propulsive efficiency uses. "
+                                  "Requires --rpm. Alternative to --v-axial.")
+    axial_group.add_argument("--mu-axial", dest="mu_axial", type=float, default=None,
+                             help="ALONG-SHAFT advance ratio in rotor form: "
+                                  "V_axial/(Omega*R) = J_axial/pi. The same number as the "
+                                  "free-stream inflow ratio lambda. Requires --rpm. "
+                                  "Alternative to --v-axial.")
     axial_group.add_argument("--alpha-rotor-deg",
-                              dest="disk_alpha_deg", type=float, default=None,
-                              help="Disk angle [deg] ad hoc -- Vz is derived from mu_x/J_x "
-                                   "and --rpm (required with this flag) + rotor radius of "
-                                   "the project. Measured from the disk PLANE (90 deg is "
+                              dest="alpha_rotor_deg", type=float, default=None,
+                              help="Disk angle [deg] -- the ALONG-SHAFT component is "
+                                   "derived from the in-plane one, --rpm (required with "
+                                   "this flag) and the project's rotor radius. Measured "
+                                   "from the disk PLANE (90 deg is "
                                    "purely axial); for the propeller convention, measured "
-                                   "from the shaft, use --alpha-disk-deg. Alternative to --vz. "
+                                   "from the shaft, use --alpha-disk-deg. Alternative to "
+                                   "--v-axial. "
+                                   "Rotor mode only -- a propeller reads --alpha-disk-deg. "
                                    "(--disk-alpha-deg is kept as an alias of this flag.)")
     p.add_argument("--collective", type=float, default=8.0, help="Collective pitch [deg] for ad hoc.")
 
@@ -748,7 +770,7 @@ def main(argv=None, options=None) -> int:
     # Without the explicit check, `--alpha-disk-deg 6 --alpha-rotor-deg 84`
     # used to pass and resolve Vz from a still-zero mu_x: Vz=0, a silent
     # hover condition instead of the requested cruise.
-    if args.alpha_disk_deg is not None and args.disk_alpha_deg is not None:
+    if args.alpha_disk_deg is not None and args.alpha_rotor_deg is not None:
         print("cli.py: error: --alpha-disk-deg and --alpha-rotor-deg are the "
               "same angle written two ways (alpha_disk = 90 - alpha_rotor): with "
               "both, neither velocity component sets the scale. Give one angle "
@@ -768,21 +790,23 @@ def main(argv=None, options=None) -> int:
         def _axial(mu_conhecido: float):
             """Axial component [m/s]. Only the disk-angle branch depends
             on the already-resolved in-plane component."""
-            if args.disk_alpha_deg is not None:
+            if args.alpha_rotor_deg is not None:
                 if args.rpm is None:
                     return None, ("cli.py: error: --alpha-rotor-deg requires --rpm "
-                                  "(Vz is derived from mu_x/J_x, rpm and rotor radius).")
-                return api.vv_from_alpha_deg(args.disk_alpha_deg, mu_conhecido,
+                                  "(the axial component is derived from the in-plane "
+                                  "one, the rpm and the rotor radius).")
+                return api.vv_from_alpha_deg(args.alpha_rotor_deg, mu_conhecido,
                                               args.rpm, raio_m), None
-            if args.J_z is not None or args.mu_z is not None:
+            if args.J_axial is not None or args.mu_axial is not None:
                 if args.rpm is None:
-                    return None, ("cli.py: error: --jz/--muz require --rpm "
-                                  "(the axial speed is mu_x*Omega*R, and Omega comes "
+                    return None, ("cli.py: error: --j-axial/--mu-axial require --rpm "
+                                  "(the axial speed is mu*Omega*R, and Omega comes "
                                   "from the RPM).")
-                mu_x = api.J_to_mu(args.J_z) if args.J_z is not None else args.mu_z
-                return api.mu_to_V(mu_x, args.rpm, raio_m), None
-            if args.vv is not None:
-                return args.vv, None
+                mu = (api.J_to_mu(args.J_axial) if args.J_axial is not None
+                      else args.mu_axial)
+                return api.mu_to_V(mu, args.rpm, raio_m), None
+            if args.V_axial is not None:
+                return args.V_axial, None
             return 0.0, None
 
         # ORDER: normally the in-plane component is the known one and the
@@ -805,10 +829,16 @@ def main(argv=None, options=None) -> int:
                 float(np.tan(np.deg2rad(args.alpha_disk_deg))) * abs(Vz),
                 args.rpm, raio_m)
         else:
-            if args.mu_x is not None:
-                mu_x = args.mu_x
-            elif args.J_x is not None:
-                mu_x = api.J_to_mu(args.J_x)
+            if args.mu_inplane is not None:
+                mu_x = args.mu_inplane
+            elif args.J_inplane is not None:
+                mu_x = api.J_to_mu(args.J_inplane)
+            elif args.V_inplane is not None:
+                if args.rpm is None:
+                    print("cli.py: error: --v-inplane requires --rpm (the ratio is "
+                          "V/(Omega*R), and Omega comes from the RPM).", file=sys.stderr)
+                    return 2
+                mu_x = api.V_to_mu(args.V_inplane, args.rpm, raio_m)
             else:
                 mu_x = 0.0   # default: hover
             Vz, erro = _axial(mu_x)
@@ -894,7 +924,8 @@ def main(argv=None, options=None) -> int:
     # the number comes out low and looks like a bad design, when the
     # metric simply does not apply. The one that fills this role on the
     # propeller side is `eta_prop`.
-    if project.config.get("is_propeller"):
+    is_propeller = bool(project.config.get("is_propeller"))
+    if is_propeller:
         campos = ("J_z", "CT_prop", "CQ_prop", "CP_prop", "eta_prop")
     else:
         campos = ("CT", "CQ", "CP", "FM")
@@ -902,7 +933,13 @@ def main(argv=None, options=None) -> int:
     for res in results:
         summary = res.summary
         keys = [k for k in campos if k in summary]
-        parts = ", ".join(f"{k}={summary[k]:.5g}" for k in keys)
+        # The key is the ENGINE's; what gets printed is the letter this mode
+        # shows -- a propeller's along-shaft advance ratio is J_x on screen,
+        # in the report and in its `.bemt` file, so printing the internal
+        # `J_z` here would make the CLI the one surface that disagrees.
+        parts = ", ".join(
+            f"{nomenclature.display_key(k, is_propeller)}={summary[k]:.5g}"
+            for k in keys)
         print(f"[{res.condition_name}] {parts}")
 
     if written:

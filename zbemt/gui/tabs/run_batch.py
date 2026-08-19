@@ -88,13 +88,13 @@ from ..widgets import (LongitudinalInput, AxialInput, UNIDADES_DE_CONDICAO,
 
 
 class RunBatchTab(QWidget):
-    # Each axis picks a logical SLOT -- "longitudinal" (mu_x OR J_x) and
+    # Each axis picks a logical SLOT -- "inplane" (mu_x OR J_x) and
     # "axial" (alpha_deg OR Vz) group two representations of the same
     # quantity (Sec.6c of bemt.py): the unit within the slot is chosen by
     # a second dropdown, never by two competing axes.
     _AXIS_SLOTS = [
         ("(none)", None),
-        ("Edgewise (in-plane) flow", "longitudinal"),
+        ("Edgewise (in-plane) flow", "inplane"),
         ("Axial (along-shaft) Flow", "axial"),
         ("Collective", "collective_deg"),
         ("RPM", "rpm"),
@@ -109,17 +109,17 @@ class RunBatchTab(QWidget):
     #: changes; the slot (and what's written into the condition) stays the
     #: same.
     _AXIS_SLOTS_HELICE = {
-        "longitudinal": "Cross (in-plane) Flow",
+        "inplane": "Cross (in-plane) Flow",
         "axial": "Axial (along-shaft) Flow",
     }
 
     _DICAS_DOS_SLOTS = {
         False: {
-            "longitudinal": "Edgewise (in-plane) flow: vehicle-axis component V<sub>x</sub> that sweeps across the disk.",
+            "inplane": "Edgewise (in-plane) flow: vehicle-axis component V<sub>x</sub> that sweeps across the disk.",
             "axial": "Axial (along-shaft) Flow: vehicle-axis component V<sub>z</sub> along the rotor shaft.",
         },
         True: {
-            "longitudinal": "<b>Cross (in-plane) Flow</b><br>V<sub>z</sub> crosses the propeller shaft.<br>Zero in straight cruise.<br>Aircraft airspeed V<sub>x</sub> belongs in the axial field.",
+            "inplane": "<b>Cross (in-plane) Flow</b><br>V<sub>z</sub> crosses the propeller shaft.<br>Zero in straight cruise.<br>Aircraft airspeed V<sub>x</sub> belongs in the axial field.",
             "axial": "<b>Axial (along-shaft) Flow</b><br>V<sub>x</sub> is the aircraft airspeed along the shaft.<br>This is the propeller advance direction.",
         },
     }
@@ -364,7 +364,7 @@ class RunBatchTab(QWidget):
         self._fixed_form = fixed_form
         fbox.addWidget(fixed_box)
         self._fixed_widgets = {
-            "longitudinal": (self.fixed_advance,), "axial": (self.fixed_axial,),
+            "inplane": (self.fixed_advance,), "axial": (self.fixed_axial,),
             "collective_deg": (self.fixed_collective,), "rpm": (self.fixed_rpm,),
         }
 
@@ -754,7 +754,7 @@ class RunBatchTab(QWidget):
         itself refuses it)."""
         axis_slots = {self._slot_do_combo(sc) for sc, _uc, _ve in self.axis_rows}
         fixed = {}
-        if "longitudinal" not in axis_slots:
+        if "inplane" not in axis_slots:
             fixed[self.fixed_advance.variable_name()] = self.fixed_advance.raw_value()
         if "axial" not in axis_slots:
             fixed[self.fixed_axial.variable_name()] = self.fixed_axial.raw_value()
@@ -1117,7 +1117,7 @@ class RunBatchTab(QWidget):
         row.addWidget(slot_combo)
         unit_combo = QComboBox()
         configurar_combo_de_unidades(
-            unit_combo, UNIDADES_DE_CONDICAO[("longitudinal", False)])
+            unit_combo, UNIDADES_DE_CONDICAO[("inplane", False)])
         unit_combo.view().setMinimumWidth(unit_combo.sizeHint().width())
         unit_combo.setToolTip(
             "Unit the values below are written in. It changes how the numbers "
@@ -1296,7 +1296,7 @@ class RunBatchTab(QWidget):
         is_propeller = self.state.is_propeller()
         unit_combo.blockSignals(True)
         unit_combo.clear()
-        if slot in ("longitudinal", "axial"):
+        if slot in ("inplane", "axial"):
             configurar_combo_de_unidades(
                 unit_combo, UNIDADES_DE_CONDICAO[(slot, is_propeller)])
             unit_combo.setVisible(True)
@@ -1311,7 +1311,7 @@ class RunBatchTab(QWidget):
         slot = self._slot_do_combo(slot_combo)
         if slot is None:
             return None
-        if slot in ("longitudinal", "axial"):
+        if slot in ("inplane", "axial"):
             var = variavel_de_rotulo_de_unidade(slot, unit_combo.currentText())
             if var:
                 return var
@@ -1397,9 +1397,9 @@ class RunBatchTab(QWidget):
         # case-by-case mode's row). See `common.rotulo_e_dica_de_condicao`:
         # on a propeller the flight speed is AXIAL, and a field labeled
         # "Advance" invited putting the aircraft's speed there.
-        campos = ((self._fixed_form, self.fixed_advance, "longitudinal"),
+        campos = ((self._fixed_form, self.fixed_advance, "inplane"),
                   (self._fixed_form, self.fixed_axial, "axial"),
-                  (self._avulso_form, self.add_row_advance, "longitudinal"),
+                  (self._avulso_form, self.add_row_advance, "inplane"),
                   (self._avulso_form, self.add_row_axial, "axial"))
         for form, campo, slot in campos:
             rotulo, dica = rotulo_e_dica_de_condicao(is_prop, slot)

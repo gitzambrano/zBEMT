@@ -28,6 +28,8 @@ from typing import Any, Optional
 
 import numpy as np
 
+from . import nomenclature
+
 
 # =============================================================================
 # Generic .bemt (JSON) serialization utility
@@ -60,11 +62,25 @@ def _from_jsonable_scalar(v: Any) -> Any:
     return v
 
 
-def _to_jsonable(obj: Any) -> Any:
+def _to_jsonable(obj: Any, is_propeller: bool = False) -> Any:
     """Converts dataclasses (recursively), numpy arrays, tuples etc. into
-    something ``json.dump`` accepts directly."""
+    something ``json.dump`` accepts directly.
+
+    ``is_propeller`` rotates the axis letters of a `FlightCondition` into the
+    ones the user reads -- the airspeed along a propeller's shaft is written
+    as ``Vx``, not under the engine's ``Vz``. Nothing else in the file is
+    touched, and nothing in memory is: the dataclass keeps its disk-axes
+    fields, and the engine never sees this. See `zbemt.nomenclature`."""
     if is_dataclass(obj) and not isinstance(obj, type):
-        return {k: _to_jsonable(v) for k, v in asdict(obj).items()}
+        # `fields` + `getattr`, not `asdict`: `asdict` is DEEP, and would have
+        # already flattened a nested `FlightCondition` into a plain dict by
+        # the time the recursion reached it -- so the conditions inside a
+        # `BatchDefinition` would never get their axis letters rotated.
+        bruto = {f.name: _to_jsonable(getattr(obj, f.name), is_propeller)
+                 for f in fields(obj)}
+        if isinstance(obj, FlightCondition):
+            return nomenclature.to_display_keys(bruto, is_propeller)
+        return bruto
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, (np.floating,)):
@@ -74,22 +90,26 @@ def _to_jsonable(obj: Any) -> Any:
     if isinstance(obj, (np.integer,)):
         return int(obj)
     if isinstance(obj, dict):
-        return {k: _to_jsonable(v) for k, v in obj.items()}
+        return {k: _to_jsonable(v, is_propeller) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
-        return [_to_jsonable(v) for v in obj]
+        return [_to_jsonable(v, is_propeller) for v in obj]
     return obj
 
 
-def save_bemt(obj: Any, path: str) -> None:
+def save_bemt(obj: Any, path: str, is_propeller: bool = False) -> None:
     """Saves any dataclass from the module (or plain dict) as ``.bemt``
-    JSON. Creates the parent directories if needed."""
+    JSON. Creates the parent directories if needed.
+
+    ``is_propeller`` is the project's mode, and decides the axis letters a
+    `FlightCondition` is written under (`_to_jsonable`). Everything else in
+    the file is mode-independent."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8") as f:
-        json.dump(_to_jsonable(obj), f, indent=2, ensure_ascii=False)
+        json.dump(_to_jsonable(obj, is_propeller), f, indent=2, ensure_ascii=False)
 
 
-def load_bemt(cls: type, path: str) -> Any:
+def load_bemt(cls: type, path: str, is_propeller: bool = False) -> Any:
     """Loads a ``.bemt`` (JSON) file and rebuilds the ``cls`` dataclass.
     Does a shallow recursive reconstruction: fields that are themselves
     dataclasses or lists of dataclasses are resolved via ``cls``'s type
@@ -97,23 +117,23 @@ def load_bemt(cls: type, path: str) -> Any:
     it came from JSON (dict/list/primitive)."""
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
-    return _from_jsonable(cls, raw)
+    return _from_jsonable(cls, raw, is_propeller)
 
 
-def save_bemt_list(items: list, path: str) -> None:
+def save_bemt_list(items: list, path: str, is_propeller: bool = False) -> None:
     """Like ``save_bemt``, but for a LIST of dataclasses (e.g.
     ``Project.airfoil_sections`` -- Phase D, multi-section airfoil). Reuses
     the same ``_to_jsonable`` (already knows how to serialize lists of
     dataclasses)."""
-    save_bemt(list(items), path)
+    save_bemt(list(items), path, is_propeller)
 
 
-def load_bemt_list(cls: type, path: str) -> list:
+def load_bemt_list(cls: type, path: str, is_propeller: bool = False) -> list:
     """Counterpart of ``save_bemt_list``: loads a list of ``cls``
     dataclasses saved by it."""
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
-    return [_from_jsonable(cls, v) for v in raw]
+    return [_from_jsonable(cls, v, is_propeller) for v in raw]
 
 
 def _migrate_airfoil_raw(raw: dict) -> dict:
@@ -198,14 +218,21 @@ def avisar_chaves_desconhecidas(cls: type, raw: dict, contexto: str = "") -> lis
     return unknown
 
 
-def _from_jsonable(cls: type, raw: Any) -> Any:
+def _from_jsonable(cls: type, raw: Any, is_propeller: bool = False) -> Any:
     if raw is None:
         return None
     if not is_dataclass(cls):
         return raw
     if cls is AirfoilDef and isinstance(raw, dict):
         raw = _migrate_airfoil_raw(raw)
-    if isinstance(raw, dict):
+    antiga = False
+    if cls is FlightCondition and isinstance(raw, dict):
+        antiga = avisar_nomenclatura_antiga(raw, is_propeller)
+        raw = nomenclature.from_display_keys(raw, is_propeller)
+    if isinstance(raw, dict) and not antiga:
+        # Skipped when the old-nomenclature warning already fired: the leftover
+        # keys are the OLD names, and a second warning calling them "fields
+        # that do not exist" points away from the actual problem.
         avisar_chaves_desconhecidas(cls, raw)
     kwargs = {}
     type_hints = {f.name: f.type for f in fields(cls)}
@@ -214,11 +241,37 @@ def _from_jsonable(cls: type, raw: Any) -> Any:
             continue
         val = raw[f.name]
         ftype = type_hints[f.name]
-        kwargs[f.name] = _coerce_field(ftype, _from_jsonable_scalar(val))
+        kwargs[f.name] = _coerce_field(ftype, _from_jsonable_scalar(val),
+                                       is_propeller)
     return cls(**kwargs)
 
 
-def _coerce_field(ftype: Any, val: Any) -> Any:
+def avisar_nomenclatura_antiga(raw: dict, is_propeller: bool) -> bool:
+    """Warns when a propeller `FlightCondition` still carries the OLD,
+    disk-axes key names.
+
+    There is no back-compat by decision -- but a SILENT misread is worse than
+    a missing feature. Under the new schema a propeller file's ``Vz`` is the
+    CROSS-flow; in a file written by the previous version it was the airspeed
+    along the shaft. Loading it quietly would turn 65 m/s of cruise into
+    65 m/s of cross-flow and solve a completely different condition, with a
+    plausible-looking number at the end. Returns whether it warned."""
+    if not is_propeller:
+        return False
+    antigas = {"mu_x", "Vz", "J_x", "lambda_z"} & set(raw)
+    if not antigas:
+        return False
+    warnings.warn(
+        f"FlightCondition: {sorted(antigas)} are the DISK-axes names this "
+        f"project used before the axis-nomenclature change. A propeller "
+        f"project now stores the letters it shows -- 'Vx' for the airspeed "
+        f"along the shaft, 'mu_z' for the cross-flow. Reading this file as "
+        f"is would swap the two components. Re-create the conditions, or "
+        f"rename the keys in the file.", UserWarning, stacklevel=3)
+    return True
+
+
+def _coerce_field(ftype: Any, val: Any, is_propeller: bool = False) -> Any:
     # Resolves type strings (from __future__ import annotations) only in
     # the cases where we actually need to rebuild as a nested dataclass.
     type_name = ftype if isinstance(ftype, str) else getattr(ftype, "__name__", "")
@@ -233,9 +286,10 @@ def _coerce_field(ftype: Any, val: Any) -> Any:
     for name, klass in registry.items():
         if name in str(type_name):
             if isinstance(val, list):
-                return [_from_jsonable(klass, v) if isinstance(v, dict) else v for v in val]
+                return [_from_jsonable(klass, v, is_propeller)
+                        if isinstance(v, dict) else v for v in val]
             if isinstance(val, dict):
-                return _from_jsonable(klass, val)
+                return _from_jsonable(klass, val, is_propeller)
     return val
 
 

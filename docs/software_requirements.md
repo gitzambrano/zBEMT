@@ -72,10 +72,17 @@ requirements the software must satisfy.
   absence must degrade only the specific feature that depends on them,
   and must never crash an unrelated feature.
 - **PR-8 — Correct propeller/rotor axis conventions.** Field labels,
-  angles, and summary columns must reflect the vehicle convention in use
-  (rotor vs. propeller), not the engine's internal `mu`/`Vv`
-  decomposition unlabeled. Every mode must show only the angle and
-  velocity components meaningful to it.
+  angles, summary columns, plot axes, CLI help and the keys written into
+  `.bemt` files must all reflect the vehicle convention in use (rotor vs.
+  propeller), not the engine's internal disk-axes decomposition. Every mode
+  must show only the angle and velocity components meaningful to it.
+
+  This is enforced structurally, not by convention: `zbemt/nomenclature.py`
+  is the single table every surface reads, so a symbol cannot be right in
+  the results table and wrong in the chart printed beside it in the same
+  report — which is what happened while ten hand-maintained copies of the
+  rotor/propeller letter swap existed. Adding an axis quantity means adding
+  one entry there; adding a second table anywhere is a defect.
 
 ---
 
@@ -117,6 +124,11 @@ requirements the software must satisfy.
   the other two identically.
 - A new configuration field must be wired into all three interfaces
   before the feature is considered complete.
+- The three interfaces speak the SAME axis vocabulary: a `.bemt` file
+  stores a flight condition under the letters the GUI shows for that
+  project's mode, and the CLI's help describes each flag by the slot it
+  fills and the letter it carries in each mode. The engine keeps its own
+  disk-axes names, which never reach a user-facing surface.
 
 ### 3.4 Reports
 

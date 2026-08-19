@@ -1,0 +1,2125 @@
+{
+  "axis_labels": {
+    "propeller": {
+      "CH": {
+        "html": "C<sub>H</sub> [-]",
+        "mathtext": "$C_H$ [-]",
+        "text": "CH [-]"
+      },
+      "CHi": {
+        "html": "C<sub>Hi</sub> [-]",
+        "mathtext": "$C_{Hi}$ [-]",
+        "text": "CHi [-]"
+      },
+      "CHp": {
+        "html": "C<sub>Hp</sub> [-]",
+        "mathtext": "$C_{Hp}$ [-]",
+        "text": "CHp [-]"
+      },
+      "CMx": {
+        "html": "C<sub>Mx</sub> [-]",
+        "mathtext": "$C_{Mx}$ [-]",
+        "text": "CMx [-]"
+      },
+      "CMy": {
+        "html": "C<sub>My</sub> [-]",
+        "mathtext": "$C_{My}$ [-]",
+        "text": "CMy [-]"
+      },
+      "CP": {
+        "html": "C<sub>P</sub> [-]",
+        "mathtext": "$C_P$ [-]",
+        "text": "CP [-]"
+      },
+      "CP_prop": {
+        "html": "C<sub>P,prop</sub> [-]",
+        "mathtext": "$C_{P,prop}$ [-]",
+        "text": "CP,prop [-]"
+      },
+      "CPi": {
+        "html": "C<sub>Pi</sub> [-]",
+        "mathtext": "$C_{Pi}$ [-]",
+        "text": "CPi [-]"
+      },
+      "CPp": {
+        "html": "C<sub>Pp</sub> [-]",
+        "mathtext": "$C_{Pp}$ [-]",
+        "text": "CPp [-]"
+      },
+      "CQ": {
+        "html": "C<sub>Q</sub> [-]",
+        "mathtext": "$C_Q$ [-]",
+        "text": "CQ [-]"
+      },
+      "CQ_prop": {
+        "html": "C<sub>Q,prop</sub> [-]",
+        "mathtext": "$C_{Q,prop}$ [-]",
+        "text": "CQ,prop [-]"
+      },
+      "CT": {
+        "html": "C<sub>T</sub> [-]",
+        "mathtext": "$C_T$ [-]",
+        "text": "CT [-]"
+      },
+      "CT_prop": {
+        "html": "C<sub>T,prop</sub> [-]",
+        "mathtext": "$C_{T,prop}$ [-]",
+        "text": "CT,prop [-]"
+      },
+      "CY": {
+        "html": "C<sub>Y</sub> [-]",
+        "mathtext": "$C_Y$ [-]",
+        "text": "CY [-]"
+      },
+      "FM": {
+        "html": "FM [-]",
+        "mathtext": "$FM$ [-]",
+        "text": "FM [-]"
+      },
+      "H": {
+        "html": "H [N]",
+        "mathtext": "$H$ [N]",
+        "text": "H [N]"
+      },
+      "Hi": {
+        "html": "H<sub>i</sub> [N]",
+        "mathtext": "$H_i$ [N]",
+        "text": "Hᵢ [N]"
+      },
+      "Hp": {
+        "html": "H<sub>p</sub> [N]",
+        "mathtext": "$H_p$ [N]",
+        "text": "Hₚ [N]"
+      },
+      "J_x": {
+        "html": "J<sub>z</sub> [-]",
+        "mathtext": "$J_z$ [-]",
+        "text": "Jz [-]"
+      },
+      "J_z": {
+        "html": "J<sub>x</sub> [-]",
+        "mathtext": "$J_x$ [-]",
+        "text": "Jₓ [-]"
+      },
+      "Mx": {
+        "html": "M<sub>x</sub> [N&middot;m]",
+        "mathtext": "$M_x$ [N$\\cdot$m]",
+        "text": "Mₓ [N·m]"
+      },
+      "My": {
+        "html": "M<sub>y</sub> [N&middot;m]",
+        "mathtext": "$M_y$ [N$\\cdot$m]",
+        "text": "My [N·m]"
+      },
+      "Power": {
+        "html": "P [W]",
+        "mathtext": "$P$ [W]",
+        "text": "P [W]"
+      },
+      "Power_i": {
+        "html": "P<sub>i</sub> [W]",
+        "mathtext": "$P_i$ [W]",
+        "text": "Pᵢ [W]"
+      },
+      "Power_p": {
+        "html": "P<sub>p</sub> [W]",
+        "mathtext": "$P_p$ [W]",
+        "text": "Pₚ [W]"
+      },
+      "Thrust": {
+        "html": "T [N]",
+        "mathtext": "$T$ [N]",
+        "text": "T [N]"
+      },
+      "Torque": {
+        "html": "Q [N&middot;m]",
+        "mathtext": "$Q$ [N$\\cdot$m]",
+        "text": "Q [N·m]"
+      },
+      "Vi": {
+        "html": "v<sub>i</sub> [m/s]",
+        "mathtext": "$v_i$ [m/s]",
+        "text": "vᵢ [m/s]"
+      },
+      "Vx": {
+        "html": "V<sub>z</sub> [m/s]",
+        "mathtext": "$V_z$ [m/s]",
+        "text": "Vz [m/s]"
+      },
+      "Vz": {
+        "html": "V<sub>x</sub> [m/s]",
+        "mathtext": "$V_x$ [m/s]",
+        "text": "Vₓ [m/s]"
+      },
+      "Vz_total": {
+        "html": "V<sub>x,total</sub> [m/s]",
+        "mathtext": "$V_{x,total}$ [m/s]",
+        "text": "Vx,total [m/s]"
+      },
+      "Y": {
+        "html": "Y [N]",
+        "mathtext": "$Y$ [N]",
+        "text": "Y [N]"
+      },
+      "alpha_disk_deg": {
+        "html": "&alpha;<sub>disk</sub> [deg]",
+        "mathtext": "$\\alpha_{disk}$ [deg]",
+        "text": "αdisk [deg]"
+      },
+      "alpha_rotor_deg": {
+        "html": "&alpha;<sub>rotor</sub> [deg]",
+        "mathtext": "$\\alpha_{rotor}$ [deg]",
+        "text": "αᵣₒₜₒᵣ [deg]"
+      },
+      "cfg_Ne": {
+        "html": "cfg_Ne",
+        "mathtext": "cfg_Ne",
+        "text": "cfg_Ne"
+      },
+      "cfg_Npsi": {
+        "html": "cfg_Npsi",
+        "mathtext": "cfg_Npsi",
+        "text": "cfg_Npsi"
+      },
+      "cfg_a_sound": {
+        "html": "cfg_a_sound",
+        "mathtext": "cfg_a_sound",
+        "text": "cfg_a_sound"
+      },
+      "cfg_collect_history": {
+        "html": "cfg_collect_history",
+        "mathtext": "cfg_collect_history",
+        "text": "cfg_collect_history"
+      },
+      "cfg_dynamic_stall_A": {
+        "html": "cfg_dynamic_stall_A",
+        "mathtext": "cfg_dynamic_stall_A",
+        "text": "cfg_dynamic_stall_A"
+      },
+      "cfg_dynamic_stall_f_reg": {
+        "html": "cfg_dynamic_stall_f_reg",
+        "mathtext": "cfg_dynamic_stall_f_reg",
+        "text": "cfg_dynamic_stall_f_reg"
+      },
+      "cfg_dynamic_stall_fade_end_deg": {
+        "html": "cfg_dynamic_stall_fade_end_deg",
+        "mathtext": "cfg_dynamic_stall_fade_end_deg",
+        "text": "cfg_dynamic_stall_fade_end_deg"
+      },
+      "cfg_dynamic_stall_fade_start_deg": {
+        "html": "cfg_dynamic_stall_fade_start_deg",
+        "mathtext": "cfg_dynamic_stall_fade_start_deg",
+        "text": "cfg_dynamic_stall_fade_start_deg"
+      },
+      "cfg_dynamic_stall_method": {
+        "html": "cfg_dynamic_stall_method",
+        "mathtext": "cfg_dynamic_stall_method",
+        "text": "cfg_dynamic_stall_method"
+      },
+      "cfg_dynamic_stall_model": {
+        "html": "cfg_dynamic_stall_model",
+        "mathtext": "cfg_dynamic_stall_model",
+        "text": "cfg_dynamic_stall_model"
+      },
+      "cfg_dynamic_stall_time_march_avg_last": {
+        "html": "cfg_dynamic_stall_time_march_avg_last",
+        "mathtext": "cfg_dynamic_stall_time_march_avg_last",
+        "text": "cfg_dynamic_stall_time_march_avg_last"
+      },
+      "cfg_dynamic_stall_time_march_revolutions": {
+        "html": "cfg_dynamic_stall_time_march_revolutions",
+        "mathtext": "cfg_dynamic_stall_time_march_revolutions",
+        "text": "cfg_dynamic_stall_time_march_revolutions"
+      },
+      "cfg_early_exit_fraction": {
+        "html": "cfg_early_exit_fraction",
+        "mathtext": "cfg_early_exit_fraction",
+        "text": "cfg_early_exit_fraction"
+      },
+      "cfg_inflow_field_model": {
+        "html": "cfg_inflow_field_model",
+        "mathtext": "cfg_inflow_field_model",
+        "text": "cfg_inflow_field_model"
+      },
+      "cfg_integration_offset": {
+        "html": "cfg_integration_offset",
+        "mathtext": "cfg_integration_offset",
+        "text": "cfg_integration_offset"
+      },
+      "cfg_is_propeller": {
+        "html": "cfg_is_propeller",
+        "mathtext": "cfg_is_propeller",
+        "text": "cfg_is_propeller"
+      },
+      "cfg_mask_reverse_flow_plots": {
+        "html": "cfg_mask_reverse_flow_plots",
+        "mathtext": "cfg_mask_reverse_flow_plots",
+        "text": "cfg_mask_reverse_flow_plots"
+      },
+      "cfg_max_iter": {
+        "html": "cfg_max_iter",
+        "mathtext": "cfg_max_iter",
+        "text": "cfg_max_iter"
+      },
+      "cfg_nu_air": {
+        "html": "cfg_nu_air",
+        "mathtext": "cfg_nu_air",
+        "text": "cfg_nu_air"
+      },
+      "cfg_pitt_peters_outer_iter": {
+        "html": "cfg_pitt_peters_outer_iter",
+        "mathtext": "cfg_pitt_peters_outer_iter",
+        "text": "cfg_pitt_peters_outer_iter"
+      },
+      "cfg_pitt_peters_relax": {
+        "html": "cfg_pitt_peters_relax",
+        "mathtext": "cfg_pitt_peters_relax",
+        "text": "cfg_pitt_peters_relax"
+      },
+      "cfg_pitt_peters_states": {
+        "html": "cfg_pitt_peters_states",
+        "mathtext": "cfg_pitt_peters_states",
+        "text": "cfg_pitt_peters_states"
+      },
+      "cfg_pitt_peters_tol": {
+        "html": "cfg_pitt_peters_tol",
+        "mathtext": "cfg_pitt_peters_tol",
+        "text": "cfg_pitt_peters_tol"
+      },
+      "cfg_prandtl_loss_mode": {
+        "html": "cfg_prandtl_loss_mode",
+        "mathtext": "cfg_prandtl_loss_mode",
+        "text": "cfg_prandtl_loss_mode"
+      },
+      "cfg_radial_flow_max_skew_deg": {
+        "html": "cfg_radial_flow_max_skew_deg",
+        "mathtext": "cfg_radial_flow_max_skew_deg",
+        "text": "cfg_radial_flow_max_skew_deg"
+      },
+      "cfg_relax": {
+        "html": "cfg_relax",
+        "mathtext": "cfg_relax",
+        "text": "cfg_relax"
+      },
+      "cfg_relax_azimuth_factor": {
+        "html": "cfg_relax_azimuth_factor",
+        "mathtext": "cfg_relax_azimuth_factor",
+        "text": "cfg_relax_azimuth_factor"
+      },
+      "cfg_relax_azimuth_threshold": {
+        "html": "cfg_relax_azimuth_threshold",
+        "mathtext": "cfg_relax_azimuth_threshold",
+        "text": "cfg_relax_azimuth_threshold"
+      },
+      "cfg_relax_root_factor": {
+        "html": "cfg_relax_root_factor",
+        "mathtext": "cfg_relax_root_factor",
+        "text": "cfg_relax_root_factor"
+      },
+      "cfg_relax_root_threshold": {
+        "html": "cfg_relax_root_threshold",
+        "mathtext": "cfg_relax_root_threshold",
+        "text": "cfg_relax_root_threshold"
+      },
+      "cfg_relax_schedule": {
+        "html": "cfg_relax_schedule",
+        "mathtext": "cfg_relax_schedule",
+        "text": "cfg_relax_schedule"
+      },
+      "cfg_relax_tip_threshold": {
+        "html": "cfg_relax_tip_threshold",
+        "mathtext": "cfg_relax_tip_threshold",
+        "text": "cfg_relax_tip_threshold"
+      },
+      "cfg_reverse_flow_blend_factor": {
+        "html": "cfg_reverse_flow_blend_factor",
+        "mathtext": "cfg_reverse_flow_blend_factor",
+        "text": "cfg_reverse_flow_blend_factor"
+      },
+      "cfg_reverse_flow_model": {
+        "html": "cfg_reverse_flow_model",
+        "mathtext": "cfg_reverse_flow_model",
+        "text": "cfg_reverse_flow_model"
+      },
+      "cfg_rho": {
+        "html": "cfg_rho",
+        "mathtext": "cfg_rho",
+        "text": "cfg_rho"
+      },
+      "cfg_rho_used": {
+        "html": "cfg_rho_used",
+        "mathtext": "cfg_rho_used",
+        "text": "cfg_rho_used"
+      },
+      "cfg_solver": {
+        "html": "cfg_solver",
+        "mathtext": "cfg_solver",
+        "text": "cfg_solver"
+      },
+      "cfg_stagnation_min_frac": {
+        "html": "cfg_stagnation_min_frac",
+        "mathtext": "cfg_stagnation_min_frac",
+        "text": "cfg_stagnation_min_frac"
+      },
+      "cfg_stagnation_patience": {
+        "html": "cfg_stagnation_patience",
+        "mathtext": "cfg_stagnation_patience",
+        "text": "cfg_stagnation_patience"
+      },
+      "cfg_thin_plate_blend_center_deg": {
+        "html": "cfg_thin_plate_blend_center_deg",
+        "mathtext": "cfg_thin_plate_blend_center_deg",
+        "text": "cfg_thin_plate_blend_center_deg"
+      },
+      "cfg_thin_plate_blend_width_deg": {
+        "html": "cfg_thin_plate_blend_width_deg",
+        "mathtext": "cfg_thin_plate_blend_width_deg",
+        "text": "cfg_thin_plate_blend_width_deg"
+      },
+      "cfg_tol": {
+        "html": "cfg_tol",
+        "mathtext": "cfg_tol",
+        "text": "cfg_tol"
+      },
+      "cfg_use_compressibility": {
+        "html": "cfg_use_compressibility",
+        "mathtext": "cfg_use_compressibility",
+        "text": "cfg_use_compressibility"
+      },
+      "cfg_use_dynamic_stall": {
+        "html": "cfg_use_dynamic_stall",
+        "mathtext": "cfg_use_dynamic_stall",
+        "text": "cfg_use_dynamic_stall"
+      },
+      "cfg_use_radial_flow_correction": {
+        "html": "cfg_use_radial_flow_correction",
+        "mathtext": "cfg_use_radial_flow_correction",
+        "text": "cfg_use_radial_flow_correction"
+      },
+      "cfg_use_rotational_augmentation": {
+        "html": "cfg_use_rotational_augmentation",
+        "mathtext": "cfg_use_rotational_augmentation",
+        "text": "cfg_use_rotational_augmentation"
+      },
+      "collective_deg": {
+        "html": "&theta;<sub>0</sub> [deg]",
+        "mathtext": "$\\theta_0$ [deg]",
+        "text": "θ₀ [deg]"
+      },
+      "condition": {
+        "html": "condition",
+        "mathtext": "condition",
+        "text": "condition"
+      },
+      "convergence_pct": {
+        "html": "convergence [%]",
+        "mathtext": "convergence [%]",
+        "text": "convergence [%]"
+      },
+      "elapsed_s": {
+        "html": "elapsed [s]",
+        "mathtext": "elapsed [s]",
+        "text": "elapsed [s]"
+      },
+      "eta_prop": {
+        "html": "&eta;<sub>prop</sub> [-]",
+        "mathtext": "$\\eta_{prop}$ [-]",
+        "text": "ηₚᵣₒₚ [-]"
+      },
+      "inflow_coupling": {
+        "html": "inflow_coupling",
+        "mathtext": "inflow_coupling",
+        "text": "inflow_coupling"
+      },
+      "lambda_i": {
+        "html": "&lambda;<sub>i</sub> [-]",
+        "mathtext": "$\\lambda_i$ [-]",
+        "text": "λᵢ [-]"
+      },
+      "lambda_total": {
+        "html": "&lambda;<sub>total</sub> [-]",
+        "mathtext": "$\\lambda_{total}$ [-]",
+        "text": "λₜₒₜₐₗ [-]"
+      },
+      "lambda_z": {
+        "html": "&lambda;<sub>x</sub> [-]",
+        "mathtext": "$\\lambda_x$ [-]",
+        "text": "λₓ [-]"
+      },
+      "mean_iter": {
+        "html": "mean iterations [-]",
+        "mathtext": "mean iterations [-]",
+        "text": "mean iterations [-]"
+      },
+      "mu_x": {
+        "html": "&mu;<sub>z</sub> [-]",
+        "mathtext": "$\\mu_z$ [-]",
+        "text": "μz [-]"
+      },
+      "mu_z": {
+        "html": "&mu;<sub>x</sub> [-]",
+        "mathtext": "$\\mu_x$ [-]",
+        "text": "μₓ [-]"
+      },
+      "rotor_D": {
+        "html": "D [m]",
+        "mathtext": "$D$ [m]",
+        "text": "D [m]"
+      },
+      "rotor_Nb": {
+        "html": "N<sub>b</sub> [-]",
+        "mathtext": "$N_b$ [-]",
+        "text": "Nb [-]"
+      },
+      "rotor_Omega": {
+        "html": "&Omega; [rad/s]",
+        "mathtext": "$\\Omega$ [rad/s]",
+        "text": "Ω [rad/s]"
+      },
+      "rotor_OmegaR": {
+        "html": "&Omega;R [m/s]",
+        "mathtext": "$\\Omega R$ [m/s]",
+        "text": "ΩR [m/s]"
+      },
+      "rotor_R": {
+        "html": "R [m]",
+        "mathtext": "$R$ [m]",
+        "text": "R [m]"
+      },
+      "rotor_rpm": {
+        "html": "RPM [-]",
+        "mathtext": "RPM [-]",
+        "text": "RPM [-]"
+      },
+      "rpm": {
+        "html": "RPM [rev/min]",
+        "mathtext": "RPM [rev/min]",
+        "text": "RPM [rev/min]"
+      },
+      "solver": {
+        "html": "solver",
+        "mathtext": "solver",
+        "text": "solver"
+      }
+    },
+    "rotor": {
+      "CH": {
+        "html": "C<sub>H</sub> [-]",
+        "mathtext": "$C_H$ [-]",
+        "text": "CH [-]"
+      },
+      "CHi": {
+        "html": "C<sub>Hi</sub> [-]",
+        "mathtext": "$C_{Hi}$ [-]",
+        "text": "CHi [-]"
+      },
+      "CHp": {
+        "html": "C<sub>Hp</sub> [-]",
+        "mathtext": "$C_{Hp}$ [-]",
+        "text": "CHp [-]"
+      },
+      "CMx": {
+        "html": "C<sub>Mx</sub> [-]",
+        "mathtext": "$C_{Mx}$ [-]",
+        "text": "CMx [-]"
+      },
+      "CMy": {
+        "html": "C<sub>My</sub> [-]",
+        "mathtext": "$C_{My}$ [-]",
+        "text": "CMy [-]"
+      },
+      "CP": {
+        "html": "C<sub>P</sub> [-]",
+        "mathtext": "$C_P$ [-]",
+        "text": "CP [-]"
+      },
+      "CP_prop": {
+        "html": "C<sub>P,prop</sub> [-]",
+        "mathtext": "$C_{P,prop}$ [-]",
+        "text": "CP,prop [-]"
+      },
+      "CPi": {
+        "html": "C<sub>Pi</sub> [-]",
+        "mathtext": "$C_{Pi}$ [-]",
+        "text": "CPi [-]"
+      },
+      "CPp": {
+        "html": "C<sub>Pp</sub> [-]",
+        "mathtext": "$C_{Pp}$ [-]",
+        "text": "CPp [-]"
+      },
+      "CQ": {
+        "html": "C<sub>Q</sub> [-]",
+        "mathtext": "$C_Q$ [-]",
+        "text": "CQ [-]"
+      },
+      "CQ_prop": {
+        "html": "C<sub>Q,prop</sub> [-]",
+        "mathtext": "$C_{Q,prop}$ [-]",
+        "text": "CQ,prop [-]"
+      },
+      "CT": {
+        "html": "C<sub>T</sub> [-]",
+        "mathtext": "$C_T$ [-]",
+        "text": "CT [-]"
+      },
+      "CT_prop": {
+        "html": "C<sub>T,prop</sub> [-]",
+        "mathtext": "$C_{T,prop}$ [-]",
+        "text": "CT,prop [-]"
+      },
+      "CY": {
+        "html": "C<sub>Y</sub> [-]",
+        "mathtext": "$C_Y$ [-]",
+        "text": "CY [-]"
+      },
+      "FM": {
+        "html": "FM [-]",
+        "mathtext": "$FM$ [-]",
+        "text": "FM [-]"
+      },
+      "H": {
+        "html": "H [N]",
+        "mathtext": "$H$ [N]",
+        "text": "H [N]"
+      },
+      "Hi": {
+        "html": "H<sub>i</sub> [N]",
+        "mathtext": "$H_i$ [N]",
+        "text": "Hᵢ [N]"
+      },
+      "Hp": {
+        "html": "H<sub>p</sub> [N]",
+        "mathtext": "$H_p$ [N]",
+        "text": "Hₚ [N]"
+      },
+      "J_x": {
+        "html": "J<sub>x</sub> [-]",
+        "mathtext": "$J_x$ [-]",
+        "text": "Jₓ [-]"
+      },
+      "J_z": {
+        "html": "J<sub>z</sub> [-]",
+        "mathtext": "$J_z$ [-]",
+        "text": "Jz [-]"
+      },
+      "Mx": {
+        "html": "M<sub>x</sub> [N&middot;m]",
+        "mathtext": "$M_x$ [N$\\cdot$m]",
+        "text": "Mₓ [N·m]"
+      },
+      "My": {
+        "html": "M<sub>y</sub> [N&middot;m]",
+        "mathtext": "$M_y$ [N$\\cdot$m]",
+        "text": "My [N·m]"
+      },
+      "Power": {
+        "html": "P [W]",
+        "mathtext": "$P$ [W]",
+        "text": "P [W]"
+      },
+      "Power_i": {
+        "html": "P<sub>i</sub> [W]",
+        "mathtext": "$P_i$ [W]",
+        "text": "Pᵢ [W]"
+      },
+      "Power_p": {
+        "html": "P<sub>p</sub> [W]",
+        "mathtext": "$P_p$ [W]",
+        "text": "Pₚ [W]"
+      },
+      "Thrust": {
+        "html": "T [N]",
+        "mathtext": "$T$ [N]",
+        "text": "T [N]"
+      },
+      "Torque": {
+        "html": "Q [N&middot;m]",
+        "mathtext": "$Q$ [N$\\cdot$m]",
+        "text": "Q [N·m]"
+      },
+      "Vi": {
+        "html": "v<sub>i</sub> [m/s]",
+        "mathtext": "$v_i$ [m/s]",
+        "text": "vᵢ [m/s]"
+      },
+      "Vx": {
+        "html": "V<sub>x</sub> [m/s]",
+        "mathtext": "$V_x$ [m/s]",
+        "text": "Vₓ [m/s]"
+      },
+      "Vz": {
+        "html": "V<sub>z</sub> [m/s]",
+        "mathtext": "$V_z$ [m/s]",
+        "text": "Vz [m/s]"
+      },
+      "Vz_total": {
+        "html": "V<sub>z,total</sub> [m/s]",
+        "mathtext": "$V_{z,total}$ [m/s]",
+        "text": "Vz,total [m/s]"
+      },
+      "Y": {
+        "html": "Y [N]",
+        "mathtext": "$Y$ [N]",
+        "text": "Y [N]"
+      },
+      "alpha_disk_deg": {
+        "html": "&alpha;<sub>disk</sub> [deg]",
+        "mathtext": "$\\alpha_{disk}$ [deg]",
+        "text": "αdisk [deg]"
+      },
+      "alpha_rotor_deg": {
+        "html": "&alpha;<sub>rotor</sub> [deg]",
+        "mathtext": "$\\alpha_{rotor}$ [deg]",
+        "text": "αᵣₒₜₒᵣ [deg]"
+      },
+      "cfg_Ne": {
+        "html": "cfg_Ne",
+        "mathtext": "cfg_Ne",
+        "text": "cfg_Ne"
+      },
+      "cfg_Npsi": {
+        "html": "cfg_Npsi",
+        "mathtext": "cfg_Npsi",
+        "text": "cfg_Npsi"
+      },
+      "cfg_a_sound": {
+        "html": "cfg_a_sound",
+        "mathtext": "cfg_a_sound",
+        "text": "cfg_a_sound"
+      },
+      "cfg_collect_history": {
+        "html": "cfg_collect_history",
+        "mathtext": "cfg_collect_history",
+        "text": "cfg_collect_history"
+      },
+      "cfg_dynamic_stall_A": {
+        "html": "cfg_dynamic_stall_A",
+        "mathtext": "cfg_dynamic_stall_A",
+        "text": "cfg_dynamic_stall_A"
+      },
+      "cfg_dynamic_stall_f_reg": {
+        "html": "cfg_dynamic_stall_f_reg",
+        "mathtext": "cfg_dynamic_stall_f_reg",
+        "text": "cfg_dynamic_stall_f_reg"
+      },
+      "cfg_dynamic_stall_fade_end_deg": {
+        "html": "cfg_dynamic_stall_fade_end_deg",
+        "mathtext": "cfg_dynamic_stall_fade_end_deg",
+        "text": "cfg_dynamic_stall_fade_end_deg"
+      },
+      "cfg_dynamic_stall_fade_start_deg": {
+        "html": "cfg_dynamic_stall_fade_start_deg",
+        "mathtext": "cfg_dynamic_stall_fade_start_deg",
+        "text": "cfg_dynamic_stall_fade_start_deg"
+      },
+      "cfg_dynamic_stall_method": {
+        "html": "cfg_dynamic_stall_method",
+        "mathtext": "cfg_dynamic_stall_method",
+        "text": "cfg_dynamic_stall_method"
+      },
+      "cfg_dynamic_stall_model": {
+        "html": "cfg_dynamic_stall_model",
+        "mathtext": "cfg_dynamic_stall_model",
+        "text": "cfg_dynamic_stall_model"
+      },
+      "cfg_dynamic_stall_time_march_avg_last": {
+        "html": "cfg_dynamic_stall_time_march_avg_last",
+        "mathtext": "cfg_dynamic_stall_time_march_avg_last",
+        "text": "cfg_dynamic_stall_time_march_avg_last"
+      },
+      "cfg_dynamic_stall_time_march_revolutions": {
+        "html": "cfg_dynamic_stall_time_march_revolutions",
+        "mathtext": "cfg_dynamic_stall_time_march_revolutions",
+        "text": "cfg_dynamic_stall_time_march_revolutions"
+      },
+      "cfg_early_exit_fraction": {
+        "html": "cfg_early_exit_fraction",
+        "mathtext": "cfg_early_exit_fraction",
+        "text": "cfg_early_exit_fraction"
+      },
+      "cfg_inflow_field_model": {
+        "html": "cfg_inflow_field_model",
+        "mathtext": "cfg_inflow_field_model",
+        "text": "cfg_inflow_field_model"
+      },
+      "cfg_integration_offset": {
+        "html": "cfg_integration_offset",
+        "mathtext": "cfg_integration_offset",
+        "text": "cfg_integration_offset"
+      },
+      "cfg_is_propeller": {
+        "html": "cfg_is_propeller",
+        "mathtext": "cfg_is_propeller",
+        "text": "cfg_is_propeller"
+      },
+      "cfg_mask_reverse_flow_plots": {
+        "html": "cfg_mask_reverse_flow_plots",
+        "mathtext": "cfg_mask_reverse_flow_plots",
+        "text": "cfg_mask_reverse_flow_plots"
+      },
+      "cfg_max_iter": {
+        "html": "cfg_max_iter",
+        "mathtext": "cfg_max_iter",
+        "text": "cfg_max_iter"
+      },
+      "cfg_nu_air": {
+        "html": "cfg_nu_air",
+        "mathtext": "cfg_nu_air",
+        "text": "cfg_nu_air"
+      },
+      "cfg_pitt_peters_outer_iter": {
+        "html": "cfg_pitt_peters_outer_iter",
+        "mathtext": "cfg_pitt_peters_outer_iter",
+        "text": "cfg_pitt_peters_outer_iter"
+      },
+      "cfg_pitt_peters_relax": {
+        "html": "cfg_pitt_peters_relax",
+        "mathtext": "cfg_pitt_peters_relax",
+        "text": "cfg_pitt_peters_relax"
+      },
+      "cfg_pitt_peters_states": {
+        "html": "cfg_pitt_peters_states",
+        "mathtext": "cfg_pitt_peters_states",
+        "text": "cfg_pitt_peters_states"
+      },
+      "cfg_pitt_peters_tol": {
+        "html": "cfg_pitt_peters_tol",
+        "mathtext": "cfg_pitt_peters_tol",
+        "text": "cfg_pitt_peters_tol"
+      },
+      "cfg_prandtl_loss_mode": {
+        "html": "cfg_prandtl_loss_mode",
+        "mathtext": "cfg_prandtl_loss_mode",
+        "text": "cfg_prandtl_loss_mode"
+      },
+      "cfg_radial_flow_max_skew_deg": {
+        "html": "cfg_radial_flow_max_skew_deg",
+        "mathtext": "cfg_radial_flow_max_skew_deg",
+        "text": "cfg_radial_flow_max_skew_deg"
+      },
+      "cfg_relax": {
+        "html": "cfg_relax",
+        "mathtext": "cfg_relax",
+        "text": "cfg_relax"
+      },
+      "cfg_relax_azimuth_factor": {
+        "html": "cfg_relax_azimuth_factor",
+        "mathtext": "cfg_relax_azimuth_factor",
+        "text": "cfg_relax_azimuth_factor"
+      },
+      "cfg_relax_azimuth_threshold": {
+        "html": "cfg_relax_azimuth_threshold",
+        "mathtext": "cfg_relax_azimuth_threshold",
+        "text": "cfg_relax_azimuth_threshold"
+      },
+      "cfg_relax_root_factor": {
+        "html": "cfg_relax_root_factor",
+        "mathtext": "cfg_relax_root_factor",
+        "text": "cfg_relax_root_factor"
+      },
+      "cfg_relax_root_threshold": {
+        "html": "cfg_relax_root_threshold",
+        "mathtext": "cfg_relax_root_threshold",
+        "text": "cfg_relax_root_threshold"
+      },
+      "cfg_relax_schedule": {
+        "html": "cfg_relax_schedule",
+        "mathtext": "cfg_relax_schedule",
+        "text": "cfg_relax_schedule"
+      },
+      "cfg_relax_tip_threshold": {
+        "html": "cfg_relax_tip_threshold",
+        "mathtext": "cfg_relax_tip_threshold",
+        "text": "cfg_relax_tip_threshold"
+      },
+      "cfg_reverse_flow_blend_factor": {
+        "html": "cfg_reverse_flow_blend_factor",
+        "mathtext": "cfg_reverse_flow_blend_factor",
+        "text": "cfg_reverse_flow_blend_factor"
+      },
+      "cfg_reverse_flow_model": {
+        "html": "cfg_reverse_flow_model",
+        "mathtext": "cfg_reverse_flow_model",
+        "text": "cfg_reverse_flow_model"
+      },
+      "cfg_rho": {
+        "html": "cfg_rho",
+        "mathtext": "cfg_rho",
+        "text": "cfg_rho"
+      },
+      "cfg_rho_used": {
+        "html": "cfg_rho_used",
+        "mathtext": "cfg_rho_used",
+        "text": "cfg_rho_used"
+      },
+      "cfg_solver": {
+        "html": "cfg_solver",
+        "mathtext": "cfg_solver",
+        "text": "cfg_solver"
+      },
+      "cfg_stagnation_min_frac": {
+        "html": "cfg_stagnation_min_frac",
+        "mathtext": "cfg_stagnation_min_frac",
+        "text": "cfg_stagnation_min_frac"
+      },
+      "cfg_stagnation_patience": {
+        "html": "cfg_stagnation_patience",
+        "mathtext": "cfg_stagnation_patience",
+        "text": "cfg_stagnation_patience"
+      },
+      "cfg_thin_plate_blend_center_deg": {
+        "html": "cfg_thin_plate_blend_center_deg",
+        "mathtext": "cfg_thin_plate_blend_center_deg",
+        "text": "cfg_thin_plate_blend_center_deg"
+      },
+      "cfg_thin_plate_blend_width_deg": {
+        "html": "cfg_thin_plate_blend_width_deg",
+        "mathtext": "cfg_thin_plate_blend_width_deg",
+        "text": "cfg_thin_plate_blend_width_deg"
+      },
+      "cfg_tol": {
+        "html": "cfg_tol",
+        "mathtext": "cfg_tol",
+        "text": "cfg_tol"
+      },
+      "cfg_use_compressibility": {
+        "html": "cfg_use_compressibility",
+        "mathtext": "cfg_use_compressibility",
+        "text": "cfg_use_compressibility"
+      },
+      "cfg_use_dynamic_stall": {
+        "html": "cfg_use_dynamic_stall",
+        "mathtext": "cfg_use_dynamic_stall",
+        "text": "cfg_use_dynamic_stall"
+      },
+      "cfg_use_radial_flow_correction": {
+        "html": "cfg_use_radial_flow_correction",
+        "mathtext": "cfg_use_radial_flow_correction",
+        "text": "cfg_use_radial_flow_correction"
+      },
+      "cfg_use_rotational_augmentation": {
+        "html": "cfg_use_rotational_augmentation",
+        "mathtext": "cfg_use_rotational_augmentation",
+        "text": "cfg_use_rotational_augmentation"
+      },
+      "collective_deg": {
+        "html": "&theta;<sub>0</sub> [deg]",
+        "mathtext": "$\\theta_0$ [deg]",
+        "text": "θ₀ [deg]"
+      },
+      "condition": {
+        "html": "condition",
+        "mathtext": "condition",
+        "text": "condition"
+      },
+      "convergence_pct": {
+        "html": "convergence [%]",
+        "mathtext": "convergence [%]",
+        "text": "convergence [%]"
+      },
+      "elapsed_s": {
+        "html": "elapsed [s]",
+        "mathtext": "elapsed [s]",
+        "text": "elapsed [s]"
+      },
+      "eta_prop": {
+        "html": "&eta;<sub>prop</sub> [-]",
+        "mathtext": "$\\eta_{prop}$ [-]",
+        "text": "ηₚᵣₒₚ [-]"
+      },
+      "inflow_coupling": {
+        "html": "inflow_coupling",
+        "mathtext": "inflow_coupling",
+        "text": "inflow_coupling"
+      },
+      "lambda_i": {
+        "html": "&lambda;<sub>i</sub> [-]",
+        "mathtext": "$\\lambda_i$ [-]",
+        "text": "λᵢ [-]"
+      },
+      "lambda_total": {
+        "html": "&lambda;<sub>total</sub> [-]",
+        "mathtext": "$\\lambda_{total}$ [-]",
+        "text": "λₜₒₜₐₗ [-]"
+      },
+      "lambda_z": {
+        "html": "&lambda;<sub>z</sub> [-]",
+        "mathtext": "$\\lambda_z$ [-]",
+        "text": "λz [-]"
+      },
+      "mean_iter": {
+        "html": "mean iterations [-]",
+        "mathtext": "mean iterations [-]",
+        "text": "mean iterations [-]"
+      },
+      "mu_x": {
+        "html": "&mu;<sub>x</sub> [-]",
+        "mathtext": "$\\mu_x$ [-]",
+        "text": "μₓ [-]"
+      },
+      "mu_z": {
+        "html": "&mu;<sub>z</sub> [-]",
+        "mathtext": "$\\mu_z$ [-]",
+        "text": "μz [-]"
+      },
+      "rotor_D": {
+        "html": "D [m]",
+        "mathtext": "$D$ [m]",
+        "text": "D [m]"
+      },
+      "rotor_Nb": {
+        "html": "N<sub>b</sub> [-]",
+        "mathtext": "$N_b$ [-]",
+        "text": "Nb [-]"
+      },
+      "rotor_Omega": {
+        "html": "&Omega; [rad/s]",
+        "mathtext": "$\\Omega$ [rad/s]",
+        "text": "Ω [rad/s]"
+      },
+      "rotor_OmegaR": {
+        "html": "&Omega;R [m/s]",
+        "mathtext": "$\\Omega R$ [m/s]",
+        "text": "ΩR [m/s]"
+      },
+      "rotor_R": {
+        "html": "R [m]",
+        "mathtext": "$R$ [m]",
+        "text": "R [m]"
+      },
+      "rotor_rpm": {
+        "html": "RPM [-]",
+        "mathtext": "RPM [-]",
+        "text": "RPM [-]"
+      },
+      "rpm": {
+        "html": "RPM [rev/min]",
+        "mathtext": "RPM [rev/min]",
+        "text": "RPM [rev/min]"
+      },
+      "solver": {
+        "html": "solver",
+        "mathtext": "solver",
+        "text": "solver"
+      }
+    }
+  },
+  "condition_labels": {
+    "propeller": [
+      "μ_z=0.1",
+      "μ_z=0.1, α_rotor=-10°",
+      "J_z=0.8, α_disk=2°",
+      "μ_x=0.05, J_x=0.16",
+      "V_z=30 m/s, V_x=65 m/s",
+      "μ_z=0, θ₀=8°, RPM=600"
+    ],
+    "rotor": [
+      "μ_x=0.1",
+      "μ_x=0.1, α_rotor=-10°",
+      "J_x=0.8, α_disk=2°",
+      "μ_z=0.05, J_z=0.16",
+      "V_x=30 m/s, V_z=65 m/s",
+      "μ_x=0, θ₀=8°, RPM=600"
+    ]
+  },
+  "condition_units": {
+    "axial/propeller": [
+      [
+        "Jₓ",
+        "J_z"
+      ],
+      [
+        "μₓ",
+        "mu_z"
+      ],
+      [
+        "Vₓ [m/s]",
+        "Vz"
+      ]
+    ],
+    "axial/rotor": [
+      [
+        "αᵣₒₜₒᵣ [deg]",
+        "alpha_deg"
+      ],
+      [
+        "V_z [m/s]",
+        "Vz"
+      ],
+      [
+        "μ_z",
+        "mu_z"
+      ],
+      [
+        "J_z",
+        "J_z"
+      ]
+    ],
+    "inplane/propeller": [
+      [
+        "V_z [m/s]",
+        "Vx"
+      ],
+      [
+        "α_dᵢₛₖ [deg]",
+        "alpha_disk"
+      ],
+      [
+        "μ_z",
+        "mu_x"
+      ],
+      [
+        "J_z",
+        "J_x"
+      ]
+    ],
+    "inplane/rotor": [
+      [
+        "μₓ",
+        "mu_x"
+      ],
+      [
+        "Jₓ",
+        "J_x"
+      ],
+      [
+        "Vₓ [m/s]",
+        "Vx"
+      ]
+    ]
+  },
+  "default_unit": {
+    "axial/propeller": "Jₓ",
+    "axial/rotor": "αᵣₒₜₒᵣ [deg]",
+    "inplane/propeller": "V_z [m/s]",
+    "inplane/rotor": "μₓ"
+  },
+  "factorial_slots": {
+    "J_x": "inplane",
+    "J_z": "axial",
+    "Vx": "inplane",
+    "Vz": "axial",
+    "alpha_deg": "axial",
+    "alpha_disk": "inplane",
+    "collective_deg": "collective_deg",
+    "mu_x": "inplane",
+    "mu_z": "axial",
+    "rpm": "rpm"
+  },
+  "primary_columns": {
+    "propeller": [
+      "mu_z",
+      "J_z",
+      "Vz",
+      "lambda_z",
+      "mu_x",
+      "J_x",
+      "Vx",
+      "alpha_disk_deg",
+      "collective_deg",
+      "rpm"
+    ],
+    "rotor": [
+      "mu_x",
+      "J_x",
+      "Vx",
+      "mu_z",
+      "J_z",
+      "Vz",
+      "lambda_z",
+      "alpha_rotor_deg",
+      "collective_deg",
+      "rpm"
+    ],
+    "shared": [
+      "mu_x",
+      "J_x",
+      "Vx",
+      "mu_z",
+      "J_z",
+      "Vz",
+      "lambda_z",
+      "alpha_rotor_deg",
+      "alpha_disk_deg",
+      "collective_deg",
+      "rpm",
+      "lambda_i",
+      "lambda_total",
+      "Vi",
+      "Vz_total",
+      "CT",
+      "CQ",
+      "CP",
+      "CPi",
+      "CPp",
+      "FM",
+      "CH",
+      "CHi",
+      "CHp",
+      "CY",
+      "CMx",
+      "CMy",
+      "CT_prop",
+      "CQ_prop",
+      "CP_prop",
+      "eta_prop",
+      "Thrust",
+      "Torque",
+      "Power",
+      "Power_i",
+      "Power_p",
+      "H",
+      "Hi",
+      "Hp",
+      "Y",
+      "Mx",
+      "My",
+      "rotor_R",
+      "rotor_D",
+      "rotor_Nb",
+      "rotor_Omega",
+      "rotor_OmegaR",
+      "rotor_rpm",
+      "convergence_pct",
+      "mean_iter",
+      "elapsed_s",
+      "solver",
+      "inflow_coupling"
+    ]
+  },
+  "slot_labels": {
+    "axial/propeller": [
+      "Axial (along-shaft) Flow:",
+      "\"Vz\" — the horizontal component of the flight velocity, V<sub>x</sub>: the aircraft's AIRSPEED. On a propeller the shaft is horizontal, so x runs ALONG THE SHAFT. (The engine keeps this component under its own disk-axes field name, \"V<sub>z</sub>\"; on screen and in the output table it is V<sub>x</sub> / &mu;<sub>x</sub> / J<sub>x</sub>, and the engine adds the induced velocity to it to form V<sub>x,total</sub> = V<sub>x</sub> + v_i.)<br><br>THIS IS THE PROPELLER'S ADVANCE RATIO. The default unit J<sub>x</sub> is the classic one of the propeller charts, J<sub>x</sub> = V/(nD) = V<sub>x</sub>/((rpm/60)·2R), built from the AXIAL airspeed — the same J<sub>x</sub> that propulsive efficiency uses, since thrust acts along the shaft.<br><br>Units offered: J<sub>x</sub>, &mu;<sub>x</sub> = J<sub>x</sub>/π = V<sub>x</sub>/(ΩR) (the same number in the rotor vocabulary, also written &lambda;<sub>x</sub>), and the dimensional speed V<sub>x</sub> [m/s].<br><br>No angle is offered here, on purpose: an angle only splits the known component into the other one, and on a propeller the known component is this one. The angle lives in the cross-flow field above, measured from the shaft (&alpha;<sub>disk</sub>)."
+    ],
+    "axial/rotor": [
+      "Axial (along-shaft) Flow:",
+      "\"Vz\" — the vertical component of the flight velocity, V<sub>z</sub>. On a rotor the shaft is vertical, so z runs ALONG THE SHAFT: this is climb (positive) or descent (negative), and the engine adds the induced velocity to it to form V<sub>z,total</sub> = V<sub>z</sub> + v_i.<br><br>Units offered: &alpha;<sub>rotor</sub> [deg], V<sub>z</sub> [m/s], and the ratios &mu;<sub>z</sub> = V<sub>z</sub>/(ΩR) (also written &lambda;<sub>z</sub>) and J<sub>z</sub> = V<sub>z</sub>/(nD) = π·&mu;<sub>z</sub>.<br><br>&alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>) is THE angle of rotor mode, measured FROM THE DISK PLANE: 0° is level forward flight — a helicopter cruising — and it is POSITIVE when the flow arrives from below the disk. Propeller mode offers &alpha;<sub>disk</sub> instead, measured from the shaft; each mode offers only its own angle, so there is never a doubt about which alpha a number is.<br><br>The angle lives in this z field in both modes for one reason: an angle never fixes the scale of the velocity, it only splits the KNOWN component into the other one — and the known component is x in both modes."
+    ],
+    "inplane/propeller": [
+      "Cross (in-plane) Flow:",
+      "\"mu_x\" (shown here as V<sub>z</sub>) — cross-flow speed across the propeller shaft.<br><br>Propeller axes: x is along the shaft; z is in the disk plane.<br>Straight cruise: V<sub>z</sub> = 0. Put aircraft airspeed V<sub>x</sub> in the axial field below.<br><br>Choices: V<sub>z</sub> [m/s], &alpha;<sub>disk</sub> [deg], &mu;<sub>z</sub> = V<sub>z</sub>/(ΩR), or J<sub>z</sub> = V<sub>z</sub>/(nD). J<sub>z</sub> is cross-flow, not the propeller advance ratio.<br><br>&alpha;<sub>disk</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>): 0° means the free stream is aligned with the shaft."
+    ],
+    "inplane/rotor": [
+      "Edgewise (in-plane) flow:",
+      "\"mu_x\" — the horizontal component of the flight velocity, V<sub>x</sub>. On a rotor the shaft is vertical, so x lies IN THE PLANE OF THE DISK: this is THE ADVANCE, the component that sweeps across the blades and makes the advancing and retreating sides differ.<br><br>Units offered: &mu;<sub>x</sub> = V<sub>x</sub>/(ΩR) (also written &lambda;<sub>x</sub>), J<sub>x</sub> = V<sub>x</sub>/(nD) = π·&mu;<sub>x</sub>, and the dimensional speed V<sub>x</sub> [m/s]. The vertical component V<sub>z</sub> is the field below."
+    ]
+  },
+  "summary_symbols": {
+    "propeller": {
+      "CH": [
+        "C<sub>H</sub>",
+        "H-force coefficient, in-plane drag-like force (+ aft)"
+      ],
+      "CHi": [
+        "C<sub>Hi</sub>",
+        "Induced part of the H-force coefficient"
+      ],
+      "CHp": [
+        "C<sub>Hp</sub>",
+        "Profile part of the H-force coefficient"
+      ],
+      "CMx": [
+        "C<sub>Mx</sub>",
+        "Pitch moment coefficient (+ nose up)"
+      ],
+      "CMy": [
+        "C<sub>My</sub>",
+        "Roll moment coefficient (+ roll toward the advancing side)"
+      ],
+      "CP": [
+        "C<sub>P</sub>",
+        "Power coefficient: CP = P / (rho*A*(Omega*R)^3)"
+      ],
+      "CP_prop": [
+        "C<sub>P,prop</sub>",
+        "Propeller-convention power coefficient: CP = P / (rho*n^3*D^5)"
+      ],
+      "CPi": [
+        "C<sub>Pi</sub>",
+        "Induced part of the power coefficient"
+      ],
+      "CPp": [
+        "C<sub>Pp</sub>",
+        "Profile (sectional drag) part of the power coefficient"
+      ],
+      "CQ": [
+        "C<sub>Q</sub>",
+        "Torque coefficient: CQ = Q / (rho*A*(Omega*R)^2*R) -- numerically equals CP for a rotor"
+      ],
+      "CQ_prop": [
+        "C<sub>Q,prop</sub>",
+        "Propeller-convention torque coefficient: CQ = Q / (rho*n^2*D^5)"
+      ],
+      "CT": [
+        "C<sub>T</sub>",
+        "Thrust coefficient: CT = T / (rho*A*(Omega*R)^2)"
+      ],
+      "CT_prop": [
+        "C<sub>T,prop</sub>",
+        "Propeller-convention thrust coefficient: CT = T / (rho*n^2*D^4)"
+      ],
+      "CY": [
+        "C<sub>Y</sub>",
+        "Side-force coefficient (+ toward the advancing side)"
+      ],
+      "FM": [
+        "FM",
+        "Figure of Merit: ideal induced power / actual power. A static (V<sub>x</sub> = 0) figure of merit; in cruise the same formula can exceed 1 -- use &eta;<sub>prop</sub> instead"
+      ],
+      "H": [
+        "H",
+        "In-plane H-force [N], drag-like, positive aft"
+      ],
+      "Hi": [
+        "H<sub>i</sub>",
+        "Induced part of the H-force [N]"
+      ],
+      "Hp": [
+        "H<sub>p</sub>",
+        "Profile (sectional drag) part of the H-force [N]"
+      ],
+      "J_x": [
+        "J<sub>z</sub>",
+        "Advance ratio along z in propeller form: J<sub>z</sub> = V<sub>z</sub>/(nD) = &pi;&middot;&mu;<sub>z</sub>. NOT the propeller advance ratio -- that one is J<sub>x</sub>, built from the airspeed along the shaft. This is the cross-flow, zero in straight cruise"
+      ],
+      "J_z": [
+        "J<sub>x</sub>",
+        "Advance ratio along x in propeller form: J<sub>x</sub> = V<sub>x</sub>/(nD) = &pi;&middot;&mu;<sub>x</sub>. THIS IS THE J<sub>x</sub> of propeller charts, built from the airspeed along the shaft, and the one propulsive efficiency uses"
+      ],
+      "Mx": [
+        "M<sub>x</sub>",
+        "Pitch moment about the hub [N&middot;m], positive nose up"
+      ],
+      "My": [
+        "M<sub>y</sub>",
+        "Roll moment about the hub [N&middot;m], positive toward the advancing side"
+      ],
+      "Power": [
+        "P",
+        "Shaft power [W]"
+      ],
+      "Power_i": [
+        "P<sub>i</sub>",
+        "Induced power [W]: the part spent creating the wake"
+      ],
+      "Power_p": [
+        "P<sub>p</sub>",
+        "Profile power [W]: the part spent on blade sectional drag"
+      ],
+      "Thrust": [
+        "T",
+        "Thrust [N], along the shaft axis"
+      ],
+      "Torque": [
+        "Q",
+        "Shaft torque [N&middot;m]"
+      ],
+      "Vi": [
+        "v<sub>i</sub>",
+        "Induced velocity [m/s], disk-averaged: the velocity the rotor adds along its own shaft. v<sub>i</sub> = &lambda;<sub>i</sub>&middot;(&Omega;R). It never changes axis with the mode -- only the letter naming that axis does"
+      ],
+      "Vx": [
+        "V<sub>z</sub>",
+        "Free-stream component along z [m/s]. In propeller mode z is VERTICAL, across the shaft and in the plane of the disk: the cross-flow. ZERO in straight cruise; non-zero when the propeller flies at an angle to its axis"
+      ],
+      "Vz": [
+        "V<sub>x</sub>",
+        "Free-stream component along x [m/s]. In propeller mode x is the SHAFT direction, so this is the aircraft's airspeed -- in straight cruise, the whole flight velocity. It is the FREE STREAM; the flow through the disk is V<sub>x,total</sub>"
+      ],
+      "Vz_total": [
+        "V<sub>x,total</sub>",
+        "Total velocity along the shaft, through the disk [m/s]: V<sub>x,total</sub> = V<sub>x</sub> + v<sub>i</sub>, disk-averaged. The airspeed plus what the propeller adds. Written U<sub>P</sub> in the manual (Section 2.4.2)"
+      ],
+      "Y": [
+        "Y",
+        "In-plane side force [N], positive toward the advancing side"
+      ],
+      "alpha_disk_deg": [
+        "&alpha;<sub>disk</sub>",
+        "DISK angle of attack [deg]: angle between the free stream and the SHAFT, &alpha;<sub>disk</sub> = 90 - &alpha;<sub>rotor</sub>. This is THE angle of propeller mode -- 0 in straight cruise (so a 2 deg misalignment reads '2'), and POSITIVE when the disk is tilted nose-up, i.e. the flow arrives from below. Its rotor-mode counterpart is &alpha;<sub>rotor</sub>, measured from the disk plane; each mode shows only its own"
+      ],
+      "alpha_rotor_deg": [
+        "&alpha;<sub>rotor</sub>",
+        "ROTOR angle of attack [deg]: angle between the free stream and the DISK PLANE, &alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>). This is THE angle of rotor mode -- 0 in a helicopter's level forward flight, and POSITIVE when the flow arrives from below the disk. Its propeller-mode counterpart is &alpha;<sub>disk</sub>, measured from the shaft; the two are complementary and each mode shows only its own"
+      ],
+      "cfg_Ne": [
+        "N<sub>e</sub>",
+        "Number of radial stations in the mesh"
+      ],
+      "cfg_Npsi": [
+        "N<sub>&psi;</sub>",
+        "Number of azimuthal stations in the mesh"
+      ],
+      "cfg_a_sound": [
+        "a",
+        "Speed of sound [m/s], used for the Mach number"
+      ],
+      "cfg_collect_history": [
+        "history",
+        "Whether per-iteration convergence history is collected"
+      ],
+      "cfg_dynamic_stall_A": [
+        "A<sub>ds</sub>",
+        "Oye dynamic stall time-constant parameter"
+      ],
+      "cfg_dynamic_stall_f_reg": [
+        "f<sub>reg</sub>",
+        "Regularization factor for the Oye separation function"
+      ],
+      "cfg_dynamic_stall_fade_end_deg": [
+        "&alpha;<sub>fade1</sub>",
+        "Angle of attack where dynamic stall correction is fully faded out [deg]"
+      ],
+      "cfg_dynamic_stall_fade_start_deg": [
+        "&alpha;<sub>fade0</sub>",
+        "Angle of attack where dynamic stall correction starts fading out [deg]"
+      ],
+      "cfg_dynamic_stall_method": [
+        "stall method",
+        "Dynamic stall coupling method (frequency-domain or time-march)"
+      ],
+      "cfg_dynamic_stall_model": [
+        "stall model",
+        "Dynamic stall model used (currently only 'oye')"
+      ],
+      "cfg_dynamic_stall_time_march_avg_last": [
+        "N<sub>avg</sub>",
+        "Last N revolutions averaged in time-march dynamic stall"
+      ],
+      "cfg_dynamic_stall_time_march_revolutions": [
+        "N<sub>rev</sub>",
+        "Revolutions simulated in time-march dynamic stall"
+      ],
+      "cfg_early_exit_fraction": [
+        "f<sub>exit</sub>",
+        "Fraction of converged elements that triggers early exit"
+      ],
+      "cfg_inflow_field_model": [
+        "inflow",
+        "Inflow model requested (Glauert/Coleman/Drees/Pitt-Peters, local/global coupling)"
+      ],
+      "cfg_integration_offset": [
+        "&Delta;r<sub>0</sub>",
+        "Radial offset applied to stations to avoid the root/tip singularity"
+      ],
+      "cfg_is_propeller": [
+        "prop?",
+        "Whether the case is interpreted in propeller convention (J_x, CT_prop, ...)"
+      ],
+      "cfg_mask_reverse_flow_plots": [
+        "mask rev.",
+        "Whether the reverse-flow region is masked out in disk-map plots"
+      ],
+      "cfg_max_iter": [
+        "iter<sub>max</sub>",
+        "Maximum solver iterations per mesh element"
+      ],
+      "cfg_nu_air": [
+        "&nu;",
+        "Air kinematic viscosity [m&sup2;/s], used for the Reynolds number"
+      ],
+      "cfg_pitt_peters_outer_iter": [
+        "iter<sub>PP</sub>",
+        "Max outer iterations for the Pitt-Peters ODE coupling"
+      ],
+      "cfg_pitt_peters_relax": [
+        "relax<sub>PP</sub>",
+        "Relaxation factor for the Pitt-Peters outer loop"
+      ],
+      "cfg_pitt_peters_states": [
+        "N<sub>states</sub>",
+        "Number of Pitt-Peters dynamic inflow states (3 or 5)"
+      ],
+      "cfg_pitt_peters_tol": [
+        "tol<sub>PP</sub>",
+        "Convergence tolerance for the Pitt-Peters outer loop"
+      ],
+      "cfg_prandtl_loss_mode": [
+        "F mode",
+        "Prandtl tip/root loss mode requested (off/tip/root/both)"
+      ],
+      "cfg_radial_flow_max_skew_deg": [
+        "skew<sub>max</sub>",
+        "Maximum skew angle for the radial flow correction [deg]"
+      ],
+      "cfg_relax": [
+        "relax",
+        "Base relaxation factor for the fixed-point solver"
+      ],
+      "cfg_relax_azimuth_factor": [
+        "relax<sub>&psi;</sub>",
+        "Relaxation factor applied near the azimuth crossing"
+      ],
+      "cfg_relax_azimuth_threshold": [
+        "&psi;<sub>relax</sub>",
+        "Azimuth threshold (rad) for relax_azimuth_factor"
+      ],
+      "cfg_relax_root_factor": [
+        "relax<sub>root</sub>",
+        "Relaxation factor applied near the root"
+      ],
+      "cfg_relax_root_threshold": [
+        "r<sub>root,relax</sub>",
+        "Root threshold (r/R) below which relax_root_factor applies"
+      ],
+      "cfg_relax_schedule": [
+        "adaptive relax",
+        "Whether adaptive relaxation scheduling is enabled"
+      ],
+      "cfg_relax_tip_threshold": [
+        "r<sub>tip,relax</sub>",
+        "Tip threshold (r/R) above which relax_root_factor applies"
+      ],
+      "cfg_reverse_flow_blend_factor": [
+        "k<sub>rev</sub>",
+        "Blend sharpness factor for the reverse-flow model"
+      ],
+      "cfg_reverse_flow_model": [
+        "rev. flow",
+        "Model used for the reverse-flow region of the disk"
+      ],
+      "cfg_rho": [
+        "&rho;<sub>cfg</sub>",
+        "Air density configured [kg/m&sup3;] (before any per-condition override -- see rho_used)"
+      ],
+      "cfg_rho_used": [
+        "&rho;<sub>used</sub>",
+        "Air density actually used in this solve [kg/m&sup3;] (may differ from cfg_rho if overridden per condition)"
+      ],
+      "cfg_solver": [
+        "solver<sub>cfg</sub>",
+        "Fixed-point solver requested (newton/fixed_point/bisection/aitken)"
+      ],
+      "cfg_stagnation_min_frac": [
+        "f<sub>stag</sub>",
+        "Minimum converged fraction required to avoid the stagnation exit"
+      ],
+      "cfg_stagnation_patience": [
+        "N<sub>stag</sub>",
+        "Iterations of stagnation tolerated before declaring non-convergence"
+      ],
+      "cfg_thin_plate_blend_center_deg": [
+        "&alpha;<sub>c,tp</sub>",
+        "Thin-plate blend center angle [deg]"
+      ],
+      "cfg_thin_plate_blend_width_deg": [
+        "&Delta;&alpha;<sub>tp</sub>",
+        "Thin-plate blend width [deg]"
+      ],
+      "cfg_tol": [
+        "tol",
+        "Solver convergence tolerance on the true residual g(&lambda;)-&lambda;"
+      ],
+      "cfg_use_compressibility": [
+        "compr.",
+        "Whether the Prandtl-Glauert compressibility correction is applied"
+      ],
+      "cfg_use_dynamic_stall": [
+        "dyn. stall",
+        "Whether dynamic stall correction is enabled"
+      ],
+      "cfg_use_radial_flow_correction": [
+        "radial flow",
+        "Whether the radial (spanwise) flow correction is applied"
+      ],
+      "cfg_use_rotational_augmentation": [
+        "3D aug.",
+        "Whether rotational (Himmelskamp/Snel) lift augmentation is applied"
+      ],
+      "collective_deg": [
+        "&theta;<sub>0</sub>",
+        "Collective pitch [deg], added on top of the built-in blade twist"
+      ],
+      "condition": [
+        "condition",
+        "Flight condition. Cases are numbered in the order they were run, so a row can be cited (\"Case 3\") and matched to the figure with the same label"
+      ],
+      "convergence_pct": [
+        "conv.",
+        "Percentage of mesh elements where the inflow fixed point converged [%]"
+      ],
+      "elapsed_s": [
+        "t<sub>cpu</sub>",
+        "Wall-clock solve time [s]"
+      ],
+      "eta_prop": [
+        "&eta;<sub>prop</sub>",
+        "Propulsive efficiency: &eta; = T&middot;V<sub>x</sub>/P = J<sub>x</sub>&middot;C<sub>T,prop</sub>/C<sub>P,prop</sub>. Built from the airspeed ALONG THE SHAFT, since thrust acts there; meaningful with V<sub>x</sub> &gt; 0"
+      ],
+      "inflow_coupling": [
+        "coupling",
+        "How the inflow field is coupled across elements (local = per element, global = few global DOF)"
+      ],
+      "lambda_i": [
+        "&lambda;<sub>i</sub>",
+        "Induced inflow ratio: &lambda;<sub>i</sub> = v<sub>i</sub>/(&Omega;R), the unknown solved by the BEMT fixed point. Area-weighted mean over the meshed span (root cutout to tip), not the whole geometric disk"
+      ],
+      "lambda_total": [
+        "&lambda;<sub>total</sub>",
+        "Total inflow ratio along the shaft: &lambda;<sub>total</sub> = &lambda;<sub>i</sub> + &lambda;<sub>x</sub> -- the free-stream part plus the induced part. Its dimensional counterpart is V<sub>x,total</sub> = &lambda;<sub>total</sub>&middot;(&Omega;R)"
+      ],
+      "lambda_z": [
+        "&lambda;<sub>x</sub>",
+        "Inflow ratio along x, from the free stream alone: &lambda;<sub>x</sub> = V<sub>x</sub>/(&Omega;R). In propeller mode x is the shaft, so this is the axial inflow -- an input datum, known before any aerodynamics. THE SAME NUMBER as &mu;<sub>x</sub>, in the inflow vocabulary"
+      ],
+      "mean_iter": [
+        "iter<sub>avg</sub>",
+        "Mean number of solver iterations per mesh element"
+      ],
+      "mu_x": [
+        "&mu;<sub>z</sub>",
+        "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R), the cross-flow normalised by tip speed. This is the component that varies with azimuth and makes one side of the disk see more speed than the other. Zero in straight cruise"
+      ],
+      "mu_z": [
+        "&mu;<sub>x</sub>",
+        "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R), the airspeed normalised by tip speed. THE SAME NUMBER as &lambda;<sub>x</sub>, in the advance-ratio vocabulary"
+      ],
+      "rotor_D": [
+        "D",
+        "Diameter [m] = 2R"
+      ],
+      "rotor_Nb": [
+        "N<sub>b</sub>",
+        "Number of blades"
+      ],
+      "rotor_Omega": [
+        "&Omega;",
+        "Angular speed [rad/s]"
+      ],
+      "rotor_OmegaR": [
+        "&Omega;R",
+        "Tip speed [m/s]"
+      ],
+      "rotor_R": [
+        "R",
+        "Rotor/propeller radius [m]"
+      ],
+      "rotor_rpm": [
+        "RPM<sub>rotor</sub>",
+        "Engine echo of the rotational speed built into the Rotor object [rev/min]. Same quantity as RPM; it is shown as a separate column only in the (abnormal) case where the two disagree"
+      ],
+      "rpm": [
+        "RPM",
+        "Rotational speed of the rotor for this condition [rev/min] -- the value the solver actually ran with. Same quantity as RPM<sub>rotor</sub> (the engine's own echo of it), which is therefore hidden from the table whenever the two agree"
+      ],
+      "solver": [
+        "solver",
+        "Fixed-point solver used for the inflow equation"
+      ]
+    },
+    "rotor": {
+      "CH": [
+        "C<sub>H</sub>",
+        "H-force coefficient, in-plane drag-like force (+ aft)"
+      ],
+      "CHi": [
+        "C<sub>Hi</sub>",
+        "Induced part of the H-force coefficient"
+      ],
+      "CHp": [
+        "C<sub>Hp</sub>",
+        "Profile part of the H-force coefficient"
+      ],
+      "CMx": [
+        "C<sub>Mx</sub>",
+        "Pitch moment coefficient (+ nose up)"
+      ],
+      "CMy": [
+        "C<sub>My</sub>",
+        "Roll moment coefficient (+ roll toward the advancing side)"
+      ],
+      "CP": [
+        "C<sub>P</sub>",
+        "Power coefficient: CP = P / (rho*A*(Omega*R)^3)"
+      ],
+      "CP_prop": [
+        "C<sub>P,prop</sub>",
+        "Propeller-convention power coefficient: CP = P / (rho*n^3*D^5)"
+      ],
+      "CPi": [
+        "C<sub>Pi</sub>",
+        "Induced part of the power coefficient"
+      ],
+      "CPp": [
+        "C<sub>Pp</sub>",
+        "Profile (sectional drag) part of the power coefficient"
+      ],
+      "CQ": [
+        "C<sub>Q</sub>",
+        "Torque coefficient: CQ = Q / (rho*A*(Omega*R)^2*R) -- numerically equals CP for a rotor"
+      ],
+      "CQ_prop": [
+        "C<sub>Q,prop</sub>",
+        "Propeller-convention torque coefficient: CQ = Q / (rho*n^2*D^5)"
+      ],
+      "CT": [
+        "C<sub>T</sub>",
+        "Thrust coefficient: CT = T / (rho*A*(Omega*R)^2)"
+      ],
+      "CT_prop": [
+        "C<sub>T,prop</sub>",
+        "Propeller-convention thrust coefficient: CT = T / (rho*n^2*D^4)"
+      ],
+      "CY": [
+        "C<sub>Y</sub>",
+        "Side-force coefficient (+ toward the advancing side)"
+      ],
+      "FM": [
+        "FM",
+        "Figure of Merit: ideal induced power / actual power. Hover-specific (mu_x=0, V_inf,z=0); outside hover the same formula can exceed 1"
+      ],
+      "H": [
+        "H",
+        "In-plane H-force [N], drag-like, positive aft"
+      ],
+      "Hi": [
+        "H<sub>i</sub>",
+        "Induced part of the H-force [N]"
+      ],
+      "Hp": [
+        "H<sub>p</sub>",
+        "Profile (sectional drag) part of the H-force [N]"
+      ],
+      "J_x": [
+        "J<sub>x</sub>",
+        "Advance ratio along x in propeller form: J<sub>x</sub> = V<sub>x</sub>/(nD) = &pi;&middot;&mu;<sub>x</sub>"
+      ],
+      "J_z": [
+        "J<sub>z</sub>",
+        "Advance ratio along z in propeller form: J<sub>z</sub> = V<sub>z</sub>/(nD) = &pi;&middot;&mu;<sub>z</sub>"
+      ],
+      "Mx": [
+        "M<sub>x</sub>",
+        "Pitch moment about the hub [N&middot;m], positive nose up"
+      ],
+      "My": [
+        "M<sub>y</sub>",
+        "Roll moment about the hub [N&middot;m], positive toward the advancing side"
+      ],
+      "Power": [
+        "P",
+        "Shaft power [W]"
+      ],
+      "Power_i": [
+        "P<sub>i</sub>",
+        "Induced power [W]: the part spent creating the wake"
+      ],
+      "Power_p": [
+        "P<sub>p</sub>",
+        "Profile power [W]: the part spent on blade sectional drag"
+      ],
+      "Thrust": [
+        "T",
+        "Thrust [N], along the shaft axis"
+      ],
+      "Torque": [
+        "Q",
+        "Shaft torque [N&middot;m]"
+      ],
+      "Vi": [
+        "v<sub>i</sub>",
+        "Induced velocity [m/s], disk-averaged: the velocity the rotor adds along its own shaft. v<sub>i</sub> = &lambda;<sub>i</sub>&middot;(&Omega;R). It never changes axis with the mode -- only the letter naming that axis does"
+      ],
+      "Vx": [
+        "V<sub>x</sub>",
+        "Free-stream component along x [m/s]. In rotor mode x is the IN-PLANE direction, so this is the horizontal flight speed -- what &mu;<sub>x</sub> and J<sub>x</sub> are built from"
+      ],
+      "Vz": [
+        "V<sub>z</sub>",
+        "Free-stream component along z [m/s]. In rotor mode z is the SHAFT direction, so this is climb (positive) or descent (negative). It is the FREE STREAM, not the flow through the disk -- that one is V<sub>z,total</sub>"
+      ],
+      "Vz_total": [
+        "V<sub>z,total</sub>",
+        "Total velocity along the shaft, through the disk [m/s]: V<sub>z,total</sub> = V<sub>z</sub> + v<sub>i</sub>, disk-averaged. Free stream plus what the rotor adds. Written U<sub>P</sub> in the manual (Section 2.4.2)"
+      ],
+      "Y": [
+        "Y",
+        "In-plane side force [N], positive toward the advancing side"
+      ],
+      "alpha_disk_deg": [
+        "&alpha;<sub>disk</sub>",
+        "DISK angle of attack [deg]: angle between the free stream and the SHAFT, &alpha;<sub>disk</sub> = 90 - &alpha;<sub>rotor</sub>. This is THE angle of propeller mode -- 0 in straight cruise (so a 2 deg misalignment reads '2'), and POSITIVE when the disk is tilted nose-up, i.e. the flow arrives from below. Its rotor-mode counterpart is &alpha;<sub>rotor</sub>, measured from the disk plane; each mode shows only its own"
+      ],
+      "alpha_rotor_deg": [
+        "&alpha;<sub>rotor</sub>",
+        "ROTOR angle of attack [deg]: angle between the free stream and the DISK PLANE, &alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>). This is THE angle of rotor mode -- 0 in a helicopter's level forward flight, and POSITIVE when the flow arrives from below the disk. Its propeller-mode counterpart is &alpha;<sub>disk</sub>, measured from the shaft; the two are complementary and each mode shows only its own"
+      ],
+      "cfg_Ne": [
+        "N<sub>e</sub>",
+        "Number of radial stations in the mesh"
+      ],
+      "cfg_Npsi": [
+        "N<sub>&psi;</sub>",
+        "Number of azimuthal stations in the mesh"
+      ],
+      "cfg_a_sound": [
+        "a",
+        "Speed of sound [m/s], used for the Mach number"
+      ],
+      "cfg_collect_history": [
+        "history",
+        "Whether per-iteration convergence history is collected"
+      ],
+      "cfg_dynamic_stall_A": [
+        "A<sub>ds</sub>",
+        "Oye dynamic stall time-constant parameter"
+      ],
+      "cfg_dynamic_stall_f_reg": [
+        "f<sub>reg</sub>",
+        "Regularization factor for the Oye separation function"
+      ],
+      "cfg_dynamic_stall_fade_end_deg": [
+        "&alpha;<sub>fade1</sub>",
+        "Angle of attack where dynamic stall correction is fully faded out [deg]"
+      ],
+      "cfg_dynamic_stall_fade_start_deg": [
+        "&alpha;<sub>fade0</sub>",
+        "Angle of attack where dynamic stall correction starts fading out [deg]"
+      ],
+      "cfg_dynamic_stall_method": [
+        "stall method",
+        "Dynamic stall coupling method (frequency-domain or time-march)"
+      ],
+      "cfg_dynamic_stall_model": [
+        "stall model",
+        "Dynamic stall model used (currently only 'oye')"
+      ],
+      "cfg_dynamic_stall_time_march_avg_last": [
+        "N<sub>avg</sub>",
+        "Last N revolutions averaged in time-march dynamic stall"
+      ],
+      "cfg_dynamic_stall_time_march_revolutions": [
+        "N<sub>rev</sub>",
+        "Revolutions simulated in time-march dynamic stall"
+      ],
+      "cfg_early_exit_fraction": [
+        "f<sub>exit</sub>",
+        "Fraction of converged elements that triggers early exit"
+      ],
+      "cfg_inflow_field_model": [
+        "inflow",
+        "Inflow model requested (Glauert/Coleman/Drees/Pitt-Peters, local/global coupling)"
+      ],
+      "cfg_integration_offset": [
+        "&Delta;r<sub>0</sub>",
+        "Radial offset applied to stations to avoid the root/tip singularity"
+      ],
+      "cfg_is_propeller": [
+        "prop?",
+        "Whether the case is interpreted in propeller convention (J_x, CT_prop, ...)"
+      ],
+      "cfg_mask_reverse_flow_plots": [
+        "mask rev.",
+        "Whether the reverse-flow region is masked out in disk-map plots"
+      ],
+      "cfg_max_iter": [
+        "iter<sub>max</sub>",
+        "Maximum solver iterations per mesh element"
+      ],
+      "cfg_nu_air": [
+        "&nu;",
+        "Air kinematic viscosity [m&sup2;/s], used for the Reynolds number"
+      ],
+      "cfg_pitt_peters_outer_iter": [
+        "iter<sub>PP</sub>",
+        "Max outer iterations for the Pitt-Peters ODE coupling"
+      ],
+      "cfg_pitt_peters_relax": [
+        "relax<sub>PP</sub>",
+        "Relaxation factor for the Pitt-Peters outer loop"
+      ],
+      "cfg_pitt_peters_states": [
+        "N<sub>states</sub>",
+        "Number of Pitt-Peters dynamic inflow states (3 or 5)"
+      ],
+      "cfg_pitt_peters_tol": [
+        "tol<sub>PP</sub>",
+        "Convergence tolerance for the Pitt-Peters outer loop"
+      ],
+      "cfg_prandtl_loss_mode": [
+        "F mode",
+        "Prandtl tip/root loss mode requested (off/tip/root/both)"
+      ],
+      "cfg_radial_flow_max_skew_deg": [
+        "skew<sub>max</sub>",
+        "Maximum skew angle for the radial flow correction [deg]"
+      ],
+      "cfg_relax": [
+        "relax",
+        "Base relaxation factor for the fixed-point solver"
+      ],
+      "cfg_relax_azimuth_factor": [
+        "relax<sub>&psi;</sub>",
+        "Relaxation factor applied near the azimuth crossing"
+      ],
+      "cfg_relax_azimuth_threshold": [
+        "&psi;<sub>relax</sub>",
+        "Azimuth threshold (rad) for relax_azimuth_factor"
+      ],
+      "cfg_relax_root_factor": [
+        "relax<sub>root</sub>",
+        "Relaxation factor applied near the root"
+      ],
+      "cfg_relax_root_threshold": [
+        "r<sub>root,relax</sub>",
+        "Root threshold (r/R) below which relax_root_factor applies"
+      ],
+      "cfg_relax_schedule": [
+        "adaptive relax",
+        "Whether adaptive relaxation scheduling is enabled"
+      ],
+      "cfg_relax_tip_threshold": [
+        "r<sub>tip,relax</sub>",
+        "Tip threshold (r/R) above which relax_root_factor applies"
+      ],
+      "cfg_reverse_flow_blend_factor": [
+        "k<sub>rev</sub>",
+        "Blend sharpness factor for the reverse-flow model"
+      ],
+      "cfg_reverse_flow_model": [
+        "rev. flow",
+        "Model used for the reverse-flow region of the disk"
+      ],
+      "cfg_rho": [
+        "&rho;<sub>cfg</sub>",
+        "Air density configured [kg/m&sup3;] (before any per-condition override -- see rho_used)"
+      ],
+      "cfg_rho_used": [
+        "&rho;<sub>used</sub>",
+        "Air density actually used in this solve [kg/m&sup3;] (may differ from cfg_rho if overridden per condition)"
+      ],
+      "cfg_solver": [
+        "solver<sub>cfg</sub>",
+        "Fixed-point solver requested (newton/fixed_point/bisection/aitken)"
+      ],
+      "cfg_stagnation_min_frac": [
+        "f<sub>stag</sub>",
+        "Minimum converged fraction required to avoid the stagnation exit"
+      ],
+      "cfg_stagnation_patience": [
+        "N<sub>stag</sub>",
+        "Iterations of stagnation tolerated before declaring non-convergence"
+      ],
+      "cfg_thin_plate_blend_center_deg": [
+        "&alpha;<sub>c,tp</sub>",
+        "Thin-plate blend center angle [deg]"
+      ],
+      "cfg_thin_plate_blend_width_deg": [
+        "&Delta;&alpha;<sub>tp</sub>",
+        "Thin-plate blend width [deg]"
+      ],
+      "cfg_tol": [
+        "tol",
+        "Solver convergence tolerance on the true residual g(&lambda;)-&lambda;"
+      ],
+      "cfg_use_compressibility": [
+        "compr.",
+        "Whether the Prandtl-Glauert compressibility correction is applied"
+      ],
+      "cfg_use_dynamic_stall": [
+        "dyn. stall",
+        "Whether dynamic stall correction is enabled"
+      ],
+      "cfg_use_radial_flow_correction": [
+        "radial flow",
+        "Whether the radial (spanwise) flow correction is applied"
+      ],
+      "cfg_use_rotational_augmentation": [
+        "3D aug.",
+        "Whether rotational (Himmelskamp/Snel) lift augmentation is applied"
+      ],
+      "collective_deg": [
+        "&theta;<sub>0</sub>",
+        "Collective pitch [deg], added on top of the built-in blade twist"
+      ],
+      "condition": [
+        "condition",
+        "Flight condition. Cases are numbered in the order they were run, so a row can be cited (\"Case 3\") and matched to the figure with the same label"
+      ],
+      "convergence_pct": [
+        "conv.",
+        "Percentage of mesh elements where the inflow fixed point converged [%]"
+      ],
+      "elapsed_s": [
+        "t<sub>cpu</sub>",
+        "Wall-clock solve time [s]"
+      ],
+      "eta_prop": [
+        "&eta;<sub>prop</sub>",
+        "Propulsive efficiency: eta = T*V_inf,z / P = J_z*CT_prop/CP_prop. Uses the AXIAL free-stream, since thrust acts along the shaft; meaningful in propeller mode with V_inf,z > 0"
+      ],
+      "inflow_coupling": [
+        "coupling",
+        "How the inflow field is coupled across elements (local = per element, global = few global DOF)"
+      ],
+      "lambda_i": [
+        "&lambda;<sub>i</sub>",
+        "Induced inflow ratio: &lambda;<sub>i</sub> = v<sub>i</sub>/(&Omega;R), the unknown solved by the BEMT fixed point. Area-weighted mean over the meshed span (root cutout to tip), not the whole geometric disk"
+      ],
+      "lambda_total": [
+        "&lambda;<sub>total</sub>",
+        "Total inflow ratio along the shaft: &lambda;<sub>total</sub> = &lambda;<sub>i</sub> + &lambda;<sub>z</sub> -- the free-stream part plus the induced part. Its dimensional counterpart is V<sub>z,total</sub> = &lambda;<sub>total</sub>&middot;(&Omega;R)"
+      ],
+      "lambda_z": [
+        "&lambda;<sub>z</sub>",
+        "Inflow ratio along z, from the free stream alone: &lambda;<sub>z</sub> = V<sub>z</sub>/(&Omega;R). In rotor mode z is the shaft, so this is the climb inflow -- an input datum, known before any aerodynamics. THE SAME NUMBER as &mu;<sub>z</sub>, in the inflow vocabulary instead of the advance-ratio one"
+      ],
+      "mean_iter": [
+        "iter<sub>avg</sub>",
+        "Mean number of solver iterations per mesh element"
+      ],
+      "mu_x": [
+        "&mu;<sub>x</sub>",
+        "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R). In rotor mode x is the IN-PLANE direction, so this is the classic forward-flight advance ratio -- the component that sweeps across the blades and makes the advancing and retreating sides differ"
+      ],
+      "mu_z": [
+        "&mu;<sub>z</sub>",
+        "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R). In rotor mode z is the SHAFT direction, so this is climb (positive) or descent (negative). Same number as &lambda;<sub>z</sub>, written in the advance-ratio vocabulary instead of the inflow one"
+      ],
+      "rotor_D": [
+        "D",
+        "Diameter [m] = 2R"
+      ],
+      "rotor_Nb": [
+        "N<sub>b</sub>",
+        "Number of blades"
+      ],
+      "rotor_Omega": [
+        "&Omega;",
+        "Angular speed [rad/s]"
+      ],
+      "rotor_OmegaR": [
+        "&Omega;R",
+        "Tip speed [m/s]"
+      ],
+      "rotor_R": [
+        "R",
+        "Rotor/propeller radius [m]"
+      ],
+      "rotor_rpm": [
+        "RPM<sub>rotor</sub>",
+        "Engine echo of the rotational speed built into the Rotor object [rev/min]. Same quantity as RPM; it is shown as a separate column only in the (abnormal) case where the two disagree"
+      ],
+      "rpm": [
+        "RPM",
+        "Rotational speed of the rotor for this condition [rev/min] -- the value the solver actually ran with. Same quantity as RPM<sub>rotor</sub> (the engine's own echo of it), which is therefore hidden from the table whenever the two agree"
+      ],
+      "solver": [
+        "solver",
+        "Fixed-point solver used for the inflow equation"
+      ]
+    }
+  },
+  "summary_units": {
+    "CH": "<th class=\"un\">[-]</th>",
+    "CHi": "<th class=\"un\">[-]</th>",
+    "CHp": "<th class=\"un\">[-]</th>",
+    "CMx": "<th class=\"un\">[-]</th>",
+    "CMy": "<th class=\"un\">[-]</th>",
+    "CP": "<th class=\"un\">[-]</th>",
+    "CP_prop": "<th class=\"un\">[-]</th>",
+    "CPi": "<th class=\"un\">[-]</th>",
+    "CPp": "<th class=\"un\">[-]</th>",
+    "CQ": "<th class=\"un\">[-]</th>",
+    "CQ_prop": "<th class=\"un\">[-]</th>",
+    "CT": "<th class=\"un\">[-]</th>",
+    "CT_prop": "<th class=\"un\">[-]</th>",
+    "CY": "<th class=\"un\">[-]</th>",
+    "FM": "<th class=\"un\">[-]</th>",
+    "H": "<th class=\"un\">[N]</th>",
+    "Hi": "<th class=\"un\">[N]</th>",
+    "Hp": "<th class=\"un\">[N]</th>",
+    "J_x": "<th class=\"un\">[-]</th>",
+    "J_z": "<th class=\"un\">[-]</th>",
+    "Mx": "<th class=\"un\">[N&middot;m]</th>",
+    "My": "<th class=\"un\">[N&middot;m]</th>",
+    "Power": "<th class=\"un\">[W]</th>",
+    "Power_i": "<th class=\"un\">[W]</th>",
+    "Power_p": "<th class=\"un\">[W]</th>",
+    "Thrust": "<th class=\"un\">[N]</th>",
+    "Torque": "<th class=\"un\">[N&middot;m]</th>",
+    "Vi": "<th class=\"un\">[m/s]</th>",
+    "Vx": "<th class=\"un\">[m/s]</th>",
+    "Vz": "<th class=\"un\">[m/s]</th>",
+    "Vz_total": "<th class=\"un\">[m/s]</th>",
+    "Y": "<th class=\"un\">[N]</th>",
+    "alpha_disk_deg": "<th class=\"un\">[deg]</th>",
+    "alpha_rotor_deg": "<th class=\"un\">[deg]</th>",
+    "cfg_Ne": "<th class=\"un\">[-]</th>",
+    "cfg_Npsi": "<th class=\"un\">[-]</th>",
+    "cfg_a_sound": "<th class=\"un\">[m/s]</th>",
+    "cfg_collect_history": "<th class=\"un\"></th>",
+    "cfg_dynamic_stall_A": "<th class=\"un\">[-]</th>",
+    "cfg_dynamic_stall_f_reg": "<th class=\"un\">[-]</th>",
+    "cfg_dynamic_stall_fade_end_deg": "<th class=\"un\">[deg]</th>",
+    "cfg_dynamic_stall_fade_start_deg": "<th class=\"un\">[deg]</th>",
+    "cfg_dynamic_stall_method": "<th class=\"un\"></th>",
+    "cfg_dynamic_stall_model": "<th class=\"un\"></th>",
+    "cfg_dynamic_stall_time_march_avg_last": "<th class=\"un\">[-]</th>",
+    "cfg_dynamic_stall_time_march_revolutions": "<th class=\"un\">[-]</th>",
+    "cfg_early_exit_fraction": "<th class=\"un\">[-]</th>",
+    "cfg_inflow_field_model": "<th class=\"un\"></th>",
+    "cfg_integration_offset": "<th class=\"un\">[-]</th>",
+    "cfg_is_propeller": "<th class=\"un\"></th>",
+    "cfg_mask_reverse_flow_plots": "<th class=\"un\"></th>",
+    "cfg_max_iter": "<th class=\"un\">[-]</th>",
+    "cfg_nu_air": "<th class=\"un\">[m&sup2;/s]</th>",
+    "cfg_pitt_peters_outer_iter": "<th class=\"un\">[-]</th>",
+    "cfg_pitt_peters_relax": "<th class=\"un\">[-]</th>",
+    "cfg_pitt_peters_states": "<th class=\"un\">[-]</th>",
+    "cfg_pitt_peters_tol": "<th class=\"un\">[-]</th>",
+    "cfg_prandtl_loss_mode": "<th class=\"un\"></th>",
+    "cfg_radial_flow_max_skew_deg": "<th class=\"un\">[deg]</th>",
+    "cfg_relax": "<th class=\"un\">[-]</th>",
+    "cfg_relax_azimuth_factor": "<th class=\"un\">[-]</th>",
+    "cfg_relax_azimuth_threshold": "<th class=\"un\">[rad]</th>",
+    "cfg_relax_root_factor": "<th class=\"un\">[-]</th>",
+    "cfg_relax_root_threshold": "<th class=\"un\">[-]</th>",
+    "cfg_relax_schedule": "<th class=\"un\"></th>",
+    "cfg_relax_tip_threshold": "<th class=\"un\">[-]</th>",
+    "cfg_reverse_flow_blend_factor": "<th class=\"un\">[-]</th>",
+    "cfg_reverse_flow_model": "<th class=\"un\"></th>",
+    "cfg_rho": "<th class=\"un\">[kg/m&sup3;]</th>",
+    "cfg_rho_used": "<th class=\"un\">[kg/m&sup3;]</th>",
+    "cfg_solver": "<th class=\"un\"></th>",
+    "cfg_stagnation_min_frac": "<th class=\"un\">[-]</th>",
+    "cfg_stagnation_patience": "<th class=\"un\">[-]</th>",
+    "cfg_thin_plate_blend_center_deg": "<th class=\"un\">[deg]</th>",
+    "cfg_thin_plate_blend_width_deg": "<th class=\"un\">[deg]</th>",
+    "cfg_tol": "<th class=\"un\">[-]</th>",
+    "cfg_use_compressibility": "<th class=\"un\"></th>",
+    "cfg_use_dynamic_stall": "<th class=\"un\"></th>",
+    "cfg_use_radial_flow_correction": "<th class=\"un\"></th>",
+    "cfg_use_rotational_augmentation": "<th class=\"un\"></th>",
+    "collective_deg": "<th class=\"un\">[deg]</th>",
+    "condition": "<th class=\"un\"></th>",
+    "convergence_pct": "<th class=\"un\">[%]</th>",
+    "elapsed_s": "<th class=\"un\">[s]</th>",
+    "eta_prop": "<th class=\"un\">[-]</th>",
+    "inflow_coupling": "<th class=\"un\"></th>",
+    "lambda_i": "<th class=\"un\">[-]</th>",
+    "lambda_total": "<th class=\"un\">[-]</th>",
+    "lambda_z": "<th class=\"un\">[-]</th>",
+    "mean_iter": "<th class=\"un\">[-]</th>",
+    "mu_x": "<th class=\"un\">[-]</th>",
+    "mu_z": "<th class=\"un\">[-]</th>",
+    "rotor_D": "<th class=\"un\">[m]</th>",
+    "rotor_Nb": "<th class=\"un\">[-]</th>",
+    "rotor_Omega": "<th class=\"un\">[rad/s]</th>",
+    "rotor_OmegaR": "<th class=\"un\">[m/s]</th>",
+    "rotor_R": "<th class=\"un\">[m]</th>",
+    "rotor_rpm": "<th class=\"un\">[rev/min]</th>",
+    "rpm": "<th class=\"un\">[rev/min]</th>",
+    "solver": "<th class=\"un\"></th>"
+  },
+  "suppressed_columns": {
+    "propeller": [
+      "alpha_rotor_deg"
+    ],
+    "rotor": [
+      "alpha_disk_deg"
+    ]
+  }
+}

@@ -3414,7 +3414,7 @@ propeller advance ratio, which is $J_x$ and lives in the other field.</li>
 above. <span class="bemt">.bemt</span>: whichever unit is chosen in the GUI, what is
 persisted is always the canonical <b>rotor-axes</b> form &mdash; <code>FlightCondition.mu_x</code>
 &mdash; in <code>saved_cases.bemt</code> or within each condition in <code>batches.bemt</code>.
-<span class="cli">CLI</span>: <code>--mux X</code> <b>or</b> <code>--jx X</code>
+<span class="cli">CLI</span>: <code>--mu-inplane X</code> <b>or</b> <code>--j-inplane X</code> <b>or</b> <code>--v-inplane X</code>
 ($J_x=\pi\mu_x$) <b>or</b> <code>--alpha-disk-deg X</code> &mdash; mutually exclusive, specifying
 more than one is an error. A propeller's airspeed goes in the flags of <a href="#cap-5-2">10.2</a>
 instead.</p>
@@ -3453,7 +3453,7 @@ class="bemt">.bemt</span>: what is persisted is always the canonical rotor-axes 
 condition in <code>batches.bemt</code>. There is no standalone angle key in
 <code>.bemt</code>: to hand-edit the file thinking in an angle, compute the velocity component
 yourself, or use <code>api.vv_from_alpha_deg(alpha_deg, mu_x, rpm, radius_m)</code> in a script. <span
-class="cli">CLI</span>: <code>--vz X</code>, <code>--muz X</code>, <code>--jz X</code> <b>or</b>
+class="cli">CLI</span>: <code>--v-axial X</code>, <code>--mu-axial X</code>, <code>--j-axial X</code> <b>or</b>
 <code>--alpha-rotor-deg X</code>
 &mdash; mutually exclusive. With either angle flag the missing component is derived from the other
 one and from <code>--rpm</code> (mandatory with these flags) plus the rotor radius of the
@@ -4324,7 +4324,7 @@ physical meaning of each field):</p>
 <tr><td>Project (<a href="#cap-1">Section 1.3</a>)</td><td><code>--project PATH</code> | <code>--new PATH [--name NAME]</code> | <code>--save-as PATH</code></td></tr>
 <tr><td>Saved cases/batches (<a href="#cap-5-4">10.4</a>, <a href="#cap-6-3">11.3</a>)</td><td><code>--list-batches</code> | <code>--list-cases</code> | <code>--from-bemt-batch NAME</code> | <code>--from-bemt-case NAME</code></td></tr>
 <tr><td>NeuralFoil (<a href="#cap-3-8">6.8</a>)</td><td><code>--gen-neuralfoil</code> | <code>--airfoil-geometry SPEC</code> | <code>--reynolds R1,R2,...</code> | <code>--mach M1,M2,...</code> | <code>--alpha-range MIN:MAX:STEP</code> | <code>--export-table PATH</code></td></tr>
-<tr><td>Ad hoc condition (<a href="#cap-5">Chapter 10</a>)</td><td><code>--rpm X</code> | in-plane component: <code>--mux X</code> / <code>--jx X</code> / <code>--alpha-disk-deg X</code> | along-shaft component: <code>--vz X</code> / <code>--muz X</code> / <code>--jz X</code> / <code>--alpha-rotor-deg X</code> | <code>--collective X</code> &mdash; one flag per component, and never both angles at once</td></tr>
+<tr><td>Ad hoc condition (<a href="#cap-5">Chapter 10</a>)</td><td><code>--rpm X</code> | in-plane component: <code>--mu-inplane X</code> / <code>--j-inplane X</code> / <code>--v-inplane X</code> / <code>--alpha-disk-deg X</code> | along-shaft component: <code>--v-axial X</code> / <code>--mu-axial X</code> / <code>--j-axial X</code> / <code>--alpha-rotor-deg X</code> | <code>--collective X</code> &mdash; one flag per component, and never both angles at once</td></tr>
 <tr><td>Geometry (<a href="#cap-2">Chapter 5</a>)</td><td><code>--geom-preset {rectangular,tapered,elliptic,custom}</code> | <code>--geom-file PATH</code> | <code>--geom-radius X</code> | <code>--geom-root-cutout X</code> | <code>--geom-n-blades N</code> | <code>--geom-chord X</code> | <code>--geom-taper-ratio X</code> | <code>--geom-max-chord X</code> | <code>--geom-twist-root X</code> | <code>--geom-twist-tip X</code> | <code>--geom-custom-points r:c:t,...</code></td></tr>
 <tr><td>Airfoil (<a href="#cap-3">Chapter 6</a>)</td><td><code>--airfoil-source {analytical,table}</code> | <code>--airfoil-table CSV</code> | <code>--dynamic-stall</code> / <code>--no-dynamic-stall</code> | <code>--airfoil-stall-model {linear,clip,enhanced,viterna}</code> | <code>--airfoil-sections-file PATH</code></td></tr>
 <tr><td>Config/Solver (<a href="#cap-4">Section 9.3</a>)</td><td><code>--inflow {&hellip;}</code> | <code>--prandtl-loss-mode {off,tip,root,both}</code> | <code>--pitt-peters-states {3,5}</code> | <code>--pitt-peters-outer-iter N</code> | <code>--pitt-peters-relax X</code> | <code>--pitt-peters-tol X</code> | <code>--rotational-augmentation</code> / <code>--no-rotational-augmentation</code> | <code>--radial-flow-correction</code> / <code>--no-radial-flow-correction</code> | <code>--solver {fixed_point,newton,bisection,aitken}</code> | <code>--max-iter N</code> | <code>--tol X</code> | <code>--relax X</code> | <code>--relax-schedule</code> / <code>--no-relax-schedule</code></td></tr>

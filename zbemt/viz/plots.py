@@ -30,6 +30,7 @@ from matplotlib.colors import ListedColormap, LogNorm
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
 
+from .. import nomenclature
 from ..viz import style as plot_style
 plot_style.apply()
 
@@ -1365,18 +1366,52 @@ def mapa_de_agrupamento(valores, tol: float = TOLERANCIA_DE_AGRUPAMENTO_PADRAO) 
     return mapa
 
 
-_AXIS_LABELS = {
-    "mu_x": (r"$\mu_x$", "advance ratio ($\\mu_x$)"),
-    "alpha_deg": (r"$\alpha_{rotor}$ (deg)", "rotor disk angle of attack"),
-    "collective_deg": (r"$\theta_{col}$ (deg)", "collective pitch"),
-    "rpm": ("RPM", "rotation"),
+#: The PROSE half of a sweep-panel axis: what the quantity is called in a
+#: sentence. The symbol half is not here -- it comes from `nomenclature`, per
+#: mode, via `_rotulo_de_eixo_de_varredura`. A propeller batch swept over the
+#: cross-flow used to be titled "advance ratio (mu_x)" in BOTH modes, which
+#: names the cross-flow as if it were the advance ratio.
+_AXIS_TITLES = {
+    "mu_x": ("advance ratio", "cross-flow ratio"),
+    "alpha_deg": ("rotor disk angle of attack", "rotor disk angle of attack"),
+    "alpha_disk": ("disk angle of attack", "disk angle of attack"),
+    "collective_deg": ("collective pitch", "collective pitch"),
+    "rpm": ("rotation", "rotation"),
 }
+
+
+def modo_helice_dos_resultados(results_list) -> bool:
+    """Whether these results were run in propeller mode, from the
+    `cfg_is_propeller` echo `bemt.aggregate_results` writes into every
+    `Results.summary`.
+
+    Read here instead of being passed in: every plotting entry point already
+    receives the results, and a figure whose axis letters disagree with the
+    table beside it is exactly what this refactor removes.
+    `api.modo_helice` is the same criterion, for callers that also hold the
+    project."""
+    for r in results_list or ():
+        valor = r.summary.get("cfg_is_propeller")
+        if valor is not None:
+            return bool(valor)
+    return False
+
+
+def _rotulo_de_eixo_de_varredura(axis: str, is_propeller: bool = False) -> tuple:
+    """``(axis label, prose title)`` for a sweep panel, in the mode's own
+    axis letters."""
+    titulos = _AXIS_TITLES.get(axis)
+    if titulos is None:
+        return axis, axis
+    titulo = titulos[1] if is_propeller else titulos[0]
+    rotulo = _summary_axis_label(_AXIS_TO_SUMMARY_KEY.get(axis, axis), is_propeller)
+    return rotulo, f"{titulo} ({nomenclature.symbol_text(axis, is_propeller)})"
 
 # =============================================================================
 # Axis/mathtext labels shared by ANY `Results.summary` key -- used by
 # `plot_xy` (the "Custom X-Y" part, requested by the user: plot any
 # quantity vs any other, in a single panel, grouped by a third one).
-# Builds on `_AXIS_LABELS`/`_SHORT_SYMBOLS`/`_MU_SWEEP_PANELS`/
+# Builds on `_AXIS_TITLES`/`_MU_SWEEP_PANELS`/
 # `_PROP_SWEEP_PANELS` (which already covered the 4 factorial axes and
 # the 11+9 panel coefficients) instead of duplicating -- see CLAUDE.md
 # "a new field needs to be wired into the right surfaces": here the
@@ -1385,14 +1420,12 @@ _AXIS_LABELS = {
 # (symbol + unit in brackets when dimensional, "[-]" when not).
 _SUMMARY_KEY_LABELS = {
     # --- flight condition / input ---------------------------------------
-    "mu_x": r"$\mu_x$ [-]", "mu_z": r"$\mu_z$ [-]",
-    "J_x": r"$J_x$ [-]", "J_z": r"$J_z$ [-]",
-    "Vz": r"$V_z$ [m/s]", "Vz_total": r"$V_{z,total}$ [m/s]",
-    "Vx": r"$V_x$ [m/s]",
-    "alpha_rotor_deg": r"$\alpha_{rotor}$ [deg]",
-    "collective_deg": r"$\theta_{col}$ [deg]",
-    "rpm": "RPM [-]", "lambda_z": r"$\lambda_z$ [-]",
-    "lambda_i": r"$\lambda_i$ [-]", "lambda_total": r"$\lambda_{total}$ [-]",
+    # NOT HERE. Every key whose symbol depends on the axis convention comes
+    # from `zbemt.nomenclature`, which `_summary_axis_label` consults first.
+    # This used to be a second copy of `api._SIMBOLO_DE_COLUNA`, and the two
+    # had already drifted: the report's table said theta_0 in [rev/min]
+    # where the chart printed beside it, in the SAME report, said theta_col
+    # in [-].
     # --- dimensional forces/moments --------------------------------------
     "Thrust": r"$T$ [N]", "Torque": r"$Q$ [N$\cdot$m]",
     "Power": r"$P$ [W]", "Power_i": r"$P_i$ [W]", "Power_p": r"$P_p$ [W]",
@@ -1416,106 +1449,32 @@ _SUMMARY_KEY_LABELS = {
 }
 
 
-#: The same labels in a PROPELLER's axis letters: x is the rotor's axis
-#: (see `bemt.py`, Sec.6c, and `api._SIMBOLO_DE_COLUNA_HELICE`, which does
-#: the same swap in its table). A plot of CT vs. J_x with "J_x" being the
-#: IN-PLANE ratio -- zero throughout straight cruise -- would be a
-#: vertical curve with nothing to explain why.
-_SUMMARY_KEY_LABELS_HELICE = {
-    # axial component: in propeller axes, the one with index x
-    "Vz": r"$V_x$ [m/s]", "mu_z": r"$\mu_x$ [-]", "J_z": r"$J_x$ [-]",
-    "Vz_total": r"$V_{x,total}$ [m/s]", "lambda_z": r"$\lambda_x$ [-]",
-    # in-plane component: the cross-flow, in z
-    "Vx": r"$V_z$ [m/s]",
-    "mu_x": r"$\mu_z$ [-]",
-    "J_x": r"$J_z$ [-]",
-    # The TWO ANGLES are deliberately left out of this swap: each has
-    # ONE symbol only, the same in both modes, and each mode shows only
-    # ITS OWN -- `alpha_rotor` (from the disk plane) for the rotor,
-    # `alpha_disk` (from the shaft) for the propeller. See
-    # `api._COLUNAS_SUPRIMIDAS_EM_HELICE`/`_EM_ROTOR`.
-}
-
-_SUMMARY_KEY_LABELS["alpha_disk_deg"] = r"$\alpha_{disk}$ [deg]"
-_SUMMARY_KEY_LABELS["Vi"] = r"$v_i$ [m/s]"
-
-
 def _summary_axis_label(key: str, is_propeller: bool = False) -> str:
     """Mathtext axis label for any ``Results.summary`` key (see
     `_SUMMARY_KEY_LABELS`); falls back to the key's own name (unformatted)
     when unknown -- never fails, even for a new key or a
     ``cfg_*``/``rotor_*`` with no dedicated entry.
 
-    ``is_propeller`` swaps the axis letters (`_SUMMARY_KEY_LABELS_HELICE`)
-    without touching the value or the key."""
-    if is_propeller and key in _SUMMARY_KEY_LABELS_HELICE:
-        return _SUMMARY_KEY_LABELS_HELICE[key]
+    ``is_propeller`` swaps the axis letters without touching the value or the
+    key -- the swap itself lives in `zbemt.nomenclature`, shared with the
+    report's table headers and the GUI's combos, so a chart and the table
+    beside it cannot name the same column differently."""
+    if nomenclature.quantity(key) is not None:
+        return nomenclature.symbol_mathtext(key, is_propeller)
     return _SUMMARY_KEY_LABELS.get(key, key)
 
 
 # =============================================================================
-# Mathtext -> Unicode
+# Mathtext -> Unicode / HTML
 # =============================================================================
-# `_SUMMARY_KEY_LABELS` is matplotlib mathtext: whatever DRAWS renders
-# `$\mu_x$` as μ. Whatever just DISPLAYS TEXT -- a QComboBox on the
-# Results tab, a table header -- shows the raw LaTeX source, and that is
-# what was seen on screen: "mu_x  ($\mu_x$ [-])", "CT  ($C_T$ [-])". Here
-# the same table becomes plain text, so a SECOND label list does not
-# exist (which would silently go stale -- CLAUDE.md, "don't create a
-# third list").
-_GREGAS_UNICODE = {
-    r"\alpha": "α", r"\beta": "β", r"\gamma": "γ", r"\delta": "δ",
-    r"\theta": "θ", r"\lambda": "λ", r"\mu": "μ", r"\nu": "ν",
-    r"\pi": "π", r"\rho": "ρ", r"\sigma": "σ", r"\phi": "φ",
-    r"\psi": "ψ", r"\omega": "ω", r"\Omega": "Ω", r"\eta": "η",
-    r"\infty": "∞", r"\cdot": "·", r"\times": "×", r"\pm": "±",
-    r"\circ": "°",
-}
-#: Only the letters/digits that EXIST as a subscript in Unicode. "T" (from
-#: C_T) does not exist -- it becomes plain "T", which reads well ("CT")
-#: and is infinitely better than "$C_T$".
-_SUBSCRITOS_UNICODE = {
-    "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅",
-    "6": "₆", "7": "₇", "8": "₈", "9": "₉",
-    "a": "ₐ", "e": "ₑ", "h": "ₕ", "i": "ᵢ", "j": "ⱼ", "k": "ₖ",
-    "l": "ₗ", "m": "ₘ", "n": "ₙ", "o": "ₒ", "p": "ₚ", "r": "ᵣ",
-    "s": "ₛ", "t": "ₜ", "u": "ᵤ", "v": "ᵥ", "x": "ₓ",
-}
-
-
-def _subscrito_unicode(texto: str) -> str:
-    """Converts to Unicode subscript when ALL characters have a
-    subscript form; otherwise returns the text as is (a half-converted
-    subscript -- "Cᵢnf" -- reads worse than "Cinf")."""
-    if texto and all(c in _SUBSCRITOS_UNICODE for c in texto):
-        return "".join(_SUBSCRITOS_UNICODE[c] for c in texto)
-    return texto
-
-
-def rotulo_em_texto(mathtext: str) -> str:
-    """Plain-text (Unicode) version of a mathtext label.
-
-    ``r"$C_{T,prop}$ [-]"`` -> ``"CT,prop [-]"``; ``r"$\\mu_x$ [-]"`` ->
-    ``"μₓ [-]"``; ``r"$Q$ [N$\\cdot$m]"`` -> ``"Q [N·m]"``. Used by the GUI
-    (X/Y/grouping combos on the Results tab) and by any surface that
-    shows the label as TEXT, not as a drawing."""
-    if not mathtext:
-        return ""
-    if "$" not in mathtext and "\\" not in mathtext:
-        # Not mathtext: it is the key's own name (`_summary_axis_label`
-        # falls back to it for keys with no entry). Passes through
-        # unchanged -- without this, the `_x` of `cfg_solver` would
-        # become a subscript ("cfgₛolver").
-        return mathtext
-    texto = mathtext
-    for macro, simbolo in _GREGAS_UNICODE.items():
-        texto = texto.replace(macro + " ", simbolo).replace(macro, simbolo)
-    texto = texto.replace(r"\,", " ").replace(r"\ ", " ")
-    # subscripts: `_{...}` (with braces) and `_x` (a single character)
-    texto = re.sub(r"_\{([^}]*)\}", lambda m: _subscrito_unicode(m.group(1)), texto)
-    texto = re.sub(r"_(\w)", lambda m: _subscrito_unicode(m.group(1)), texto)
-    texto = texto.replace("$", "").replace("{", "").replace("}", "")
-    return texto.strip()
+# The conversions themselves live in `zbemt.nomenclature`, next to the LaTeX
+# they convert: whatever DRAWS renders `$\mu_x$` as mu; whatever just
+# DISPLAYS TEXT -- a QComboBox on the Results tab, a table header -- would
+# show the raw source ("mu_x  ($\mu_x$ [-])" was on screen). Re-exported
+# under the names this module has always used, so the GUI keeps calling
+# `plots.rotulo_em_texto`, and no second label list has to exist.
+rotulo_em_texto = nomenclature.to_unicode
+rotulo_em_html = nomenclature.to_html
 
 
 def rotulo_de_summary_em_texto(key: str, is_propeller: bool = False) -> str:
@@ -1523,50 +1482,11 @@ def rotulo_de_summary_em_texto(key: str, is_propeller: bool = False) -> str:
     return rotulo_em_texto(_summary_axis_label(key, is_propeller))
 
 
-#: HTML entities for the Greek letters, for `rotulo_em_html`. Kept
-#: separate from `_GREGAS_UNICODE` on purpose: Qt renders both forms, but
-#: the entity survives a `QTextDocument` built from an HTML source
-#: without depending on the encoding of the file that loaded it.
-_GREGAS_HTML = {
-    r"\alpha": "&alpha;", r"\beta": "&beta;", r"\gamma": "&gamma;",
-    r"\delta": "&delta;", r"\theta": "&theta;", r"\lambda": "&lambda;",
-    r"\mu_x": "&mu;<sub>x</sub>", r"\mu": "&mu;",
-    r"\nu": "&nu;", r"\pi": "&pi;", r"\rho": "&rho;",
-    r"\sigma": "&sigma;", r"\phi": "&phi;", r"\psi": "&psi;",
-    r"\omega": "&omega;", r"\Omega": "&Omega;", r"\eta": "&eta;",
-    r"\infty": "&infin;", r"\cdot": "&middot;", r"\times": "&times;",
-    r"\pm": "&plusmn;", r"\circ": "&deg;",
-}
-
-
-def rotulo_em_html(mathtext: str) -> str:
-    """HTML version of a mathtext label, with a real subscript.
-
-    ``r"$C_T$ [-]"`` -> ``"C<sub>T</sub> [-]"``; ``r"$\\mu_x$ [-]"`` ->
-    ``"&mu;<sub>x</sub> [-]"``. Used by the combos that paint the item
-    with a `QTextDocument` (`_ComboDeSimbolos`, on the Results tab) --
-    it is what lets "C_T" render with the T BELOW the line, instead of
-    as plain text. Complements `rotulo_em_texto` (plain Unicode), for
-    when the destination is a plain Qt label, without rich text."""
-    if not mathtext:
-        return ""
-    if "$" not in mathtext and "\\" not in mathtext:
-        # not mathtext: it is the key's raw name (see `rotulo_em_texto`)
-        return mathtext
-    texto = mathtext
-    for macro, entidade in _GREGAS_HTML.items():
-        texto = texto.replace(macro + " ", entidade).replace(macro, entidade)
-    texto = texto.replace(r"\,", " ").replace(r"\ ", " ")
-    texto = re.sub(r"_\{([^}]*)\}", lambda m: f"<sub>{m.group(1)}</sub>", texto)
-    texto = re.sub(r"_(\w)", lambda m: f"<sub>{m.group(1)}</sub>", texto)
-    texto = texto.replace("$", "").replace("{", "").replace("}", "")
-    return texto.strip()
-
-
 def rotulo_de_summary_em_html(key: str, is_propeller: bool = False) -> str:
     """`_summary_axis_label` already in HTML -- what the Results tab's
     combos paint."""
     return rotulo_em_html(_summary_axis_label(key, is_propeller))
+
 
 
 #: PROSE description of each disk map field -- what the field MEANS,
@@ -1640,7 +1560,8 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
     than this are the same nominal value -- `mapa_de_agrupamento`).
     """
     key = _AXIS_TO_SUMMARY_KEY.get(axis, axis)
-    axis_label, axis_title = _AXIS_LABELS.get(axis, (axis, axis))
+    axis_label, axis_title = _rotulo_de_eixo_de_varredura(
+        axis, modo_helice_dos_resultados(results_list))
     x_all = np.array([r.summary.get(key, np.nan) for r in results_list], dtype=float)
 
     # Identifies the other factorial variables that also varied across the results
@@ -1696,12 +1617,6 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
             if len(set(chave_de.values())) > 1:
                 swept_other_vars.append((skey, ax_name))
 
-        _SHORT_SYMBOLS = {
-            "mu_x": r"$\mu_x$",
-            "alpha_deg": r"$\alpha_{rotor}$",
-            "collective_deg": r"$\theta_{col}$",
-            "rpm": "RPM",
-        }
 
         ordem_por_label: dict = {}
         for i, r in enumerate(results_list):
@@ -1711,7 +1626,8 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
                 bruto = r.summary.get(skey)
                 val = chaves_por_grandeza[skey].get(bruto, _chave_de_agrupamento(bruto))
                 if val is not None and not (isinstance(val, float) and np.isnan(val)):
-                    symbol = _SHORT_SYMBOLS.get(ax_name, ax_name)
+                    symbol = nomenclature.symbol_name(
+                        ax_name, modo_helice_dos_resultados(results_list))
                     label_parts.append(f"{symbol}={val:g}" if isinstance(val, (int, float)) else f"{symbol}={val}")
                     ordem.append(_ordem_de_grupo(val))
 

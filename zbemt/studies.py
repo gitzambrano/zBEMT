@@ -22,6 +22,7 @@ import numpy as np
 
 from .models import Project, RotorGeometryDef, FlightCondition, BatchDefinition, Results
 from . import airfoils
+from . import nomenclature
 from .bemt import BEMTConfig, Rotor, solve_bemt, aggregate_results, SolveCancelled
 
 # Fixed-point solvers available in bemt.py (see bemt._SOLVERS) — used
@@ -405,72 +406,43 @@ def run_collective_sweep(project: Project, collective_deg_values: Sequence[float
 # written as an angle, but measured from the SHAFT (`alpha_disk`), not
 # from the plane. The names here are the ENGINE's (disk axes); the
 # translation to propeller letters is the interface's job.
-_LONGITUDINAL_VARIABLES = ("mu_x", "J_x", "Vx", "alpha_disk")
+_INPLANE_VARIABLES = ("mu_x", "J_x", "Vx", "alpha_disk")
 _AXIAL_VARIABLES = ("alpha_deg", "Vz", "mu_z", "J_z")
 _OTHER_FACTORIAL_VARIABLES = ("collective_deg", "rpm")
-_FACTORIAL_VARIABLES = _LONGITUDINAL_VARIABLES + _AXIAL_VARIABLES + _OTHER_FACTORIAL_VARIABLES
+_FACTORIAL_VARIABLES = _INPLANE_VARIABLES + _AXIAL_VARIABLES + _OTHER_FACTORIAL_VARIABLES
+
+# WHICH representations a factorial axis accepts is this module's business
+# (above); WHICH physical component each one describes is not -- that is
+# `nomenclature.slot_of`, shared with the GUI and the report. The two lists
+# above are checked against it, so a variable added to one and forgotten in
+# the other fails here instead of grouping silently wrong.
+assert all(nomenclature.slot_of(v) == "inplane" for v in _INPLANE_VARIABLES)
+assert all(nomenclature.slot_of(v) == "axial" for v in _AXIAL_VARIABLES)
 
 
-#: Symbol (Unicode) and unit for each condition variable, for the NAME of
-#: the generated condition. User request: the case name is what appears
-#: in the "Choose condition to plot" combo box, in the label column of the
-#: Results table, and in the report, and there `mu_x=0_alpha_deg=-10` is
-#: the raw field name, not the quantity -- `μ=0, α=-10°` is the SAME
-#: information written the way the rest of the interface writes it. The
-#: name is still free text (`FlightCondition.name`); `api.sanitize_filename`
-#: transliterates these symbols back to ASCII when it becomes a file name.
-#: And the name has to come out in the axis letters of the MODE: a
-#: propeller case named "μ=0.4" would name the cross flow as if it were
-#: the advance ratio -- in propeller axes that same number is μ_z, and the
-#: advance ratio is μ_x. See `api._SIMBOLO_DE_COLUNA_HELICE`, which does
-#: the same swap in the table.
-_SIMBOLO_DE_VARIAVEL = {
-    # ROTOR: in-plane = x (advance), shaft = z (climb/descent)
-    "mu_x": ("μ_x", ""), "J_x": ("J_x", ""), "Vx": ("V_x", " m/s"),
-    "mu_z": ("μ_z", ""), "J_z": ("J_z", ""), "Vz": ("V_z", " m/s"),
-    "alpha_deg": ("α_rotor", "°"),
-    "alpha_disk": ("α_disk", "°"),
-    "collective_deg": ("θ₀", "°"), "rpm": ("RPM", ""),
-}
-
-_SIMBOLO_DE_VARIAVEL_HELICE = {
-    # PROPELLER: shaft = x (flight speed), in-plane = z (cross)
-    "mu_z": ("μ_x", ""), "J_z": ("J_x", ""), "Vz": ("V_x", " m/s"),
-    "mu_x": ("μ_z", ""), "J_x": ("J_z", ""), "Vx": ("V_z", " m/s"),
-    "alpha_disk": ("α_disk", "°"),
-    "alpha_deg": ("α_rotor", "°"),
-}
-
-
-def nome_de_condicao(valores: dict, is_propeller: bool = False) -> str:
-    """Readable name for a condition from the variable -> value dict
-    (e.g. ``{"mu_x": 0.1, "alpha_deg": -10}`` -> ``"μ=0.1, α=-10°"``).
-
-    Order: that of ``valores`` (which is the order of the axes chosen by
-    the user). An unknown variable falls back to its own name, with no
-    unit -- a new axis never leaves the condition without a name."""
-    tabela = dict(_SIMBOLO_DE_VARIAVEL)
-    if is_propeller:
-        tabela.update(_SIMBOLO_DE_VARIAVEL_HELICE)
-    partes = []
-    for chave, valor in valores.items():
-        simbolo, unidade = tabela.get(chave, (chave, ""))
-        try:
-            texto = f"{float(valor):g}"
-        except (TypeError, ValueError):
-            texto = str(valor)
-        partes.append(f"{simbolo}={texto}{unidade}")
-    return ", ".join(partes)
+#: The condition NAME comes from `nomenclature`, in the axis letters of the
+#: MODE. The name is what appears in the "Choose condition to plot" combo, in
+#: the label column of the Results table and in the report, where a raw
+#: `mu_x=0_alpha_deg=-10` would be a field name rather than a quantity. And
+#: it has to be in the mode's letters: a propeller case named "μ_x=0.4" for
+#: its CROSS flow would name the cross-flow as if it were the advance ratio.
+#:
+#: `FlightCondition.name` is still free text; `api.sanitize_filename`
+#: transcribes these symbols back to ASCII when the name becomes a file name.
+nome_de_condicao = nomenclature.condition_label
 
 
 def _factorial_slot(variable: str) -> str:
-    """Groups `mu_x`/`J_x` into a single logical slot, and `alpha_deg`/`Vz`
-    into another -- used both to detect a conflict between axes and
-    between an axis and a fixed value of the same quantity."""
-    if variable in _LONGITUDINAL_VARIABLES:
-        return "longitudinal"
-    if variable in _AXIAL_VARIABLES:
-        return "axial"
+    """The logical slot a factorial variable belongs to -- `mu_x`/`J_x`/`Vx`
+    and `alpha_disk` are all the same in-plane component, `alpha_deg`/`Vz`/
+    `mu_z`/`J_z` the same axial one. Used to detect a conflict between two
+    axes, and between an axis and a fixed value of the same quantity.
+
+    The membership comes from `nomenclature`, which is also what names the
+    slot's row in the GUI -- a variable cannot be grouped one way here and
+    labelled another way on screen."""
+    if variable in _FACTORIAL_VARIABLES and variable not in _OTHER_FACTORIAL_VARIABLES:
+        return nomenclature.slot_of(variable)
     return variable
 
 
@@ -533,19 +505,19 @@ def build_factorial_conditions(project: Project, axes: list[dict],
             f"cannot be two axes at the same time: {variables}")
 
     fixed = dict(fixed or {})
-    long_fixed = {k: fixed[k] for k in _LONGITUDINAL_VARIABLES if k in fixed}
+    inplane_fixed = {k: fixed[k] for k in _INPLANE_VARIABLES if k in fixed}
     axial_fixed = {k: fixed[k] for k in _AXIAL_VARIABLES if k in fixed}
-    if len(long_fixed) > 1:
+    if len(inplane_fixed) > 1:
         raise ValueError(
             f"run_factorial_batch: specify at most one of "
-            f"{'/'.join(_LONGITUDINAL_VARIABLES)} as fixed: {list(long_fixed)}")
+            f"{'/'.join(_INPLANE_VARIABLES)} as fixed: {list(inplane_fixed)}")
     if len(axial_fixed) > 1:
         raise ValueError(
             f"run_factorial_batch: specify at most one of "
             f"{'/'.join(_AXIAL_VARIABLES)} as fixed: {list(axial_fixed)}")
-    if long_fixed and "longitudinal" in axis_slots:
+    if inplane_fixed and "inplane" in axis_slots:
         raise ValueError(
-            f"run_factorial_batch: {list(long_fixed)} cannot be fixed at the same time "
+            f"run_factorial_batch: {list(inplane_fixed)} cannot be fixed at the same time "
             f"the in-plane component is chosen as an axis.")
     if axial_fixed and "axial" in axis_slots:
         raise ValueError(
@@ -575,7 +547,7 @@ def build_factorial_conditions(project: Project, axes: list[dict],
     # opposite -- so neither one sets the scale of the velocity. Same
     # rule as `bemt.resolve_advance_velocity`, checked here because this
     # path builds the conditions without going through there.
-    usa_do_eixo = ("alpha_disk" in long_fixed) or ("alpha_disk" in variables)
+    usa_do_eixo = ("alpha_disk" in inplane_fixed) or ("alpha_disk" in variables)
     usa_do_plano = ("alpha_deg" in axial_fixed) or ("alpha_deg" in variables)
     if usa_do_eixo and usa_do_plano:
         raise ValueError(
@@ -587,17 +559,17 @@ def build_factorial_conditions(project: Project, axes: list[dict],
 
     base_mu = 0.0
     base_rpm = fixed.get("rpm", None)
-    if "mu_x" in long_fixed:
-        base_mu = float(long_fixed["mu_x"])
-    elif "J_x" in long_fixed:
-        base_mu = float(long_fixed["J_x"]) / np.pi
-    elif "Vx" in long_fixed and base_rpm is not None:
+    if "mu_x" in inplane_fixed:
+        base_mu = float(inplane_fixed["mu_x"])
+    elif "J_x" in inplane_fixed:
+        base_mu = float(inplane_fixed["J_x"]) / np.pi
+    elif "Vx" in inplane_fixed and base_rpm is not None:
         # With rpm fixed, a fixed `V` gives a fixed mu_x. If rpm is an
         # AXIS, base_rpm is None and there is no base mu_x to compute:
         # each combination recomputes its own (the loop below handles
-        # `"Vx" in long_fixed` explicitly).
+        # `"Vx" in inplane_fixed` explicitly).
         om = _omega_R(base_rpm)
-        base_mu = float(long_fixed["Vx"]) / om if om > 1e-9 else 0.0
+        base_mu = float(inplane_fixed["Vx"]) / om if om > 1e-9 else 0.0
 
     base_axial_kind, base_axial_value = None, 0.0
     for _k in ("Vz", "mu_z", "J_z", "alpha_deg"):
@@ -641,8 +613,8 @@ def build_factorial_conditions(project: Project, axes: list[dict],
         # in-plane component that derives from the axial one --, so the
         # axial component has to come out first. See
         # `bemt.resolve_advance_velocity`, which resolves the same inversion.
-        if "alpha_disk" in overrides or "alpha_disk" in long_fixed:
-            alpha_disk = float(overrides.get("alpha_disk", long_fixed.get("alpha_disk", 0.0)))
+        if "alpha_disk" in overrides or "alpha_disk" in inplane_fixed:
+            alpha_disk = float(overrides.get("alpha_disk", inplane_fixed.get("alpha_disk", 0.0)))
             Vz = _axial(0.0)
             # |Vz|: see `bemt.resolve_advance_velocity` -- with Vz<0 the
             # raw sign would flip the side of the cross flow and the
@@ -656,12 +628,12 @@ def build_factorial_conditions(project: Project, axes: list[dict],
                 mu_x = float(overrides["J_x"]) / np.pi
             elif "Vx" in overrides:
                 mu_x = float(overrides["Vx"]) / omega_R if omega_R > 1e-9 else 0.0
-            elif "Vx" in long_fixed:
+            elif "Vx" in inplane_fixed:
                 # A fixed `V` is a dimensional velocity: the equivalent mu_x
                 # changes with the combination's rpm, so recompute here
                 # instead of using `base_mu` (which was resolved with the
                 # base rpm).
-                mu_x = float(long_fixed["Vx"]) / omega_R if omega_R > 1e-9 else 0.0
+                mu_x = float(inplane_fixed["Vx"]) / omega_R if omega_R > 1e-9 else 0.0
             else:
                 mu_x = base_mu
             Vz = _axial(mu_x * omega_R)

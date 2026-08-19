@@ -29,7 +29,12 @@ class TestInstantTooltip(unittest.TestCase):
         from zbemt.gui.instant_tooltip import _InstantTooltip
         _InstantTooltip._instancias.clear()
 
-    def _hover_em(self, widget, pos=QPoint(5, 5)):
+    def _hover_em(self, widget, pos=None):
+        # `pos=QPoint(5, 5)` as a DEFAULT was evaluated while the class body
+        # ran -- before `skipUnless` could skip anything -- so without Qt the
+        # module failed to import instead of skipping.
+        if pos is None:
+            pos = QPoint(5, 5)
         ev = QEnterEvent(QPointF(pos), QPointF(pos), QPointF(pos))
         widget._instant_tooltip_filter.eventFilter(widget, ev)
 

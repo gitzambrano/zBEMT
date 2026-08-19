@@ -25,6 +25,8 @@ aircraft's velocity in the wrong field.
 import math
 import unittest
 
+from tests.helpers import requires_qt
+
 import numpy as np
 
 from zbemt import api, bemt, studies
@@ -408,18 +410,35 @@ class TestParidadeDeLinhaDeComando(unittest.TestCase):
         return cli._build_parser().parse_args(self._BASE + list(extra))
 
     def test_as_flags_axiais_existem_e_sao_excludentes(self):
-        self.assertAlmostEqual(self._parse("--jz", "0.8", "--rpm", "2500").J_z, 0.8)
-        self.assertAlmostEqual(self._parse("--muz", "0.25", "--rpm", "2500").mu_z, 0.25)
+        self.assertAlmostEqual(
+            self._parse("--j-axial", "0.8", "--rpm", "2500").J_axial, 0.8)
+        self.assertAlmostEqual(
+            self._parse("--mu-axial", "0.25", "--rpm", "2500").mu_axial, 0.25)
         with self.assertRaises(SystemExit):
-            self._parse("--jz", "0.8", "--vz", "60", "--rpm", "2500")
+            self._parse("--j-axial", "0.8", "--v-axial", "60", "--rpm", "2500")
+
+    def test_as_flags_sao_nomeadas_pelo_slot_nao_pela_letra(self):
+        """The letter of a component depends on the mode; a flag parsed in
+        the same pass as `--project` cannot know it. `mu_x` must therefore
+        never name the in-plane component on the command line -- on a
+        propeller that component is shown as mu_z."""
+        from zbemt import cli
+        texto = cli._build_parser().format_help()
+        for flag in ("--mu-inplane", "--j-inplane", "--v-inplane",
+                     "--mu-axial", "--j-axial", "--v-axial"):
+            with self.subTest(flag=flag):
+                self.assertIn(flag, texto)
+        for antiga in ("--mux ", "--muz ", "--jx ", "--jz ", "--vz "):
+            with self.subTest(antiga=antiga):
+                self.assertNotIn(antiga, texto)
 
     def test_o_angulo_a_partir_do_eixo_existe_e_exclui_o_do_plano(self):
-        args = self._parse("--alpha-disk-deg", "6", "--vz", "65", "--rpm", "2500")
+        args = self._parse("--alpha-disk-deg", "6", "--v-axial", "65", "--rpm", "2500")
         self.assertAlmostEqual(args.alpha_disk_deg, 6.0)
-        # `--shaft-alpha-deg` is in the SAME mutually exclusive group as --mu_x/--J_x: it is
-        # the in-plane component, written as an angle
+        # `--alpha-disk-deg` is in the SAME mutually exclusive group as the
+        # other in-plane representations: it is that component, as an angle
         with self.assertRaises(SystemExit):
-            self._parse("--alpha-disk-deg", "6", "--mu_x", "0.1")
+            self._parse("--alpha-disk-deg", "6", "--mu-inplane", "0.1")
     def test_os_dois_angulos_na_linha_de_comando_sao_recusados(self):
         """The two angles are in DIFFERENT mutually exclusive groups, so
         `argparse` accepts them: without explicit checking in `cli.run`,
@@ -445,7 +464,9 @@ class TestParidadeDeLinhaDeComando(unittest.TestCase):
         import dataclasses
         from zbemt import cli
         campos = {f.name for f in dataclasses.fields(cli.RunOptions)}
-        for nome in ("alpha_disk_deg", "J_z", "mu_z"):
+        for nome in ("alpha_disk_deg", "alpha_rotor_deg",
+                     "mu_inplane", "J_inplane", "V_inplane",
+                     "mu_axial", "J_axial", "V_axial"):
             with self.subTest(campo=nome):
                 self.assertIn(nome, campos)
 
@@ -477,19 +498,20 @@ class TestNomenclaturaExibida(unittest.TestCase):
         self.assertIn("alpha_disk_deg", helice)
         self.assertNotIn("alpha_rotor_deg", helice)
 
+    @requires_qt
     def test_rotulos_dos_slots_sao_iguais_nas_abas(self):
         from zbemt.gui.common import _ROTULOS_DE_CONDICAO
         from zbemt.gui.tabs.run_batch import RunBatchTab
 
-        self.assertEqual(_ROTULOS_DE_CONDICAO[False]["longitudinal"][0],
+        self.assertEqual(_ROTULOS_DE_CONDICAO[False]["inplane"][0],
                          "Edgewise (in-plane) flow:")
         self.assertEqual(_ROTULOS_DE_CONDICAO[False]["axial"][0],
                          "Axial (along-shaft) Flow:")
-        self.assertEqual(_ROTULOS_DE_CONDICAO[True]["longitudinal"][0],
+        self.assertEqual(_ROTULOS_DE_CONDICAO[True]["inplane"][0],
                          "Cross (in-plane) Flow:")
         self.assertEqual(RunBatchTab._AXIS_SLOTS[1][0],
                          "Edgewise (in-plane) flow")
-        self.assertEqual(RunBatchTab._AXIS_SLOTS_HELICE["longitudinal"],
+        self.assertEqual(RunBatchTab._AXIS_SLOTS_HELICE["inplane"],
                          "Cross (in-plane) Flow")
 
     def test_texto_de_ajuda_renderiza_componentes_com_subscrito(self):

@@ -38,11 +38,11 @@ touching `bemt.py` for yourself.
 ```bash
 pip install -e ".[all]"                 # install (from repo root)
 
-pytest                                  # full suite
-QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -p "test_*.py"
+python tests/run_all_tests.py           # full suite -- ONE PROCESS PER FILE
+python tests/run_all_tests.py -k airfoil          # only files matching
 
-python -m unittest tests.test_bemt      # single file
-pytest tests/test_bemt.py::TestSolveBemtHover -v   # single test class
+python -m pytest tests/test_bemt.py      # single file
+python -m pytest tests/test_bemt.py::TestSolveBemtHover -v   # single class
 
 zbemt-gui                               # GUI
 zbemt --project projects/starter_rotor  # CLI (also runs standalone, zero args)
@@ -57,6 +57,15 @@ normally give it. This includes running the file directly.
 
 GUI tests run headless (`tests/conftest.py` sets `QT_QPA_PLATFORM=offscreen`
 and the `Agg` backend). No linter is configured.
+
+**Run the full suite with `tests/run_all_tests.py`, never with a bare
+`pytest tests/`.** A single pytest process accumulates Qt/matplotlib canvases
+across dozens of files and dies with a native access violation
+(`test_gui_layout.py::setUpClass`, exit 139) — a teardown-ordering crash, not
+a test failure, and it hides every result after it. The runner gives each file
+its own process, writes `tests/resultado_testes.txt` with a traceback per
+failure, and is what CI (`.github/workflows/tests.yml`) uses. A single file or
+class through `python -m pytest` is fine.
 
 ## Layout
 
@@ -90,21 +99,21 @@ longitudinal axis). Because the shaft direction differs, the **same letter**
 
 | Mode | Slot (engine name) | Batch axis label | Physical flow |
 |------|-------------------|------------------|---------------|
-| Rotor | `longitudinal` | Edgewise (in-plane) flow | Advance in the disk plane |
+| Rotor | `inplane` | Edgewise (in-plane) flow | Advance in the disk plane |
 | Rotor | `axial` | Axial (along-shaft) Flow | Climb/descent along the shaft |
-| Propeller | `longitudinal` | Cross (in-plane) Flow | Cross-flow across the shaft (vertical) |
+| Propeller | `inplane` | Cross (in-plane) Flow | Cross-flow across the shaft (vertical) |
 | Propeller | `axial` | Axial (along-shaft) Flow | Airspeed along the shaft |
 
 #### Rotor mode — input and output symbols
 
 Shaft vertical: **x** = in-plane (edgewise), **z** = along shaft (axial).
 
-| Flow | GUI units (dropdown) | Shown in results | Engine / `.bemt` / `FlightCondition` key | Definition |
-|------|---------------------|------------------|------------------------------------------|------------|
-| Edgewise | μ_x, J_x, V_x [m/s] | μ_x, J_x, V_x | `mu_x`, `J_x`, `Vx` | V_x/(ΩR), V_x/(nD)=π·μ_x, dimensional speed in the disk plane |
-| Axial | α_rotor [deg], V_z [m/s], μ_z, J_z | α_rotor, V_z, μ_z, J_z, λ_z | `alpha_rotor_deg`, `Vz`, `mu_z`, `J_z`, `lambda_z` | α_rotor=atan2(V_z,V_x); climb (+) / descent (−) along shaft; λ_z=V_z/(ΩR)=μ_z |
-| Axial total (output) | — | V_z,total, λ_total | `Vz_total`, `lambda_total` | V_z,total = V_z + v_i; λ_total = λ_z + λ_i |
-| Induced (output) | — | v_i, λ_i | `Vi`, `lambda_i` | Along the shaft; letters do not rotate with mode |
+| Flow | GUI units (dropdown) | Shown in results | Engine / `FlightCondition` key | `.bemt` / CLI key | Definition |
+|------|---------------------|------------------|-------------------------------|-------------------|------------|
+| Edgewise | μ_x, J_x, V_x [m/s] | μ_x, J_x, V_x | `mu_x`, `J_x`, `Vx` | same | V_x/(ΩR), V_x/(nD)=π·μ_x, dimensional speed in the disk plane |
+| Axial | α_rotor [deg], V_z [m/s], μ_z, J_z | α_rotor, V_z, μ_z, J_z, λ_z | `alpha_rotor_deg`, `Vz`, `mu_z`, `J_z`, `lambda_z` | same | α_rotor=atan2(V_z,V_x); climb (+) / descent (−) along shaft; λ_z=V_z/(ΩR)=μ_z |
+| Axial total (output) | — | V_z,total, λ_total | `Vz_total`, `lambda_total` | same | V_z,total = V_z + v_i; λ_total = λ_z + λ_i |
+| Induced (output) | — | v_i, λ_i | `Vi`, `lambda_i` | same | Along the shaft; letters do not rotate with mode |
 
 Typical rotor flight: edgewise μ_x > 0, α_rotor ≈ 0° (level forward cruise).
 
@@ -113,20 +122,41 @@ Typical rotor flight: edgewise μ_x > 0, α_rotor ≈ 0° (level forward cruise)
 Shaft horizontal: **x** = along shaft (axial), **z** = vertical (cross-flow in
 the disk plane).
 
-| Flow | GUI units (dropdown) | Shown in results | Engine / `.bemt` / `FlightCondition` key | Definition |
-|------|---------------------|------------------|------------------------------------------|------------|
-| Axial | J_x, μ_x, V_x [m/s] | J_x, μ_x, V_x, λ_x | `Vz`, `mu_z`, `J_z`, `lambda_z` | Aircraft airspeed along shaft; J_x=V_x/(nD) is the classic propeller advance ratio |
-| Cross | V_z [m/s], α_disk [deg], μ_z, J_z | V_z, α_disk, μ_z, J_z | `Vx`, `mu_x`, `J_x`, `alpha_disk_deg` | Cross-flow; zero in straight cruise; α_disk=atan2(V_z,V_x), 0° when stream aligns with shaft |
-| Axial total (output) | — | V_x,total, λ_total | `Vz_total`, `lambda_total` | V_x,total = V_x + v_i (stored under engine key `Vz_total`) |
-| Induced (output) | — | v_i, λ_i | `Vi`, `lambda_i` | Along the shaft (shown as v_i along x in propeller mode) |
+| Flow | GUI units (dropdown) | Shown in results | Engine / `FlightCondition` key | `.bemt` / CLI key | Definition |
+|------|---------------------|------------------|-------------------------------|-------------------|------------|
+| Axial | J_x, μ_x, V_x [m/s] | J_x, μ_x, V_x, λ_x | `Vz`, `mu_z`, `J_z`, `lambda_z` | `Vx`, `mu_x`, `J_x`, `lambda_x` | Aircraft airspeed along shaft; J_x=V_x/(nD) is the classic propeller advance ratio |
+| Cross | V_z [m/s], α_disk [deg], μ_z, J_z | V_z, α_disk, μ_z, J_z | `Vx`, `mu_x`, `J_x`, `alpha_disk_deg` | `Vz`, `mu_z`, `J_z`, `alpha_disk_deg` | Cross-flow; zero in straight cruise; α_disk=atan2(V_z,V_x), 0° when stream aligns with shaft |
+| Axial total (output) | — | V_x,total, λ_total | `Vz_total`, `lambda_total` | `Vx_total`, `lambda_total` | V_x,total = V_x + v_i |
+| Induced (output) | — | v_i, λ_i | `Vi`, `lambda_i` | same | Along the shaft (shown as v_i along x in propeller mode) |
 
 Typical propeller flight: axial flow J_x (or V_x) set in the **Axial** field; cross
 V_z = 0, α_disk = 0°.
 
 #### Letter rotation summary (propeller display only)
 
-Throughout the solver layer (internal key), the BEMT engine always works in disk axes, not vehicle axe; only the **display subscript** rotates when `is_propeller=True`
-(`api.summary_symbols`, `viz/plots._SUMMARY_KEY_LABELS_HELICE`):
+The BEMT engine always works in disk axes, never vehicle axes: `bemt.py`,
+`FlightCondition` and `Results.summary` in memory keep the internal key below,
+in every mode. What rotates when `is_propeller=True` is everything the user
+meets — the displayed symbol, and the key written into `.bemt` files, CSV
+headers and the results table.
+
+**One module owns the whole rotation: `zbemt/nomenclature.py`.** Edit a symbol,
+a unit, a tooltip or a slot name there and every surface follows — the GUI
+fields, the results table, the plots, the HTML report, the CLI help and the
+`.bemt` writer. Do not add a second table anywhere; that is what this
+consolidated the ten of them into.
+
+Two rules that module depends on, and that a change must not break:
+
+- The rotation is a **swap** (`mu_x` ↔ `mu_z`), so it is applied in ONE pass
+  into a NEW dict (`to_display_keys`). Renaming key by key collapses both
+  components onto one value, silently and plausibly.
+- A rotated dict is an **output**. It is never fed back into the application;
+  only `from_display_keys`, at the boundary that produced it, turns it back.
+
+There is **no back-compat** for `.bemt` files written before this change: a
+propeller project whose conditions still carry the disk-axes names is
+reported by `models.avisar_nomenclatura_antiga`, not read as-is.
 
 | Internal key | Rotor label | Propeller label |
 |------------|-------------|-----------------|

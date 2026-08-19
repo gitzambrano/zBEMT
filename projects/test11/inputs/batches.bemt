@@ -4,58 +4,58 @@
     "conditions": [
       {
         "name": "V=0 m/s",
-        "mu_x": 0.0,
+        "mu_z": 0.0,
         "collective_deg": 0.0,
-        "Vz": 0.0,
+        "Vx": 0.0,
         "rpm": 2500.0
       },
       {
         "name": "V=10 m/s",
-        "mu_x": 0.0,
+        "mu_z": 0.0,
         "collective_deg": 0.0,
-        "Vz": 10.0,
+        "Vx": 10.0,
         "rpm": 2500.0
       },
       {
         "name": "V=20 m/s",
-        "mu_x": 0.0,
+        "mu_z": 0.0,
         "collective_deg": 0.0,
-        "Vz": 20.0,
+        "Vx": 20.0,
         "rpm": 2500.0
       },
       {
         "name": "V=30 m/s",
-        "mu_x": 0.0,
+        "mu_z": 0.0,
         "collective_deg": 0.0,
-        "Vz": 30.0,
+        "Vx": 30.0,
         "rpm": 2500.0
       },
       {
         "name": "V=40 m/s",
-        "mu_x": 0.0,
+        "mu_z": 0.0,
         "collective_deg": 0.0,
-        "Vz": 40.0,
+        "Vx": 40.0,
         "rpm": 2500.0
       },
       {
         "name": "V=50 m/s",
-        "mu_x": 0.0,
+        "mu_z": 0.0,
         "collective_deg": 0.0,
-        "Vz": 50.0,
+        "Vx": 50.0,
         "rpm": 2500.0
       },
       {
         "name": "V=60 m/s",
-        "mu_x": 0.0,
+        "mu_z": 0.0,
         "collective_deg": 0.0,
-        "Vz": 60.0,
+        "Vx": 60.0,
         "rpm": 2500.0
       },
       {
         "name": "V=70 m/s",
-        "mu_x": 0.0,
+        "mu_z": 0.0,
         "collective_deg": 0.0,
-        "Vz": 70.0,
+        "Vx": 70.0,
         "rpm": 2500.0
       }
     ],

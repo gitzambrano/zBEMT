@@ -1,23 +1,23 @@
 [
   {
     "name": "static (V=0)",
-    "mu_x": 0.0,
+    "mu_z": 0.0,
     "collective_deg": 0.0,
-    "Vz": 0.0,
+    "Vx": 0.0,
     "rpm": 2500.0
   },
   {
     "name": "climb 40 m/s",
-    "mu_x": 0.0,
+    "mu_z": 0.0,
     "collective_deg": 0.0,
-    "Vz": 40.0,
+    "Vx": 40.0,
     "rpm": 2500.0
   },
   {
     "name": "cruise 65 m/s",
-    "mu_x": 0.0,
+    "mu_z": 0.0,
     "collective_deg": 0.0,
-    "Vz": 65.0,
+    "Vx": 65.0,
     "rpm": 2500.0
   }
 ]

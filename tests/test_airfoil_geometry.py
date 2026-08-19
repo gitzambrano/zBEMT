@@ -113,9 +113,13 @@ class TestFontesDeContorno(_JanelaDeTeste):
         self.assertEqual(aba.profile_source_combo.currentText(), "imported")
 
 
+@unittest.skipUnless(_HAS_QT, "sem PyQt6")
 class TestAjudaDoBloco(unittest.TestCase):
     """Help texts and catalog: all read from CLASS attributes and pure
-    functions, without building any widgets."""
+    functions, without building any widgets.
+
+    No widget is built, but the class attributes still come from a
+    `zbemt.gui` module, which needs Qt to import."""
 
     @property
     def aba(self):

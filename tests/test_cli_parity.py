@@ -185,7 +185,7 @@ class TestTrimFlags(unittest.TestCase):
         path = os.path.join(d, "proj")
         with contextlib.redirect_stdout(io.StringIO()):
             main_batch.main([
-                "--new", path, "--rpm", "600", "--mux", "0.0",
+                "--new", path, "--rpm", "600", "--mu-inplane", "0.0",
                 "--geom-preset", "tapered", "--geom-radius", "1.0",
                 "--geom-root-cutout", "0.15", "--geom-chord", "0.10",
                 "--geom-taper-ratio", "0.4", "--geom-twist-root", "14", "--geom-twist-tip", "2",
@@ -205,7 +205,7 @@ class TestTrimFlags(unittest.TestCase):
 
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
-                code = main_batch.main(["--project", path, "--rpm", "600", "--mux", "0.0",
+                code = main_batch.main(["--project", path, "--rpm", "600", "--mu-inplane", "0.0",
                                          "--collective", "2.0",
                                          "--trim-mode", "solve_collective",
                                          "--trim-target-thrust", str(float(target)),
@@ -485,9 +485,9 @@ class TestRunOptionsParity(unittest.TestCase):
             path_argv = os.path.join(d1, "proj")
             path_opts = os.path.join(d2, "proj")
             with contextlib.redirect_stdout(io.StringIO()):
-                main_batch.main(["--new", path_argv, "--rpm", "300", "--mux", "0.2",
+                main_batch.main(["--new", path_argv, "--rpm", "300", "--mu-inplane", "0.2",
                                   "--collective", "9.0", "--save-as", path_argv])
-            opts = main_batch.RunOptions(new=path_opts, rpm=300.0, mu_x=0.2,
+            opts = main_batch.RunOptions(new=path_opts, rpm=300.0, mu_inplane=0.2,
                                           collective=9.0, save_as=path_opts)
             with contextlib.redirect_stdout(io.StringIO()):
                 main_batch.main(options=opts)
@@ -498,7 +498,7 @@ class TestRunOptionsParity(unittest.TestCase):
             self.assertEqual(project_argv.geometry.radius_m, project_opts.geometry.radius_m)
 
     def test_runoptions_from_argv_matches_argparse_namespace(self):
-        argv = ["--new", "projects/X", "--rpm", "300", "--mux", "0.2"]
+        argv = ["--new", "projects/X", "--rpm", "300", "--mu-inplane", "0.2"]
         opts = main_batch.RunOptions.from_argv(argv)
         ns = main_batch._parse_args(argv)
         for f in ns.__dict__:
@@ -522,7 +522,7 @@ class TestReportFlag(unittest.TestCase):
         outdir = os.path.join(d, "out")
         with contextlib.redirect_stdout(io.StringIO()):
             main_batch.main([
-                "--new", path, "--mux", "0.0", "--rpm", "600",
+                "--new", path, "--mu-inplane", "0.0", "--rpm", "600",
                 "--collective", "8", "--set", "config.Ne=6", "--set", "config.Npsi=8",
                 "--outdir", outdir, *extra])
         return outdir

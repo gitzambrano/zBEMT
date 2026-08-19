@@ -729,8 +729,8 @@ class TestStep6RunBatch(GuiE2ETestCase):
         slot_combo_1, _u1, _v1 = tab.axis_rows[0]
         slot_combo_2, _u2, _v2 = tab.axis_rows[1]
 
-        # Axis 1: choose "Advance (mu_x / J_x / V)" -- slot "longitudinal"
-        idx_longitudinal = [i for i, (_l, s) in enumerate(tab._AXIS_SLOTS) if s == "longitudinal"][0]
+        # Axis 1: choose "Advance (mu_x / J_x / V)" -- slot "inplane"
+        idx_longitudinal = [i for i, (_l, s) in enumerate(tab._AXIS_SLOTS) if s == "inplane"][0]
         slot_combo_1.setCurrentIndex(idx_longitudinal)   # fires _on_axes_changed
 
         model2 = slot_combo_2.model()
@@ -754,7 +754,7 @@ class TestStep6RunBatch(GuiE2ETestCase):
         tab.show()
 
         slot_combo_1, unit_combo_1, values_edit_1 = tab.axis_rows[0]
-        idx_longitudinal = [i for i, (_l, s) in enumerate(tab._AXIS_SLOTS) if s == "longitudinal"][0]
+        idx_longitudinal = [i for i, (_l, s) in enumerate(tab._AXIS_SLOTS) if s == "inplane"][0]
         slot_combo_1.setCurrentIndex(idx_longitudinal)
         unit_combo_1.setCurrentText("mu_x")
         values_edit_1.setText("0.0, 0.1")
@@ -1406,7 +1406,7 @@ class TestFilaDoRunBatch(GuiE2ETestCase):
 
     def _montar_fatorial(self, aba, valores_mu="0.0, 0.1, 0.2"):
         sc1, uc1, ve1 = aba.axis_rows[0]
-        i_long = [i for i, (_l, s) in enumerate(aba._AXIS_SLOTS) if s == "longitudinal"][0]
+        i_long = [i for i, (_l, s) in enumerate(aba._AXIS_SLOTS) if s == "inplane"][0]
         sc1.setCurrentIndex(i_long)
         uc1.setCurrentText("mu_x")
         ve1.setText(valores_mu)

@@ -245,18 +245,18 @@ class SpinBoxCientifico(QDoubleSpinBox):
 # speed) and z the secondary one; the angle is always an alternative to
 # giving `V_z`.
 #
-# The key `("longitudinal"/"axial", mode)` is the ENGINE's slot:
+# The key `("inplane"/"axial", mode)` is the ENGINE's slot:
 # `longitudinal` is the internal `mu_x` (in the disk plane) and `axial`
 # is the internal `Vz` (along the shaft). Which one carries the letter x
 # depends on the mode -- that is exactly the rotation this table encodes.
 UNIDADES_DE_CONDICAO = {
     # ROTOR: vertical axis -> in-plane = x (advance), axial = z (climb)
-    ("longitudinal", False): (("μₓ", "mu_x"), ("Jₓ", "J_x"), ("Vₓ [m/s]", "Vx")),
+    ("inplane", False): (("μₓ", "mu_x"), ("Jₓ", "J_x"), ("Vₓ [m/s]", "Vx")),
     ("axial", False): (("αᵣₒₜₒᵣ [deg]", "alpha_deg"), ("V_z [m/s]", "Vz"),
                         ("μ_z", "mu_z"), ("J_z", "J_z")),
     # PROPELLER: horizontal axis -> axial = x (flight speed), in-plane = z
     ("axial", True): (("Jₓ", "J_z"), ("μₓ", "mu_z"), ("Vₓ [m/s]", "Vz")),
-    ("longitudinal", True): (("V_z [m/s]", "Vx"), ("α_dᵢₛₖ [deg]", "alpha_disk"),
+    ("inplane", True): (("V_z [m/s]", "Vx"), ("α_dᵢₛₖ [deg]", "alpha_disk"),
                               ("μ_z", "mu_x"), ("J_z", "J_x")),
 }
 
@@ -264,7 +264,7 @@ UNIDADES_DE_CONDICAO = {
 #: always wants. On a rotor: advance in mu_x and climb as an angle. On a
 #: propeller: flight speed in J_x and the cross component at zero.
 _UNIDADE_PADRAO = {
-    ("longitudinal", False): "μₓ", ("longitudinal", True): "V_z [m/s]",
+    ("inplane", False): "μₓ", ("inplane", True): "V_z [m/s]",
     ("axial", False): "αᵣₒₜₒᵣ [deg]", ("axial", True): "Jₓ",
 }
 
@@ -314,7 +314,7 @@ class LongitudinalInput(QWidget):
     the values are entered manually."""
     changed = pyqtSignal()
 
-    _SLOT = "longitudinal"
+    _SLOT = "inplane"
 
     def __init__(self, default_mu: float = 0.2):
         super().__init__()

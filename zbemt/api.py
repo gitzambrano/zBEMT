@@ -29,6 +29,7 @@ from . import geometry
 from . import airfoils
 from . import external_solvers
 from . import models
+from . import nomenclature
 from . import studies
 from . import validation
 from .bemt import BEMTConfig
@@ -107,7 +108,13 @@ def open_project(path: str) -> Project:
     airfoil_def = load_bemt(AirfoilDef, paths["airfoil"]) if paths["airfoil"].exists() else AirfoilDef()
     airfoil_sections = (load_bemt_list(AirfoilDef, paths["airfoil_sections"])
                          if paths["airfoil_sections"].exists() else [])
-    batches = (load_bemt_list(BatchDefinition, paths["batches"])
+    # The axis letters the flight conditions are stored under depend on the
+    # project's mode, which `config.bemt` (already loaded above) carries.
+    # `config.bemt`, `geom.bemt` and `airfoil*.bemt` hold no axis quantity,
+    # so only the two condition files below need it. See
+    # `zbemt.nomenclature`.
+    is_propeller = bool((config or {}).get("is_propeller", False))
+    batches = (load_bemt_list(BatchDefinition, paths["batches"], is_propeller)
                if paths["batches"].exists() else [])
     if paths["legacy_batch"].exists():
         # Migration: an old project may carry a legacy singular
@@ -121,11 +128,12 @@ def open_project(path: str) -> Project:
         # an extra entry (unless it is already there verbatim) so it
         # survives the next `save_project` -- which also deletes
         # `batch.bemt`, so this only ever runs once per project.
-        legado = load_bemt(BatchDefinition, paths["legacy_batch"])
+        legado = load_bemt(BatchDefinition, paths["legacy_batch"], is_propeller)
         tem_conteudo = bool(legado.conditions) or bool(legado.sweep_params)
         if tem_conteudo and legado not in batches:
             batches.append(legado)
-    saved_cases = (load_bemt_list(FlightCondition, paths["saved_cases"])
+    saved_cases = (load_bemt_list(FlightCondition, paths["saved_cases"],
+                                  is_propeller)
                    if paths["saved_cases"].exists() else [])
     return Project(name=name, path=str(path), config=config,
                     geometry=geom, airfoil=airfoil_def, airfoil_sections=airfoil_sections,
@@ -137,12 +145,14 @@ def save_project(project: Project) -> None:
     import json
     paths["meta"].parent.mkdir(parents=True, exist_ok=True)
     paths["meta"].write_text(json.dumps({"name": project.name}, ensure_ascii=False), encoding="utf-8")
+    is_propeller = bool((project.config or {}).get("is_propeller", False))
     save_bemt(project.config, paths["config"])
     save_bemt(project.geometry, paths["geom"])
     save_bemt(project.airfoil, paths["airfoil"])
     save_bemt_list(project.airfoil_sections, paths["airfoil_sections"])
-    save_bemt_list(project.batches, paths["batches"])
-    save_bemt_list(project.saved_cases, paths["saved_cases"])
+    # Only these two carry flight conditions, and therefore axis letters.
+    save_bemt_list(project.batches, paths["batches"], is_propeller)
+    save_bemt_list(project.saved_cases, paths["saved_cases"], is_propeller)
     # Migration cleanup: only after the (possibly migrated, see
     # `load_project`) batches are safely persisted into `batches.bemt` is
     # the old singular `batch.bemt` certainly redundant -- remove it so it
@@ -1303,29 +1313,13 @@ _COLUNAS_PRINCIPAIS = (
 #: `tests/test_api.py` checks that coverage stays complete.
 _SIMBOLO_DE_COLUNA = {
     # --- flight condition (input, in the resolved convention) ---
-    # NOMENCLATURE: the free stream is decomposed into a PAIRED SET,
-    # V_inf,x (in the disk plane) and V_inf,z (along the shaft) -- it is the pair
-    # the manual calls V_inf and V_v (docs/documentation.html, Section
-    # 2.1). Each has its own non-dimensional ratio in two vocabularies: the
-    # advance-ratio one (mu_x/mu_z, J_x/J_z) and the inflow one (lambda_z). They are
-    # descriptions of the SAME condition, not different quantities -- and it
-    # is exactly this that each description below needs to say, otherwise the
-    # table raises more questions than it answers.
-    "mu_x":               ("&mu;<sub>x</sub>", "Advance ratio along x: mu_x = V_x/(Omega*R). In rotor mode x is the IN-PLANE direction, so this is the classic forward-flight advance ratio -- the component that sweeps across the blades and makes the advancing and retreating sides differ"),
-    "mu_z":             ("&mu;<sub>z</sub>", "Advance ratio along z: mu_z = V_z/(Omega*R). In rotor mode z is the SHAFT direction, so this is climb (positive) or descent (negative). Same number as lambda_z, written in the advance-ratio vocabulary instead of the inflow one"),
-    "J_x":                ("J<sub>x</sub>", "Advance ratio along x in propeller form: J_x = V_x/(n*D) = pi*mu_x"),
-    "J_z":              ("J<sub>z</sub>", "Advance ratio along z in propeller form: J_z = V_z/(n*D) = pi*mu_z"),
-    "Vz":               ("V<sub>z</sub>", "Free-stream component along z [m/s]. In rotor mode z is the SHAFT direction, so this is climb (positive) or descent (negative). It is the FREE STREAM, not the flow through the disk -- that one is V_z,total"),
-    "Vz_total":               ("V<sub>z,total</sub>", "Total velocity along the shaft, through the disk [m/s]: V_z,total = V_z + v_i, disk-averaged. Free stream plus what the rotor adds. Written U_P in the manual (Section 2.4.2)"),
-    "Vi":               ("v<sub>i</sub>", "Induced velocity [m/s], disk-averaged: the velocity the rotor adds along its own shaft. v_i = lambda_i*(Omega*R). It never changes axis with the mode -- only the letter naming that axis does"),
-    "Vx": ("V<sub>x</sub>", "Free-stream component along x [m/s]. In rotor mode x is the IN-PLANE direction, so this is the horizontal flight speed -- what mu_x and J_x are built from"),
-    "alpha_rotor_deg":  ("&alpha;<sub>rotor</sub>", "ROTOR angle of attack [deg]: angle between the free stream and the DISK PLANE, alpha_rotor = atan2(V_z, V_x). This is THE alpha of rotor mode -- 0 in a helicopter's level forward flight, and POSITIVE when the flow arrives from below the disk. Its propeller-mode counterpart is alpha_disk, measured from the shaft; the two are complementary (alpha_rotor + alpha_disk = 90) and each mode shows only its own"),
-    "alpha_disk_deg":  ("&alpha;<sub>disk</sub>", "DISK angle of attack [deg]: angle between the free stream and the SHAFT, alpha_disk = 90 - alpha_rotor. This is THE alpha of propeller mode -- 0 in straight cruise (so a 2 deg misalignment reads '2'), and POSITIVE when the disk is tilted nose-up, i.e. the flow arrives from below. Its rotor-mode counterpart is alpha_rotor, measured from the disk plane; each mode shows only its own"),
-    "lambda_z":         ("&lambda;<sub>z</sub>", "Inflow ratio along z, from the free stream alone: lambda_z = V_z/(Omega*R). In rotor mode z is the shaft, so this is the climb inflow -- an input datum, known before any aerodynamics. THE SAME NUMBER as mu_z, in the inflow vocabulary instead of the advance-ratio one"),
-    "lambda_i":         ("&lambda;<sub>i</sub>", "Induced inflow ratio: lambda_i = v_i/(Omega*R), the unknown solved by the BEMT fixed point. Area-weighted mean over the meshed span (root cutout to tip), not the whole geometric disk"),
-    "lambda_total":     ("&lambda;<sub>total</sub>", "Total inflow ratio along the shaft: lambda_total = lambda_i + lambda_z in rotor mode (lambda_i + lambda_x in propeller mode) -- the free-stream part plus the induced part. Its dimensional counterpart is V_z,total = lambda_total*(Omega*R)"),
-    "collective_deg":   ("&theta;<sub>0</sub>", "Collective pitch [deg], added on top of the built-in blade twist"),
-    "rpm":              ("RPM", "Rotational speed of the rotor for this condition [rev/min] -- the value the solver actually ran with. Same quantity as RPM_rotor (the engine's own echo of it), which is therefore hidden from the table whenever the two agree"),
+    # NOT LISTED HERE. Every column whose SYMBOL depends on the axis
+    # convention -- mu_x/mu_z, J_x/J_z, Vx/Vz, the two alphas, lambda_z,
+    # Vz_total, Vi, collective, rpm -- lives in `zbemt/nomenclature.py` and is
+    # merged in below (`_simbolos_de_eixo`). That module is the single source
+    # the report, the plots, the GUI combos and the `.bemt` writer all read,
+    # so a symbol can no longer be right in the table and wrong in the chart
+    # printed next to it.
     "condition":        ("condition", "Flight condition. Cases are numbered in the order they were run, so a row can be cited (\"Case 3\") and matched to the figure with the same label"),
 
     # --- dimensional forces, moments and powers ---
@@ -1431,6 +1425,24 @@ _SIMBOLO_DE_COLUNA = {
 }
 
 
+def _simbolos_de_eixo(is_propeller: bool) -> dict:
+    """``key -> (HTML symbol, description)`` for every column whose name
+    depends on the axis convention, rendered from `nomenclature`.
+
+    Generated rather than written out twice: the symbol comes from the same
+    LaTeX source that produces the plot's axis label, so the table header and
+    the chart beside it in the same report cannot disagree.
+
+    Input-only aliases (`alpha_deg`, `alpha_disk`) are left out -- they never
+    appear as a `Results.summary` key."""
+    return {chave: (nomenclature.symbol_html(chave, is_propeller),
+                     nomenclature.description_html(chave, is_propeller))
+            for chave, q in nomenclature.QUANTITIES.items() if not q.alias_of}
+
+
+_SIMBOLO_DE_COLUNA.update(_simbolos_de_eixo(False))
+
+
 def _descricao_com_simbolos(texto: str) -> str:
     """Converts internal names into mathematical symbols in the displayed text.
 
@@ -1479,13 +1491,11 @@ def _descricao_com_simbolos(texto: str) -> str:
 #: "forgot to fill in", while "[-]" states that the quantity has no
 #: unit -- which in a report full of coefficients is the most
 #: common piece of information, and the one that most needs to not be ambiguous.
+#: The flight-condition rows are NOT here: their unit lives beside their
+#: symbol in `zbemt/nomenclature.py`, and `_unidade_de_coluna` consults that
+#: first. A unit does not rotate with the mode -- the letters change, the
+#: physics does not -- so there is only ever one entry per quantity.
 _UNIDADE_DE_COLUNA = {
-    "mu_x": "-", "mu_z": "-", "J_x": "-", "J_z": "-",
-    "Vz": "m/s", "Vz_total": "m/s", "Vi": "m/s", "Vx": "m/s",
-    "alpha_rotor_deg": "deg", "alpha_disk_deg": "deg",
-    "lambda_z": "-", "lambda_i": "-", "lambda_total": "-",
-    "collective_deg": "deg",
-    "rpm": "rev/min",
     "Thrust": "N", "Torque": "N&middot;m", "Power": "W",
     "Power_i": "W", "Power_p": "W",
     "H": "N", "Hi": "N", "Hp": "N", "Y": "N",
@@ -1521,84 +1531,35 @@ _UNIDADE_DE_COLUNA = {
     "cfg_rho_used": "kg/m&sup3;",
 }
 
+#: The flight-condition units come from `nomenclature`, which owns them, and
+#: are mirrored in so the table stays COMPLETE: the Results and Run Case tabs
+#: read it as a plain dict, and a missing key there is a column that silently
+#: loses its unit.
+_UNIDADE_DE_COLUNA.update({chave: nomenclature.unit(chave)
+                           for chave, q in nomenclature.QUANTITIES.items()
+                           if not q.alias_of})
+
 
 # =============================================================================
 # The SAME numbers, in the axis letters of a PROPELLER
 # =============================================================================
-# The engine decomposes flight velocity relative to the DISK and calls x the
-# in-plane component and z the component along the shaft (see Sec.6c of
-# `bemt.py`). In a helicopter this coincides with the vehicle's axes. In a
-# PROPELLER it does not: the rotor axis points forward, and in cruise all of
-# the aircraft's velocity is along it -- the table then used to label the flight
-# velocity as "V_inf,z" (a vertical component) and the vertical component, zero,
-# as "V_inf,x". Whoever reads the table reads the AIRCRAFT's axes.
+# The engine decomposes the flight velocity relative to the DISK and calls x
+# the in-plane component and z the component along the shaft (`bemt.py`,
+# Sec.6c). On a helicopter that coincides with the vehicle's axes. On a
+# PROPELLER it does not: the shaft points forward, and in cruise the whole
+# airspeed lies along it -- so the table used to label the flight velocity
+# "V_inf,z", a vertical component, and the vertical component, zero,
+# "V_inf,x". Whoever reads the table reads the AIRCRAFT's axes.
 #
-# With `is_propeller=True` the letters rotate: x is the rotor axis, z is the
-# vertical. That is why J_z (internal, axial) shows up as J_x -- the classic
-# propeller J_x, V/(nD) with V along the shaft -- and mu_x/J_x (internal,
-# in-plane) show up as mu_z/J_z, the cross-flow.
-#
-# ONLY THE LETTERS ROTATE. The number in each column is the same in both modes, and the
-# key (of the CSV, the `.bemt`, the `--set`) is too: `Vz` is always `Vz`. A
-# file exported in propeller mode and reopened in rotor mode remains correct,
-# it only changes vocabulary.
-#
-# `mu_x`/`J_x` are exceptions: in the engine they are EXACT synonyms of `mu_x`/`J_x` (the
-# in-plane component), so in propeller axes the key's own name would
-# lie. They are suppressed from the table (`_COLUNAS_SUPRIMIDAS_EM_HELICE`) --
-# whoever wants the non-dimensional axial advance has `mu_z`/`J_z`, shown there as
-# mu_x/J_x, which is where a propeller reader looks for them.
+# The rotation itself -- which letter each component carries, which key it is
+# written under, and which of the two angles the mode shows -- lives in
+# `zbemt/nomenclature.py`, once, for every surface. What remains here is the
+# handful of columns that carry NO axis letter and yet still read differently
+# to a propeller user: their prose changes, their symbol does not.
 _SIMBOLO_DE_COLUNA_HELICE = {
-    # --- x: in propeller axes, the rotor axis ---------------------------
-    "Vz":               ("V<sub>x</sub>", "Free-stream component along x [m/s]. In propeller mode x is the SHAFT direction, so this is the aircraft's airspeed -- in straight cruise, the whole flight velocity. It is the FREE STREAM; the flow through the disk is V_x,total. Stored under the engine key 'Vz'"),
-    "mu_z":             ("&mu;<sub>x</sub>", "Advance ratio along x: mu_x = V_x/(Omega*R), the airspeed normalised by tip speed. THE SAME NUMBER as lambda_x, in the advance-ratio vocabulary. Stored under the engine key 'mu_z'"),
-    "J_z":              ("J<sub>x</sub>", "Advance ratio along x in propeller form: J_x = V_x/(n*D) = pi*mu_x. THIS IS THE J_x of propeller charts, built from the airspeed along the shaft, and the one propulsive efficiency uses. Stored under the engine key 'J_z'"),
-    "lambda_z":         ("&lambda;<sub>x</sub>", "Inflow ratio along x, from the free stream alone: lambda_x = V_x/(Omega*R). In propeller mode x is the shaft, so this is the axial inflow -- an input datum, known before any aerodynamics. THE SAME NUMBER as mu_x, in the inflow vocabulary. Stored under the engine key 'lambda_z'"),
-    "Vz_total":               ("V<sub>x,total</sub>", "Total velocity along the shaft, through the disk [m/s]: V_x,total = V_x + v_i, disk-averaged. The airspeed plus what the propeller adds. Written U_P in the manual (Section 2.4.2)"),
-    "Vi":               ("v<sub>i</sub>", "Induced velocity [m/s], disk-averaged: the velocity the propeller adds along its own shaft (the x axis here). v_i = lambda_i*(Omega*R). It never changes axis with the mode -- only the letter naming that axis does"),
-    "lambda_total":     ("&lambda;<sub>total</sub>", "Total inflow ratio along the shaft: lambda_total = lambda_i + lambda_x -- the free-stream part plus the induced part. Its dimensional counterpart is V_x,total = lambda_total*(Omega*R)"),
-    # --- z: the aircraft's vertical, where the cross-flow lives -----------
-    "Vx": ("V<sub>z</sub>", "Free-stream component along z [m/s]. In propeller mode z is VERTICAL, across the shaft and in the plane of the disk: the cross-flow. ZERO in straight cruise; non-zero when the propeller flies at an angle to its axis. Stored under the engine key 'Vx'"),
-    "mu_x":               ("&mu;<sub>z</sub>", "Advance ratio along z: mu_z = V_z/(Omega*R), the cross-flow normalised by tip speed. This is the component that varies with azimuth and makes one side of the disk see more speed than the other. Stored under the engine key 'mu_x'"),
-    "J_x":                ("J<sub>z</sub>", "Advance ratio along z in propeller form: J_z = V_z/(n*D) = pi*mu_z. NOT the propeller advance ratio -- that one is J_x, built from the airspeed along the shaft. This is the cross-flow, zero in straight cruise"),
-    "eta_prop":         ("&eta;<sub>prop</sub>", "Propulsive efficiency: eta = T*V_x/P = J_x*CT_prop/CP_prop. Built from the airspeed ALONG THE SHAFT, since thrust acts there; meaningful with V_x > 0"),
-    "FM":               ("FM", "Figure of Merit: ideal induced power / actual power. A static (V_x = 0) figure of merit; in cruise the same formula can exceed 1 -- use eta_prop instead"),
+    "eta_prop":         ("&eta;<sub>prop</sub>", "Propulsive efficiency: &eta; = T&middot;V<sub>x</sub>/P = J<sub>x</sub>&middot;C<sub>T,prop</sub>/C<sub>P,prop</sub>. Built from the airspeed ALONG THE SHAFT, since thrust acts there; meaningful with V<sub>x</sub> &gt; 0"),
+    "FM":               ("FM", "Figure of Merit: ideal induced power / actual power. A static (V<sub>x</sub> = 0) figure of merit; in cruise the same formula can exceed 1 -- use &eta;<sub>prop</sub> instead"),
 }
-
-#: Columns whose KEY NAME would collide with the propeller letters (see above).
-#: Suppressed only from the table, never from `Results.summary` -- whoever exports CSV
-#: still gets all the keys.
-_COLUNAS_SUPRIMIDAS_EM_HELICE = ("alpha_rotor_deg",)
-
-#: `mu_x`/`J_x` leave the table in BOTH modes: in the engine they are exact synonyms
-#: of `mu_x`/`J_x`, so showing them would repeat the same number under the same
-#: symbol. They stay in `Results.summary` and in the CSV.
-
-#: And the mirror: in ROTOR mode the propeller angle disappears. Each mode shows ONE
-#: angle, its own -- the two are the same angle measured from different
-#: references (`alpha_rotor + alpha_disk = 90`), and two columns with numbers
-#: that never coincide invite reading one as if it were the other. Which is
-#: "its own" is whichever is zero at the vehicle's NORMAL condition: level advance for a
-#: helicopter for `alpha_rotor`, straight cruise for an aircraft for `alpha_disk`.
-_COLUNAS_SUPRIMIDAS_EM_ROTOR = ("alpha_disk_deg",)
-
-#: Reading order of the operating point, PER MODE: first the x
-#: component, then z, then the angle -- and x is always the main one (a
-#: helicopter's advance, a propeller's flight speed). The keys are the ENGINE's;
-#: what changes between the two is which one carries the letter x.
-_COLUNAS_PRINCIPAIS_ROTOR = (
-    "mu_x", "J_x", "Vx",            # x = in-plane (advance)
-    "mu_z", "J_z", "Vz", "lambda_z",            # z = shaft (climb/descent)
-    "alpha_rotor_deg",
-    "collective_deg", "rpm",
-)
-
-_COLUNAS_PRINCIPAIS_HELICE = (
-    "mu_z", "J_z", "Vz", "lambda_z",            # x = shaft (flight speed)
-    "mu_x", "J_x", "Vx",             # z = in-plane (cross-flow)
-    "alpha_disk_deg",
-    "collective_deg", "rpm",
-)
 
 
 def summary_symbols(is_propeller: bool = False) -> dict:
@@ -1606,12 +1567,14 @@ def summary_symbols(is_propeller: bool = False) -> dict:
     of the requested mode.
 
     In rotor mode returns `_SIMBOLO_DE_COLUNA` unchanged; in propeller mode,
-    with the axis letters rotated (`_SIMBOLO_DE_COLUNA_HELICE`). SINGLE
-    source for the report, the GUI table, and field selectors -- the three
-    surfaces need to say the SAME thing about the same column."""
+    with the axis letters rotated (from `nomenclature`) and the two
+    non-axis columns whose prose differs (`_SIMBOLO_DE_COLUNA_HELICE`).
+    SINGLE source for the report, the GUI table, and field selectors -- the
+    three surfaces need to say the SAME thing about the same column."""
     if not is_propeller:
         return _SIMBOLO_DE_COLUNA
     tabela = dict(_SIMBOLO_DE_COLUNA)
+    tabela.update(_simbolos_de_eixo(True))
     tabela.update(_SIMBOLO_DE_COLUNA_HELICE)
     return tabela
 
@@ -1845,9 +1808,9 @@ def _chaves_ordenadas(results_list: list, is_propeller: Optional[bool] = None) -
 
     ``is_propeller`` (``None`` = deduce from `modo_helice`) changes TWO things
     and neither of them is a value: the order of the first columns (a propeller
-    reads by axial advance) and the suppression of `mu_x`/`J_x`, whose names
-    would collide with the propeller axis letters -- see
-    `_SIMBOLO_DE_COLUNA_HELICE`."""
+    reads by axial advance) and which of the two angles is shown -- both read
+    from `nomenclature`, so the table, the plots and the `.bemt` writer agree
+    by construction."""
     if is_propeller is None:
         is_propeller = modo_helice(results_list)
     chaves: list = []
@@ -1860,12 +1823,10 @@ def _chaves_ordenadas(results_list: list, is_propeller: Optional[bool] = None) -
     if "rpm" in vistas and _rotor_rpm_e_redundante(results_list):
         vistas.discard("rotor_rpm")
         chaves = [k for k in chaves if k != "rotor_rpm"]
-    for k in (_COLUNAS_SUPRIMIDAS_EM_HELICE if is_propeller
-              else _COLUNAS_SUPRIMIDAS_EM_ROTOR):
+    for k in [c for c in chaves if not nomenclature.is_visible(c, is_propeller)]:
         vistas.discard(k)
         chaves = [c for c in chaves if c != k]
-    ordem = _COLUNAS_PRINCIPAIS_HELICE if is_propeller else _COLUNAS_PRINCIPAIS_ROTOR
-    principais = [k for k in ordem if k in vistas]
+    principais = [k for k in nomenclature.primary_order(is_propeller) if k in vistas]
     principais += [k for k in _COLUNAS_PRINCIPAIS
                    if k in vistas and k not in principais]
     cfg = [k for k in chaves if k.startswith("cfg_")]

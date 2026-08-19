@@ -421,7 +421,7 @@ class RunCaseTab(QWidget):
         # "Advance" in either mode) invited putting the aircraft's speed
         # there -- which enters as edgewise flow and produces the solution
         # for an edgewise rotor. See `common.rotulo_e_dica_de_condicao`.
-        for campo, slot in ((self.advance, "longitudinal"), (self.axial, "axial")):
+        for campo, slot in ((self.advance, "inplane"), (self.axial, "axial")):
             rotulo, dica = rotulo_e_dica_de_condicao(propeller, slot)
             campo.setToolTip(dica)
             definir_rotulo_de_linha(self._condition_form, campo, rotulo)

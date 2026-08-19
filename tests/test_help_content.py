@@ -4,6 +4,16 @@ import unittest
 
 from zbemt.bemt import REVERSE_FLOW_MODELS as _REVERSE_FLOW_MODELS
 
+from tests.helpers import HAS_QT
+
+# Every class here reads help text out of a `zbemt.gui` module, which needs
+# Qt to import -- so without it there is nothing to check, and the CI job
+# that installs the base dependencies only (to prove the engine runs without
+# Qt) must see this module SKIPPED, not 20 import failures.
+if not HAS_QT:                                   # pragma: no cover
+    raise unittest.SkipTest("PyQt6 is not installed (the engine and CLI run "
+                            "without it on purpose)")
+
 
 class TestFieldHelpCoverage(unittest.TestCase):
     """Every field with id='ajuda-*' in the HTML has an entry in FIELD_HELP."""
