@@ -1,0 +1,23 @@
+[
+  {
+    "name": "hover max weight",
+    "mu_x": 0.0,
+    "collective_deg": 13.0,
+    "Vz": 0.0,
+    "rpm": 260.9097427735989
+  },
+  {
+    "name": "cruise mu_x=0.20",
+    "mu_x": 0.2,
+    "collective_deg": 8.5,
+    "Vz": 0.0,
+    "rpm": 260.9097427735989
+  },
+  {
+    "name": "high speed mu_x=0.30",
+    "mu_x": 0.3,
+    "collective_deg": 6.5,
+    "Vz": 0.0,
+    "rpm": 260.9097427735989
+  }
+]

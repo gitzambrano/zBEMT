@@ -1,0 +1,21 @@
+[
+  {
+    "name": "mu_x sweep",
+    "conditions": [],
+    "sweep_kind": "mu_sweep",
+    "sweep_params": {
+      "mu_values": [
+        0.0,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "collective_deg": 5.0,
+      "rpm": 400.39373478630364
+    },
+    "outdir": null,
+    "plots": [
+      "performance"
+    ]
+  }
+]

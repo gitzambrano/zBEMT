@@ -1,0 +1,23 @@
+[
+  {
+    "name": "hover",
+    "mu_x": 0.0,
+    "collective_deg": 7.0,
+    "Vz": 0.0,
+    "rpm": 347.24714856413533
+  },
+  {
+    "name": "transition mu_x=0.10",
+    "mu_x": 0.1,
+    "collective_deg": 6.0,
+    "Vz": 0.0,
+    "rpm": 347.24714856413533
+  },
+  {
+    "name": "forward mu_x=0.25",
+    "mu_x": 0.25,
+    "collective_deg": 4.0,
+    "Vz": 0.0,
+    "rpm": 347.24714856413533
+  }
+]

@@ -1,0 +1,115 @@
+[
+  {
+    "name": "mu_sweep",
+    "conditions": [],
+    "sweep_kind": "mu_sweep",
+    "sweep_params": {
+      "mu_values": [0, 0.05, 0.1, 0.13, 0.16, 0.19, 0.23, 0.3, 0.4],
+      "collective_deg": 8.0,
+      "Vz": 0.0,
+      "rpm": 1200
+    },
+    "outdir": null,
+    "plots": []
+  },
+  {
+    "name": "mu_sweep_custom",
+    "conditions": [
+      {
+        "name": "μ_x=0",
+        "mu_x": 0.0,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.05",
+        "mu_x": 0.05,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.1",
+        "mu_x": 0.1,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.15",
+        "mu_x": 0.15,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.2",
+        "mu_x": 0.2,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.25",
+        "mu_x": 0.25,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.3",
+        "mu_x": 0.3,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.35",
+        "mu_x": 0.35,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.4",
+        "mu_x": 0.4,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.45",
+        "mu_x": 0.45,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.5",
+        "mu_x": 0.5,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.55",
+        "mu_x": 0.55,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      },
+      {
+        "name": "μ_x=0.6",
+        "mu_x": 0.6,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 600.0
+      }
+    ],
+    "sweep_kind": "custom",
+    "sweep_params": {},
+    "outdir": null,
+    "plots": []
+  }
+]

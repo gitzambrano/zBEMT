@@ -1,0 +1,16 @@
+[
+  {
+    "name": "hover",
+    "mu_x": 0.0,
+    "collective_deg": 8.0,
+    "Vz": 0.0,
+    "rpm": 6055.651493252603
+  },
+  {
+    "name": "climb 2 m/s",
+    "mu_x": 0.0,
+    "collective_deg": 10.0,
+    "Vz": 2.0,
+    "rpm": 6055.651493252603
+  }
+]

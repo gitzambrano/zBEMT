@@ -1,0 +1,22 @@
+[
+  {
+    "name": "collective at hover",
+    "conditions": [],
+    "sweep_kind": "collective_sweep",
+    "sweep_params": {
+      "collective_deg_values": [
+        4.0,
+        6.0,
+        8.0,
+        10.0,
+        12.0
+      ],
+      "mu_x": 0.0,
+      "rpm": 6055.651493252603
+    },
+    "outdir": null,
+    "plots": [
+      "performance"
+    ]
+  }
+]

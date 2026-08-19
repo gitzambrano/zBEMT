@@ -1,0 +1,45 @@
+[
+  {
+    "name": "mu_x sweep",
+    "conditions": [],
+    "sweep_kind": "mu_sweep",
+    "sweep_params": {
+      "mu_values": [
+        0.0,
+        0.05,
+        0.1,
+        0.15,
+        0.2,
+        0.25,
+        0.3,
+        0.35
+      ],
+      "collective_deg": 8.0,
+      "rpm": 258.0575379553108
+    },
+    "outdir": null,
+    "plots": [
+      "performance"
+    ]
+  },
+  {
+    "name": "collective at hover",
+    "conditions": [],
+    "sweep_kind": "collective_sweep",
+    "sweep_params": {
+      "collective_deg_values": [
+        4.0,
+        6.0,
+        8.0,
+        10.0,
+        12.0
+      ],
+      "mu_x": 0.0,
+      "rpm": 258.0575379553108
+    },
+    "outdir": null,
+    "plots": [
+      "performance"
+    ]
+  }
+]

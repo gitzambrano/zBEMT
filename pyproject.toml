@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zbemt"
+version = "0.1.0"
+description = "Solver BEMT (Blade Element Momentum Theory) para rotores de helicóptero, eVTOL e hélices, com GUI PyQt6 e CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Gustavo Zambrano" }]
+keywords = ["bemt", "rotor", "helicopter", "propeller", "evtol", "aerodynamics"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+]
+
+# The engine and CLI run with just these four. PyQt6 and PyVista are
+# deliberately optional: a batch run on a headless server shouldn't need them.
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+gui = ["PyQt6>=6.5"]
+viz3d = ["pyvista>=0.42"]
+neuralfoil = ["neuralfoil>=0.2"]
+interactive = ["PyQt6-WebEngine>=6.5", "plotly>=5.20"]
+dev = ["pytest>=7.4"]
+all = ["PyQt6>=6.5", "pyvista>=0.42", "neuralfoil>=0.2", "PyQt6-WebEngine>=6.5", "plotly>=5.20", "pytest>=7.4"]
+
+[project.scripts]
+zbemt = "zbemt.cli:main"
+
+[project.gui-scripts]
+zbemt-gui = "zbemt.gui.app:main"
+
+[project.urls]
+Repository = "https://github.com/gitzambrano/zbemt"
+
+[tool.setuptools.packages.find]
+include = ["zbemt*"]
+
+# The embedded help ("?" / F1 button) goes INTO THE WHEEL. `docs/` lives at
+# the repository root; `setup.py` copies the tree into `zbemt/docs/` at
+# `build` time, and `zbemt.paths.documentation_path()` looks there first.
+# Without this, whoever installs instead of cloning presses F1 and gets
+# "couldn't find the help". It's ~4 MB: the HTML is 211 KB, the rest is the
+# figures and KaTeX, and without them the documentation opens broken -- the
+# equations render as raw LaTeX.
+[tool.setuptools.package-data]
+# `gui/assets/*.svg`: the QComboBox/QSpinBox arrows. The QSS references them
+# by absolute path on disk (`styles._seta`); outside the wheel, every
+# dropdown in the app loses its arrow -- see the comment block at the top of
+# `zbemt/gui/styles.py`.
+zbemt = ["docs/**/*", "gui/assets/*.svg"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# GUI tests run headless: `tests/conftest.py` already sets
+# QT_QPA_PLATFORM=offscreen and matplotlib's Agg backend.

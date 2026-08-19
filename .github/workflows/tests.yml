@@ -1,0 +1,127 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # The engine and the CLI do not depend on Qt -- deliberately, so that a
+  # batch on a headless server does not need it. This job proves that: it
+  # installs ONLY the base dependencies and runs everything that is not GUI.
+  # If someone slips an `import PyQt6` into the engine, this breaks here.
+  motor:
+    name: motor + CLI (sem Qt), Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Instalar (só dependências base)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Confirmar que PyQt6 NÃO está instalado
+        run: |
+          python - <<'PY'
+          import importlib.util, sys
+          if importlib.util.find_spec("PyQt6") is not None:
+              sys.exit("PyQt6 foi instalado neste job -- ele existe para provar "
+                       "que o motor roda sem Qt. Alguma dependência o puxou.")
+          print("ok: sem PyQt6, como esperado")
+          PY
+
+      - name: Testes (os de GUI pulam sozinhos sem Qt)
+        run: pytest -q --tb=short
+
+  gui:
+    name: suíte completa com GUI (headless)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # PyQt6 needs these system libraries even in offscreen mode
+      - name: Dependências de sistema do Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
+
+      - name: Instalar com todos os extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+
+      - name: Suíte completa
+        # QT_QPA_PLATFORM is also set in tests/conftest.py; repeated here
+        # for anyone running the job without going through conftest.
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pytest -q --tb=short
+
+  instalacao:
+    name: instalação limpa (wheel, fora do repositório)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Construir e instalar o wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          pip install dist/*.whl
+
+      # Runs OUTSIDE the repository: this is how you catch a path that only
+      # worked by accident, because it sat next to the source code
+      # (the bug that `zbemt/paths.py` exists to avoid).
+      - name: Importar e rodar o CLI de fora do repositório
+        run: |
+          cd /tmp
+          python -c "import zbemt; print('versão', zbemt.__version__)"
+          zbemt --help > /dev/null
+          python - <<'PY'
+          import re
+          from zbemt import paths
+          raiz = paths.projects_root()
+          assert "site-packages" not in str(raiz), \
+              f"projects_root caiu dentro da instalação: {raiz}"
+          print("ok: projects_root =", raiz)
+
+          # The embedded help (button "?" / F1) has to ship inside the
+          # wheel, and COMPLETE: without the figures and KaTeX it opens
+          # broken, with the equations as raw LaTeX. See setup.py.
+          doc = paths.documentation_path()
+          assert doc is not None and doc.is_file(), \
+              "documentation.html was not packaged: F1 would not work"
+          html = doc.read_text(encoding="utf-8")
+          refs = set(re.findall(r'src="((?:img|vendor)/[^"]+)"', html))
+          faltando = [r for r in refs if not (doc.parent / r).exists()]
+          assert not faltando, f"recursos da ajuda ausentes no wheel: {faltando}"
+          assert not re.findall(r'src="https?', html), \
+              "a ajuda embutida carrega recurso externo: nao abriria offline"
+          print(f"ok: ajuda embutida com {len(refs)} recursos, toda local")
+          PY

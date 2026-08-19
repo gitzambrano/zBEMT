@@ -1,0 +1,54 @@
+[
+  {
+    "name": "mu_x sweep",
+    "conditions": [],
+    "sweep_kind": "mu_sweep",
+    "sweep_params": {
+      "mu_values": [
+        0.0,
+        0.1,
+        0.2,
+        0.3,
+        0.38
+      ],
+      "collective_deg": 5.0,
+      "rpm": 381.9718634205488
+    },
+    "outdir": null,
+    "plots": [
+      "performance"
+    ]
+  },
+  {
+    "name": "collective vs forward",
+    "conditions": [],
+    "sweep_kind": "factorial",
+    "sweep_params": {
+      "axes": [
+        {
+          "variable": "mu_x",
+          "values": [
+            0.0,
+            0.2,
+            0.35
+          ]
+        },
+        {
+          "variable": "collective_deg",
+          "values": [
+            3.0,
+            6.0,
+            9.0
+          ]
+        }
+      ],
+      "fixed": {
+        "rpm": 381.9718634205488
+      }
+    },
+    "outdir": null,
+    "plots": [
+      "performance"
+    ]
+  }
+]

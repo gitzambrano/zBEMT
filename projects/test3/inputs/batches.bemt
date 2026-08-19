@@ -1,0 +1,54 @@
+[
+  {
+    "name": "collective at hover",
+    "conditions": [],
+    "sweep_kind": "collective_sweep",
+    "sweep_params": {
+      "collective_deg_values": [
+        2.0,
+        4.0,
+        6.0,
+        8.0,
+        10.0
+      ],
+      "mu_x": 0.0,
+      "rpm": 1145.9155902616465
+    },
+    "outdir": null,
+    "plots": [
+      "performance"
+    ]
+  },
+  {
+    "name": "rpm vs collective",
+    "conditions": [],
+    "sweep_kind": "factorial",
+    "sweep_params": {
+      "axes": [
+        {
+          "variable": "rpm",
+          "values": [
+            900.0,
+            1146.0,
+            1400.0
+          ]
+        },
+        {
+          "variable": "collective_deg",
+          "values": [
+            4.0,
+            6.0,
+            8.0
+          ]
+        }
+      ],
+      "fixed": {
+        "mu_x": 0.0
+      }
+    },
+    "outdir": null,
+    "plots": [
+      "performance"
+    ]
+  }
+]

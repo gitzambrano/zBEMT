@@ -1,0 +1,97 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+/.github/*
+
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.cwd
+.pytest_cache/
+.mypy_cache/
+.pyre_cache/
+.pytype_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE / Editor configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific ignores
+/projects/*
+!/projects/starter_rotor/
+!/projects/starter_propeller/
+!/projects/test1/
+!/projects/test2/
+!/projects/test3/
+!/projects/test4/
+!/projects/test5/
+!/projects/test6/
+!/projects/test7/
+!/projects/test8/
+!/projects/test9/
+!/projects/test10/
+!/projects/test11/
+!/projects/test12/
+/projects/*/outputs/
+/outputs/
+/relatorio.html
+*.txt
+
+# build artifact: setup.py copies docs/ here when packaging
+/zbemt/docs/
