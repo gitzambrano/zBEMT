@@ -1,3 +1,17 @@
+"""
+test_visualization.py
+======================
+
+`zbemt.viz.visualization`: the geometry handed to the 3D view -- the
+blade surface, the rotor disk, and the scalar grid painted on it.
+
+The three builders run without PyVista: they return plain arrays, and
+PyVista only draws them. That is the point of the split, and it is what
+lets these tests check the numbers -- point counts, orientation, the
+field actually sampled -- on a machine with no 3D stack at all
+(PR-7). `TestPyvistaAvailability` covers the other half: the absence of
+PyVista must degrade the 3D view alone and never raise anywhere else.
+"""
 import unittest
 from dataclasses import dataclass, field as dc_field
 

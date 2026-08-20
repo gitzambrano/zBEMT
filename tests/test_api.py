@@ -408,6 +408,47 @@ class TestGenerateReport(unittest.TestCase):
         self.assertEqual(
             [p.name for p in Path(self.tmp).iterdir() if p.suffix == ".png"], [])
 
+    def test_relatorio_nao_busca_folha_de_estilo_nem_script_de_fora(self):
+        """PR-5. An `<img>` is not the only way out of the file. A
+        stylesheet in a `<link>`, a library in a `<script src>` or a web
+        font each turn the report into a page that looks right on the
+        machine that generated it and wrong -- or blank -- on the machine
+        it was sent to, which is worse than an obvious missing image
+        because nothing announces the failure."""
+        destino = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, destino, project=self.project)
+        html = Path(destino).read_text(encoding="utf-8")
+        self.assertNotRegex(html, r"<link[^>]+rel=[\"']?stylesheet",
+                            "report links an external stylesheet")
+        self.assertNotRegex(html, r"<script[^>]+src=",
+                            "report loads a script from outside itself")
+        self.assertNotIn("@import", html, "report imports an external stylesheet")
+        self.assertNotRegex(html, r"url\(\s*[\"']?https?:",
+                            "report pulls an asset over the network")
+
+    def test_cada_pagina_do_relatorio_dividido_e_autossuficiente(self):
+        """The self-containment rule holds for the satellites too. They
+        are the pages that carry the figures, so a satellite that
+        referenced a PNG on disk would break exactly the part of the
+        report a reader opens the split version for."""
+        conds = [FlightCondition(name=f"c{i}", mu_x=0.05 * i, collective_deg=8.0, rpm=600.0)
+                 for i in range(1, 7)]
+        destino = os.path.join(self.tmp, "dividido.html")
+        api.generate_report([api.run_case(self.project, c) for c in conds],
+                             destino, project=self.project)
+        paginas = [Path(destino)] + sorted(Path(self.tmp).glob("dividido_*.html"))
+        self.assertGreater(len(paginas), 1, "the report did not split")
+        for pagina in paginas:
+            corpo = pagina.read_text(encoding="utf-8")
+            self.assertNotRegex(corpo, r'src="(?!data:)',
+                                f"{pagina.name} references a file outside itself")
+            self.assertNotRegex(corpo, r"<script[^>]+src=",
+                                f"{pagina.name} loads an external script")
+        # the only files produced are the HTML pages themselves
+        avulsos = sorted(p.name for p in Path(self.tmp).iterdir()
+                         if p.is_file() and p.suffix not in (".html",))
+        self.assertEqual(avulsos, [], "report left loose asset files: " + str(avulsos))
+
     def test_exporta_todas_as_secoes_em_uma_unica_passagem(self):
         """Generation must not redraw each section separately."""
         destino = os.path.join(self.tmp, "relatorio_unico.html")

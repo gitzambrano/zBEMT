@@ -36,27 +36,56 @@ _CAMPO_DA_LINHA = re.compile(r'data-ajuda-campo="([\w.]+)"')
 @lru_cache(maxsize=1)
 def registro_de_campos() -> dict:
     """``{field_name: html_description}``, derived from
-    ``docs/documentation.html``. Empty dict if the documentation is not
-    available -- whoever uses this (the "?" tooltip) already has a
-    generic fallback text, so this is never mandatory."""
-    from .. import paths
+    ``docs/documentation.html``.
 
-    caminho = paths.documentation_path()
-    if caminho is None:
-        return {}
+    The description is the first sentence of the field's own section --
+    the same section the "open full documentation" link goes to. Empty
+    dict if the documentation is not available: whoever uses this (the
+    "?" tooltip) already has a generic fallback, so it is never
+    mandatory.
+    """
     try:
-        html = caminho.read_text(encoding="utf-8")
-    except OSError:
+        from .field_help import mapa_de_campos, secoes_da_documentacao
+    except Exception:                                   # pragma: no cover
+        return {}
+
+    try:
+        secoes = {a: s for s in secoes_da_documentacao()
+                  for a in set(s.apelidos) | {s.ancora}}
+        mapa = mapa_de_campos()
+    except Exception:                                   # pragma: no cover
         return {}
 
     registro: dict = {}
-    for linha in re.finditer(r'<tr id="ajuda-[\w.]+"[^>]*>.*?</tr>', html, re.DOTALL):
-        bloco = linha.group(0)
-        campo_m = _CAMPO_DA_LINHA.search(bloco)
-        desc_m = re.search(r'<td>(.*?)</td>\s*</tr>', bloco, re.DOTALL)
-        if campo_m and desc_m:
-            registro[campo_m.group(1)] = desc_m.group(1).strip()
+    for campo, ancora in mapa.items():
+        secao = secoes.get(ancora)
+        if secao is None:
+            continue
+        frase = _primeira_frase(secao.corpo)
+        if frase:
+            registro[campo] = frase
     return registro
+
+
+#: Opening paragraph of a section, skipping any figure or heading before it.
+_PARAGRAFO = re.compile(r"<p[^>]*>(.*?)</p>", re.DOTALL)
+
+#: The field sections open with a bold lead-in ("The physics.", "What it
+#: is.") that labels the paragraph rather than describing the field.
+_ROTULO = re.compile(r"^\s*<b>[^<]{0,40}</b>\s*")
+
+
+def _primeira_frase(corpo: str) -> str:
+    """First sentence of the first real paragraph of ``corpo``."""
+    for m in _PARAGRAFO.finditer(corpo):
+        texto = _ROTULO.sub("", m.group(1)).strip()
+        if len(texto) < 25:
+            continue
+        # cut at the first full stop that ends a sentence, keeping any
+        # inline markup that opened before it
+        corte = re.search(r"\.(?=\s|$)", re.sub(r"<[^>]+>", lambda x: " " * len(x.group(0)), texto))
+        return (texto[:corte.end()] if corte else texto).strip()
+    return ""
 
 
 def descricao_curta(campo: str) -> str | None:

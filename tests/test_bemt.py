@@ -1,6 +1,7 @@
 """Tests for `zbemt.bemt`: the core BEMT solver -- hover and forward-flight solutions, agreement between solver methods, advance-velocity identities, propeller-convention result aggregation, table/Viterna-extrapolated airfoils, `BEMTConfig` defaults, the Prandtl-Glauert compressibility ceiling, and heterogeneous multi-section airfoils.
 """
 
+import math
 import os
 import unittest
 
@@ -678,3 +679,51 @@ class TestHeterogeneousMultiSectionAirfoil(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPrandtlLossFactor(unittest.TestCase):
+    """The loss factor must match the closed form, including the 1/x.
+
+    The exponent measures the distance to the edge in units of the spacing
+    between helical vortex sheets, s = 2*pi*x*sin(phi)/Nb. That spacing
+    grows with radius, so x belongs in the denominator; dropping it applies
+    a spurious loss inboard, worth a few per cent of thrust.
+    """
+
+    @staticmethod
+    def _esperado(x, xr, Nb, phi):
+        s = max(abs(math.sin(phi)), 1e-6) * max(x, 1e-6)
+        F = 1.0
+        for f in (-(Nb / 2.0) * (1.0 - x) / s, -(Nb / 2.0) * (x - xr) / s):
+            F *= min(max((2.0 / math.pi) * math.acos(min(max(math.exp(f), -1.0), 1.0)),
+                         0.01), 1.0)
+        return F
+
+    def _estado(self, x, rotor, cfg):
+        from zbemt import bemt
+        um = np.array([[x]])
+        return bemt.element_state(
+            np.array([[0.05]]), um, np.array([[0.0]]),
+            np.array([[x * rotor.R]]), np.array([[0.08 * rotor.R]]),
+            np.array([[math.radians(8.0)]]), 0.0, 0.0,
+            rotor.Nb, rotor.Omega, rotor.Omega * rotor.R,
+            AnalyticalAirfoil(), cfg,
+            rotor.r_root_norm_geom, rotor.r_tip_norm_geom)
+
+    def test_fator_bate_com_a_forma_fechada(self):
+        rotor = _small_rotor(n_blades=4)
+        cfg = _fast_cfg(prandtl_loss_mode="both")
+        for x in (0.25, 0.5, 0.75, 0.9, 0.97):
+            with self.subTest(r_norm=x):
+                estado = self._estado(x, rotor, cfg)
+                phi = float(np.asarray(estado["phi"]).ravel()[0])
+                obtido = float(np.asarray(estado["F"]).ravel()[0])
+                esperado = self._esperado(x, rotor.r_root_norm_geom, rotor.Nb, phi)
+                self.assertAlmostEqual(obtido, esperado, places=6)
+
+    def test_perda_desaparece_longe_das_bordas(self):
+        """Well inside the blade the factor is essentially one."""
+        rotor = _small_rotor(n_blades=4)
+        cfg = _fast_cfg(prandtl_loss_mode="both")
+        estado = self._estado(0.5, rotor, cfg)
+        self.assertGreater(float(np.asarray(estado["F"]).ravel()[0]), 0.99)

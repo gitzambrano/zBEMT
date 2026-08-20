@@ -35,7 +35,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>Root cutout</b> is the inboard station where the aerodynamic blade begins; inboard of it the hub and shaft occupy the disk and carry no useful lift. It removes the innermost annuli from the integration, where the local velocity Ωr is small and the contribution is minor for thrust but not negligible for the root-loss factor.",
             "These values are shared by every flight condition in the project. Changing one invalidates any result already computed, which is why the geometry is edited here rather than per case.",
         ],
-        "anchor": "cap-10-0",
+        "anchor": "cap-2-1",
     },
     "radial_table": {
         "title": "Radial Distribution Table — how the blade varies along the span",
@@ -76,7 +76,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>Compressibility</b> is the opposite corner of the disk. The largest relative velocity is at the advancing tip, W ≈ ΩR + V∞, and there the flow can be transonic while the rest of the disk is comfortably subsonic. The Prandtl-Glauert factor stretches the incompressible lift curve to account for it.",
             "The two are complementary in space, not competing: reverse flow is an inboard-retreating effect and compressibility an outboard-advancing one. A high-speed rotor has both at once, at opposite ends of the disk, and each is handled by its own sub-block below.",
         ],
-        "anchor": "physical-corrections",
+        "anchor": "cap-4-4",
     },
     "table_import": {
         "title": "Data import / tabulated polar — measured or computed coefficients",
@@ -95,7 +95,7 @@ BLOCK_HELP: dict[str, dict] = {
             "What is <b>not</b> stored is anything derived: results, figures, and reports. Those are regenerated from the inputs, which is what makes a project reproducible — the file is the experiment, not its output.",
             "Applying a change and saving it are separate steps on purpose. Applying makes the change take effect in the session so a run reflects it immediately; saving writes it to disk. A window closed with applied-but-unsaved changes warns before discarding them.",
         ],
-        "anchor": "cap-8-4",
+        "anchor": "cap-interfaces-2",
     },
     "saved_cases": {
         "title": "Saved Cases — flight conditions kept with the project",
@@ -222,7 +222,7 @@ BLOCK_HELP: dict[str, dict] = {
             r"$$|H_n| = \left[1 + (n\,\Omega\,\tau)^2\right]^{-1/2}, \quad \angle H_n = -\arctan(n\,\Omega\,\tau)$$",
             "<b>Fade window.</b> A smoothstep in |α<sub>eff</sub>| between fade_start and fade_end returns the result to the static polar at extreme angles, where the lag model is no longer validated. The correction is applied as post-processing on the converged inflow field, so it never feeds back into the momentum equation.",
         ],
-        "anchor": "cap-24",
+        "anchor": "cap-3-3",
     },
     "reverse_flow": {
         "title": "Reverse Flow — the retreating-side circle",
@@ -235,7 +235,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>viterna_full_range</b> — with the polar already extended to ±180°, α<sub>eff</sub> is simply α<sub>geom</sub> mapped into (−π, π]: no reverse-flow branch is needed, the polar carries the physics in every quadrant. Requires the full-range extension to be active.",
             "Rule of thumb: below μ ≈ 0.2–0.3 the region is small (often inside the root cutout) and all five agree; above that the choice is worth a sensitivity run. Masking in disk plots is a drawing option only — forces and CSV always contain the region.",
         ],
-        "anchor": "cap-22",
+        "anchor": "cap-3-4",
     },
     "compressibility": {
         "title": "Compressibility (Prandtl-Glauert)",
@@ -247,7 +247,7 @@ BLOCK_HELP: dict[str, dict] = {
             "The factor is 1.005 at M = 0.1, 1.048 at M = 0.3, 1.25 at M = 0.6 and formally diverges at M → 1, which is why the engine floors β instead of letting it blow up. Above M ≈ 0.75–0.8 the linearization is void anyway: shocks and wave drag are not modelled.",
             "Enable it whenever the tip Mach exceeds ≈ 0.3. Do <b>not</b> enable it on a tabulated polar that already carries a Mach axis — that counts compressibility twice, and validation warns about exactly this combination.",
         ],
-        "anchor": "cap-23-3",
+        "anchor": "cap-3-5",
     },
     "polar_generation": {
         "title": "Polar Generation (NeuralFoil)",
@@ -275,7 +275,7 @@ BLOCK_HELP: dict[str, dict] = {
             "The integration offset shifts the innermost and outermost nodes off r/R = 0 and r/R = 1, where the Prandtl factor F → 0 and 1/|sin φ| is singular. Too small and the edge nodes are noisy; too large and real root/tip physics is lost.",
             "ρ scales every force and moment linearly (dL, dD ∝ ρW²), so thrust and power scale with it directly. a<sub>sound</sub> only enters through M = W/a<sub>sound</sub> in the compressibility correction. Reynolds at each station is Re = ρ·W·c(r)/μ<sub>dyn</sub>, which is what selects the slice of a tabulated polar.",
         ],
-        "anchor": "cap-11",
+        "anchor": "cap-4-1-1",
     },
     "inflow": {
         "title": "Inflow Model — how λi is distributed over the disk",
@@ -300,7 +300,7 @@ BLOCK_HELP: dict[str, dict] = {
             "Solved at equilibrium (dν/dt = 0): ν = LV<sup>−1</sup>C(ν) — a fixed point in 3 scalars.",
             "Choosing: Glauert for axial flight and quick scans; Coleman (default) when fore/aft asymmetry matters; Drees for helicopter cruise 0.1 &lt; μ &lt; 0.4 where the lateral tilt is measurable; Pitt-Peters when you want the asymmetry to emerge from the physics — at the cost of a global 3-DOF solve, and with the linear-theory caveat that unrelieved hub moments can push it out of its validity range around μ ≈ 0.16–0.19.",
         ],
-        "anchor": "s15",
+        "anchor": "cap-4-2",
     },
     "tip_root_loss": {
         "title": "Tip/Root Loss (Prandtl)",
@@ -308,15 +308,15 @@ BLOCK_HELP: dict[str, dict] = {
             "Annular momentum theory assumes infinitely many infinitesimally thin blades. A real rotor has N<sub>b</sub> discrete blades, and near the edges the flow escapes around them instead of being captured by the ring — the visible form of it is the tip vortex.",
             "Prandtl's factor F ∈ (0, 1] multiplies the elemental thrust:"
             "\n\n"
-            r"$$f_{\mathrm{tip}} = \dfrac{N_b}{2}\dfrac{1-x}{|\sin\varphi|}, \quad F_{\mathrm{tip}} = \dfrac{2}{\pi}\arccos\!\left(e^{-f_{\mathrm{tip}}}\right)$$"
+            r"$$f_{\mathrm{tip}} = \dfrac{N_b}{2}\dfrac{1-x}{x\,|\sin\varphi|}, \quad F_{\mathrm{tip}} = \dfrac{2}{\pi}\arccos\!\left(e^{-f_{\mathrm{tip}}}\right)$$"
             "\n\n"
-            r"$$f_{\mathrm{root}} = \dfrac{N_b}{2}\dfrac{x - x_{\mathrm{root}}}{|\sin\varphi|}, \quad F_{\mathrm{root}} = \dfrac{2}{\pi}\arccos\!\left(e^{-f_{\mathrm{root}}}\right)$$"
+            r"$$f_{\mathrm{root}} = \dfrac{N_b}{2}\dfrac{x - x_{\mathrm{root}}}{x\,|\sin\varphi|}, \quad F_{\mathrm{root}} = \dfrac{2}{\pi}\arccos\!\left(e^{-f_{\mathrm{root}}}\right)$$"
             "\n\n"
             r"$$F = F_{\mathrm{tip}}\cdot F_{\mathrm{root}}, \qquad x = r/R$$",
             "More blades → smaller loss (closer to the continuous-curtain limit). Closer to an edge, or larger φ (more heavily loaded rotor), the faster F drops. In the code F multiplies the effective U<sub>P</sub> in the momentum balance: a smaller F means the same load must be sustained by a larger induced velocity over a smaller effective area.",
-            "Modes: off (F = 1, for theoretical comparison only), tip, root, both (default and the physical case). Note: this implementation omits the extra 1/x factor that Leishman/Johnson carry; the consequence and its status are documented in the Limitations section.",
+            "Modes: off (F = 1, for theoretical comparison only), tip, root, both (default and the physical case).",
         ],
-        "anchor": "cap-21",
+        "anchor": "cap-4-3",
     },
     "rotational_augmentation": {
         "title": "3D Rotational Effects (Himmelskamp/Snel + radial flow)",
@@ -329,7 +329,7 @@ BLOCK_HELP: dict[str, dict] = {
             "The correction touches Cl only — never Cd — by construction of the original model, because Snel's underlying data do not characterize drag under rotation.",
             "<b>Radial flow (independence principle).</b> In forward flight each station also sees U<sub>R</sub> = V∞·cos ψ along the span, maximum at ψ = 0°/180° (blade pointing along the free stream, which is then entirely spanwise) and exactly zero at ψ = 90°/270°, where the free stream is entirely tangential and only U<sub>T</sub> feels it. Swept-wing independence says only the velocity normal to the span sets the pressure field (hence lift), while drag responds to the whole flow. zBEMT therefore re-evaluates Cd — and only Cd — at a skewed angle α<sub>y</sub> = α<sub>eff</sub>·cos λ<sub>y</sub>, λ<sub>y</sub> = arctan(U<sub>R</sub>/U<sub>T</sub>), saturating at radial_flow_max_skew_deg to avoid a spurious Cd → 0. The two corrections act on complementary coefficients and do not overlap.",
         ],
-        "anchor": "cap-23-1",
+        "anchor": "cap-4-4-1",
     },
     "pitt_peters": {
         "title": "Pitt-Peters Dynamic Inflow (finite state)",
@@ -355,7 +355,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<br>A fixed point in 3 scalars, iterated with relaxation. <code>pitt_peters_outer_iter</code> caps the outer iterations, <code>pitt_peters_relax</code> damps the update, <code>pitt_peters_tol</code> tests ‖ν<sub>new</sub> − ν<sub>old</sub>‖<sub>∞</sub>.",
             "<code>states = 3</code> is what the engine implements; 5 (Peters-He, second harmonic) is accepted by the schema but not implemented. N<sub>ψ</sub> must be large enough to resolve the first harmonic cleanly (≥ 24; 72+ preferred).",
         ],
-        "anchor": "cap-24-4",
+        "anchor": "cap-4-2-5",
     },
     "induction_solver": {
         "title": "Induction Solver — the fixed point in λi",
@@ -372,7 +372,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>Adaptive relaxation.</b> With relax_schedule on, the effective factor is relax·relax_root_factor for r/R &lt; relax_root_threshold, similarly near the tip (relax_tip_threshold) and at azimuths flagged by relax_azimuth_threshold. Lower factors buy stability at those nodes at the cost of iterations.",
             "If an element refuses to converge, the usual causes are physical, not numerical: the polar is queried outside its α range, reverse flow is unmodelled, or the stall model has a corner. Loosen tol, smooth the stall model, or change solver before raising max_iter.",
         ],
-        "anchor": "cap-26",
+        "anchor": "cap-4-5",
     },
     "early_exit": {
         "title": "Early Exit & Stagnation",
@@ -382,7 +382,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>Stagnation.</b> If the converged fraction improves by less than stagnation_min_frac for stagnation_patience consecutive iterations, the residual has stopped moving and further iterations are waste. Note the distinction: convergence is a small and shrinking residual; stagnation is a residual that has stopped shrinking while still above tol.",
             "Both are diagnostics as much as speed-ups: frequent stagnation means the fixed point is ill-conditioned at some nodes — finer mesh, smoother stall model, tighter adaptive relaxation, or a different solver, rather than a looser threshold.",
         ],
-        "anchor": "cap-26-5-2",
+        "anchor": "cap-4-5-4",
     },
     "run_case": {
         "title": "Run Case — one flight condition end to end",

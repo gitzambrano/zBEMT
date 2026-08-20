@@ -612,8 +612,10 @@ class RunBatchTab(QWidget):
         self.batch_table = QTableWidget(0, len(self._COLUNAS_FILA))
         self.batch_table.setHorizontalHeaderLabels(self._COLUNAS_FILA)
         self.batch_table.setToolTip(
-            "What will be run, in canonical form (mu_x, Vz). Stage 1 fields "
-            "accept mu_x/J_x and alpha/Vz; conversion happens when generating cases.")
+            "What will be run, in canonical form (<code>mu_x</code>, <code>Vz</code>). "
+            "Stage 1 fields accept <code>mu_x</code>/<code>J_x</code> and "
+            "<code>alpha</code>/<code>Vz</code>; conversion happens when generating "
+            "cases.")
         cabecalho = self.batch_table.horizontalHeader()
         cabecalho.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         cabecalho.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)

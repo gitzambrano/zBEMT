@@ -237,23 +237,26 @@ def _salto_para_fisica(indice: int) -> str | None:
 
 
 def _melhor_secao(campo: str) -> str | None:
-    """Section that best explains ``field``.
+    """Section that explains ``field``: its own.
 
-    Picks the section that DECLARES the field (``.bemt`` mark),
-    preferring physics, deeper and shorter; if that section is a widget
-    description, jumps to the physics derivation it itself references.
+    The documentation is organised one chapter per GUI tab, and a field's
+    section carries everything about it -- the physics, the mathematics,
+    the options and how to set it in all three interfaces. So the answer
+    is simply the section that DECLARES the field (the one with the
+    ``.bemt`` mark), and the help opens there.
+
+    It used to jump onward to the physics chapter, because the per-field
+    sections were thin and delegated the derivation elsewhere. Now that
+    the derivations live with the fields, that jump would carry the
+    reader AWAY from the explanation instead of towards it.
     """
     secoes = secoes_da_documentacao()
-    candidatas = [(i, s) for i, s in enumerate(secoes) if _cita(s, campo)]
+    candidatas = [s for s in secoes if _cita(s, campo)]
     if not candidatas:
         return None
-    indice, melhor = max(
-        candidatas,
-        key=lambda par: (_MARCA_BEMT in par[1].corpo, par[1].eh_fisica,
-                         par[1].nivel, -len(par[1].corpo)))
-    if melhor.eh_fisica:
-        return melhor.ancora
-    return _salto_para_fisica(indice) or melhor.ancora
+    melhor = max(candidatas,
+                 key=lambda s: (_MARCA_BEMT in s.corpo, s.nivel, -len(s.corpo)))
+    return melhor.ancora
 
 
 def _e_secao_de_fisica(ancora: str) -> bool:

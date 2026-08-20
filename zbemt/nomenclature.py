@@ -654,7 +654,7 @@ _SLOT_LABELS = {
         "forward flight, and it is POSITIVE when the flow arrives from below "
         "the disk. Propeller mode offers &alpha;<sub>disk</sub> instead, "
         "measured from the shaft; each mode offers only its own angle, so "
-        "there is never a doubt about which alpha a number is.\n\n"
+        "there is never a doubt about which of the two a number is.\n\n"
         "The angle lives in this field in both modes for one reason: an angle "
         "never fixes the scale of the velocity, it only splits the KNOWN "
         "component into the other one."),

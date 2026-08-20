@@ -36,7 +36,7 @@ zbemt-gui
 
 The window opens empty. The first step is always the **Project** tab: load one of the example projects included in the repository (`starter_rotor` or `starter_propeller`) or create a new one.
 
-The workflow follows seven tabs in order: **Project → Geometry → Airfoil → Config/Motor → Run Case → Run Batch → Results**. The flow bar at the top (`FlowIndicatorBar`, not the OS/Qt status bar) shows validation state for each step (gray = pending, green = ready, red = error) and also serves as tab navigation.
+The workflow follows seven tabs in order: **Project → Geometry → Airfoil → Config/Engine → Run Case → Run Batch → Results**. The flow bar at the top (`FlowIndicatorBar`, not the OS/Qt status bar) shows validation state for each step (gray = pending, green = ready, red = error) and also serves as tab navigation.
 
 **Progressive disclosure:** options that don't apply to your current choices disappear (analytical polar parameters hide when you switch to tabulated data; Pitt-Peters settings only appear with that inflow model). Fields that exist but are incompatible in this mode are *disabled* rather than hidden — communicating "this option exists, just not here."
 
@@ -82,9 +82,9 @@ zbemt/
   gui/                 PyQt6 interface
   viz/                 2D plots (matplotlib) and 3D (PyVista)
 
-tests/                 Test suite (560+ tests)
+tests/                 Test suite (1000+ tests)
 docs/                  Physics reference + software requirements
-projects/              Example projects (included in git)
+projects/              14 example projects (included in git)
 tools/                 Repository maintenance scripts
 ```
 
@@ -114,7 +114,7 @@ tools/                 Repository maintenance scripts
 
 **Interactive charts:** optional Plotly dashboards in reports when the `interactive` package group is installed.
 
-Full physics documentation (workflow guide, field-by-field reference per tab, and complete derivations) is at **[docs/documentation.html](docs/documentation.html)** or press **F1** in the GUI.
+Full documentation — one chapter per tab, every field with its physics, mathematics and how to set it in the GUI, in `.bemt` and from the CLI — is at **[docs/documentation.html](docs/documentation.html)** or press **F1** in the GUI.
 
 ---
 
@@ -124,8 +124,8 @@ zBEMT ships with ready-to-run starter projects covering both rotary-wing and pro
 
 | Folder | Type | Radius | Blades | σ | Tip speed | Notable coverage |
 | --------------------- | ----------------------------- | ------ | ------ | ----- | --------- | --------------------------------------------------------- |
-| `starter_rotor` | Rotor / helicopter quickstart | 1.25 m | 4 | 0.095 | 78 m/s | `is_propeller=False`, Coleman local inflow |
-| `starter_propeller` | Airplane propeller quickstart | 0.94 m | 3 | 0.086 | 246 m/s | `is_propeller=True`, axial flight, Glauert local inflow |
+| `starter_rotor` | Rotor / helicopter quickstart | 1.25 m | 4 | 0.141 | 78 m/s | `is_propeller=False`, Coleman local inflow |
+| `starter_propeller` | Airplane propeller quickstart | 0.94 m | 3 | 0.109 | 246 m/s | `is_propeller=True`, axial flight, Glauert local inflow |
 
 List and run saved batches:
 
@@ -171,7 +171,7 @@ python tests/run_all_tests.py -k airfoil # only files matching "airfoil"
 python -m pytest tests/test_bemt.py      # a single file
 ```
 
-900+ tests in ~7 minutes, including all GUI tests (headless via `QT_QPA_PLATFORM=offscreen`, already configured in `tests/conftest.py`). A summary is printed and a full report, with a traceback per failure, is written to `tests/resultado_testes.txt`.
+1000+ tests in ~7 minutes, including all GUI tests (headless via `QT_QPA_PLATFORM=offscreen`, already configured in `tests/conftest.py`). A summary is printed and a full report, with a traceback per failure, is written to `tests/resultado_testes.txt`.
 
 Run the full suite through `run_all_tests.py`, which gives each test file its own process. A single `pytest tests/` over everything accumulates Qt/matplotlib canvases across dozens of files and eventually dies with a native access violation during teardown — not a test failure, but it aborts the run and hides every result after it. Individual files and classes run fine under plain `pytest`.
 

@@ -1406,7 +1406,7 @@
       ],
       "cfg_is_propeller": [
         "prop?",
-        "Whether the case is interpreted in propeller convention (J_x, CT_prop, ...)"
+        "Whether the case is interpreted in propeller convention (advance ratio and thrust coefficient in the propeller form)"
       ],
       "cfg_mask_reverse_flow_plots": [
         "mask rev.",
@@ -1668,7 +1668,7 @@
       ],
       "FM": [
         "FM",
-        "Figure of Merit: ideal induced power / actual power. Hover-specific (mu_x=0, V_inf,z=0); outside hover the same formula can exceed 1"
+        "Figure of Merit: ideal induced power / actual power. Hover-specific (no in-plane and no axial free-stream); outside hover the same formula can exceed 1"
       ],
       "H": [
         "H",
@@ -1808,7 +1808,7 @@
       ],
       "cfg_is_propeller": [
         "prop?",
-        "Whether the case is interpreted in propeller convention (J_x, CT_prop, ...)"
+        "Whether the case is interpreted in propeller convention (advance ratio and thrust coefficient in the propeller form)"
       ],
       "cfg_mask_reverse_flow_plots": [
         "mask rev.",
@@ -1948,7 +1948,7 @@
       ],
       "eta_prop": [
         "&eta;<sub>prop</sub>",
-        "Propulsive efficiency: eta = T*V_inf,z / P = J_z*CT_prop/CP_prop. Uses the AXIAL free-stream, since thrust acts along the shaft; meaningful in propeller mode with V_inf,z > 0"
+        "Propulsive efficiency: &eta; = T&middot;V<sub>z</sub>/P = J<sub>z</sub>&middot;C<sub>T,prop</sub>/C<sub>P,prop</sub>. Built from the AXIAL free-stream, since thrust acts along the shaft; meaningful in propeller mode with V<sub>z</sub> &gt; 0"
       ],
       "inflow_coupling": [
         "coupling",

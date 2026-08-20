@@ -27,7 +27,11 @@ class TestFieldHelpCoverage(unittest.TestCase):
 
     def test_required_keys_in_every_entry(self):
         """Each entry in FIELD_HELP has the required keys filled in."""
-        obrigatorios = {"title", "definition", "unit", "equation", "effect", "range", "options", "anchor"}
+        # "anchor" is no longer among them: the destination is DERIVED from
+        # the document by `field_help.ancora_do_campo`, which finds the
+        # section that declares the field. A hand-kept anchor was a second
+        # source of truth that went stale the moment a section moved.
+        obrigatorios = {"title", "definition", "unit", "equation", "effect", "range", "options"}
         for campo, dados in self.FIELD_HELP.items():
             with self.subTest(campo=campo):
                 faltando = obrigatorios - set(dados)
@@ -101,7 +105,7 @@ class TestFieldHelpCoverage(unittest.TestCase):
         from zbemt.gui.field_help import ancora_do_campo
 
         exigencias = {
-            "inflow_field_model": ("harmonic", "Pitt-Peters", "implementation"),
+            "inflow_field_model": ("harmonic", "Pitt-Peters", "does not change the airfoil polar"),
             "prandtl_loss_mode": ("finite", "f_{tip}", "elemental thrust"),
             "use_rotational_augmentation": ("centrifugal", "C_l", "empirical"),
             "use_radial_flow_correction": ("boundary-layer", "U_R", "drag"),
@@ -150,56 +154,72 @@ class TestFieldHelpCoverage(unittest.TestCase):
                 self.assertIn(f'id="{ancora}"', self.html,
                               f"Anchor '{ancora}' (from '{campo}') not found in the HTML")
 
-    def test_internal_help_links_are_physical_or_explicitly_documented(self):
-        """The help link must not regress to the generic table."""
-        from zbemt.gui.field_help import ancora_do_campo, _e_secao_de_fisica
+    def test_help_abre_a_secao_do_proprio_campo(self):
+        """The help must open the field's OWN section.
+
+        The documentation is one chapter per GUI tab, and a field's section
+        carries everything about it: the physics, the mathematics, the
+        options and how to set it in the GUI, in `.bemt` and in the CLI.
+        So the destination is that section -- not a physics chapter
+        somewhere else, and never the generic table at the end.
+
+        This replaces an older rule that required the destination to be a
+        physics chapter. That was right while the per-field sections were
+        thin and delegated the derivation; now the derivation is in the
+        field's section, and jumping onward would take the reader away
+        from the explanation.
+        """
+        from zbemt.gui.field_help import (ancora_do_campo, secoes_da_documentacao,
+                                          _cita, _MARCA_BEMT)
+
+        por_ancora = {}
+        for s in secoes_da_documentacao():
+            for a in set(s.apelidos) | {s.ancora}:
+                por_ancora[a] = s
 
         for campo in self.FIELD_HELP:
             with self.subTest(campo=campo):
                 ancora = ancora_do_campo(campo)
-                self.assertIsNotNone(ancora)
-                self.assertTrue(_e_secao_de_fisica(ancora),
-                                f"{campo} points to {ancora}, not to physics")
-                self.assertFalse(ancora.startswith("ajuda-"))
+                self.assertIsNotNone(ancora, f"{campo} has no destination")
+                self.assertFalse(ancora.startswith("ajuda-"),
+                                 f"{campo} falls back to the index table")
+                secao = por_ancora.get(ancora)
+                self.assertIsNotNone(secao, f"{campo} points at an unknown anchor")
+                self.assertTrue(_cita(secao, campo),
+                                f"{campo} opens a section that does not mention it")
+                self.assertIn(_MARCA_BEMT, secao.corpo,
+                              f"{campo} opens a section that does not say how to set it")
 
-        # Each field's destination is NOT kept by hand: it comes straight
-        # from the HTML itself, from the phrase "…physics in <a href=…>" in
-        # the tab's section. That is what avoids a third list -- and also
-        # what makes the destination fragile to a structural edit: moving a
-        # section close to a loose anchor makes the anchor silently start
-        # marking the wrong section. (It happened: `cap-11`, the mesh, was
-        # captured by a new section inserted right before it, and `Ne`/`Npsi`
-        # started opening the chord distribution instead.) This list is the
-        # lock against that.
+        # A loose `<a id=...>` sitting just above a heading starts marking a
+        # different section as soon as anything is inserted between them, and
+        # nothing about the page looks wrong when it happens. (It did happen:
+        # `cap-11`, the mesh, was captured by a section inserted in front of
+        # it, and `Ne`/`Npsi` began opening the chord distribution.) This is
+        # the lock against that.
         esperados = {
-            "extend_full_range": "cap-19-2-5",
-            "use_dynamic_stall": "s16",
-            "dynamic_stall_method": "s16",
-            "mask_reverse_flow_plots": "cap-22-6",
-            "use_compressibility": "cap-23-3",
-            "inflow_field_model": "cap-17-4",
-            # Fields whose destination was wrong and got fixed:
-            "rho": "cap-19-3",                  # was 2.3 (mesh), which doesn't mention it
-            "a_sound": "cap-23-3",              # was 2.3; belongs to compressibility
-            "chord_norm": "cap-10-2",           # was 2.2.0 (blade count and radius)
-            "twist_deg": "cap-10-2",
-            "root_cutout_norm": "cap-10-2",
-            "rpm": "cap-12-1",                  # was 2.5 (angles); rpm is not an angle
-            "collective_deg": "cap-13-1",
-            "stall_model": "cap-19-2",          # was 2.8.2.5, ONE of the four options
-            "reverse_flow_model": "cap-22",     # was 8.2.1, the FIRST of five
-            "is_propeller": "cap-14-6",         # was just the rotor convention
-            # Fields that were already correct and must not regress:
-            "Ne": "cap-11",
-            "Npsi": "cap-11",
-            "integration_offset": "cap-11",
+            "extend_full_range": "cap-3-2-4",
+            "use_dynamic_stall": "cap-3-3-1",
+            "dynamic_stall_method": "cap-3-3-2",
+            "mask_reverse_flow_plots": "cap-3-4-4",
+            "use_compressibility": "cap-3-5",
+            "inflow_field_model": "cap-4-2",
+            "rho": "cap-4-1-2",
+            "a_sound": "cap-4-1-3",
+            "chord_norm": "cap-2-3",
+            "twist_deg": "cap-2-3",
+            "root_cutout_norm": "cap-2-5",
+            "rpm": "cap-5-4",
+            "collective_deg": "cap-5-3",
+            "stall_model": "cap-3-2-2",
+            "reverse_flow_model": "cap-3-4-1",
+            "is_propeller": "cap-projeto-1",
+            "Ne": "cap-4-1-1",
+            "Npsi": "cap-4-1-1",
+            "integration_offset": "cap-4-1-4",
         }
         for campo, ancora_esperada in esperados.items():
-            self.assertEqual(ancora_do_campo(campo), ancora_esperada)
-
-        # 7.2 and 8.4 use historically close identifiers; inflow
-        # must never open the Øye dynamic stall section.
-        self.assertNotEqual(ancora_do_campo("inflow_field_model"), "cap-24")
+            with self.subTest(campo=campo):
+                self.assertEqual(ancora_do_campo(campo), ancora_esperada)
 
     def test_nenhum_campo_cai_numa_secao_talo(self):
         """Every field must open in a section that ACTUALLY explains it.
@@ -241,8 +261,7 @@ class TestFieldHelpCoverage(unittest.TestCase):
 
     def test_geometry_airfoil_have_field_level_physics_destinations(self):
         """Geometry/Airfoil must not land in a generic physics chapter."""
-        from zbemt.gui.field_help import _CAPITULOS_DE_FISICA as _CAPITULOS
-        from zbemt.gui.field_help import ancora_do_campo
+        from zbemt.gui.field_help import ancora_do_campo, secoes_da_documentacao
 
         geometry = {"n_blades", "radius_m"}
         airfoil = {
@@ -265,18 +284,24 @@ class TestFieldHelpCoverage(unittest.TestCase):
                 self.assertTrue(dados["range"])
                 destino = ancora_do_campo(campo)
                 self.assertIsNotNone(destino)
-                self.assertNotIn(destino, _CAPITULOS, f"{campo} fell into an entire chapter")
+                # It must be a SECTION, not a whole chapter: landing on an
+                # `<h2>` drops the reader at the top of a tab's chapter and
+                # leaves them to find the field themselves.
+                nivel = next((x.nivel for x in secoes_da_documentacao()
+                              if destino in set(x.apelidos) | {x.ancora}), None)
+                self.assertIsNotNone(nivel, f"{campo}: unknown anchor {destino}")
+                self.assertGreaterEqual(nivel, 3, f"{campo} opens a whole chapter")
 
         # SELECTOR fields: the right destination is the section that
         # compares the options, not the first of them.
-        self.assertEqual(ancora_do_campo("reverse_flow_model"), "cap-22")
-        self.assertEqual(ancora_do_campo("stall_model"), "cap-19-2")
+        self.assertEqual(ancora_do_campo("reverse_flow_model"), "cap-3-4-1")
+        self.assertEqual(ancora_do_campo("stall_model"), "cap-3-2-2")
 
-        self.assertEqual(ancora_do_campo("n_blades"), "cap-10-0")
-        self.assertEqual(ancora_do_campo("radius_m"), "cap-10-0")
+        self.assertEqual(ancora_do_campo("n_blades"), "cap-2-1")
+        self.assertEqual(ancora_do_campo("radius_m"), "cap-2-1")
         for campo in {"source", "cl_alpha", "alpha0_deg", "cd0", "k", "name"}:
             with self.subTest(campo=campo):
-                self.assertEqual(ancora_do_campo(campo), "cap-19-2-0")
+                self.assertEqual(ancora_do_campo(campo), "cap-3-2-1")
 
     def test_visible_geometry_airfoil_fields_have_tooltip_tokens(self):
         """Every audited visible field has a tooltip that identifies its parameter."""

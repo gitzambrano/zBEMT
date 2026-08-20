@@ -2,18 +2,59 @@
 
 ## The rules this structure serves
 
+These are the standing rules. They also live in `CLAUDE.md` and in
+`docs/software_requirements.md` §3.5, and most of them are enforced by
+`tests/test_documentation.py` and `tests/test_help_content.py`.
+
 1. **One chapter per GUI tab, in tab order.** No exceptions among the page
    chapters. Only the introductory chapters, which explain the whole, sit
-   outside that rule.
-2. **Within a chapter, the GUI's own order**: block by block as they appear on
-   screen, field by field within each block.
-3. **No links.** Everything needed to understand and set a field is in that
-   field's own section: the physics, the mathematics, the options, the ranges.
-4. **Every field**: what it is physically, the equation it enters, every option
-   it offers, how to set it in **GUI**, in **`.bemt`**, in **CLI**.
-5. **No internal code detail** — no class names, no function names, no file
-   paths inside the package.
+   outside that rule. Never bury a page inside a physics chapter.
+2. **Within a chapter, the GUI's own order**: block by block as they appear
+   on screen, field by field within each block.
+3. **No links out of a field's section.** Everything needed to understand
+   and set it is there. A named model is explained where its control is.
+4. **Every field**: the physics, the equation it enters, every option it
+   offers, and how to set it in **GUI**, **`.bemt`** and **CLI** — three
+   separate paragraphs, in that order.
+5. **No internal code detail**: no class or function names, no paths inside
+   the package, no development notes.
 6. **GUI / CLI / `.bemt`** are the only names for the three interfaces.
+7. **Plain, formal, explicative English.** Full sentences, no fragments.
+8. **Each page chapter opens with its tab's screenshot.** Tabs are numbered
+   1-7 for the reader.
+9. **Help popups open the right place**: a field or block on a tab opens a
+   section inside that tab's chapter.
+
+---
+
+## Status
+
+The restructure is **done**. The document now reads:
+
+```
+0-5   Introduction  how to think · installation · GUI/CLI/.bemt · tutorial ·
+                    nomenclature and axes · the method
+6-12  THE PAGES     Project · Geometry · Airfoil · Config/Engine ·
+                    Run Case · Run Batch · Results
+13-14 Reference     outside the GUI · limitations
+```
+
+Dissolved into the pages, and deleted as chapters:
+
+| Was | Now lives in |
+|---|---|
+| Inflow models | Config/Engine § inflow model |
+| Physical corrections | Prandtl and 3-D → Config; reverse flow, Øye, compressibility → Airfoil |
+| Numerical solver | Config/Engine § the solver |
+| Propeller mode | Nomenclature § propeller mode |
+| Hover · Forward flight | The method |
+| Parameter index by tab | deleted — the per-chapter field lists replace it |
+| Worked walkthrough | deleted |
+| Rotor and blade geometry | Geometry chapter |
+
+## Remaining
+
+Nothing. The structure and the prose pass are complete.
 
 ---
 

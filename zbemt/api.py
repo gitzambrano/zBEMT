@@ -1336,9 +1336,9 @@ _SIMBOLO_DE_COLUNA = {
     "My":               ("M<sub>y</sub>", "Roll moment about the hub [N&middot;m], positive toward the advancing side"),
 
     # --- coefficients, ROTOR convention (rho*A*(Omega*R)^n) ---
-    "CT":               ("C<sub>T</sub>", "Thrust coefficient: CT = T / (rho*A*(Omega*R)^2)"),
-    "CQ":               ("C<sub>Q</sub>", "Torque coefficient: CQ = Q / (rho*A*(Omega*R)^2*R) -- numerically equals CP for a rotor"),
-    "CP":               ("C<sub>P</sub>", "Power coefficient: CP = P / (rho*A*(Omega*R)^3)"),
+    "CT":               ("C<sub>T</sub>", "Thrust coefficient: C<sub>T</sub> = T / (&rho;&middot;A&middot;(&Omega;R)&sup2;)"),
+    "CQ":               ("C<sub>Q</sub>", "Torque coefficient: C<sub>Q</sub> = Q / (&rho;&middot;A&middot;(&Omega;R)&sup2;&middot;R) &mdash; numerically equals C<sub>P</sub> for a rotor"),
+    "CP":               ("C<sub>P</sub>", "Power coefficient: C<sub>P</sub> = P / (&rho;&middot;A&middot;(&Omega;R)&sup3;)"),
     "CPi":              ("C<sub>Pi</sub>", "Induced part of the power coefficient"),
     "CPp":              ("C<sub>Pp</sub>", "Profile (sectional drag) part of the power coefficient"),
     "CH":               ("C<sub>H</sub>", "H-force coefficient, in-plane drag-like force (+ aft)"),
@@ -1347,13 +1347,13 @@ _SIMBOLO_DE_COLUNA = {
     "CY":               ("C<sub>Y</sub>", "Side-force coefficient (+ toward the advancing side)"),
     "CMx":              ("C<sub>Mx</sub>", "Pitch moment coefficient (+ nose up)"),
     "CMy":              ("C<sub>My</sub>", "Roll moment coefficient (+ roll toward the advancing side)"),
-    "FM":               ("FM", "Figure of Merit: ideal induced power / actual power. Hover-specific (mu_x=0, V_inf,z=0); outside hover the same formula can exceed 1"),
+    "FM":               ("FM", "Figure of Merit: ideal induced power / actual power. Hover-specific (no in-plane and no axial free-stream); outside hover the same formula can exceed 1"),
 
     # --- coefficients, PROPELLER convention (rho*n^2*D^4 etc.) ---
-    "CT_prop":          ("C<sub>T,prop</sub>", "Propeller-convention thrust coefficient: CT = T / (rho*n^2*D^4)"),
-    "CQ_prop":          ("C<sub>Q,prop</sub>", "Propeller-convention torque coefficient: CQ = Q / (rho*n^2*D^5)"),
-    "CP_prop":          ("C<sub>P,prop</sub>", "Propeller-convention power coefficient: CP = P / (rho*n^3*D^5)"),
-    "eta_prop":         ("&eta;<sub>prop</sub>", "Propulsive efficiency: eta = T*V_inf,z / P = J_z*CT_prop/CP_prop. Uses the AXIAL free-stream, since thrust acts along the shaft; meaningful in propeller mode with V_inf,z > 0"),
+    "CT_prop":          ("C<sub>T,prop</sub>", "Propeller-convention thrust coefficient: C<sub>T,prop</sub> = T / (&rho;&middot;n&sup2;&middot;D<sup>4</sup>)"),
+    "CQ_prop":          ("C<sub>Q,prop</sub>", "Propeller-convention torque coefficient: C<sub>Q,prop</sub> = Q / (&rho;&middot;n&sup2;&middot;D<sup>5</sup>)"),
+    "CP_prop":          ("C<sub>P,prop</sub>", "Propeller-convention power coefficient: C<sub>P,prop</sub> = P / (&rho;&middot;n&sup3;&middot;D<sup>5</sup>)"),
+    "eta_prop":         ("&eta;<sub>prop</sub>", "Propulsive efficiency: &eta; = T&middot;V<sub>z</sub>/P = J<sub>z</sub>&middot;C<sub>T,prop</sub>/C<sub>P,prop</sub>. Built from the AXIAL free-stream, since thrust acts along the shaft; meaningful in propeller mode with V<sub>z</sub> &gt; 0"),
 
     # --- resolved rotor (geometric/kinematic echo of what was run) ---
     "rotor_R":          ("R", "Rotor/propeller radius [m]"),
@@ -1382,7 +1382,7 @@ _SIMBOLO_DE_COLUNA = {
     "cfg_a_sound":          ("a", "Speed of sound [m/s], used for the Mach number"),
     "cfg_nu_air":           ("&nu;", "Air kinematic viscosity [m&sup2;/s], used for the Reynolds number"),
     "cfg_integration_offset": ("&Delta;r<sub>0</sub>", "Radial offset applied to stations to avoid the root/tip singularity"),
-    "cfg_is_propeller":     ("prop?", "Whether the case is interpreted in propeller convention (J_x, CT_prop, ...)"),
+    "cfg_is_propeller":     ("prop?", "Whether the case is interpreted in propeller convention (advance ratio and thrust coefficient in the propeller form)"),
     "cfg_inflow_field_model": ("inflow", "Inflow model requested (Glauert/Coleman/Drees/Pitt-Peters, local/global coupling)"),
     "cfg_prandtl_loss_mode": ("F mode", "Prandtl tip/root loss mode requested (off/tip/root/both)"),
     "cfg_use_compressibility": ("compr.", "Whether the Prandtl-Glauert compressibility correction is applied"),

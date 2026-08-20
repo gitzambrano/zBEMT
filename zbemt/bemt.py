@@ -1740,25 +1740,18 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
         Ft = Ft_i + Ft_p
 
     # --- Prandtl loss factor (tip + root) ---
-    # F_tip/F_root ALWAYS computed separately (cheap); only the final
-    # selection depends on `cfg.prandtl_loss_mode` (docs/plano.md GUI v3,
-    # Phase B) -- allows applying only at the tip, only at the root, both,
-    # or neither.
+    # f = (Nb/2)*(distance to the edge)/(x*|sin(phi)|). The x in the
+    # denominator is the spacing between helical vortex sheets, which grows
+    # with radius: s = 2*pi*x*sin(phi)/Nb.
     #
-    # NOTE (found in 2026, doc review): the form most cited in textbooks
-    # (Leishman, Johnson) for this correction carries an extra 1/x factor
-    # in each term -- f_tip = (Nb/2)*(1-x)/(x*|sin(phi)|). This
-    # implementation does NOT have that 1/x. It was not changed because
-    # the default mesh is locked to match the zBEMT MATLAB v30 reference
-    # mesh (see tests/test_bemt.py::TestBEMTConfigDefaults) -- may be an
-    # intentional simplification inherited from that reference, not
-    # necessarily a bug. See docs/documentation.html Section 8.1 and
-    # Section 15 (Limitations).
+    # Both factors are always computed; `cfg.prandtl_loss_mode` only selects
+    # which of them is applied.
     abs_sin_phi = np.maximum(np.abs(np.sin(phi)), 1e-6)
-    f_tip = np.maximum(-(Nb / 2.0) * (r_tip_norm_geom - R_NORM) / abs_sin_phi, -50.0)
+    espacamento = np.maximum(R_NORM, 1e-6) * abs_sin_phi
+    f_tip = np.maximum(-(Nb / 2.0) * (r_tip_norm_geom - R_NORM) / espacamento, -50.0)
     F_tip = np.clip((2.0 / np.pi) * np.arccos(np.clip(np.exp(f_tip), -1.0, 1.0)), 0.01, 1.0)
     F_tip = np.nan_to_num(F_tip, nan=0.01)
-    f_root = np.maximum(-(Nb / 2.0) * (R_NORM - r_root_norm_geom) / abs_sin_phi, -50.0)
+    f_root = np.maximum(-(Nb / 2.0) * (R_NORM - r_root_norm_geom) / espacamento, -50.0)
     F_root = np.clip((2.0 / np.pi) * np.arccos(np.clip(np.exp(f_root), -1.0, 1.0)), 0.01, 1.0)
     F_root = np.nan_to_num(F_root, nan=0.01)
     F_ones = np.ones_like(R_NORM, dtype=float) if isinstance(R_NORM, np.ndarray) else 1.0

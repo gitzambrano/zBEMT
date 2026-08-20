@@ -18,8 +18,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\sigma = \dfrac{B\,c(r)}{2\pi r}",
         "effect": "Increasing the blade count raises solidity and typically improves rotor efficiency but increases structural mass and hub complexity.",
         "range": "1–8 (typically 2–4)",
-        "options": None,
-        "anchor": "ajuda-n_blades"
+        "options": None
     },
     "radius_m": {
         "title": "Rotor Radius",
@@ -31,8 +30,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"A = \pi R^2",
         "effect": "Increasing radius grows disk area and thrust scale, but reduces tip speed for a given rpm and increases structural loads.",
         "range": "0.1–10 m",
-        "options": None,
-        "anchor": "ajuda-radius_m"
+        "options": None
     },
     "r_norm": {
         "title": "Normalized Radial Position",
@@ -45,8 +43,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"r = R\,\bar{r}",
         "effect": "Changing radial station positions redistributes the mesh resolution; stations clustered near root or tip concentrate analysis in that region.",
         "range": "0–1",
-        "options": None,
-        "anchor": "ajuda-r_norm"
+        "options": None
     },
     "chord_norm": {
         "title": "Normalized Chord",
@@ -58,8 +55,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\sigma(r) = \dfrac{B\,c(r)}{2\pi r}",
         "effect": "Increasing normalized chord raises solidity and local blade-element area, increasing drag, load, and rotor inertia per unit span.",
         "range": "0.01–0.3",
-        "options": None,
-        "anchor": "ajuda-chord_norm"
+        "options": None
     },
     "twist_deg": {
         "title": "Geometric Twist",
@@ -72,8 +68,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\alpha = \alpha_{col} + \theta_{geo}(r)",
         "effect": "Increasing twist in the positive direction reduces angle of attack at the tip and increases it at the root, flattening the load distribution.",
         "range": "−45 to +45°",
-        "options": None,
-        "anchor": "ajuda-twist_deg"
+        "options": None
     },
     "root_cutout_norm": {
         "title": "Root Cutout",
@@ -85,8 +80,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\int_{r_{cutout}}^{R}",
         "effect": "Increasing the cutout radius removes more blade area from integration, reducing total thrust and power but often improving numerical stability near the singularity.",
         "range": "0–0.3",
-        "options": None,
-        "anchor": "ajuda-root_cutout_norm"
+        "options": None
     },
     "kind": {
         "title": "Chord Distribution Type",
@@ -108,8 +102,7 @@ FIELD_HELP: dict[str, dict] = {
             "rectangular": "Constant chord along the whole span — simplest to build, common on small rotors.",
             "tapered": "Linear interpolation between a root chord and a tip chord — trades build simplicity for a spanwise load closer to elliptic.",
             "elliptic": "Chord follows an elliptic planform — minimizes induced drag for a given lift, at the cost of a more complex blade to manufacture.",
-        },
-        "anchor": "ajuda-kind"
+        }
     },
     "n_stations": {
         "title": "Number of Stations",
@@ -124,8 +117,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"r_i = r_{cutout} + i\,\dfrac{1-r_{cutout}}{N_{stations}-1},\quad i=0,\dots,N_{stations}-1",
         "effect": "More stations describe the chord/twist distribution more finely on export/preview, but do not change solver accuracy, which depends on Ne instead.",
         "range": "3–200 (typically 15–40)",
-        "options": None,
-        "anchor": "ajuda-n_stations"
+        "options": None
     },
     "tip_chord_norm": {
         "title": "Tip Chord (Tapered)",
@@ -139,8 +131,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"c(r) = c_{root} + (c_{tip}-c_{root})\,\bar r",
         "effect": "A smaller tip chord than root chord (taper ratio < 1) concentrates solidity inboard and typically reduces tip losses and blade weight.",
         "range": "0.001–2.0",
-        "options": None,
-        "anchor": "ajuda-tip_chord_norm"
+        "options": None
     },
     "twist_root_deg": {
         "title": "Root Twist",
@@ -154,8 +145,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\theta_{geo}(r) = \theta_{root} + (\theta_{tip}-\theta_{root})\,\bar r",
         "effect": "A larger root twist raises the geometric angle of attack near the root relative to the tip, shifting load inboard.",
         "range": "−30 to +60°",
-        "options": None,
-        "anchor": "ajuda-twist_root_deg"
+        "options": None
     },
     "twist_tip_deg": {
         "title": "Tip Twist",
@@ -169,8 +159,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\theta_{geo}(r) = \theta_{root} + (\theta_{tip}-\theta_{root})\,\bar r",
         "effect": "A smaller tip twist than root twist (washout) reduces angle of attack at the tip, delaying tip stall and flattening the load distribution.",
         "range": "−30 to +60°",
-        "options": None,
-        "anchor": "ajuda-twist_tip_deg"
+        "options": None
     },
     "solidity": {
         "title": "Solidity",
@@ -185,8 +174,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\sigma = \dfrac{N_b\,S_{blade}}{\pi R^2}",
         "effect": "Increasing solidity (via chord or blade count) raises total blade area and typically thrust and power at a given collective, up to stall limits.",
         "range": "0.02–0.3 (typically 0.05–0.12)",
-        "options": None,
-        "anchor": "ajuda-solidity"
+        "options": None
     },
     "aspect_ratio": {
         "title": "Blade Aspect Ratio",
@@ -201,8 +189,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"AR = \dfrac{R^2}{S_{blade}}",
         "effect": "A higher aspect ratio (narrower, longer blade for the same radius) reduces solidity and profile drag but increases structural and aeroelastic sensitivity.",
         "range": "5–25 (typically 10–20)",
-        "options": None,
-        "anchor": "ajuda-aspect_ratio"
+        "options": None
     },
     "origin": {
         "title": "Geometry Origin",
@@ -215,8 +202,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": "origin ∈ {preset, import, manual} (metadata only)",
         "effect": "Does not affect calculation; used for traceability and UI display.",
         "range": "preset, import, or manual",
-        "options": None,
-        "anchor": "ajuda-origin"
+        "options": None
     },
     "origin_params": {
         "title": "Origin Parameters",
@@ -228,8 +214,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": "geometry = f(origin, origin_params) before table materialization",
         "effect": "Does not affect calculation; serves only as a record of the parameters used to generate the original geometry.",
         "range": "preset-specific values; ignored by the solver",
-        "options": None,
-        "anchor": "ajuda-origin_params"
+        "options": None
     },
     "name": {
         "title": "Airfoil Name",
@@ -243,8 +228,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\mathrm{profile\ name} \in \{\mathrm{NACA\ 0012},\ \mathrm{SC1095},\ \dots\}",
         "effect": "Labels and organizes airfoil polars in plots, summaries, and generated reports; does not directly alter numerical aerodynamics.",
         "range": "alphanumeric string (e.g., 'NACA 0012', 'Clark Y', 'Root Section')",
-        "options": None,
-        "anchor": "ajuda-name"
+        "options": None
     },
     "source": {
         "title": "Polar Source",
@@ -260,8 +244,7 @@ FIELD_HELP: dict[str, dict] = {
             "analytical": "Polynomial analytical model with stall transition; fast and smooth, best for preliminary design.",
             "table": "Precomputed polar curves at fixed Reynolds and Mach slices; accurate but requires data and interpolation.",
             "neuralfoil": "NeuralFoil external solver generates the polar on demand; high fidelity but slower and requires external installation."
-        },
-        "anchor": "ajuda-source"
+        }
     },
     "cl_alpha": {
         "title": "Lift Slope",
@@ -273,8 +256,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"C_l = C_{l\alpha}(\alpha - \alpha_0)",
         "effect": "Increasing lift slope makes the airfoil more responsive to angle of attack, raising lift and the risk of stall separation.",
         "range": "3–7 (typically 5–6)",
-        "options": None,
-        "anchor": "ajuda-cl_alpha"
+        "options": None
     },
     "alpha0_deg": {
         "title": "Zero-Lift Angle",
@@ -286,8 +268,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"C_l = 0 \quad \mathrm{at}\ \alpha = \alpha_0",
         "effect": "Increasing the zero-lift angle shifts the entire polar to higher angles, requiring more collective pitch to hover.",
         "range": "−5 to +5°",
-        "options": None,
-        "anchor": "ajuda-alpha0_deg"
+        "options": None
     },
     "cd0": {
         "title": "Profile Drag at Zero Lift",
@@ -299,8 +280,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"C_d = C_{d0} + k\,C_l^2",
         "effect": "Increasing profile drag raises torque and power consumption uniformly across all flight conditions.",
         "range": "0.005–0.02",
-        "options": None,
-        "anchor": "ajuda-cd0"
+        "options": None
     },
     "k": {
         "title": "Drag-Lift Coupling",
@@ -313,8 +293,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\Delta C_d = k\,C_l^2",
         "effect": "Increasing the coupling coefficient raises drag at high lift coefficients, increasing power in hover and reducing propeller efficiency.",
         "range": "0.01–0.08",
-        "options": None,
-        "anchor": "ajuda-k"
+        "options": None
     },
     "stall_model": {
         "title": "Stall Model",
@@ -332,8 +311,7 @@ FIELD_HELP: dict[str, dict] = {
             "clip": "Linear to stall, then Cl drops to zero immediately; unrealistic but diagnostic for stall sensitivity.",
             "enhanced": "Smooth transition from linear region through a peak Cl_max to a shallow post-stall decline; realistic and continuous.",
             "viterna": "Viterna-Corrigan model with curvature; extends to ±90° if enabled, most physically grounded for high α and reverse flow."
-        },
-        "anchor": "ajuda-stall_model"
+        }
     },
     "alpha_stall_pos_deg": {
         "title": "Positive Stall Angle",
@@ -345,8 +323,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\alpha_{stall,+}",
         "effect": "Increasing the stall angle raises the maximum lift coefficient and extends the linear region, improving performance at high pitch.",
         "range": "12–20° (typical airfoils)",
-        "options": None,
-        "anchor": "ajuda-alpha_stall_pos_deg"
+        "options": None
     },
     "alpha_stall_neg_deg": {
         "title": "Negative Stall Angle",
@@ -359,8 +336,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\alpha_{stall,-}",
         "effect": "Increasing the magnitude (making more negative) expands the linear range on the negative side, improving reverse-flow performance.",
         "range": "−20 to −12° (typical airfoils)",
-        "options": None,
-        "anchor": "ajuda-alpha_stall_neg_deg"
+        "options": None
     },
     "extend_full_range": {
         "title": "Extend to ±180° (Viterna-Corrigan)",
@@ -373,8 +349,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"[\alpha_{min},\alpha_{max}] \to \pm 180^\circ",
         "effect": "Enabling full-range extension expands the polar to extreme angles, enabling analysis in reverse flow and extreme maneuvers.",
         "range": "off/on; use when the base polar does not cover the envelope",
-        "options": None,
-        "anchor": "ajuda-extend_full_range"
+        "options": None
     },
     "viterna_blend_width_deg": {
         "title": "Viterna Blend Width",
@@ -386,8 +361,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\alpha_{stall} \pm \dfrac{w}{2}",
         "effect": "Increasing the blend width creates a smoother but less abrupt transition, reducing numerical stiffness in solvers.",
         "range": "5–20°",
-        "options": None,
-        "anchor": "ajuda-viterna_blend_width_deg"
+        "options": None
     },
     "use_dynamic_stall": {
         "title": "Dynamic Stall Model",
@@ -395,14 +369,14 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "—",
         "equation": r"\dfrac{df}{dt} = \dfrac{f_{\mathrm{st}}-f}{\tau},\quad \tau = \dfrac{A\,c}{2W}",
         "effect": (
-            "Enable it when the blade sees a rapid cyclic alpha excursion through "
-            "stall. It adds a boundary-layer separation lag to Cl/Cd.\n\n"
+            "Enable it when the blade sees a rapid cyclic &alpha; excursion through "
+            "stall. It adds a boundary-layer separation lag to C<sub>l</sub> and "
+            "C<sub>d</sub>.\n\n"
             "Careful: in this solver it is evaluated in the periodic "
             "frequency-domain post-processing stage, not as a time-marched "
             "aerodynamic state in the induction solve."),
         "range": "off/on",
-        "options": None,
-        "anchor": "ajuda-use_dynamic_stall"
+        "options": None
     },
     "dynamic_stall_method": {
         "title": "Dynamic Stall Method",
@@ -418,8 +392,7 @@ FIELD_HELP: dict[str, dict] = {
         "range": "frequency (only GUI option)",
         "options": {
             "frequency": "Frequency-domain Øye model; lag constant A controls the time constant of flow separation response."
-        },
-        "anchor": "ajuda-dynamic_stall_method"
+        }
     },
     "dynamic_stall_A": {
         "title": "Øye Lag Constant",
@@ -431,8 +404,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\tau = \dfrac{A\,c}{2W},\quad H_n = \dfrac{1}{1 + i\,n\,\Omega\,\tau}",
         "effect": "Increasing the lag constant slows the separation response, reducing peak stall loads but introducing more phase lag.",
         "range": "Typically 4–12 (default 8)",
-        "options": None,
-        "anchor": "ajuda-dynamic_stall_A"
+        "options": None
     },
     "dynamic_stall_fade_start_deg": {
         "title": "Stall Fade Start Angle",
@@ -444,8 +416,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\chi = 1 \quad (\alpha < \alpha_{\mathrm{fade,start}})",
         "effect": "Increasing the fade start angle extends the range over which dynamic stall effects are strong, affecting post-stall behavior.",
         "range": "20–35°",
-        "options": None,
-        "anchor": "ajuda-dynamic_stall_fade_start_deg"
+        "options": None
     },
     "dynamic_stall_fade_end_deg": {
         "title": "Stall Fade End Angle",
@@ -457,8 +428,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\chi = 0 \quad (\alpha > \alpha_{\mathrm{fade,end}})",
         "effect": "Increasing the fade end angle extends dynamic stall effects to higher angles; beyond it, static polar is used directly.",
         "range": "40–90°",
-        "options": None,
-        "anchor": "ajuda-dynamic_stall_fade_end_deg"
+        "options": None
     },
     # --- 2D profile outline (block "2D Profile Geometry") ---
     # These three fields had NO popup: the outline only appears in
@@ -490,8 +460,7 @@ FIELD_HELP: dict[str, dict] = {
             "0012 (symmetric, the classic rotor blade), 0015 and 0018 (thicker "
             "symmetric, inboard/root), 23012 (cambered, tail rotors and "
             "propellers), 4412 (classic cambered)."),
-        "options": None,
-        "anchor": "cap-19-2-0"
+        "options": None
     },
     "cst_upper": {
         "title": "CST Upper Surface",
@@ -505,8 +474,7 @@ FIELD_HELP: dict[str, dict] = {
             "new contours are described by a NACA code or imported from a "
             "coordinate file."),
         "range": "typically 0.1–0.3, one value per Bernstein term",
-        "options": None,
-        "anchor": "cap-19-2-0"
+        "options": None
     },
     "cst_lower": {
         "title": "CST Lower Surface",
@@ -519,8 +487,7 @@ FIELD_HELP: dict[str, dict] = {
             "mean is the camber.\n\n"
             "Same availability note as the upper set."),
         "range": "typically −0.3 to 0.0, one value per Bernstein term",
-        "options": None,
-        "anchor": "cap-19-2-0"
+        "options": None
     },
     "bezier_control_points": {
         "title": "Bézier Control Points",
@@ -533,8 +500,7 @@ FIELD_HELP: dict[str, dict] = {
             "Offered on screen only for a project that already uses this "
             "source."),
         "range": "4+ points, x from 0 to 1",
-        "options": None,
-        "anchor": "cap-19-2-0"
+        "options": None
     },
     "reverse_flow_model": {
         "title": "Reverse-Flow Polar",
@@ -587,8 +553,7 @@ FIELD_HELP: dict[str, dict] = {
                 "The only option with no np.where(Ut < 0) switch anywhere, which "
                 "is exactly what makes it the friendliest to solver convergence "
                 "at the reverse-flow boundary.")
-        },
-        "anchor": "ajuda-reverse_flow_model"
+        }
     },
     "reverse_flow_blend_factor": {
         "title": "Reverse-Flow Blend",
@@ -606,8 +571,7 @@ FIELD_HELP: dict[str, dict] = {
             "numerical switch and does not move the reverse-flow boundary.\n\n"
             "Careful: it is ignored by the other four reverse-flow models."),
         "range": "0.1–50",
-        "options": None,
-        "anchor": "ajuda-reverse_flow_blend_factor"
+        "options": None
     },
     "thin_plate_blend_center_deg": {
         "title": "Thin-Plate Blend Center",
@@ -616,8 +580,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\alpha_{center}",
         "effect": "Increasing the blend center moves the transition region to higher angles, preserving airfoil data at low to moderate angles.",
         "range": "60–90°",
-        "options": None,
-        "anchor": "ajuda-thin_plate_blend_center_deg"
+        "options": None
     },
     "thin_plate_blend_width_deg": {
         "title": "Thin-Plate Blend Width",
@@ -626,8 +589,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\alpha_{center} \pm \dfrac{w}{2}",
         "effect": "Increasing the blend width broadens the transition, reducing sharp discontinuities in forces at very high angles.",
         "range": "5–30°",
-        "options": None,
-        "anchor": "ajuda-thin_plate_blend_width_deg"
+        "options": None
     },
     "mask_reverse_flow_plots": {
         "title": "Mask Reverse Flow in Plots",
@@ -644,8 +606,7 @@ FIELD_HELP: dict[str, dict] = {
             "It changes only rendering; reverse-flow loads remain in "
             "integration, summaries, CSV, and exported data."),
         "range": "off/on",
-        "options": None,
-        "anchor": "ajuda-mask_reverse_flow_plots"
+        "options": None
     },
     "use_compressibility": {
         "title": "Compressibility Correction",
@@ -663,8 +624,7 @@ FIELD_HELP: dict[str, dict] = {
             "The correction is local to the airfoil coefficients and does not "
             "alter momentum theory."),
         "range": "off/on; use cautiously as M approaches 1",
-        "options": None,
-        "anchor": "ajuda-use_compressibility"
+        "options": None
     },
     "a_sound": {
         "title": "Speed of Sound",
@@ -676,8 +636,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"M = \dfrac{V}{a}",
         "effect": "Increasing sound speed lowers Mach numbers and reduces compressibility effects, effectively making the rotor 'slower' in compressibility terms.",
         "range": "320–350 m/s (temp dependent)",
-        "options": None,
-        "anchor": "ajuda-a_sound"
+        "options": None
     },
     "external_reynolds_list": {
         "title": "External Reynolds Numbers",
@@ -689,8 +648,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"Re = \dfrac{V c}{\nu}",
         "effect": "Increasing the Reynolds range expands the external polar coverage, improving accuracy in off-design conditions.",
         "range": "1e4–1e7 (typical rotors)",
-        "options": None,
-        "anchor": "ajuda-external_reynolds_list"
+        "options": None
     },
     "external_mach_list": {
         "title": "External Mach Numbers",
@@ -701,8 +659,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": "M = V / a_sound",
         "effect": "Increasing the Mach range expands the external polar, enabling analysis of transonic and high-speed conditions.",
         "range": "0.1–0.9",
-        "options": None,
-        "anchor": "ajuda-external_mach_list"
+        "options": None
     },
     "external_alpha_min_deg": {
         "title": "External Polar Minimum Angle",
@@ -711,8 +668,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\alpha_{min}",
         "effect": "Decreasing the minimum angle expands the polar sweep range, but may increase computation time.",
         "range": "−180 to 0°",
-        "options": None,
-        "anchor": "ajuda-external_alpha_min_deg"
+        "options": None
     },
     "external_alpha_max_deg": {
         "title": "External Polar Maximum Angle",
@@ -721,8 +677,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\alpha_{max}",
         "effect": "Increasing the maximum angle expands the polar sweep range and computation cost, but covers more extreme conditions.",
         "range": "0 to 180°",
-        "options": None,
-        "anchor": "ajuda-external_alpha_max_deg"
+        "options": None
     },
     "external_alpha_step_deg": {
         "title": "External Polar Angle Step",
@@ -734,8 +689,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\Delta\alpha",
         "effect": "Decreasing the step size increases polar resolution and computation time; finer steps reduce interpolation error.",
         "range": "0.5–5°",
-        "options": None,
-        "anchor": "ajuda-external_alpha_step_deg"
+        "options": None
     },
     "table_slices": {
         "title": "Table Slices",
@@ -746,9 +700,8 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "",
         "equation": r"C_l(\alpha, Re, M)",
         "effect": "Does not affect calculation directly; determines the accuracy of interpolation between tabulated polar data.",
-        "range": "one or more complete alpha curves per condition",
-        "options": None,
-        "anchor": "ajuda-table_slices"
+        "range": "one or more complete C<sub>l</sub>(&alpha;) curves per condition",
+        "options": None
     },
     "geometry": {
         "title": "Airfoil Geometry",
@@ -761,8 +714,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\bar{x}=x/c,\ \bar{y}=y/c",
         "effect": "Does not affect BEM calculation if source is 'analytical' or 'table'; used only for external polar generation.",
         "range": "NACA, CST, Bezier, or imported Selig/Lednicer coordinates",
-        "options": None,
-        "anchor": "ajuda-geometry"
+        "options": None
     },
     "Ne": {
         "title": "Radial Stations",
@@ -775,8 +727,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"N_e",
         "effect": "Increasing radial stations improves resolution and convergence accuracy, but increases CPU time per case linearly.",
         "range": "10–200 (typical 30–90)",
-        "options": None,
-        "anchor": "ajuda-Ne"
+        "options": None
     },
     "Npsi": {
         "title": "Azimuthal Positions",
@@ -789,8 +740,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\Delta\psi = \dfrac{360^\circ}{N_\psi}",
         "effect": "Increasing azimuthal positions better captures cyclic loads and forward-flight asymmetry, but multiplies CPU time.",
         "range": "1, 4, 6, 8, 12 (typical 1 or 8)",
-        "options": None,
-        "anchor": "ajuda-Npsi"
+        "options": None
     },
     "rho": {
         "title": "Air Density",
@@ -802,8 +752,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"F \propto \rho V^2",
         "effect": "Increasing air density increases lift, drag, power, and Reynolds number; critical for high-altitude and sea-level comparisons.",
         "range": "0.4–1.5 kg/m³",
-        "options": None,
-        "anchor": "ajuda-rho"
+        "options": None
     },
     "integration_offset": {
         "title": "Integration Offset",
@@ -815,8 +764,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"r \pm \Delta r",
         "effect": "Increasing the offset moves integration nodes away from singularities, reducing numerical noise but sacrificing accuracy at extremities.",
         "range": "1e-8–1e-4",
-        "options": None,
-        "anchor": "ajuda-integration_offset"
+        "options": None
     },
     "inflow_field_model": {
         "title": "Inflow Field Model",
@@ -842,8 +790,7 @@ FIELD_HELP: dict[str, dict] = {
             "coleman_local": "Coleman first harmonic for front/rear wake tilt, solved locally.",
             "drees_local": "Drees longitudinal and lateral harmonics, solved locally.",
             "pitt_peters_steady": "Three-state finite-state actuator-disk equilibrium; use when disk-level induced-flow physics is the target."
-        },
-        "anchor": "ajuda-inflow_field_model"
+        }
     },
     "prandtl_loss_mode": {
         "title": "Prandtl Tip/Root Loss",
@@ -852,7 +799,7 @@ FIELD_HELP: dict[str, dict] = {
             "Applies a reduction factor to blade element loads near root and tip "
             "to account for finite blade count effects."),
         "unit": "",
-        "equation": r"F_{tip} = \dfrac{2}{\pi}\arccos\left(e^{-\dfrac{N_b(1-\bar{r})}{2|\sin\phi|}}\right)",
+        "equation": r"F_{tip} = \dfrac{2}{\pi}\arccos\left(e^{-\dfrac{N_b(1-\bar{r})}{2\,\bar{r}\,|\sin\phi|}}\right)",
         "effect": "Choose both for normal finite-blade predictions; choose tip or root to isolate one physical loss mechanism; choose off only for an idealized infinite-blade comparison.",
         "range": "off, tip, root, both",
         "options": {
@@ -860,8 +807,7 @@ FIELD_HELP: dict[str, dict] = {
             "tip": "Apply loss at tip only.",
             "root": "Apply loss at root only.",
             "both": "Apply loss at both tip and root (recommended for accurate hover power)."
-        },
-        "anchor": "ajuda-prandtl_loss_mode"
+        }
     },
     "use_rotational_augmentation": {
         "title": 'Rotational augmentation (Himmelskamp / Snel)',
@@ -881,24 +827,23 @@ FIELD_HELP: dict[str, dict] = {
             'value C<sub>l,att</sub> = C<sub>lα</sub>(α − α<sub>0</sub>), so it does nothing '
             'while the flow is attached and only bites once the polar has '
             'stalled.\n\n'
-            'Its size scales with (c/r)^2 — doubling the chord at a station '
+            'Its size scales with (c/r)&sup2; — doubling the chord at a station '
             'quadruples it — so it is a root-region effect that dies out toward '
             'the tip.\n\n'
             'Expect a higher inner loading and a modest rise in thrust and '
             'torque in cases where the root is stalled (hover at high '
             'collective, low-speed flight); in an unstalled case the change is '
             'near zero.\n\n'
-            'The blend g(alpha) is 1 below 30 deg, falls smoothly to 0 at '
-            '60 deg, and above that the correction is off.'),
+            'The blend g(&alpha;) is 1 below 30&deg;, falls smoothly to 0 at '
+            '60&deg;, and above that the correction is off.'),
         "range": 'off/on',
-        "options": None,
-        "anchor": 'ajuda-use_rotational_augmentation',
+        "options": None
     },
     "use_radial_flow_correction": {
         "title": 'Radial (spanwise) flow correction',
         "definition": (
             "In forward flight the blade also sees a velocity component ALONG "
-            "its span, U_R = V<sub>x</sub>*cos(psi), built from the IN-PLANE component of "
+            "its span, U<sub>R</sub> = V<sub>x</sub>&middot;cos&psi;, built from the IN-PLANE component of "
             "the flight velocity — largest where the blade points along that "
             "component and zero fore and aft.\n\n"
             "In ROTOR mode that in-plane component is V<sub>x</sub>, the advance; in "
@@ -919,8 +864,7 @@ FIELD_HELP: dict[str, dict] = {
             'In PROPELLER mode, in straight cruise, it is inactive: the '
             'in-plane component there is the cross-flow and that is zero.'),
         "range": 'off/on',
-        "options": None,
-        "anchor": 'ajuda-use_radial_flow_correction',
+        "options": None
     },
     "radial_flow_max_skew_deg": {
         "title": 'Radial-flow saturation skew angle',
@@ -944,8 +888,7 @@ FIELD_HELP: dict[str, dict] = {
             'below the chosen angle — only the high-μ<sub>x</sub> end of a sweep '
             'moves.'),
         "range": '30-90 deg',
-        "options": None,
-        "anchor": 'ajuda-radial_flow_max_skew_deg',
+        "options": None
     },
     "pitt_peters_states": {
         "title": "Pitt-Peters States",
@@ -957,8 +900,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\nu = (\nu_0, \nu_s, \nu_c)",
         "effect": "Increasing state count improves dynamic response accuracy, especially for transient maneuvers and control inputs.",
         "range": "1–4",
-        "options": None,
-        "anchor": "ajuda-pitt_peters_states"
+        "options": None
     },
     "pitt_peters_outer_iter": {
         "title": "Pitt-Peters Outer Iterations",
@@ -967,8 +909,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"n_{iter}",
         "effect": "Increasing the iteration limit allows the Pitt-Peters states more time to converge, improving accuracy at the cost of time.",
         "range": "5–50",
-        "options": None,
-        "anchor": "ajuda-pitt_peters_outer_iter"
+        "options": None
     },
     "pitt_peters_relax": {
         "title": "Pitt-Peters Relaxation",
@@ -977,8 +918,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\lambda_{n+1} = \lambda_n + \omega\left[g(\lambda_n)-\lambda_n\right]",
         "effect": "Decreasing the relaxation factor slows state update and improves stability, but may require more iterations.",
         "range": "0.1–1.0",
-        "options": None,
-        "anchor": "ajuda-pitt_peters_relax"
+        "options": None
     },
     "pitt_peters_tol": {
         "title": "Pitt-Peters Tolerance",
@@ -987,8 +927,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\max|\xi_{n+1}-\xi_n| < \epsilon",
         "effect": "Decreasing the tolerance forces stricter convergence, improving accuracy but increasing iteration count.",
         "range": "1e-6–1e-3",
-        "options": None,
-        "anchor": "ajuda-pitt_peters_tol"
+        "options": None
     },
     "solver": {
         "title": "Solver Algorithm",
@@ -1006,8 +945,7 @@ FIELD_HELP: dict[str, dict] = {
             "fixed_point": "Fixed-point iteration (Picard); slow but robust, useful for stalled or difficult cases.",
             "bisection": "Bracketing method; guaranteed convergence but slowest, used for safety.",
             "aitken": "Aitken acceleration of fixed-point; attempts to speed up slow fixed-point convergence."
-        },
-        "anchor": "ajuda-solver"
+        }
     },
     "max_iter": {
         "title": "Max Solver Iterations",
@@ -1019,8 +957,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"n_{max}",
         "effect": "Increasing the limit allows more iterations to find convergence, helping difficult cases but masking poor initialization.",
         "range": "10–1000 (typically 50–200)",
-        "options": None,
-        "anchor": "ajuda-max_iter"
+        "options": None
     },
     "tol": {
         "title": "Solver Tolerance",
@@ -1032,8 +969,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"|g(\lambda_i)-\lambda_i| < \epsilon",
         "effect": "Decreasing the tolerance tightens convergence criteria, improving force accuracy but increasing CPU time.",
         "range": "1e-6–1e-2",
-        "options": None,
-        "anchor": "ajuda-tol"
+        "options": None
     },
     "relax": {
         "title": "Global Relaxation Factor",
@@ -1045,8 +981,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\lambda_{i,n+1} = \lambda_{i,n} + \omega\left[g(\lambda_{i,n})-\lambda_{i,n}\right]",
         "effect": "Decreasing the relaxation factor slows convergence but improves stability; too low causes stagnation.",
         "range": "0.1–1.0 (typically 0.5–0.9)",
-        "options": None,
-        "anchor": "ajuda-relax"
+        "options": None
     },
     "relax_schedule": {
         "title": "Spatial Relaxation Schedule",
@@ -1055,8 +990,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\omega(r,\psi) = \omega_0\,f_{root}\,f_{tip}\,f_{\psi}",
         "effect": "Enabling the schedule adapts relaxation locally, improving convergence in stalled or highly loaded regions.",
         "range": "off/on (default on)",
-        "options": None,
-        "anchor": "ajuda-relax_schedule"
+        "options": None
     },
     "relax_root_factor": {
         "title": "Root Relaxation Factor",
@@ -1068,8 +1002,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\omega_{root} = \omega_0\,f_{root}",
         "effect": "Decreasing the root factor further slows update near the root, improving stability in the high-loaded inboard region.",
         "range": "0.1–1.0",
-        "options": None,
-        "anchor": "ajuda-relax_root_factor"
+        "options": None
     },
     "relax_root_threshold": {
         "title": "Root Region Threshold",
@@ -1081,8 +1014,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\bar{r} < \bar{r}_{root}",
         "effect": "Increasing the threshold expands the root region and the relaxation reduction applied there.",
         "range": "0.1–0.4",
-        "options": None,
-        "anchor": "ajuda-relax_root_threshold"
+        "options": None
     },
     "relax_tip_threshold": {
         "title": "Tip Region Threshold",
@@ -1094,8 +1026,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\bar{r} > \bar{r}_{tip}",
         "effect": "Decreasing the threshold expands the tip region and the relaxation reduction applied there.",
         "range": "0.8–0.95",
-        "options": None,
-        "anchor": "ajuda-relax_tip_threshold"
+        "options": None
     },
     "relax_azimuth_factor": {
         "title": "Azimuthal Relaxation Factor",
@@ -1107,8 +1038,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\omega_\psi = \omega_0\,f_\psi",
         "effect": "Decreasing the azimuth factor slows update at problem azimuths, stabilizing convergence in highly skewed inflow.",
         "range": "0.1–1.0",
-        "options": None,
-        "anchor": "ajuda-relax_azimuth_factor"
+        "options": None
     },
     "relax_azimuth_threshold": {
         "title": "Azimuthal Relaxation Threshold",
@@ -1117,8 +1047,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": "Azimuth factor applied when criterion > threshold",
         "effect": "Increasing the threshold restricts azimuthal relaxation to fewer azimuths, localizing the slowdown.",
         "range": "0.1–0.9",
-        "options": None,
-        "anchor": "ajuda-relax_azimuth_threshold"
+        "options": None
     },
     "early_exit_fraction": {
         "title": "Early Exit Fraction",
@@ -1127,8 +1056,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\dfrac{n_{conv}}{N_e} > \eta",
         "effect": "Increasing the fraction requires more elements converged before exit, improving accuracy but increasing iteration count.",
         "range": "0.5–0.95",
-        "options": None,
-        "anchor": "ajuda-early_exit_fraction"
+        "options": None
     },
     "stagnation_patience": {
         "title": "Stagnation Patience",
@@ -1137,8 +1065,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": "Stagnation counter increments if frac_improvement < min_frac",
         "effect": "Increasing patience allows more non-improving iterations, giving slow-converging cases more time but risking false stagnation.",
         "range": "3–20",
-        "options": None,
-        "anchor": "ajuda-stagnation_patience"
+        "options": None
     },
     "stagnation_min_frac": {
         "title": "Stagnation Minimum Fraction",
@@ -1147,8 +1074,7 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\Delta\eta = \dfrac{\eta_n - \eta_{n-1}}{N_e}",
         "effect": "Increasing the threshold requires larger improvements to reset patience, causing stagnation detection to trigger sooner.",
         "range": "0.001–0.1",
-        "options": None,
-        "anchor": "ajuda-stagnation_min_frac"
+        "options": None
     },
     "is_propeller": {
         "title": "Rotor/Propeller Mode",
@@ -1202,8 +1128,7 @@ FIELD_HELP: dict[str, dict] = {
                 "Inflow closes as λ<sub>total</sub> = λ<sub>i</sub> + λ<sub>z</sub>, i.e. "
                 "V<sub>z,total</sub> = V<sub>z</sub> + v_i through the disk. Reported with "
                 "figure-of-merit FM and the disk-thrust convention.")
-        },
-        "anchor": "ajuda-is_propeller"
+        }
     },
     "mu_x": {
         "title": "In-plane component (V<sub>x</sub> advance in rotor mode, V<sub>z</sub> cross-flow in propeller mode)",
@@ -1240,8 +1165,7 @@ FIELD_HELP: dict[str, dict] = {
             "0–1.5\n\n"
             "In ROTOR mode, cruise μ<sub>x</sub> 0–0.5; in PROPELLER mode the cross-flow "
             "μ<sub>z</sub> is usually 0."),
-        "options": None,
-        "anchor": "ajuda-mu_x"
+        "options": None
     },
     "Vz": {
         "title": "Along-shaft component (V<sub>z</sub> climb/descent in rotor mode, V<sub>x</sub> airspeed in propeller mode)",
@@ -1282,8 +1206,7 @@ FIELD_HELP: dict[str, dict] = {
             "In ROTOR mode, −50 to +50 m/s of climb/descent V<sub>z</sub>.\n\n"
             "In PROPELLER mode, the cruise airspeed V<sub>x</sub>, giving "
             "J<sub>x</sub> ≈ 0.2–2."),
-        "options": None,
-        "anchor": "ajuda-Vz"
+        "options": None
     },
     "collective_deg": {
         "title": "Collective Pitch",
@@ -1304,8 +1227,7 @@ FIELD_HELP: dict[str, dict] = {
             "V<sub>x</sub> in PROPELLER mode — so a propeller needs more collective as "
             "J<sub>x</sub> grows if it is to hold its loading."),
         "range": "−20 to +20° (typical −5 to +15)",
-        "options": None,
-        "anchor": "ajuda-collective_deg"
+        "options": None
     },
     "rpm": {
         "title": "Rotor Speed",
@@ -1326,7 +1248,6 @@ FIELD_HELP: dict[str, dict] = {
             "at a fixed flight speed, so a condition entered in m/s slides along "
             "the sweep whenever rpm changes."),
         "range": "100–3000 rpm (highly design dependent)",
-        "options": None,
-        "anchor": "ajuda-rpm"
+        "options": None
     }
 }

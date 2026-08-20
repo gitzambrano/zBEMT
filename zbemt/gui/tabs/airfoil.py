@@ -804,8 +804,8 @@ class AirfoilTab(QWidget):
         self.show_reverse_branch_check.setChecked(True)
         self.show_reverse_branch_check.setToolTip(
             "Overlays the curve the engine actually uses where the section sees reverse flow "
-            "(Ut < 0), per the Reverse flow model in the form. For 'thin_plate_blend' both branches "
-            "coincide by construction — its blend depends on |alpha| only, not on the sign of Ut.")
+            "(U<sub>t</sub> &lt; 0), per the Reverse flow model in the form. For 'thin_plate_blend' both branches "
+            "coincide by construction — its blend depends on |&alpha;| only, not on the sign of U<sub>t</sub>.")
         row.addWidget(self.show_reverse_branch_check)
 
         mach_lbl = QLabel("Machs:")
@@ -926,8 +926,9 @@ class AirfoilTab(QWidget):
         "    0,0.21,0.0098\n"
         "    5,0.74,0.0115\n\n"
         "REQUIRED COLUMNS: alpha_deg (degrees), Cl and Cd. Names are matched "
-        "case-insensitively and common spellings are accepted: alpha / aoa / "
-        "aoa_deg for the angle, CL / cl and CD / cd for the coefficients. "
+        "case-insensitively and common spellings are accepted: alpha_deg, "
+        "alpha, aoa and aoa_deg for the angle, CL / cl and CD / cd for the "
+        "coefficients. "
         "Any other column is ignored.\n\n"
         "OPTIONAL COLUMNS — this is how a sweep is declared: add r_norm "
         "(also accepted: r/R, radial_station), reynolds (Re) and/or mach (M). "
@@ -939,7 +940,7 @@ class AirfoilTab(QWidget):
         "     0,0.21,0.0098,600000,0.2\n\n"
         "ONE BLOCK = ONE COMBINATION of the optional columns. The rows above "
         "make two slices (Re=2e5 and Re=6e5, both at Mach 0.2), each with its "
-        "own alpha sweep. Rows do not need to be sorted or grouped together — "
+        "own sweep in angle of attack. Rows do not need to be sorted or grouped together — "
         "they are collected by value, not by position. The same file may carry "
         "r/R, Reynolds and Mach at once: the engine then interpolates the "
         "polar in every axis present, per radial station and flight condition.\n\n"

@@ -162,8 +162,10 @@ class TestDocumentationDoesNotCiteMissingFiles(unittest.TestCase):
         """Catches mentions like `<code>gui/app.py</code>` or
         `<code>viz/plots.py</code>`: if the documentation gives the path,
         it has to resolve inside the package."""
+        # The documentation does not name modules any more (see the rules in
+        # CLAUDE.md). This stays as a guard: if a path is ever cited again,
+        # it has to resolve.
         citados = set(re.findall(r"<code>((?:\w+/)+\w+\.py)</code>", _html()))
-        self.assertTrue(citados, "expected module paths cited in the documentation")
         # the documentation cites both paths inside the package
         # (`gui/app.py`) and paths from the root (`tools/generate_...py`)
         faltando = [c for c in citados
@@ -538,3 +540,85 @@ class TestIndiceGeral(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAjudaAbreNoCapituloDaAba(unittest.TestCase):
+    """A help popup must open the chapter of the tab it belongs to.
+
+    The documentation is one chapter per GUI tab, so a field or a block on
+    the Airfoil tab has to open somewhere inside the Airfoil chapter. When
+    the physics chapters were dissolved into the page chapters, ten block
+    anchors were left pointing at sections that no longer existed, and the
+    field anchors had to follow the content across. Nothing about the page
+    looks wrong when that happens -- the link simply lands somewhere else.
+    """
+
+    #: The four condition fields Run Case and Run Batch share.
+    CONDICAO = {"mu_x", "Vz", "collective_deg", "rpm"}
+
+    #: GUI tab -> the chapter title that documents it
+    CAPITULO_DA_ABA = {
+        "geometria": "Geometry",
+        "aerofolio": "Airfoil",
+        "config": "Config/Engine",
+        "run_case": "Run Case",
+        "run_batch": "Run Batch",
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import PyQt6  # noqa: F401
+        except ModuleNotFoundError:
+            raise unittest.SkipTest("PyQt6 is not installed")
+        cls.html = _html()
+        cls.capitulos = [
+            (m.start(), re.sub(r"<[^>]+>", "", m.group(1)).strip())
+            for m in re.finditer(r"<h2[^>]*>(.*?)</h2>", cls.html, re.S)
+        ]
+        cls.posicao = {m.group(1): m.start()
+                       for m in re.finditer(r'id="([\w-]+)"', cls.html)}
+
+    def _capitulo_de(self, ancora: str) -> str:
+        pos = self.posicao.get(ancora)
+        self.assertIsNotNone(pos, f"anchor '{ancora}' is not in the document")
+        atual = None
+        for p, titulo in self.capitulos:
+            if p <= pos:
+                atual = titulo
+            else:
+                break
+        return atual or ""
+
+    def test_ancoras_de_bloco_resolvem(self):
+        from zbemt.gui.help_blocks import BLOCK_HELP
+        ids = set(self.posicao)
+        mortas = sorted({v.get("anchor") for v in BLOCK_HELP.values()
+                         if v.get("anchor") not in ids})
+        self.assertEqual(mortas, [], f"block help points at missing anchors: {mortas}")
+
+    def test_campo_abre_no_capitulo_da_sua_aba(self):
+        sys.path.insert(0, str(RAIZ / "tools"))
+        from field_index import coletar_ordem_da_tela
+        from zbemt.gui.field_help import ancora_do_campo
+
+        for aba, campos in coletar_ordem_da_tela().items():
+            titulo = self.CAPITULO_DA_ABA.get(aba)
+            if not titulo:
+                continue
+            for campo, _antigo in campos:
+                ancora = ancora_do_campo(campo)
+                if ancora is None:
+                    continue
+                aceitos = [titulo]
+                # Run Batch sweeps the very same four condition fields that
+                # Run Case sets one at a time. They are one quantity, not
+                # two, so their help opens the Run Case description rather
+                # than a second copy of it.
+                if aba == "run_batch" and campo in self.CONDICAO:
+                    aceitos.append("Run Case")
+                with self.subTest(aba=aba, campo=campo):
+                    self.assertTrue(
+                        any(t in self._capitulo_de(ancora) for t in aceitos),
+                        f"{campo} is on the {aba} tab but its help opens "
+                        f"'{self._capitulo_de(ancora)}'")
