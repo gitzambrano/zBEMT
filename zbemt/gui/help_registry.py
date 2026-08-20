@@ -44,8 +44,12 @@ def registro_de_campos() -> dict:
     "?" tooltip) already has a generic fallback, so it is never
     mandatory.
     """
+    # `field_help_data` (not `field_help`): the mapping is pure text
+    # parsing with no Qt dependency, and this function must keep working
+    # on a machine with no PyQt6 installed -- the engine/CLI CI job, or
+    # a headless batch server.
     try:
-        from .field_help import mapa_de_campos, secoes_da_documentacao
+        from .field_help_data import mapa_de_campos, secoes_da_documentacao
     except Exception:                                   # pragma: no cover
         return {}
 

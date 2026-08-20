@@ -15,6 +15,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from tests.helpers import requires_qt
+
 RAIZ = Path(__file__).resolve().parents[1]
 DOC = RAIZ / "docs" / "documentation.html"
 
@@ -452,6 +454,7 @@ class TestNumeracaoDosTitulos(unittest.TestCase):
                          f"chapter numbers are not 0,1,2,...: {numeros}")
 
 
+@requires_qt
 class TestTodoCampoTemSecao(unittest.TestCase):
     """Every settable field is explained, and says how to set it in all three.
 
@@ -459,7 +462,12 @@ class TestTodoCampoTemSecao(unittest.TestCase):
     subsection has to state the widget, the `.bemt` key AND the CLI flag --
     a field explained only for the window leaves the other two interfaces
     undocumented, which is the gap this checks.
-    """
+
+    Requires PyQt6: `secoes_da_documentacao` lives in
+    `zbemt.gui.field_help`, which also defines Qt-dependent classes at
+    module level, so the module cannot be imported without it. The engine
+    and CLI job (no PyQt6, by design) skips this class rather than failing
+    to import it."""
 
     @classmethod
     def setUpClass(cls):
