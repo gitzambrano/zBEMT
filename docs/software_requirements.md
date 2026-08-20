@@ -80,15 +80,11 @@ requirements the software must satisfy.
   This is enforced structurally, not by convention: `zbemt/nomenclature.py`
   is the single table every surface reads, so a symbol cannot be right in
   the results table and wrong in the chart printed beside it in the same
-  report — which is what happened while ten hand-maintained copies of the
-  rotor/propeller letter swap existed. Adding an axis quantity means adding
-  one entry there; adding a second table anywhere is a defect.
+  report.
 - **PR-9 — Plots must read correctly.** A plot states the general
   flight/operating condition it was generated under in its title. Legends,
   labels and annotations must not overlap the plotted data. A disk map must
-  carry the azimuth convention it was drawn in and must mask the region
-  where the quantity is not defined (reverse flow, outside the blade span)
-  rather than interpolating across it.
+  carry the azimuth convention it was drawn in.
 - **PR-10 — GUI layout invariants.** Fields align vertically across forms;
   buttons that appear together share a width; no text is ever clipped or
   overflowed, in a label, a button, a tooltip or a help popup. A hidden form
@@ -247,5 +243,4 @@ requirements the software must satisfy.
   test that turns it on and verifies the expected physical effect against a
   reference external to the code — a published formula, a limit the engine
   must reproduce, or a property the model must have (harmonic inflow models
-  coinciding in hover, for instance). An option no test can distinguish from
-  its absence is either unimplemented or unnecessary.
+  coinciding in hover, for instance).
