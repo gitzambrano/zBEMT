@@ -306,7 +306,8 @@ class MainWindow(QMainWindow):
         # Per-field popups: clickable labels in every tab's QFormLayout.
         from .field_help import instalar_popups_de_campo
         from .common import (compactar_campos_de_formulario, garantir_botoes_legiveis,
-                              arejar_formularios, alinhar_rotulos_de_formulario)
+                              arejar_formularios, alinhar_rotulos_de_formulario,
+                              mostrar_todas_as_opcoes_em)
         for i in range(self.tabs.count()):
             instalar_popups_de_campo(self.tabs.widget(i))
             # Reading width for numeric/enumeration fields: a window-level
@@ -323,6 +324,10 @@ class MainWindow(QMainWindow):
             # Left-aligned labels, likewise: right-justified (style
             # default) makes each label's initial fall in a different column.
             alinhar_rotulos_de_formulario(self.tabs.widget(i))
+            # Every dropdown opens showing all of its options. Applied
+            # here, from the outside, so that a combo added to any tab
+            # gets it without having to ask.
+            mostrar_todas_as_opcoes_em(self.tabs.widget(i))
 
         # Per-block help: the TITLE of every relevant QGroupBox is
         # clickable (there is no more "?" button anywhere in the window).

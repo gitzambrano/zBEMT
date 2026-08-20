@@ -14,7 +14,7 @@ import traceback
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QMessageBox,
+    QComboBox, QWidget, QVBoxLayout, QMessageBox,
 )
 from PyQt6.QtCore import pyqtSignal, QEvent, QObject, QSize, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
@@ -249,6 +249,39 @@ class AppState(QObject):
         """Called after `api.save_project`: what is in memory is now
         on disk."""
         self.unsaved = False
+
+
+#: Qt shows at most `maxVisibleItems` rows in a dropdown and scrolls the
+#: rest. The default is 10, which is invisible until a list grows past it:
+#: the popup then looks complete, and the options past the tenth are
+#: reachable only by scrolling a list that gives no sign of continuing.
+#: Seen on screen with the disk-map field selectors (17 entries).
+#:
+#: Above this many rows a dropdown genuinely is a list to scroll, and a
+#: popup taller than the screen is worse than a scrollbar.
+MAXIMO_DE_OPCOES_SEM_ROLAGEM = 40
+
+
+def mostrar_todas_as_opcoes(combo: QComboBox) -> None:
+    """Makes the dropdown open with every option already visible.
+
+    Qt sizes the popup to ``min(count, maxVisibleItems)`` rows, so raising
+    the cap once is enough: a combo with three entries still shows three,
+    and one filled from results long after it was built shows all of them
+    without anything having to notice the change."""
+    combo.setMaxVisibleItems(MAXIMO_DE_OPCOES_SEM_ROLAGEM)
+
+
+def mostrar_todas_as_opcoes_em(raiz: QWidget) -> int:
+    """Applies `mostrar_todas_as_opcoes` to every combo under `raiz`.
+
+    Called once on the assembled window, so that a new combo added
+    anywhere inherits the behaviour without having to remember to ask for
+    it. Returns how many it touched."""
+    combos = raiz.findChildren(QComboBox)
+    for combo in combos:
+        mostrar_todas_as_opcoes(combo)
+    return len(combos)
 
 
 def definir_linha_visivel(form, widget, visivel: bool) -> None:

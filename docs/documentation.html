@@ -109,7 +109,7 @@
   ::selection{background:#f0d9c8;}
   .gui{color:#2563eb;}
   .bemt{color:#16a34a;}
-  .cli{color:#ea580c;}
+  .cli{color:#dc2626;}
   .gui,.bemt,.cli{font-weight:600;}
   .manual-nav{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.55rem; margin:1.2rem 0 2.2rem;}
   .manual-nav a{display:block; padding:.55rem .7rem; border:1px solid var(--rule); border-radius:6px; background:var(--panel); text-decoration:underline; font-size:.88rem;}
@@ -332,7 +332,7 @@ misconfigured.</p>
 
 <h3 id="sec-01-scope">0.1 Scope</h3>
 
-<p class="lead">Use this guide in the same order as the GUI. First describe the aircraft or
+<p class="lead">Use this guide in the same order as the <span class="gui">GUI</span>. First describe the aircraft or
 propeller, then the blade geometry and airfoil data, choose the physical corrections and
 solver settings, define one case or a batch, and finally inspect the results. The equations
 are included whenever they help you choose a value or diagnose a result; implementation
@@ -408,27 +408,27 @@ ones.</li>
 
 <hr>
 
-<h2 id="cap-interfaces">2. The GUI, the CLI and the .bemt files</h2>
+<h2 id="cap-interfaces">2. The <span class="gui">GUI</span>, the <span class="cli">CLI</span> and the <span class="bemt">.bemt</span> files</h2>
 
-<p>zBEMT is operated in three ways, and they are not three programs. The <b>GUI</b>, the
-<b>.bemt</b> project files and the <b>CLI</b> all drive the same solver, apply the same validation
-rules and produce the same report. A case set up in the GUI and the same case launched from the CLI
+<p>zBEMT is operated in three ways, and they are not three programs. The <b><span class="gui">GUI</span></b>, the
+<b><span class="bemt">.bemt</span></b> project files and the <b><span class="cli">CLI</span></b> all drive the same solver, apply the same validation
+rules and produce the same report. A case set up in the <span class="gui">GUI</span> and the same case launched from the <span class="cli">CLI</span>
 give identical numbers. This chapter explains what each is for, which file holds which setting, and
 what each kind of run leaves behind.</p>
 
 <h3 id="cap-interfaces-1">2.1 What each one is for</h3>
 
-<p>The <b>GUI</b> is where a configuration is built and checked. It shows the
+<p>The <b><span class="gui">GUI</span></b> is where a configuration is built and checked. It shows the
 consequences of a choice immediately: the blade preview redraws as the geometry changes, options
-that do not apply disappear, and the bar at the top of the GUI reports whether each step is
+that do not apply disappear, and the bar at the top of the <span class="gui">GUI</span> reports whether each step is
 complete. Use it to define a rotor and to understand a result.</p>
 
-<p>The <b>.bemt files</b> are the record of what was configured. A project is a folder of small
+<p>The <b><span class="bemt">.bemt</span> files</b> are the record of what was configured. A project is a folder of small
 text files in JSON format, one per subject, which can be read, edited, copied between machines and
 tracked in version control. They are the definition of the case; everything else reads from
 them.</p>
 
-<p>The <b>CLI</b> runs a project without a display. It is the way to launch a long sweep,
+<p>The <b><span class="cli">CLI</span></b> runs a project without a display. It is the way to launch a long sweep,
 to run on a server, or to repeat the same study over several projects from a script. It needs
 neither the graphical libraries nor a screen.</p>
 
@@ -456,20 +456,31 @@ appears to have no effect.</p>
 
 <h3 id="cap-interfaces-3">2.3 Setting a value</h3>
 
-<p>Every configurable field can be set from all three interfaces. The chapters that follow give, for
-each field, the exact widget, the exact file key and the exact flag. The general rule is this.</p>
+<p>A project is a folder of <span class="bemt">.bemt</span> files, and those files are the only
+place a setting is ever stored. The <span class="gui">GUI</span> and the
+<span class="cli">CLI</span> are two ways of reading and writing that same folder. Neither has a
+format of its own, and neither can express anything the other cannot: the chapters that follow
+give, for every field, the widget that sets it, the key that stores it and the flag that overrides
+it.</p>
 
-<p><span class="gui">GUI</span> &mdash; type the value into the field and apply it. Applying writes
-to the project held in memory; nothing reaches disk until the project is saved.</p>
+<p>Each interface plays a different part.</p>
 
-<p><span class="bemt">.bemt</span> &mdash; set the key in the file listed above. The files are
-JSON, so a value is written as <code>"Ne": 90</code>, a switch as <code>true</code> or
-<code>false</code>, and a choice as the quoted name of the option.</p>
+<p>The <span class="gui">GUI</span> edits and writes the files. Typing a value into a field changes
+the project held in memory; nothing reaches disk until you save, at which point the whole project
+is written back to <span class="bemt">.bemt</span> files &mdash; the same files you could have
+edited by hand. This is what makes the <span class="gui">GUI</span> the easiest way to author a
+project: build it on screen, save it, and the folder is ready for any of the three.</p>
 
-<p><span class="cli">CLI</span> &mdash; use the flag for that field where one exists, for example
-<code>--rpm 300</code> or <code>--inflow coleman_local</code>. The fields that have no flag of
-their own are reached with <code>--set</code>, which takes the name of the file group, the field
-and the value:</p>
+<p>The <span class="bemt">.bemt</span> files hold the project. They are plain JSON, so a number is
+written as <code>"Ne": 90</code>, a switch as <code>true</code> or <code>false</code>, and a choice
+as the quoted name of the option. You can create and edit them in a text editor without ever
+opening the <span class="gui">GUI</span>.</p>
+
+<p>The <span class="cli">CLI</span> runs a project and can override any field for that one run. It
+does not write the project back: an override changes what is solved, not what is stored, so the
+folder is exactly as it was when the run ends. Use the field's own flag where one exists, for
+example <code>--rpm 300</code> or <code>--inflow coleman_local</code>; every other field is reached
+with <code>--set</code>, which takes the file group, the field and the value:</p>
 
 <pre><code>zbemt --project projects/starter_rotor --rpm 300 \
       --set config.Ne=90 --set config.Npsi=144 --set airfoil.cd0=0.012</code></pre>
@@ -479,14 +490,51 @@ above. A field name that does not exist, or a value that does not match the fiel
 the run with an error rather than being silently ignored. When a field is given both by its own
 flag and by <code>--set</code>, the <code>--set</code> value is the one used.</p>
 
+<h4 id="cap-interfaces-3-1">2.3.1 Running with one interface only</h4>
+
+<p>None of the three requires the others. Each of the following is a complete way to work.</p>
+
+<p><b>Only the <span class="gui">GUI</span>.</b> Open it with <code>zbemt-gui</code>, create a
+project, fill in the tabs, and run from the Run Case or Run Batch tab. Saving writes the
+<span class="bemt">.bemt</span> files; you never need to look at them. This is the recommended
+route for a first project.</p>
+
+<p><b>Only <span class="bemt">.bemt</span> files.</b> Write the files by hand &mdash; or copy an
+example project from <code>projects/</code> and edit it &mdash; then solve the saved cases with
+<code>zbemt --project projects/MyRotor</code>. The project defines the geometry, the airfoil, the
+configuration and the conditions to run, so the command needs nothing but the folder. Nothing here
+requires PyQt6, which is why this is the route for a headless machine.</p>
+
+<p><b>Only the <span class="cli">CLI</span>.</b> A project folder is always required &mdash; it is
+where the geometry, the airfoil and the configuration live &mdash; but the
+<span class="cli">CLI</span> can create one: <code>zbemt --new projects/MyRotor</code> writes a
+folder with default geometry and airfoil, which you then shape with flags. A fresh project has no
+saved case, so that first command creates the folder and runs nothing; from then on, a condition
+given on the command line is what gets solved:</p>
+
+<pre><code>zbemt --new projects/MyRotor
+zbemt --project projects/MyRotor --mu-inplane 0.2 --collective 8 --rpm 300
+zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects/MyRotor</code></pre>
+
+<p><code>--save-as</code> is what turns an override into a stored setting: without it the flags
+affect the run and nothing else. Run with no arguments at all, <code>zbemt</code> validates the
+<code>starter_rotor</code> example and exits without solving, which is the quickest way to confirm
+that an installation works.</p>
+
 <h3 id="cap-interfaces-4">2.4 Checking a project before running it</h3>
 
-<p>Validation applies the same rules in all three interfaces. In the GUI, the bar at the top
-shows each step as complete, incomplete or in error, and running a case validates first. From the
-command line, <code>--validate-only</code> reports the same findings and exits without solving,
-which is worth doing before an unattended batch that will take hours. Findings are of two kinds:
-errors, which stop the run, and warnings, which do not. To run in spite of an error, for instance
-to reproduce a known bad configuration deliberately,
+<p>Validation applies the same rules in all three interfaces, and it always runs before the solver
+does: pressing Run, or launching a run from the command line, checks the project first and stops
+if a check fails. You never have to ask for it, and a run that starts has already passed.</p>
+
+<p>In the <span class="gui">GUI</span> the bar at the top of the window shows each step as
+complete, incomplete or in error, so the state of the project is visible before you press anything.
+From the <span class="cli">CLI</span>, <code>--validate-only</code> runs the checks, reports what
+they found and exits without solving &mdash; worth doing before an unattended batch that will take
+hours.</p>
+
+<p>Findings are of two kinds: errors, which stop the run, and warnings, which do not. To run in
+spite of an error, for instance to reproduce a known bad configuration deliberately,
 <code>--ignore-validation-errors</code> is required.</p>
 
 <h3 id="cap-interfaces-5">2.5 What a run produces</h3>
@@ -514,7 +562,7 @@ the Results tab, where several runs can be selected together and compared on one
 <h4 id="cap-interfaces-5-2">2.5.2 What is written to disk</h4>
 
 <p>Nothing below is written unless it is asked for, except the results table, which is written by
-default from the CLI. The output folder is <code>outputs/</code> inside the project unless another
+default from the <span class="cli">CLI</span>. The output folder is <code>outputs/</code> inside the project unless another
 is given.</p>
 
 <div class="tablewrap"><table>
@@ -553,7 +601,7 @@ note.</td>
 <td>&mdash;</td></tr>
 </table></div>
 
-<p><b>Where the files go.</b> From the CLI, <code>--outdir PATH</code> chooses the folder, and a
+<p><b>Where the files go.</b> From the <span class="cli">CLI</span>, <code>--outdir PATH</code> chooses the folder, and a
 batch may carry its own <code>outdir</code>, which the flag overrides. With many conditions the
 per-condition images are numerous, so <code>--export-layout per_case</code> puts each condition's
 figures in its own subfolder instead of naming them all in one.</p>
@@ -593,7 +641,7 @@ engine; choose the flight condition; run it and read the results.</p>
 before them explain the method once, so that the chapters that follow can describe the
 controls rather than the theory. From there, each tab has a chapter of its own, and each
 field is explained in full where its control is: the physics, the mathematics, the options,
-and how to set it in the GUI, in a project file and from the command line. The Help button
+and how to set it in the <span class="gui">GUI</span>, in a project file and from the command line. The Help button
 on any field opens exactly that section.
 </div>
 
@@ -656,7 +704,7 @@ always the <b>Project</b> tab, where you choose one of the examples that come pr
 (<a href="#cap-0-5">3.2.5</a>) or create a new project.
 </div>
 
-<p class="lead">The GUI organizes the project in <b>seven tabs</b>, in the order in which a project is normally
+<p class="lead">The <span class="gui">GUI</span> organizes the project in <b>seven tabs</b>, in the order in which a project is normally
 set up: <b>1. Project</b> (create/open, choose Rotor or Propeller) &rarr; <b>2. Geometry</b>
 (radial table of chord/twist) &rarr; <b>3. Airfoil</b> (aerodynamic model and stall) &rarr;
 <b>4. Config/Engine</b> (mesh, inflow, solver) &rarr; <b>5. Run Case</b> (one operating point)
@@ -665,7 +713,7 @@ chapters follow exactly this order: one chapter per tab, in the order the tabs a
 window.</p>
 
 <h4 id="cap-0-1">3.2.1 Flow indicator bar</h4>
-<p>The bar fixed at the top of the GUI shows a coloured indicator for each
+<p>The bar fixed at the top of the <span class="gui">GUI</span> shows a coloured indicator for each
 of the seven steps above (green = configured and valid; amber = configured with warnings; red
 = blocking error; gray = not yet configured). Clicking any indicator jumps directly to
 the corresponding tab — useful for resuming a large project without navigating sequentially through the
@@ -692,7 +740,7 @@ work has not been written to disk, not that it has not been applied.</p>
 asterisks. The button is in the Project tab and repeated in Geometry, Airfoil and
 Config/Engine (labelled <b>Save</b> in the Geometry tab), so you never have to change
 tabs to commit what you just typed; <code>Ctrl+S</code> does the same from anywhere in
-the GUI.</p>
+the <span class="gui">GUI</span>.</p>
 
 <p><b>Restore.</b> <b>Restore</b> — labelled <b>Restore</b> in the Geometry
 and Airfoil tabs — does the opposite: it reloads the project folder exactly as it stands
@@ -701,7 +749,7 @@ and it asks for confirmation first when there is unsaved work. This is what make
 experimentation safe: change values, watch the preview, then either save them or restore
 over them.</p>
 
-<p>When closing the GUI with unsaved work, zBEMT asks before exiting, offering
+<p>When closing the <span class="gui">GUI</span> with unsaved work, zBEMT asks before exiting, offering
 <b>Save</b>, <b>Discard</b> and <b>Cancel</b>. Because everything you typed is already in
 the project, choosing Save writes exactly what was on the screen — there is no second
 category of pending edit that the dialog could silently drop.</p>
@@ -719,7 +767,7 @@ category of pending edit that the dialog could silently drop.</p>
 </table></div>
 
 <h4 id="cap-0-4">3.2.4 Three ways to configure a project</h4>
-<p>Every field of a project can be set from the GUI, from the project files or from the command
+<p>Every field of a project can be set from the <span class="gui">GUI</span>, from the project files or from the command
 line, and the three produce the same numbers. Which file holds which setting, and how a value is
 given in each of the three, is covered in
 <a href="#cap-interfaces">Chapter 2</a>.</p>
@@ -764,7 +812,7 @@ drone blade takes that to the other extreme of scale, and the light-aircraft pro
 that exercises the <code>is_propeller</code> mode and the axial convention for flight speed
 (<a href="#cap-nomenclatura-helice">14.2.1</a>).</p>
 
-<p><b>Via the GUI:</b> open <code>zbemt-gui</code>, choose the project from the list in the Project tab, go
+<p><b>Via the <span class="gui">GUI</span>:</b> open <code>zbemt-gui</code>, choose the project from the list in the Project tab, go
 to the Run Case tab and click Run. The saved cases appear in the selector.</p>
 
 <p><b>Via command line:</b></p>
@@ -792,20 +840,85 @@ component along the shaft &mdash; the one the induced velocity adds to &mdash; i
 and $x$ for a propeller, while the in-plane component is $x$ for a rotor and $z$ for a propeller.
 The angle is measured from the disk plane for a rotor ($\alpha_{rotor}$) and from the shaft for a
 propeller ($\alpha_{disk}$). The solver always works in disk axes; what rotates is what appears on
-screen and what is written into <code>.bemt</code> files, CSV headers and CLI flags.</figcaption>
+screen and what is written into <code>.bemt</code> files, CSV headers and <span class="cli">CLI</span> flags.</figcaption>
 </figure>
 
-<p>Every symbol is redefined in words at its first occurrence in the running text; this table
-is a reference guide, not a prerequisite for sequential reading.</p>
+<p>The free stream is always split into two components, and both are named relative to the
+<b>shaft</b>:</p>
 
-<p><b>The axes are vehicle-fixed: $x$ is horizontal, $z$ is vertical.</b> The physics chapters
-that follow are written in <b>rotor</b> axes, where the shaft is vertical, so $x$ lies in the disk
-plane (the advance) and $z$ runs along the shaft (climb or descent). On a propeller the shaft
-points forward, so the <em>same two letters name the other two components</em>: $x$ becomes the
-shaft direction (the airspeed) and $z$ the vertical cross-flow. Every quantity below whose meaning
-flips this way says so in its own row, and
-<a href="#cap-nomenclatura-helice">Section 9.2.1</a> gives the full correspondence, including the
-engine key each one is stored under.</p>
+<ul>
+<li><b>Axial flow</b> is the component <b>along the shaft</b> &mdash; the same direction the
+induced velocity acts in, and the direction thrust is produced in. It is what the momentum
+balance is written in.</li>
+<li><b>In-plane flow</b> is the component <b>in the disk plane</b>, perpendicular to the shaft.
+It sweeps across the blades, so it is what makes the advancing and retreating sides of the disk
+see different velocities.</li>
+</ul>
+
+<p>That split is physical and never changes. What changes with the mode is only the
+<b>letter</b> each component is written with, because the letters are fixed to the
+<b>vehicle</b>, not to the shaft: $x$ is always horizontal (forward) and $z$ is always vertical
+(up). A rotor has a vertical shaft and a propeller a horizontal one, so the two components swap
+letters between them.</p>
+
+<h4>Rotor &mdash; vertical shaft</h4>
+
+<p>Axial flow is <b>vertical</b>: climb (positive) or descent (negative). In-plane flow is
+<b>horizontal</b>: the classic forward-flight advance.</p>
+
+<div class="tablewrap"><table>
+<tr><th>Component</th><th>Direction</th><th>Speed</th><th>Advance ratio</th><th>Propeller form</th><th>Inflow ratio</th></tr>
+<tr><td><b>Axial</b> (along the shaft)</td><td>vertical</td><td>$V_z$</td><td>$\mu_z$</td><td>$J_z$</td><td>$\lambda_z$</td></tr>
+<tr><td><b>In-plane</b> (edgewise)</td><td>horizontal</td><td>$V_x$</td><td>$\mu_x$</td><td>$J_x$</td><td>&mdash;</td></tr>
+</table></div>
+
+<p>The angle between the free stream and the disk plane is $\alpha_{rotor}$. It is $0^\circ$ in
+level forward flight and positive when the flow arrives from below the disk. Level cruise is
+therefore $\mu_x>0$ with $\alpha_{rotor}\approx0^\circ$; hover is $\mu_x=\mu_z=0$.</p>
+
+<h4>Propeller &mdash; horizontal shaft</h4>
+
+<p>Axial flow is <b>horizontal</b>: the aircraft's airspeed. In-plane flow is <b>vertical</b>: the
+cross-flow that appears in a climb, a descent or at an angle of attack, and is zero in straight
+cruise.</p>
+
+<div class="tablewrap"><table>
+<tr><th>Component</th><th>Direction</th><th>Speed</th><th>Advance ratio</th><th>Propeller form</th><th>Inflow ratio</th></tr>
+<tr><td><b>Axial</b> (along the shaft)</td><td>horizontal</td><td>$V_x$</td><td>$\mu_x$</td><td>$J_x$</td><td>$\lambda_x$</td></tr>
+<tr><td><b>In-plane</b> (cross-flow)</td><td>vertical</td><td>$V_z$</td><td>$\mu_z$</td><td>$J_z$</td><td>&mdash;</td></tr>
+</table></div>
+
+<p>The angle between the free stream and the shaft is $\alpha_{disk}$. It is $0^\circ$ when the
+stream is aligned with the shaft. Straight cruise is therefore $J_x>0$ with $V_z=0$ and
+$\alpha_{disk}=0^\circ$.</p>
+
+<p>$J_x=V_x/(nD)$, built from the axial component, is the quantity normally called <em>the</em>
+advance ratio of a propeller. Note that it is the <b>axial</b> one: on a rotor the quantity given
+the same letter is the in-plane advance. This is the swap in its most easily confused form, and it
+is why the field labels change with the mode.</p>
+
+<h4>The two together</h4>
+
+<div class="tablewrap"><table>
+<tr><th>Physical component</th><th>Rotor</th><th>Propeller</th></tr>
+<tr><td>Along the shaft (axial)</td><td>$V_z$, $\mu_z$, $J_z$, $\lambda_z$ &mdash; climb/descent</td><td>$V_x$, $\mu_x$, $J_x$, $\lambda_x$ &mdash; airspeed</td></tr>
+<tr><td>In the disk plane</td><td>$V_x$, $\mu_x$, $J_x$ &mdash; edgewise advance</td><td>$V_z$, $\mu_z$, $J_z$ &mdash; cross-flow</td></tr>
+<tr><td>Angle of the free stream</td><td>$\alpha_{rotor}$, from the disk plane</td><td>$\alpha_{disk}$, from the shaft</td></tr>
+<tr><td>Induced velocity</td><td colspan="2">$v_i$, $\lambda_i$ &mdash; always along the shaft, in both modes</td></tr>
+</table></div>
+
+<p>The induced velocity is the exception that proves the rule: it acts along the shaft by
+definition, in either mode, so it keeps its symbols and its meaning throughout. The mode also
+decides which angle is shown: a rotor offers $\alpha_{rotor}$ and a propeller
+$\alpha_{disk}$, never both, because the two describe the same angle measured from
+perpendicular references.</p>
+
+<p>The solver itself never uses vehicle axes. Internally it works in <b>disk axes</b>, where the
+in-plane component is always $x$ and the axial one always $z$, whatever the vehicle. The rotation
+described above is applied at the surface: the labels in the <span class="gui">GUI</span>, the
+headers of the results table, the axis labels of the plots, the keys written into
+<span class="bemt">.bemt</span> files, and the <span class="cli">CLI</span> flags. The physics
+chapters that follow are written in rotor axes.</p>
 
 <h4>Greek symbols</h4>
 <div class="tablewrap"><table>
@@ -911,7 +1024,7 @@ them.</p>
 / <code>J_z</code>. The cross-flow field ($V_z$ on screen) is zero in straight cruise. Put the
 airspeed in the cross-flow field and you get the converged solution of an edgewise rotor, with no
 error and no warning about the physics &mdash; only a static-validation warning that the numbers
-do not describe a propeller (<a href="#cap-prop-6">16.6</a>).
+do not describe a propeller (<a href="#cap-8-3">13.3</a>).
 </div>
 
 <h4 id="cap-prop-1">4.2.1 What is physically different</h4>
@@ -1010,9 +1123,9 @@ and only the velocity component parallel to it does useful propulsive work.</p>
 
 <p>$J_z$, shown in propeller mode, is a <b>different number</b>: the same ratio built from the
 cross-flow. In straight cruise it is exactly zero. The two are never interchangeable, and the
-subscript is the only thing separating them &mdash; which is why reading a $J$ off a table
-without checking its subscript is the second of the two classic mistakes
-(<a href="#cap-prop-6">16.6</a>).</p>
+subscript is the only thing separating them. In a correctly specified propeller case exactly one
+of the two is non-zero, which is the quickest way to confirm that a condition was entered in the
+field it belongs in.</p>
 
 <h4 id="cap-prop-4">4.2.4 The angle: $\alpha_{disk}$, and why it lives in the cross-flow field</h4>
 
@@ -1087,40 +1200,6 @@ a solver error. For a propeller, read $FM$ at the static point and $\eta_{prop}$
 else.</li>
 </ul>
 
-<h4 id="cap-prop-6">4.2.6 The two classic mistakes, and how they look</h4>
-
-<p><b>Mistake 1: the airspeed typed into the cross-flow field.</b> This is the one that produces
-a fully converged, entirely plausible, completely wrong answer. The blade is then made to see
-$\pm V$ around the azimuth &mdash; an edgewise rotor, which no propeller in straight flight is
-&mdash; while the flow through the disk carries no free-stream component at all. Symptoms, in the
-order you are likely to meet them:</p>
-<ul>
-<li><b>The disk maps are not axisymmetric.</b> An advancing/retreating pattern in a straight-flight
-propeller case is the diagnosis by itself (<a href="#cap-prop-1">16.1</a>).</li>
-<li><b>Propulsive efficiency collapses to zero</b> across the whole sweep, because
-$\eta_{prop}$ is built from the along-shaft component and that component is what was left at
-zero. Historically &mdash; before $\eta_{prop}$ was corrected to use the along-shaft component
-&mdash; this same error produced the opposite tell, plausible efficiencies including values above
-$1$; older notes and datasets may still carry that signature.</li>
-<li><b>Thrust and power are far too large.</b> The disk is being asked to work with no axial
-inflow to relieve it: in the worked example below the same collective and RPM give $2.8$ kN at
-$226$ kW when specified correctly, and $7.3$ kN at $291$ kW when the airspeed is put in the wrong
-field.</li>
-<li><b>Static validation says so.</b> A project in propeller mode with all the advance in the
-disk plane and none along the shaft raises a <em>warning</em>
-(<a href="#cap-8-3">13.3</a>) naming the field the speed
-belongs in. It is a warning and not an error on purpose: a tilted propeller genuinely has both
-components. What is flagged is the signature of the swap &mdash; everything in the plane, nothing
-on the shaft.</li>
-</ul>
-
-<p><b>Mistake 2: reading $J_z$ where $J_x$ was meant.</b> Both are present in every summary and
-every exported row, and in a correctly specified propeller case $J_z$ is $0$ while $J_x$ carries
-the whole condition. A performance curve accidentally plotted against $J_z$ is a vertical line at
-the origin; a $J$ copied from a manufacturer's chart into the cross-flow slot is Mistake 1 in
-another guise. When in doubt, check the pair: in straight cruise exactly one of them is
-non-zero.</p>
-
 <h4 id="cap-prop-7">4.2.7 A worked example</h4>
 
 <p><code>projects/starter_propeller</code> is a three-bladed tractor propeller of
@@ -1132,7 +1211,7 @@ $N_e=72\times N_\psi=36$. Its three saved cases are the shape every propeller ca
 {"name": "climb 40 m/s",  "mu_z": 0.0, "Vx": 40.0, "collective_deg": 0.0, "rpm": 2500.0}
 {"name": "cruise 65 m/s", "mu_z": 0.0, "Vx": 65.0, "collective_deg": 0.0, "rpm": 2500.0}</pre>
 <p>In a propeller project the cross-flow is stored as <code>mu_z</code> and stays at zero, and the
-airspeed is stored as <code>Vx</code>, in m/s. Both keys are the ones the GUI shows, so the file
+airspeed is stored as <code>Vx</code>, in m/s. Both keys are the ones the <span class="gui">GUI</span> shows, so the file
 reads the same way the screen does. Running these three cases and two faster ones gives the
 canonical propeller picture:</p>
 
@@ -1292,7 +1371,7 @@ a collective component (uniform in $r$ and $\psi$) and a cyclic component (varyi
 for attitude control in forward flight). $\theta(r)$ is, throughout the formulation, a pure
 input datum: it depends exclusively on the blade geometry and pitch command, never on
 induced velocity or any result of the BEMT solution.</p>
-<p>The GUI field <code>collective_deg</code> is the uniform part of this pitch command:
+<p>The <span class="gui">GUI</span> field <code>collective_deg</code> is the uniform part of this pitch command:
 the implementation adds it to the interpolated twist at every $(r,\psi)$ before
 the polar is evaluated. In symbols,
 $$\theta(r,\psi)=\theta_{tw}(r)+\theta_0+\theta_{cyc}(\psi),\qquad
@@ -1562,7 +1641,7 @@ Choose the stall model and the two stall angles to describe where separation beg
 For measured, CFD or NeuralFoil data choose <code>source</code>=<code>table</code>: the table values are
 used directly and these four analytical coefficients are not a replacement for missing data.
 The field <code>name</code> identifies a radial section for the user and has no aerodynamic
-effect. In the GUI, start with <i>Source</i>, verify the plotted polar, then choose stall
+effect. In the <span class="gui">GUI</span>, start with <i>Source</i>, verify the plotted polar, then choose stall
 and extrapolation only after checking that the supplied alpha range actually reaches the
 intended operating envelope.</p>
 
@@ -1955,7 +2034,7 @@ $(N_e,N_\psi)$:</p>
 <li>$\lambda_i^{next}$ (Section 5.9.1).</li>
 </ol>
 <p>The returned aerodynamic state is then used by the numerical solver and by the Results
-plots. This implementation-level sequence is included for advanced diagnosis; normal GUI
+plots. This implementation-level sequence is included for advanced diagnosis; normal <span class="gui">GUI</span>
 use only requires checking convergence and the physical inputs described above.</p>
 
 </div>
@@ -2013,12 +2092,16 @@ azimuth-crossing reduction (Section 9.5.3) activates to keep the solver stable t
 <tr><td>Convergence</td><td>100%, 4.08 mean iter.</td><td>99.97%, 4.60 mean iter.</td><td>a few elements (likely inside the reverse-flow region) take longer or don't fully converge &mdash; expected, not a red flag by itself</td></tr>
 </table></div>
 
-<p>The pattern to take away: everything that was exactly zero or trivially equal in Section 5
-becomes nonzero and worth reading once $\mu_x>0$, and every nonzero value here has a specific named
-mechanism behind it (reverse flow, azimuthal $U_T$ variation, non-uniform inflow) rather than being
-generic "forward-flight noise." When a real result looks surprising, checking which of these
-mechanisms is active — and whether it's configured the way you expect — is the first diagnostic
-step, per the two-theory framing in Section 0.</p>
+<p>Read the two columns together and one pattern stands out. In hover the disk is axisymmetric,
+so the side force, the in-plane drag and the hub moments are zero, and nothing distinguishes one
+azimuth from another. Adding an in-plane component breaks that symmetry, and each of those
+quantities becomes a number worth reading.</p>
+
+<p>None of those numbers is noise. Each has a named cause: the blade sees a different velocity on
+the advancing and the retreating side, part of the retreating disk falls into reverse flow, and
+the induced velocity is no longer uniform across the disk. So when a forward-flight result looks
+surprising, the useful first question is which of those three is responsible, and whether it is
+configured the way you intended.</p>
 
 <a id="cap-1"></a>
 
@@ -2029,7 +2112,7 @@ step, per the two-theory framing in Section 0.</p>
 <p>The Project tab is where a study begins and ends. It creates a project, opens an existing one,
 saves the work back to disk, and holds the one setting that changes the meaning of every other tab:
 whether the machine is a rotor or a propeller. Nothing here describes the blade or the flight
-condition; it decides which project the rest of the GUI is editing.</p>
+condition; it decides which project the rest of the <span class="gui">GUI</span> is editing.</p>
 
 <figure>
 <img src="img/gui/project.png" alt="Project tab">
@@ -2115,14 +2198,14 @@ empty shell. Opening reads such a folder back. Saving writes the current state o
 
 <p><b>What to expect.</b> Editing any tab changes the project held in memory and touches no file.
 This is deliberate: an experiment can be tried and abandoned without consequence. The cost is that
-closing the GUI with unsaved work loses it, so the GUI asks before letting that happen. The
+closing the <span class="gui">GUI</span> with unsaved work loses it, so the <span class="gui">GUI</span> asks before letting that happen. The
 list on the left shows the projects found in the repository's own projects folder; a project kept
 anywhere else is reached with the open button.</p>
 
 <p><span class="gui">GUI</span> &mdash; <i>New Project</i>, <i>Open from another folder</i> and
 <i>Save</i>, with the <i>Existing Projects</i> list and its <i>Refresh List</i> button on the left.
 A project in the list opens on a double click. The line below the buttons reports which project is
-active and the folder it came from, which is the quickest way to confirm that the GUI is editing
+active and the folder it came from, which is the quickest way to confirm that the <span class="gui">GUI</span> is editing
 what you think it is.</p>
 
 <p><span class="bemt">.bemt</span> &mdash; saving writes the whole <code>inputs/</code> folder:
@@ -2134,7 +2217,7 @@ program.</p>
 <p><span class="cli">CLI</span> &mdash; <code>--new PATH</code> creates a project,
 <code>--project PATH</code> opens one for the run, and <code>--save-as PATH</code> writes the
 project, including anything changed by flags in that same command, to a new folder. That last one
-is how a configuration explored from the command line becomes a project the GUI can open.</p>
+is how a configuration explored from the command line becomes a project the <span class="gui">GUI</span> can open.</p>
 
 
 <hr>
@@ -2441,7 +2524,7 @@ polar generation via NeuralFoil. All content in this tab, except the block
 <h3 id="cap-3-1">8.1 Radial sections (multi-section airfoil)</h3>
 <p>A blade can use a single airfoil from root to tip, or vary the airfoil along the radius
 (common in real blades: thicker profile near the root for structure, thinner at the tip for
-performance). The GUI treats both cases in the same tab &mdash; what changes is how many sections exist.
+performance). The <span class="gui">GUI</span> treats both cases in the same tab &mdash; what changes is how many sections exist.
 Physics of the radially interpolated polar (how a station
 between two defined sections gets its $C_l$/$C_d$): derivation in
 <a href="#cap-19-2-4">Section 5.6.2.4</a>.</p>
@@ -2454,7 +2537,7 @@ airfoil)" (top of tab, always visible).</p>
 
 <p><span class="cli">CLI</span> &mdash; <code>--airfoil-sections-file file.bemt</code> loads ready sections; there is no flag to
 edit section by section from the command line &mdash; edit the <code>.bemt</code> manually or generate via
-GUI and export.</p>
+<span class="gui">GUI</span> and export.</p>
 
 <h4 id="cap-3-1-1">8.1.1 "Single airfoil" mode (0 or 1 section)</h4>
 <p>Default state of every new project. The form of Sections <a href="#cap-3-2">8.2</a> to
@@ -2532,7 +2615,7 @@ single aerofoil the file is empty and <code>airfoil.bemt</code> is used on its o
 set of sections; there is no flag for editing one section at a time.</p>
 
 <h4 id="cap-3-1-4">8.1.4 Remove section and automatic collapse ("- section")</h4>
-<p>Removes the selected section. If only 1 section remains, the GUI does not allow this state (a list of
+<p>Removes the selected section. If only 1 section remains, the <span class="gui">GUI</span> does not allow this state (a list of
 exactly 1 element is not valid): it automatically collapses back to "single airfoil"
 (<a href="#cap-3-1-1">8.1.1</a>), using the remaining section as a base (with its radial position cleared). <span class="bemt">.bemt</span>: when applied, <code>airfoil_sections.bemt</code> becomes
 empty again and <code>airfoil.bemt</code> takes over.</p>
@@ -2636,7 +2719,7 @@ produced an "spike" in slope) &mdash; see <a href="#cap-19-2-5">5.6.2.5</a>.</p>
 <code>neuralfoil</code> source) + "Viterna blend width [deg]:" (visible only when the extension is
 actually active &mdash; <code>table</code> source with the toggle on, or
 <code>analytical</code> source with <code>stall_model="viterna"</code>). <span
-class="bemt">.bemt</span>: <code>extend_full_range</code> (boolean, default <code>true</code>
+class="bemt"><span class="bemt">.bemt</span></span>: <code>extend_full_range</code> (boolean, default <code>true</code>
 &mdash; for <code>table</code> source it is the actual choice; for <code>analytical</code>/
 <code>external</code> it is <b>ignored</b>, the source of truth is <code>stall_model=="viterna"</code>,
 function ) &middot;
@@ -2805,7 +2888,7 @@ default $40.0$, and <code>dynamic_stall_fade_end_deg</code>, default $50.0$, bot
 
 <p><b>What it does.</b> Chooses how the relaxation is solved. The frequency-domain method assumes
 the blade repeats the same cycle every revolution and solves each harmonic directly, which is what
-a steady analysis needs and what the GUI uses. Time marching instead integrates the separation
+a steady analysis needs and what the <span class="gui">GUI</span> uses. Time marching instead integrates the separation
 state forward through successive revolutions until it stops changing. It costs far more and does
 not assume the cycle is already periodic.</p>
 
@@ -3057,8 +3140,30 @@ effect and applying the correction on top would count it twice. The speed of sou
 the Config/Engine tab and should match the altitude and temperature being modelled: a cold day
 raises the tip Mach number of an otherwise unchanged rotor.</p>
 
+<p><b>When the polar already carries Mach.</b> A tabulated polar can be swept in Mach, with one
+curve per Mach number. The curve selected for each condition is then already compressible, measured
+or computed at that Mach, and applying Prandtl-Glauert on top of it counts the same effect twice.
+The three interfaces treat that situation differently, and the difference is deliberate.</p>
+
+<p>The <span class="gui">GUI</span> <b>freezes the field</b>. As soon as the airfoil source is
+<code>table</code> or <code>neuralfoil</code> and the loaded polar carries more than one Mach
+value, the checkbox is cleared and greyed out, and its tooltip says how many distinct Mach slices
+were found. Because it is the source in use that decides, switching back to an analytical airfoil
+releases the field and restores whatever the setting was before it was frozen: the choice is
+suspended, not discarded.</p>
+
+<p>The <span class="bemt">.bemt</span> files and the <span class="cli">CLI</span> <b>warn but do
+not block</b>. A project whose <code>config.bemt</code> has <code>use_compressibility: true</code>
+alongside a Mach-swept table loads, validates with a warning that names the double counting, and
+runs. It is a warning rather than an error because the combination is occasionally wanted &mdash;
+a sensitivity study that deliberately over-applies the correction &mdash; and because the check
+depends on the contents of the table rather than on a setting alone. If you want the same
+protection the <span class="gui">GUI</span> gives, read the warning: nothing else will stop the
+run.</p>
+
 <p><span class="gui">GUI</span> &mdash; the <i>Compressibility</i> checkbox in the
-<i>Compressibility and Reverse Flow Effects</i> block.</p>
+<i>Compressibility and Reverse Flow Effects</i> block. Frozen when the polar in use is swept in
+Mach, as described above.</p>
 
 <p><span class="bemt">.bemt</span> &mdash; the key <code>use_compressibility</code> in
 <code>config.bemt</code>, a switch, default <code>true</code>.</p>
@@ -3084,7 +3189,7 @@ ones to overlay in the preview, <a href="#cap-3-9">8.9</a>).</p>
 
 <p><span class="bemt">.bemt</span> &mdash; <code>airfoil.bemt</code> &middot; <code>table_slices</code> (list of
 ). <span
-class="cli">CLI</span>: <code>--airfoil-table CSV</code> imports and sets
+class="cli"><span class="cli">CLI</span></span>: <code>--airfoil-table CSV</code> imports and sets
 <code>source="table"</code> (the same importer).</p>
 
 <h4 id="cap-3-6-1">8.6.1 The CSV format the importer reads</h4>
@@ -3252,13 +3357,13 @@ of a thousand chords' extent.</p>
 code automatically.</p>
 <p><span class="gui">GUI</span> &mdash; block "f) Profile 2D geometry" &rsaquo; combo "Source:" +
 source-specific fields + buttons "Generate geometry" / "Import .dat&hellip;". <span
-class="bemt">.bemt</span>: <code>airfoil.bemt</code> &middot; <code>geometry</code> (object
+class="bemt"><span class="bemt">.bemt</span></span>: <code>airfoil.bemt</code> &middot; <code>geometry</code> (object
 <code>ProfileGeometry{source, naca_code, cst_upper[], cst_lower[], bezier_control_points[],
 imported_path, n_points, x[], y[]}</code>).</p>
 
 <p><span class="cli">CLI</span> &mdash; <code>--airfoil-geometry SPEC</code> (NACA4/5 code, e.g. <code>naca2412</code>, or a preset
 like <code>naca23012</code>) &mdash; used only with <code>--gen-neuralfoil</code>
-(<a href="#cap-3-8">8.8</a>); no CLI flag for CST/Bézier/imported in isolation.</p>
+(<a href="#cap-3-8">8.8</a>); no <span class="cli">CLI</span> flag for CST/Bézier/imported in isolation.</p>
 
 <h3 id="cap-3-8">8.8 External solver — NeuralFoil</h3>
 <p>NeuralFoil (Peter Sharpe) is a neural network trained on thousands of XFOIL polars &mdash;
@@ -3268,7 +3373,7 @@ tabulated polar &mdash; physics derivation in <a href="#cap-19-2-4">Section 5.6.
 extrapolation beyond the swept $\alpha$ range in <a href="#cap-19-2-5">5.6.2.5</a>.</p>
 <p><span class="gui">GUI</span>: block "g) External solver — NeuralFoil" (disabled, with
 note, if the optional <code>neuralfoil</code> package is not installed). <span
-class="bemt">.bemt</span>: no "NeuralFoil" key in the <code>.bemt</code> &mdash; see
+class="bemt"><span class="bemt">.bemt</span></span>: no "NeuralFoil" key in the <code>.bemt</code> &mdash; see
 <a href="#cap-3-8-2">8.8.2</a>, the result becomes a common table.</p>
 
 <h4 id="cap-3-8-1">8.8.1 Run the solver</h4>
@@ -3312,13 +3417,13 @@ in the project held in memory &mdash; there is no separate confirmation click
 (<a href="#cap-0-2">3.2.2</a>). The generated polar is therefore usable by Run Case straight
 away.</li>
 <li><b>How it is stored</b>: in the data model and in the
-<code>.bemt</code>, the GUI "neuralfoil" mode <b>is not a separate source</b>: it is saved as
+<code>.bemt</code>, the <span class="gui">GUI</span> "neuralfoil" mode <b>is not a separate source</b>: it is saved as
 <code>source="table"</code> (table of Cl/Cd × alpha points, generated by neural network instead
 of imported from CSV). <span class="bemt">.bemt</span>: <code>airfoil.bemt</code> writes
 <code>source: "table"</code> + <code>table_slices: [...]</code> &mdash; does not record the fact that it
 came from NeuralFoil, only the numbers.</li>
 <li><b>Until you save, it is still only in memory</b>: the tab title picks up the unsaved
-asterisk, and the table reaches disk only on <b>Save</b>. Closing the GUI without
+asterisk, and the table reaches disk only on <b>Save</b>. Closing the <span class="gui">GUI</span> without
 saving discards it (the exit prompt offers to save first); "Export generated table…" writes it
 to CSV independently of the project, which is the way to keep a run you do not want to commit to
 this project.</li>
@@ -3330,8 +3435,8 @@ straight to a <code>.csv</code> on disk, without going through the project &mdas
 geometries before deciding which one to keep, or to reuse the table in another project via
 manual import (<a href="#cap-3-6">8.6</a>).</p>
 <p><span class="bemt">.bemt</span>: none, it is a loose CSV, not a <code>.bemt</code>. <span
-class="cli">CLI</span>: <code>--export-table PATH</code> (with <code>--gen-neuralfoil</code>)
-writes straight to <code>PATH</code>; the button writes the same file. If <code>--export-table</code> is omitted, the CLI writes the generated table
+class="cli"><span class="cli">CLI</span></span>: <code>--export-table PATH</code> (with <code>--gen-neuralfoil</code>)
+writes straight to <code>PATH</code>; the button writes the same file. If <code>--export-table</code> is omitted, the <span class="cli">CLI</span> writes the generated table
 directly into the project <code>.bemt</code>, with no intermediate loose export step.</p>
 
 <h3 id="cap-3-9">8.9 Preview: Cl×α, Cd×α, Cd×Cl, Profile</h3>
@@ -3557,7 +3662,7 @@ the number of iterations and conditions, which only matters for a very large bat
 history to be a burden, accepting that the convergence plots are then unavailable for that run.</p>
 
 <p><span class="gui">GUI</span> &mdash; not shown as a field; the history is always collected for
-runs started from the GUI, because the Results tab draws it.</p>
+runs started from the <span class="gui">GUI</span>, because the Results tab draws it.</p>
 
 <p><span class="bemt">.bemt</span> &mdash; the key <code>collect_history</code> in
 <code>config.bemt</code>, a switch, default <code>true</code>.</p>
@@ -3674,7 +3779,7 @@ loop; the state count decides how many harmonics the disk field carries.</p>
 <p><b>How to set them.</b> Leave all four at their defaults. Raise the outer iteration count if a
 case reports that the states did not settle, and lower the relaxation if they oscillate instead of
 converging. The state count should stay at three: five states, which would add the second harmonic,
-is accepted by the file and the command line but is not implemented, and the GUI says so beside the
+is accepted by the file and the command line but is not implemented, and the <span class="gui">GUI</span> says so beside the
 control.</p>
 
 <p><span class="gui">GUI</span> &mdash; the <i>Pitt-Peters</i> fields, shown only when that family
@@ -4043,7 +4148,7 @@ leaves the physical quantity untouched.</li>
 <li>Set the <b>collective</b> and the <b>RPM</b>. In a trim run, the collective that is entered
 serves only as the starting guess.</li>
 <li>Press <b>Run Case</b>. The configuration is validated first, and the solution runs away from
-the main thread, so the GUI stays responsive. When it finishes, the run is added to the history
+the main thread, so the <span class="gui">GUI</span> stays responsive. When it finishes, the run is added to the history
 in the Results tab.</li>
 <li>Read the summary table as a first check. In hover, expect a positive $C_T$ and a disk that is
 very nearly axisymmetric. In forward flight, expect the advancing and retreating sides to differ,
@@ -4388,7 +4493,7 @@ deliberately (<a href="#cap-6-2">11.2</a>).</li>
 <li>Review the <b>queue</b>. Individual rows can be removed and the whole queue cleared. A queue
 worth repeating can be saved under a name before it is run.</li>
 <li>Press <b>Run</b>. Conditions are solved one at a time, with a progress bar and a status row per
-condition, and the GUI stays usable throughout. <b>Cancel</b> stops the run after the condition
+condition, and the <span class="gui">GUI</span> stays usable throughout. <b>Cancel</b> stops the run after the condition
 in progress.</li>
 <li>Use <b>Export</b> for files on disk. Use the Results tab to compare the runs interactively.</li>
 </ol>
@@ -4405,7 +4510,7 @@ settings of its own beyond the values to sweep.</p>
 <p><b>The mathematics.</b> The queue is the Cartesian product of the axes. With three axes holding
 $n_1$, $n_2$ and $n_3$ values, the queue holds</p>
 <div class="eqn">$$N = n_1 \times n_2 \times n_3$$</div>
-<p>conditions, and the cost of the batch is $N$ complete solutions. The counter in the GUI shows
+<p>conditions, and the cost of the batch is $N$ complete solutions. The counter in the <span class="gui">GUI</span> shows
 $N$ before anything runs, which is the moment to notice that three axes of ten values each is a
 thousand solves.</p>
 
@@ -4435,7 +4540,7 @@ list was produced is recorded alongside it in <code>sweep_kind</code> and
 <code>sweep_params</code> (<a href="#cap-6-4">11.4</a>).</p>
 
 <p><span class="cli">CLI</span> &mdash; there are no flags for the sweep axes. A factorial sweep is
-generated in the GUI; from the command line, run a batch that has already been saved, with
+generated in the <span class="gui">GUI</span>; from the command line, run a batch that has already been saved, with
 <code>--from-bemt-batch NAME</code>. <code>--list-batches</code> prints the names available in the
 project and exits.</p>
 
@@ -4515,18 +4620,18 @@ conditions individually.</p>
 keys and the same mode-dependent letters as a saved case. The default is an empty list.</p>
 
 <p><span class="cli">CLI</span> &mdash; <code>--from-bemt-batch NAME</code> runs the stored queue.
-There is no flag for editing it; a queue is built in the GUI or by writing
+There is no flag for editing it; a queue is built in the <span class="gui">GUI</span> or by writing
 <code>batches.bemt</code> directly.</p>
 
 <h3 id="cap-6-4">11.4 Saved batches</h3>
 
 <p><b>What it is.</b> A saved batch is a named queue kept with the project, together with a record
 of how it was generated. The record exists so that a sweep can be recognised later for what it was,
-and so that the GUI can reopen it with the axes filled in rather than as an anonymous list of
+and so that the <span class="gui">GUI</span> can reopen it with the axes filled in rather than as an anonymous list of
 conditions.</p>
 
 <p><b>How to set it.</b> Save a batch once its queue has been reviewed. Give it a name that states
-the experiment, since the name is what appears in the GUI and in the command line listing.</p>
+the experiment, since the name is what appears in the <span class="gui">GUI</span> and in the command line listing.</p>
 
 <p><span class="gui">GUI</span> &mdash; the <i>Batches defined in this project</i> block, which
 names, saves and removes batches in the same way as saved cases do for single conditions.</p>
@@ -4540,7 +4645,7 @@ that were swept, kept so the sweep can be reconstructed. Both describe the queue
 defining it: what runs is always <code>conditions</code>.</p>
 
 <p>The key <code>name</code> labels the batch. It defaults to <code>"batch 1"</code>, is what
-appears in the GUI and in the listing, and is how a batch is selected, so it must be unique
+appears in the <span class="gui">GUI</span> and in the listing, and is how a batch is selected, so it must be unique
 within the file.</p>
 
 <p><span class="cli">CLI</span> &mdash; <code>--list-batches</code> prints the names and exits;
@@ -4853,6 +4958,23 @@ It is <em>not</em> built from the in-plane component: in a correctly specified p
 </figure>
 
 <div class="boxed note">
+<b>Figure of Merit outside hover.</b> The right-hand panel above plots $FM$ across the whole
+sweep, and the definition is a hover one: $FM$ compares the actual power against the ideal
+actuator-disk power of a rotor in still air, a reference that stops applying the moment there is a
+free stream. Past hover the ratio can exceed $1$, which is not a solver error but the definition
+being read outside its domain.</p>
+
+<p>The column is nevertheless produced at every condition, and kept on purpose. Written out, it is
+$FM = \dfrac{C_T^{3/2}/\sqrt{2}}{C_Q}$ &mdash; a thrust-to-torque ratio that stays a usable
+relative measure along a sweep even where its hover interpretation does not hold. Read that way,
+as a proxy for $C_T^{3/2}/C_Q$ rather than as an efficiency, it still ranks configurations against
+one another. The absolute value carries no meaning outside hover, so when that reading is
+appropriate is left to the reader's judgement; for a propeller in cruise, $\eta_{prop}$ is the
+quantity with a defined meaning.
+</div>
+
+
+<div class="boxed note">
 <b>Trimmed vs. untrimmed.</b> The sweep above holds $\theta(r)$ fixed: $C_T$ is an <i>output</i>, not a target. To generate a performance polar with constant thrust (the usual mode for reporting helicopter performance, "how much power to sustain weight $T$ at each $\mu_x$"), an outer trim loop is needed (adjust collective pitch until the calculated $C_T$ matches the target), with a complete solution inside each pitch attempt. The trim is not part of the solver itself: the solver always answers "what $C_T$ and $C_Q$ does this $\theta(r)$ produce", and never the reverse, so the search over pitch happens around it.
 </div>
 
@@ -4863,10 +4985,10 @@ It is <em>not</em> built from the in-plane component: in a correctly specified p
 
 <h2 id="sec-15-outside-the-gui">13. Command-line reference</h2>
 <p>Reinforces the principle of <a href="#cap-0-4">3.2.4</a>: <b>every</b> project field is settable via
-<code>.bemt</code>, even when the GUI has no dedicated widget for it. This chapter covers the
+<code>.bemt</code>, even when the <span class="gui">GUI</span> has no dedicated widget for it. This chapter covers the
 command line, the <code>.bemt</code> file names, static validation rules, and
 comparison among the most frequently changed options &mdash; the reference for those who prefer script/API to
-the GUI, or need to automate large batches.</p>
+the <span class="gui">GUI</span>, or need to automate large batches.</p>
 
 <h3 id="cap-8-1">13.1 Running from the command line</h3>
 
@@ -4874,7 +4996,7 @@ the GUI, or need to automate large batches.</p>
 asked for, and writes the results. It goes through the same code as the <span class="gui">GUI</span>
 and applies the same validation, so a project run either way gives the same numbers.</p>
 
-<p>Every flag sets a field the GUI can also edit, and a <span class="bemt">.bemt</span> written by
+<p>Every flag sets a field the <span class="gui">GUI</span> can also edit, and a <span class="bemt">.bemt</span> written by
 any of the three is read back identically by the other two. After installing, the command
 <code>zbemt</code> is available; without installing, <code>python -m zbemt.cli</code> is the
 equivalent.</p>
@@ -4916,13 +5038,13 @@ physical meaning of each field):</p>
 <tr><td>Validation</td><td><code>--validate-only</code> (checks and does not run) | <code>--ignore-validation-errors</code> (runs despite errors)</td></tr>
 </table></div>
 <p>Fields <b>without</b> dedicated flag (marked "not exposed" in their descriptions throughout this
-document) are only settable via <code>.bemt</code> (manual editing, or GUI + "Save"): most
+document) are only settable via <code>.bemt</code> (manual editing, or <span class="gui">GUI</span> + "Save"): most
 are fine scalar coefficients (e.g., $C_{l_\alpha}$, <i>blend</i> widths,
 <code>relax_schedule</code> parameters) for which an ad hoc command-line value is
 rarely the natural workflow.</p>
 
 <h3 id="cap-8-3">13.2 Validation rules</h3>
-<p>Every configuration is checked before the solver is called, and the same checks apply to the GUI, the CLI and a project run from a saved file. They flag combinations that are physically inconsistent or not implemented. <code>info</code>/<code>warning</code>) or block execution (<code>error</code>).</p>
+<p>Every configuration is checked before the solver is called, and the same checks apply to the <span class="gui">GUI</span>, the <span class="cli">CLI</span> and a project run from a saved file. They flag combinations that are physically inconsistent or not implemented. <code>info</code>/<code>warning</code>) or block execution (<code>error</code>).</p>
 <div class="tablewrap"><table>
 <tr><th>Level</th><th>Condition Checked</th><th>Physical/Structural Reason</th></tr>
 <tr><td>error</td><td><code>use_dynamic_stall=True</code> with <code>stall_model="linear"</code></td><td>Øye interpolates between $C_{l,att}$ and the separated $C_l$ from the <i>static</i> polar; without stall in the base polar there is no separation to model.</td></tr>
@@ -4955,7 +5077,7 @@ limitation is enforced or explained in code or in this text &mdash; none are new
 <tr><td>Vortex ring state / turbulent wake state (moderate descent, $-2v_h\lesssim V_z\lesssim0$): momentum theory has no valid closed-form solution in this band</td><td>Section 5.7.3 &mdash; results in this flight regime require cautious interpretation regardless of mesh resolution or solver tolerance</td></tr>
 <tr><td>Trim solves one degree of freedom, by bisection, and only against thrust or its coefficient. There is no simultaneous trim of collective and cyclic to a prescribed force and moment state, and no flapping degree of freedom for a cyclic trim to act through</td><td>Section 11.4. Bisection needs the target to be bracketed, and thrust is not monotonic in collective past stall: a target above the achievable peak has no solution, and one below it may have two. The value reported is whichever root the bracket contained</td></tr>
 
-<tr><td><code>source="external"</code> is not implemented</td><td><code>to_airfoil()</code> raises <code>NotImplementedError</code> directly &mdash; external-solver polars must be generated once (Section 8.8) and imported as a table, not referenced live</td></tr>
+<tr><td>An external solver cannot be called while a case is running</td><td>Setting the airfoil source to <code>external</code> and starting a run stops with an error. An external solver such as NeuralFoil is used to <em>produce</em> a polar, not to answer the engine mid-solve: generate the polar once from the Airfoil tab (Section 8.8), which writes a tabulated polar, then run with the source set to <code>table</code>. The reason is cost &mdash; a live call per blade element per azimuth per iteration is thousands of calls per case &mdash; and reproducibility: a stored table is part of the project and gives the same answer next month</td></tr>
 <tr><td>Compressibility is corrected by a linearized subsonic model, capped at a Mach ceiling of $M_{\max}=0.9$. Above roughly $M=0.7$ it already misses shock formation and drag divergence; at and above the ceiling the reported coefficients are capped values, not a transonic prediction</td><td>Section 8.5, which states the ceiling, the resulting bound of $2.29$ on the amplification factor, and the fact that nothing below $M=0.9$ is altered by it. Static validation warns once the advancing-tip Mach number passes $0.85$. A rotor operating routinely above that needs a transonic method, not this correction</td></tr>
 <tr><td>Compressibility applied on top of a Mach-resolved tabulated polar counts the same physics twice</td><td>Section 8.5; static validation warns about this specific combination, but nothing in the engine prevents it &mdash; the tabulated data cannot be inspected for whether its Mach dependence is already present</td></tr>
 <tr><td>Reduced fidelity vs. a full unsteady aeroelastic / free-wake solver</td><td>Not a code boundary but a modeling choice stated in Section 0.1: zBEMT targets preliminary design and performance diagnosis over fixed geometry, not aeroelastic response or detailed wake capture</td></tr>

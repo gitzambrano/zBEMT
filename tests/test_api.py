@@ -648,7 +648,11 @@ class TestGenerateReport(unittest.TestCase):
         api.generate_report(self.results, destino, project=self.project, plots=[])
         html = Path(destino).read_text(encoding="utf-8")
         principal, _, apendice = html.partition("<details>")
-        self.assertIn("CT", principal)
+        # The SYMBOL, not the letters "CT": the description is rendered
+        # too (PR-4), so the raw pair no longer appears anywhere and an
+        # assertion on it would pass on the tooltip rather than on the
+        # column it is meant to be checking.
+        self.assertIn("C<sub>T</sub>", principal)
         self.assertNotIn("cfg_Ne", principal)
         # the config echo lives in the appendix, already with its own
         # symbol (N<sub>e</sub>) instead of the raw field name

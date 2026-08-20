@@ -193,9 +193,12 @@ class TestFlagsCitadasExistemNoCli(unittest.TestCase):
         assert isinstance(parser, argparse.ArgumentParser)
 
     def _flags_citadas(self, texto: str) -> set:
-        # The scripts under `tools/` have their own flags, which the
-        # zbemt CLI does not know and should not: out of scope for this check.
-        linhas = [l for l in texto.splitlines() if "tools/" not in l]
+        # The scripts under `tools/` and `tests/` have their own flags,
+        # which the zbemt CLI does not know and should not: `--escrever`
+        # belongs to the index builder and `--lista` to the test runner.
+        # Out of scope for this check.
+        linhas = [l for l in texto.splitlines()
+                  if "tools/" not in l and "tests/" not in l]
         texto = chr(10).join(linhas)
         # the embedded inline KaTeX block has strings like "--display-mode"
         # which are KaTeX's own option names (its CLI, not zbemt's) -- out of scope

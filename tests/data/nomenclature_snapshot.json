@@ -1195,7 +1195,7 @@
     ],
     "axial/rotor": [
       "Axial (along-shaft) Flow:",
-      "\"Vz\" — The vertical component of the flight velocity, V<sub>z</sub>. On a rotor the shaft is vertical, so z runs ALONG THE SHAFT: this is climb (positive) or descent (negative), and the engine adds the induced velocity to it to form V<sub>z,total</sub> = V<sub>z</sub> + v<sub>i</sub>.<br><br>Units offered: &alpha;<sub>rotor</sub> [deg], V<sub>z</sub> [m/s], and the ratios &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R) (also written &lambda;<sub>z</sub>) and J<sub>z</sub> = V<sub>z</sub>/(nD).<br><br>&alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>) is THE angle of rotor mode, measured FROM THE DISK PLANE: 0&deg; is level forward flight, and it is POSITIVE when the flow arrives from below the disk. Propeller mode offers &alpha;<sub>disk</sub> instead, measured from the shaft; each mode offers only its own angle, so there is never a doubt about which alpha a number is.<br><br>The angle lives in this field in both modes for one reason: an angle never fixes the scale of the velocity, it only splits the KNOWN component into the other one."
+      "\"Vz\" — The vertical component of the flight velocity, V<sub>z</sub>. On a rotor the shaft is vertical, so z runs ALONG THE SHAFT: this is climb (positive) or descent (negative), and the engine adds the induced velocity to it to form V<sub>z,total</sub> = V<sub>z</sub> + v<sub>i</sub>.<br><br>Units offered: &alpha;<sub>rotor</sub> [deg], V<sub>z</sub> [m/s], and the ratios &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R) (also written &lambda;<sub>z</sub>) and J<sub>z</sub> = V<sub>z</sub>/(nD).<br><br>&alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>) is THE angle of rotor mode, measured FROM THE DISK PLANE: 0&deg; is level forward flight, and it is POSITIVE when the flow arrives from below the disk. Propeller mode offers &alpha;<sub>disk</sub> instead, measured from the shaft; each mode offers only its own angle, so there is never a doubt about which of the two a number is.<br><br>The angle lives in this field in both modes for one reason: an angle never fixes the scale of the velocity, it only splits the KNOWN component into the other one."
     ],
     "inplane/propeller": [
       "Cross (in-plane) Flow:",
@@ -1230,11 +1230,11 @@
       ],
       "CP": [
         "C<sub>P</sub>",
-        "Power coefficient: CP = P / (rho*A*(Omega*R)^3)"
+        "Power coefficient: C<sub>P</sub> = P / (&rho;&middot;A&middot;(&Omega;R)&sup3;)"
       ],
       "CP_prop": [
         "C<sub>P,prop</sub>",
-        "Propeller-convention power coefficient: CP = P / (rho*n^3*D^5)"
+        "Propeller-convention power coefficient: C<sub>P,prop</sub> = P / (&rho;&middot;n&sup3;&middot;D<sup>5</sup>)"
       ],
       "CPi": [
         "C<sub>Pi</sub>",
@@ -1246,19 +1246,19 @@
       ],
       "CQ": [
         "C<sub>Q</sub>",
-        "Torque coefficient: CQ = Q / (rho*A*(Omega*R)^2*R) -- numerically equals CP for a rotor"
+        "Torque coefficient: C<sub>Q</sub> = Q / (&rho;&middot;A&middot;(&Omega;R)&sup2;&middot;R) &mdash; numerically equals C<sub>P</sub> for a rotor"
       ],
       "CQ_prop": [
         "C<sub>Q,prop</sub>",
-        "Propeller-convention torque coefficient: CQ = Q / (rho*n^2*D^5)"
+        "Propeller-convention torque coefficient: C<sub>Q,prop</sub> = Q / (&rho;&middot;n&sup2;&middot;D<sup>5</sup>)"
       ],
       "CT": [
         "C<sub>T</sub>",
-        "Thrust coefficient: CT = T / (rho*A*(Omega*R)^2)"
+        "Thrust coefficient: C<sub>T</sub> = T / (&rho;&middot;A&middot;(&Omega;R)&sup2;)"
       ],
       "CT_prop": [
         "C<sub>T,prop</sub>",
-        "Propeller-convention thrust coefficient: CT = T / (rho*n^2*D^4)"
+        "Propeller-convention thrust coefficient: C<sub>T,prop</sub> = T / (&rho;&middot;n&sup2;&middot;D<sup>4</sup>)"
       ],
       "CY": [
         "C<sub>Y</sub>",
@@ -1632,11 +1632,11 @@
       ],
       "CP": [
         "C<sub>P</sub>",
-        "Power coefficient: CP = P / (rho*A*(Omega*R)^3)"
+        "Power coefficient: C<sub>P</sub> = P / (&rho;&middot;A&middot;(&Omega;R)&sup3;)"
       ],
       "CP_prop": [
         "C<sub>P,prop</sub>",
-        "Propeller-convention power coefficient: CP = P / (rho*n^3*D^5)"
+        "Propeller-convention power coefficient: C<sub>P,prop</sub> = P / (&rho;&middot;n&sup3;&middot;D<sup>5</sup>)"
       ],
       "CPi": [
         "C<sub>Pi</sub>",
@@ -1648,19 +1648,19 @@
       ],
       "CQ": [
         "C<sub>Q</sub>",
-        "Torque coefficient: CQ = Q / (rho*A*(Omega*R)^2*R) -- numerically equals CP for a rotor"
+        "Torque coefficient: C<sub>Q</sub> = Q / (&rho;&middot;A&middot;(&Omega;R)&sup2;&middot;R) &mdash; numerically equals C<sub>P</sub> for a rotor"
       ],
       "CQ_prop": [
         "C<sub>Q,prop</sub>",
-        "Propeller-convention torque coefficient: CQ = Q / (rho*n^2*D^5)"
+        "Propeller-convention torque coefficient: C<sub>Q,prop</sub> = Q / (&rho;&middot;n&sup2;&middot;D<sup>5</sup>)"
       ],
       "CT": [
         "C<sub>T</sub>",
-        "Thrust coefficient: CT = T / (rho*A*(Omega*R)^2)"
+        "Thrust coefficient: C<sub>T</sub> = T / (&rho;&middot;A&middot;(&Omega;R)&sup2;)"
       ],
       "CT_prop": [
         "C<sub>T,prop</sub>",
-        "Propeller-convention thrust coefficient: CT = T / (rho*n^2*D^4)"
+        "Propeller-convention thrust coefficient: C<sub>T,prop</sub> = T / (&rho;&middot;n&sup2;&middot;D<sup>4</sup>)"
       ],
       "CY": [
         "C<sub>Y</sub>",

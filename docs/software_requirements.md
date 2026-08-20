@@ -5,30 +5,50 @@ propellers, and eVTOL rotors, exposed through three interfaces (GUI, CLI,
 Python library) that share a single engine. This document states the
 requirements the software must satisfy.
 
+Every requirement carries a code, so that a test, a commit message or a review
+comment can name the rule it is about. The prefix says which section it comes
+from:
+
+| Prefix | Section | What it covers |
+|---|---|---|
+| `SC` | 1 | Scope — what the software must and must not do |
+| `PR` | 2 | Product — what the user is entitled to |
+| `AR` | 3.1 | Architecture — which module may do what |
+| `EN` | 3.2 | Engine correctness |
+| `PA` | 3.3 | GUI / CLI / `.bemt` parity |
+| `RP` | 3.4 | Reports |
+| `DC` | 3.5 | Documentation |
+| `TB` | 3.6 | GUI tab behaviour |
+| `QR` | 4 | Quality — how the work is done and verified |
+
+Codes are permanent. A requirement that is removed leaves its code retired
+rather than reassigned, so an old reference never silently points at a
+different rule.
+
 ---
 
 ## 1. Scope
 
 ### 1.1 The software must support
 
-- Steady-state and quasi-steady BEMT analysis of rotors and propellers,
+- **SC-1** — Steady-state and quasi-steady BEMT analysis of rotors and propellers,
   including forward flight, climb/descent, and hover.
-- Multiple inflow models (Glauert, Coleman, Drees — local and global — and
+- **SC-2** — Multiple inflow models (Glauert, Coleman, Drees — local and global — and
   Pitt-Peters steady), multiple solvers (Newton-Raphson, fixed-point,
   Aitken, bisection), rotational and compressibility corrections, dynamic
   stall, tip/root loss, and full-range polar extension.
-- Batch and parametric sweeps, self-contained HTML reporting, 2D and 3D
+- **SC-3** — Batch and parametric sweeps, self-contained HTML reporting, 2D and 3D
   visualization, and analytical/tabulated/NeuralFoil-generated airfoil
   polars.
-- Three synchronized interfaces (GUI, CLI, library) built on one engine,
+- **SC-4** — Three synchronized interfaces (GUI, CLI, library) built on one engine,
   with GUI/CLI/`.bemt`-file parity as required by §3.3.
 
 ### 1.2 The software must not support
 
-- Unsteady/time-marching aerodynamics. Pitt-Peters unsteady and any other
+- **SC-5** — Unsteady/time-marching aerodynamics. Pitt-Peters unsteady and any other
   dynamic time-marching inflow model must not be implemented; zBEMT
   solves steady/quasi-steady flight conditions only.
-- Mandatory GUI dependencies in the core engine. The solver and CLI must
+- **SC-6** — Mandatory GUI dependencies in the core engine. The solver and CLI must
   keep running on `numpy` + `scipy` + `matplotlib` + `pandas` alone; a
   batch run on a headless server must never require Qt or 3D graphics.
 
@@ -101,56 +121,56 @@ requirements the software must satisfy.
 
 ### 3.1 Layering
 
-- `api` must be the only path through which the GUI or CLI run the engine
+- **AR-1** — `api` must be the only path through which the GUI or CLI run the engine
   or write to disk. `geometry`, `airfoils`, `viz`, and `validation` may be
   imported directly by the GUI/CLI only for on-screen preview and
   drawing; they must not run the engine or write files outside `api`.
-- `studies` must orchestrate `bemt` across flight conditions and must
+- **AR-2** — `studies` must orchestrate `bemt` across flight conditions and must
   never touch disk; it must always return `Results` (or `list[Results]`)
   in memory.
-- `models` must hold no physics: every `...Def` dataclass must be raw,
+- **AR-3** — `models` must hold no physics: every `...Def` dataclass must be raw,
   editable, serializable data; physics-aware classes must be constructed
   from them, never duplicated.
-- `validation` must return static `Issue`s (error/warning/info) and must
+- **AR-4** — `validation` must return static `Issue`s (error/warning/info) and must
   not run the engine.
 
 ### 3.2 Engine correctness
 
-- Convergence must always be tested on the true residual
+- **EN-1** — Convergence must always be tested on the true residual
   `g(lambda) - lambda`, evaluated before relaxation, never on the relaxed
   step. This applies to every solver mode.
-- Every physics option must be documented in `bemt.py`'s module
+- **EN-2** — Every physics option must be documented in `bemt.py`'s module
   docstring, mapping the `BEMTConfig` field to its code section.
-- A numerical guard (e.g. a protected denominator near a singular
+- **EN-3** — A numerical guard (e.g. a protected denominator near a singular
   configuration) must be paired with a correct seed/starting point where
   applicable. A guard that only prevents `NaN` while still allowing
   divergence to a nonphysical value must not be considered a complete
   fix.
-- A published correction must reproduce its published closed form. A
+- **EN-4** — A published correction must reproduce its published closed form. A
   correction implemented as a simplification of the form it is named after —
   a dropped factor, a linearized term — is a defect, not a variant, and must
   be tested against the closed form rather than against a stored number.
-- The airfoil polar sources — analytical, tabulated single polar, tabulated
+- **EN-5** — The airfoil polar sources — analytical, tabulated single polar, tabulated
   by radial section, tabulated by Reynolds and/or Mach, Viterna-Corrigan
   extension, and the table+Viterna blend — must be interchangeable behind one
   interface: the engine must not know which source produced a coefficient.
-- Every reverse-flow model must be defined on both sides of the boundary, and
+- **EN-6** — Every reverse-flow model must be defined on both sides of the boundary, and
   a model advertised as continuous must be continuous at zero tangential
   velocity. A discontinuity there appears as an azimuthal step in the loads,
   not as a solver failure.
-- Geometry generation and custom geometry tables must be validated before the
+- **EN-7** — Geometry generation and custom geometry tables must be validated before the
   engine runs: monotonic radial stations, a span inside the hub and tip
   radii, and consistent lengths across the columns.
 
 ### 3.3 GUI / CLI / `.bemt` parity
 
-- Every `Project`/`BEMTConfig` field editable in the GUI must be reachable
+- **PA-1** — Every `Project`/`BEMTConfig` field editable in the GUI must be reachable
   from the CLI (dedicated flag or `--set config.<field>=<value>`).
-- Every `.bemt` project produced by any of the three paths must traverse
+- **PA-2** — Every `.bemt` project produced by any of the three paths must traverse
   the other two identically.
-- A new configuration field must be wired into all three interfaces
+- **PA-3** — A new configuration field must be wired into all three interfaces
   before the feature is considered complete.
-- The three interfaces speak the SAME axis vocabulary: a `.bemt` file
+- **PA-4** — The three interfaces speak the SAME axis vocabulary: a `.bemt` file
   stores a flight condition under the letters the GUI shows for that
   project's mode, and the CLI's help describes each flag by the slot it
   fills and the letter it carries in each mode. The engine keeps its own
@@ -158,54 +178,54 @@ requirements the software must satisfy.
 
 ### 3.4 Reports
 
-- `api.generate_report` must be the single implementation used by the GUI
+- **RP-1** — `api.generate_report` must be the single implementation used by the GUI
   button, the CLI `--report` flag, and direct library calls. HTML
   assembly must not be duplicated in the GUI layer.
-- Section order must be: blade geometry and airfoil polars (inputs) →
+- **RP-2** — Section order must be: blade geometry and airfoil polars (inputs) →
   performance coefficients → azimuth/span loads → disk maps →
   convergence.
-- The summary table must have one row per condition and one column per
+- **RP-3** — The summary table must have one row per condition and one column per
   `Results.summary` key, each with a symbol, unit, and description. A new
   summary key must ship with a column entry.
 
 ### 3.5 Documentation
 
-- `docs/documentation.html` is the single physics reference and the embedded
+- **DC-1** — `docs/documentation.html` is the single physics reference and the embedded
   help source, written in English. Every flag, module, project, batch and
   anchor it cites must exist.
-- Structure: introduction (chapters 0-5), one chapter per GUI tab in tab order
+- **DC-2** — Structure: introduction (chapters 0-5), one chapter per GUI tab in tab order
   (6-12), reference (13-14).
-- A GUI page gets a chapter of its own. Its sections follow the order of the
+- **DC-3** — A GUI page gets a chapter of its own. Its sections follow the order of the
   blocks and fields on screen. A page is never documented inside a physics
   chapter.
-- A field's section is self-contained: the physics, the mathematics, every
+- **DC-4** — A field's section is self-contained: the physics, the mathematics, every
   option it offers, and how to set it in the GUI, in `.bemt` and in the CLI as
   three separate paragraphs. A reader must not follow a link to understand or
   set a field. Named models are explained where their control is.
-- No class names, function names, package paths or development notes. The
+- **DC-5** — No class names, function names, package paths or development notes. The
   three interfaces are called GUI, CLI and `.bemt`.
-- Each page chapter opens with its tab screenshot from `docs/img/gui/`.
-- A field or block belonging to a tab opens a section inside that tab's
+- **DC-6** — Each page chapter opens with its tab screenshot from `docs/img/gui/`.
+- **DC-7** — A field or block belonging to a tab opens a section inside that tab's
   chapter.
-- Figures are files under `docs/img/`, never base64 in the HTML. Regenerate
+- **DC-8** — Figures are files under `docs/img/`, never base64 in the HTML. Regenerate
   through `tools/regenerate_documentation_plots.py` against a real example
   project, with all on-screen text in English.
-- All mathematical notation, including Greek symbols and subscripts, is
+- **DC-9** — All mathematical notation, including Greek symbols and subscripts, is
   rendered in LaTeX (per PR-4).
-- The index, the per-tab field lists and the screenshots are generated by
+- **DC-10** — The index, the per-tab field lists and the screenshots are generated by
   tools and never hand-edited.
-- Enforced by `tests/test_documentation.py` and `tests/test_help_content.py`.
+- **DC-11** — Enforced by `tests/test_documentation.py` and `tests/test_help_content.py`.
 
 ### 3.6 GUI tab behaviour
 
-- The Results tab groups a batch into series by the swept variable, within a
+- **TB-1** — The Results tab groups a batch into series by the swept variable, within a
   numerical tolerance. Series height and colour are independent controls: a
   series must never encode two quantities at once.
-- A tab must reflect the project it has open. A control whose value came from
+- **TB-2** — A tab must reflect the project it has open. A control whose value came from
   a project that has since been closed must not remain offered.
-- A tab that mutates the project in memory marks it as unsaved; Save writes
+- **TB-3** — A tab that mutates the project in memory marks it as unsaved; Save writes
   it and Restore reloads the last saved version.
-- Every tab must survive an empty project, a project with no results, and a
+- **TB-4** — Every tab must survive an empty project, a project with no results, and a
   mode switch between rotor and propeller without losing user input.
 
 ---

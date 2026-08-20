@@ -1369,36 +1369,56 @@ class AirfoilTab(QWidget):
         return self.stall_model_combo.currentText() == "viterna"
 
     def _refresh_reverse_flow_options(self, keep_current: bool = False):
+        """Offers every reverse-flow model, disabling the one the current
+        airfoil cannot supply.
+
+        `viterna_full_range` needs a polar extended to the full circle,
+        which only some sources produce. It used to be REMOVED from the
+        list while unavailable, which left no way to discover that the
+        model exists, and made the note below the only evidence of it.
+        PR-2 draws the line here: a control with nothing to say is hidden,
+        a control that is real but blocked is shown disabled. This one is
+        blocked, so it stays, greyed out, with the note saying what would
+        unlock it."""
         current = self.cfg_reverse_flow_model.currentText() if keep_current else None
         # List coming from the ENGINE (`bemt.REVERSE_FLOW_MODELS`), not a
         # local copy: a new model shows up here on its own.
         from ...bemt import REVERSE_FLOW_MODELS
-        options = [m for m in REVERSE_FLOW_MODELS if m != "viterna_full_range"]
-        if self._airfoil_extend_full_range():
-            options.append("viterna_full_range")
+        options = list(REVERSE_FLOW_MODELS)
+        liberado = self._airfoil_extend_full_range()
         self.cfg_reverse_flow_model.blockSignals(True)
         self.cfg_reverse_flow_model.clear()
         self.cfg_reverse_flow_model.addItems(options)
+        modelo = self.cfg_reverse_flow_model.model()
+        indice = self.cfg_reverse_flow_model.findText("viterna_full_range")
+        if indice >= 0 and modelo is not None:
+            item = modelo.item(indice)
+            if item is not None:
+                item.setEnabled(liberado)
+        # An option that is present but disabled cannot be the selection.
+        # Falling back to the first model keeps the widget and the project
+        # agreeing about what will actually run.
+        if current == "viterna_full_range" and not liberado:
+            current = options[0]
         if current in options:
             self.cfg_reverse_flow_model.setCurrentText(current)
         self.cfg_reverse_flow_model.blockSignals(False)
 
     def _update_reverse_flow_note(self, *_args):
-        """The note only exists to explain an ABSENCE: why
-        'viterna_full_range' is not in the list. With the option present
-        in the dropdown, announcing that it is available tells nothing
-        the list itself doesn't already say -- the row disappears (user
-        request)."""
+        """The note explains why 'viterna_full_range' is greyed out in the
+        list. Once the option is selectable the note has nothing to add
+        over the list itself, so the row disappears."""
         if self._airfoil_extend_full_range():
             self.reverse_flow_note.clear()
             definir_linha_visivel(self._reverse_flow_form, self.reverse_flow_note, False)
         else:
             definir_linha_visivel(self._reverse_flow_form, self.reverse_flow_note, True)
-            # infinitive, not imperative: the sentence below is "... after {hint}"
+            # bare verb: the sentence below reads "... after you {hint}"
             hint = ("choose stall_model='viterna' in block (a)" if self.source_combo.currentText() == "analytical"
                     else "enable 'Extrapolate with Viterna-Corrigan' in block (a)")
             self.reverse_flow_note.setText(
-                f"'viterna_full_range' becomes available here only after {hint}.")
+                f"'viterna_full_range' is listed but not selectable; it "
+                f"becomes available after you {hint}.")
 
     def _update_profile_fields(self, source: str):
         """Progressive reveal of the outline's rows.
