@@ -199,13 +199,17 @@
     }
 
     figure img {
-      max-width: 100%;
+      max-width: 72%;
       height: auto;
       border: 1px solid var(--rule);
       border-radius: 6px;
       background: #fff;
       padding: 6px;
       display: inline-block;
+    }
+
+    figure img.wide {
+      max-width: 100%;
     }
 
     figcaption {
@@ -567,6 +571,10 @@
 
       .manual-nav {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      figure img {
+        max-width: 100%;
       }
     }
 
