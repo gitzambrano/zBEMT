@@ -56,6 +56,7 @@ Procedural and Descriptive rules apply only to their own kind of text.
 | G29 | Write a cross-reference in full. "Section 5" | Abbreviate a cross-reference. "Sec.5" |
 | G30 | Say what the code or the theory computes. "the local flow at the airfoil", "Momentum theory does not determine the airfoil loads." | Give code or a theory human intent. "the flow the airfoil sees", "Momentum theory says nothing about airfoils." |
 | G31 | Use American spelling. "behavior", "normalize", "labeled", "center" | Use British spelling. "behaviour", "normalise", "labelled", "centre" |
+| G32 | State only what is factual and measurable, and keep a hedge exactly as strong as the source. "The solver converged in 12 iterations." "The run may have failed." | Use a superlative, a marketing word, an exaggeration or a non-technical vague word (robust, powerful, seamless, huge, the best). Stack hedges until the sentence claims nothing ("it may potentially help to improve"), or promote a hedge to a fact. |
 
 **`G25`, `G26` and `G28` never apply to code.** A command-line flag keeps
 its dashes (`--project`, `--set`, `--max-iter`). A hyphenated compound
@@ -103,10 +104,9 @@ tooltips, and GUI strings, must follow this table.
    ways. Pick one name and use it everywhere.
 9. `G11`: look for a nominalization ("perform a check of"). Replace it
    with the verb ("check").
-10. `G1`: look for a hedge stacked past the point of meaning ("it may
-    potentially help to improve"), or a vague or marketing adjective
-    (robust, powerful, seamless). State the claim, or delete the word,
-    without changing the strength of the original claim.
+10. `G32`: delete every superlative, marketing word and exaggeration, and
+    state the claim the text is hedging around. Do not change how strong
+    the original claim was.
 11. `G7` and `G8`: replace any remaining noun cluster over 3 words, or any
     phrasal verb, with a plain, specific one.
 12. `G16`: add a connector where one sentence's meaning depends on the
