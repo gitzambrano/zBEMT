@@ -2079,153 +2079,128 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <h3 id="cap-nomenclatura-helice">4.2 Propeller mode</h3>
 
 
-    <p>The physics chapters are written in <b>rotor axes</b>, because that is the frame
-      the engine solves in, and writing the derivations twice would create two texts to keep true instead
-      of one. This chapter collects what is different when the machine is an airplane propeller: what
-      changes physically, which letter then names which component, which advance ratio is the advance
-      ratio, which angle is the one to type, and which efficiency measure means anything.</p>
+    <p>The formulation in the physics chapters is developed in standard <b>disk-oriented rotor coordinates</b>,
+      matching the internal solver frame. This chapter details the physical distinctions and coordinate
+      transformations when modeling an <b>airplane propeller</b>: flow axis alignment, non-dimensional
+      parameter conventions, incident inflow angle definitions, and applicable propulsive efficiency metrics.</p>
 
     <div class="boxed note">
-      <b>The short version.</b> A propeller's shaft is horizontal, so its flight speed lies
-      <em>along the shaft</em>, and the interface calls that component $V_x$, $\mu_x$ and $J_x$. The
-      cross-flow component, shown as $V_z$, is zero in straight cruise. Put the airspeed in the
-      cross-flow field instead and the case still converges &mdash; to an edgewise rotor, with a
-      plausible thrust and a meaningless efficiency.
+      <b>Summary.</b> A propeller operates with its thrust axis aligned horizontally, making axial
+      airspeed the dominant along-shaft velocity ($V_x$, $\mu_x$, $J_x$). Cross-flow velocity ($V_z$) is
+      zero in unyawed axial cruise. Entering axial airspeed into the in-plane input field models an
+      edgewise rotor rather than an axial propeller, resulting in erroneous force projections and zero
+      propulsive efficiency.
     </div>
 
-    <h4 id="cap-prop-1">4.2.1 What is physically different</h4>
+    <h4 id="cap-prop-1">4.2.1 Physical distinctions</h4>
 
-    <p>Nothing in the blade-element or momentum formulation changes. The solver is
-      agnostic to the distinction: it receives the pair $(\mu_x,V_z)$ in rotor axes and solves the same
-      fixed point (<a class="xref" href="#sec-210-the-fixed-point-equation" title="5.8 The fixed-point equation">Section
-        5.8</a>) over the same mesh. What changes is the flight
-      condition it is handed, and that is enough to switch several mechanisms off.</p>
+    <p>The core Blade Element Momentum Theory governing equations remain identical across both modes.
+      The numerical solver accepts the velocity pair $(\mu_x, V_z)$ in internal disk axes and solves
+      the coupled fixed-point system (<a class="xref" href="#sec-210-the-fixed-point-equation"
+        title="5.8 The fixed-point equation">Section 5.8</a>). Operating mode configuration alters the
+      boundary flow conditions, which deactivates several asymmetric flow phenomena in pure axial cruise:</p>
 
-    <p><b>The shaft is horizontal, so the flight velocity is axial.</b> On a helicopter the shaft
-      points up and the flight speed lies in the disk plane; on a propeller the shaft points forward
-      and the flight speed lies along it. The in-plane component &mdash; the one that enters the
-      tangential velocity as $U_T=\Omega r+V_x\sin\psi$ (<a class="xref" href="#cap-12-1"
-        title="5.2.1 Tangential component, $U_T$">Section 5.2.1</a>) &mdash;
-      is the <em>cross-flow</em> for a propeller, and it is zero whenever the aircraft is flying
-      straight along its thrust axis.</p>
+    <p><b>Axial flight velocity alignment.</b> In a helicopter rotor, the shaft is oriented vertically and
+      forward flight produces an in-plane velocity component ($V_x$). In an axial propeller, the shaft is
+      oriented horizontally along the flight path, so the freestream acts along the shaft ($V_x$), while
+      in-plane cross-flow ($V_z$) is zero in straight level cruise.</p>
 
-    <p><b>With the in-plane component at zero, the azimuth disappears from the problem.</b> $U_T$
-      reduces to $\Omega r$ at every $\psi$, and with it every azimuthal dependence downstream:
-      $\alpha_{eff}$, $\phi$, $C_\ell$, $C_d$ and $\lambda_i$ become functions of $r$ alone. Three
-      consequences follow, and they are the reason a propeller case is both easier to solve and easier
-      to misdiagnose:</p>
+    <p><b>Axisymmetry in pure axial flow.</b> When in-plane cross-flow is zero, the tangential velocity
+      simplifies to $U_T = \Omega r$ uniformly across the azimuth $\psi$. Consequently, all local
+      aerodynamic states ($\alpha_{eff}$, $\phi$, $C_l$, $C_d$, $\lambda_i$) become axisymmetric functions
+      of radius $r$ alone:</p>
     <ul>
-      <li><b>No advancing/retreating asymmetry.</b> The mechanism of <a class="xref" href="#cap-nomenclatura"
-          title="4. Nomenclature and axes">Section 4</a> &mdash; higher dynamic pressure at $\psi=90^\circ$, lower at
-        $270^\circ$ &mdash; needs
-        $V_x\sin\psi$ to exist. A disk map from a correctly specified propeller case is therefore
-        axisymmetric: rings, not the left-right pattern a helicopter produces. <em>That is the fastest
-          visual check that the condition was entered in the right field.</em></li>
-      <li><b>No reverse-flow region.</b> Reverse flow is the part of the retreating disk where
-        $U_T<0$, which requires $|V_x\sin\psi|>\Omega r$ somewhere. With $V_x=0$ in the disk plane,
-          $U_T=\Omega r>0$ everywhere and none of the five reverse-flow models
-          (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>) has anything to act on. They can be
-          left at their defaults;
-          they change nothing.</li>
-      <li><b>No cyclic driver for dynamic stall, and no inflow harmonics.</b> Øye dynamic stall
-        models the lag of separation behind a <em>time-varying</em>
-        $\alpha_{eff}$; with $\alpha_{eff}$ constant around the azimuth there is no variation to lag
-        behind. Likewise the harmonic inflow models reduce to their uniform part: Coleman and Drees
-        multiply their harmonics by $\mu_x$, and the Pitt-Peters harmonic states $\nu_s,\nu_c$
-        (<a class="xref" href="#cap-4-2-5" title="9.2.1 Pitt-Peters parameters">Section 9.2.1</a>) come out at zero. A
-        propeller case is effectively a 1D
-        radial problem, which is why <code>Npsi</code> can be modest for it &mdash; the example project
-        uses $N_\psi=36$.</li>
+      <li><b>Absence of advancing/retreating asymmetry:</b> Azimuthal asymmetry requires an in-plane
+        velocity component ($V_x\sin\psi$). In pure axial propeller cruise, the disk loading is
+        axisymmetric (concentric contours on 2D disk maps).</li>
+      <li><b>Absence of reverse flow:</b> Reverse flow requires $U_T = \Omega r + V_{\text{in-plane}}\sin\psi < 0$.
+        With zero in-plane cross-flow, $U_T = \Omega r > 0$ across the entire disk, rendering reverse-flow
+        corrections (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>) inactive.</li>
+      <li><b>Absence of cyclic unsteady drivers:</b> Dynamic stall models (which track time-dependent
+        separation lag under cyclic pitch variations) and harmonic inflow variations (e.g., Pitt-Peters
+        harmonic coefficients) evaluate to zero. Discretization can therefore use modest azimuthal
+        resolution ($N_\psi$).</li>
     </ul>
 
-    <p><b>What does <em>not</em> go away.</b> Tip and root losses, compressibility at the tip,
-      rotational augmentation near the root and the whole airfoil-polar machinery apply exactly as
-      before. A propeller tip is usually the <em>most</em> compressible part of any rotor in this
-      program: at $2500$ rpm on a $0.94$ m radius the tip already turns at $246$ m/s before the
-      airspeed is added vectorially, so the Mach ceiling discussion of
-      <a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a> is more, not less, relevant here.
-    </p>
+    <p><b>Active aerodynamic effects.</b> Sectional airfoil polars, tip and root vortex losses, spanwise
+      rotational augmentation, and compressibility corrections remain fully active. Propeller blade tips
+      frequently operate at elevated tip Mach numbers, making transonic compressibility corrections (<a class="xref"
+        href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>) essential.</p>
 
-    <p><b>Where the propeller case is not axisymmetric.</b> A tilt-rotor in transition, a propeller
-      on an aircraft in a climb or a sideslip, and any nacelle at an angle of attack all have a real
-      cross-flow. Then the in-plane component is non-zero on purpose, the azimuthal variation is
-      physical, and everything switched off above switches back on. That case is entered by giving both
-      components, or by giving the airspeed and the misalignment angle
-      (<a class="xref" href="#cap-5-2" title="10.2 Along-shaft flow — the second row">Section 10.2</a>) &mdash; not by
-      moving the airspeed into the cross-flow field.</p>
+    <p><b>Non-axisymmetric propeller flight regimes.</b> Tilt-rotor transition flight, aircraft pitch/yaw
+      misalignment, and propeller cross-wind introduce non-zero in-plane flow components. In these cases,
+      both axial and in-plane velocities (or flight angle $\alpha_{disk}$; see <a class="xref"
+        href="#cap-5-2" title="10.2 Along-shaft flow — the second row">Section 10.2</a>) must be specified.</p>
 
-    <h4 id="cap-prop-2">4.2.2 The axis rotation, and the name flips it causes</h4>
+    <h4 id="cap-prop-2">4.2.2 Axis transformations and nomenclature mapping</h4>
 
-    <p><a class="xref" href="#sec-21-nomenclature" title="4.1 Nomenclature">Section 4.1</a> established the convention:
-      the letters are vehicle-fixed, and what rotates is the
-      machine. This section states its consequence for the keys, which is where the confusion actually
-      arises.</p>
+    <p><a class="xref" href="#sec-21-nomenclature" title="4.1 Nomenclature">Section 4.1</a> establishes the
+      reference convention: coordinate axes remain vehicle-fixed ($x$ longitudinal/forward, $z$ vertical/up),
+      while the shaft orientation changes between rotor and propeller configurations. This section defines
+      the mapping between display symbols and internal solver keys.</p>
 
-    <p>The keys stored in a project file are always written in the rotor frame and <b>never flip</b>.
-      The letters on screen do. So the same number is called one thing by the window and another by the
-      file, and both are correct. The correspondence, key by key:</p>
+    <p>Project files and internal engine variables maintain disk-aligned coordinates and <b>do not rotate</b>.
+      User interfaces, tabular outputs, and generated plots display vehicle-fixed notation corresponding to
+      the selected operating mode:</p>
 
     <div class="tablewrap">
       <table>
         <tr>
           <th>Physical component</th>
-          <th>Engine key (never changes)</th>
-          <th>Rotor mode shows</th>
-          <th>Propeller mode shows</th>
+          <th>Engine key (invariant)</th>
+          <th>Rotor mode display</th>
+          <th>Propeller mode display</th>
         </tr>
         <tr>
-          <td>Along the shaft &mdash; climb/descent on a rotor, <b>the airspeed</b> on a propeller</td>
+          <td>Along the shaft &mdash; climb/descent (rotor) or axial airspeed (propeller)</td>
           <td><code>Vz</code>, <code>mu_z</code>, <code>J_z</code>, <code>lambda_z</code></td>
           <td>$V_z$, $\mu_z$, $J_z$, $\lambda_z$</td>
           <td>$V_x$, $\mu_x$, $J_x$, $\lambda_x$</td>
         </tr>
         <tr>
-          <td>In the disk plane &mdash; <b>the advance</b> on a rotor, the cross-flow on a propeller</td>
+          <td>In the disk plane &mdash; forward advance (rotor) or cross-flow (propeller)</td>
           <td><code>Vx</code>, <code>mu_x</code>, <code>J_x</code></td>
           <td>$V_x$, $\mu_x$, $J_x$</td>
           <td>$V_z$, $\mu_z$, $J_z$</td>
         </tr>
         <tr>
-          <td>Induced velocity &mdash; always along the shaft, in both machines</td>
+          <td>Induced velocity &mdash; along the thrust shaft</td>
           <td><code>Vi</code>, <code>lambda_i</code></td>
           <td>$v_i$, $\lambda_i$</td>
           <td>$v_i$, $\lambda_i$</td>
         </tr>
         <tr>
-          <td>Free stream $+$ induced, through the disk</td>
+          <td>Total axial flow ($V_{\text{shaft}} + v_i$)</td>
           <td><code>Vz_total</code>, <code>lambda_total</code></td>
           <td>$V_{z,total}=V_z+v_i$</td>
           <td>$V_{x,total}=V_x+v_i$</td>
         </tr>
         <tr>
-          <td>Angle of the flight condition</td>
+          <td>Flight path angle</td>
           <td><code>alpha_rotor_deg</code> / <code>alpha_disk_deg</code></td>
-          <td>$\alpha_{rotor}$ only</td>
-          <td>$\alpha_{disk}$ only</td>
+          <td>$\alpha_{rotor}$</td>
+          <td>$\alpha_{disk}$</td>
         </tr>
       </table>
     </div>
 
-    <p><b>Only the display changes.</b> Every number and every key is identical in both modes. In a
-      CSV column, in a <code>.bemt</code> file and in <code>--set</code>, <code>Vz</code> is always
-      <code>Vz</code>: a run exported in propeller mode and re-read in rotor mode is still correct, it
-      has only changed vocabulary. Read a stored key and you are in rotor axes; read the screen or the
-      report and you are in the axes of the machine you configured.
+    <p><b>Consistency across interfaces.</b> Internal configuration keys remain disk-aligned, while UI
+      displays, plots, and exported reports adopt the vehicle-fixed conventions of the selected operating
+      mode.
     </p>
 
-    <h4 id="cap-prop-3">4.2.3 Which advance ratio is "the" $J$</h4>
+    <h4 id="cap-prop-3">4.2.3 Advance ratio definitions ($J_x$ vs. $J_z$)</h4>
 
-    <p>An unsubscripted $J$ never appears as a column heading in this program, and the reason is that
-      there are two of them. When a propeller chart, a manufacturer's data sheet or a textbook writes
-      $J$, it means the ratio built from the speed <b>along the shaft</b>:</p>
+    <p>To prevent ambiguity between axial advance and cross-flow components, advance ratios are explicitly
+      subscripted ($J_x, J_z$). In propeller aerodynamics, the classic advance ratio denotes the
+      non-dimensional speed <b>along the propeller shaft</b> ($x$-axis):</p>
     <div class="eqn">$$J_x=\frac{V_x}{nD}=\pi\,\mu_x \qquad\text{(propeller axes; engine key }
       \texttt{J\_z}\text{)},$$</div>
-    <p>with $n$ in revolutions per second and $D=2R$. The identity $J_x=\pi\mu_x$ follows from
-      $\Omega R=\pi nD$ alone and holds regardless of the rotor's physical size
-      (<a class="xref" href="#cap-14-1" title="5.4.1 Advance ratio, $\mu_x$">Section 5.4.1</a>). $J_x$ is the abscissa
-      of every propeller performance
-      chart, and it is the one that enters propulsive efficiency, because thrust acts along the shaft
-      and only the velocity component parallel to it does useful propulsive work.</p>
+    <p>where $n = \Omega / (2\pi)$ is rotational frequency in rev/s and $D = 2R$ is propeller diameter.
+      The identity $J_x = \pi\mu_x$ follows from $\Omega R = \pi n D$ (<a class="xref" href="#cap-14-1"
+        title="5.4.1 Advance ratio, $\mu_x$">Section 5.4.1</a>). The axial advance ratio $J_x$ enters
+      propulsive efficiency ($\eta_{prop} = T V_x / P$), because only axial thrust produces useful
+      propulsive work.</p>
 
     <p>$J_z$, shown in propeller mode, is a <b>different number</b>: the same ratio built from the
       cross-flow. In straight cruise it is exactly zero. The two are never interchangeable, and the
@@ -2722,22 +2697,19 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       dimensionless, and it is the one geometric number that says how much lifting surface the rotor has
       available for the disk area it sweeps.</p>
 
-    <p><b>Physical effect.</b> At a fixed mean angle of attack, a higher solidity carries more thrust,
-      because there is more blade to carry it. The cost comes in two places. More blade area means more
-      profile drag, so profile power rises with solidity at constant thrust. And more thrust through the
-      same disk area means a larger induced velocity, which tilts the lift vector further back and raises
-      induced power too. The trade is therefore not free in either direction: a rotor sized for high
-      thrust in a small disk pays for it in power.</p>
+    <p><b>Physical effect of solidity.</b> At a fixed operational lift coefficient, higher solidity
+      increases total thrust capacity by providing greater blade area. However, increased blade surface area
+      raises profile drag and profile power. Sizing rotor solidity involves balancing required maximum thrust
+      against profile power penalties.</p>
 
-    <p><b>Why loading is reported against it.</b> The quantity that says how hard the blade sections
-      are actually working is not $C_T$ but the blade loading coefficient $C_T/\sigma$, since a given
-      $C_T$ produced by twice the blade area asks half as much of each section. Stall limits are
-      therefore quoted against $C_T/\sigma$ rather than against $C_T$.</p>
+    <p><b>Blade loading coefficient ($C_T/\sigma$).</b> Sectional aerodynamic operating point is
+      characterized by the blade loading coefficient $C_T/\sigma$, which reflects average sectional lift
+      coefficient across the disk. Aerodynamic stall limits are defined in terms of $C_T/\sigma$ rather
+      than absolute thrust coefficient $C_T$.</p>
 
-    <p><b>Typical values.</b> A helicopter main rotor sits between about $0.04$ and $0.10$; a
-      multirotor or eVTOL lift rotor higher, around $0.10$ to $0.15$; a propeller higher still, and a
-      small drone propeller can exceed $0.2$, because a propeller is sized by thrust per unit of frontal
-      area rather than by hovering efficiency.</p>
+    <p><b>Typical values.</b> Helicopter main rotors typically operate at $\sigma \in [0.04, 0.10]$;
+      multirotor/eVTOL rotors operate at $\sigma \in [0.10, 0.15]$; aircraft and UAV propellers typically
+      exceed $\sigma \ge 0.15$ to maximize thrust per unit frontal area.</p>
 
     <h4 id="cap-14-4">5.4.4 Force, torque, and power coefficients: rotor convention</h4>
     <p>References: velocity $\Omega R$, area $A=\pi R^2$.</p>
@@ -2776,32 +2748,21 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
 
     <h4 id="cap-14-6">5.4.6 Choosing between the two conventions</h4>
-    <p>The rotor and propeller conventions of the two preceding sections describe the same machine
-      with different reference scales, and the choice between them (<code>is_propeller</code>) changes
-      no physics whatsoever: the same blade-element and momentum equations are solved, the same
-      induced velocity field results, and the same dimensional thrust and torque come out. What
-      changes is how those dimensional quantities are made dimensionless, and therefore which numbers
-      are reported and which efficiency measure is meaningful.</p>
+    <p>The rotor and propeller non-dimensional definitions describe identical physical states using
+      different reference normalization scales. Selecting <code>is_propeller</code> does not modify
+      governing equations or dimensional outputs ($T, Q, P$), but alters non-dimensional coefficients
+      and efficiency metrics displayed in plots and reports.</p>
 
-    <p>The rotor convention normalizes by disk area and tip speed, because a helicopter rotor is
-      understood as a device that pushes air down through a disk: the relevant scales are how much
-      disk it has and how fast the tip moves. The propeller convention normalizes by rotational
-      frequency and diameter, because a propeller is understood as a device that advances through the
-      air while turning: the relevant scales are revolutions and size. Substituting
-      $\Omega=2\pi n$ and $D=2R$ relates them exactly,</p>
+    <p>Rotor definitions normalize by disk area $A = \pi R^2$ and tip speed $\Omega R$. Propeller
+      definitions normalize by rotational frequency $n = \Omega / (2\pi)$ and diameter $D = 2R$. The
+      exact algebraic transformations are:</p>
     <div class="eqn">$$\frac{C_{T,\text{prop}}}{C_{T,\text{rotor}}}=\frac{\pi^3}{4}\approx7.75\,,
-      \qquad \frac{C_{P,\text{prop}}}{C_{P,\text{rotor}}}=\frac{\pi^4}{4}\approx24.4\,,$$</div>
-    <p>so reading one as if it were the other is a large error with nothing to signal it. This is
-      the practical reason to set the convention to match whatever reference data the result will be
-      compared against.</p>
+      \qquad \frac{C_{P,\text{prop}}}{C_{P,\text{rotor}}}=\frac{\pi^4}{4}\approx24.4\,.$$</div>
 
-    <p>The efficiency measures differ more fundamentally than by a constant. The figure of merit
-      compares the actual hover power with the induced power an ideal actuator disk would need for
-      the same thrust; it is defined at zero forward speed and loses meaning as the machine starts to
-      translate. Propeller efficiency is the ratio of useful propulsive power to shaft power; it is
-      identically zero at static thrust, because no useful work is done when nothing moves, and it
-      peaks at a finite advance ratio. Neither quantity is a rescaling of the other, and a machine
-      that is efficient by one measure is not necessarily efficient by the other.</p>
+    <p>Efficiency definitions evaluate distinct flight regimes: the hover Figure of Merit ($FM$)
+      benchmarks static performance against ideal momentum theory actuator disk power ($FM \le 1$ in
+      hover), while propulsive efficiency ($\eta_{prop} = T V_x / P$) evaluates mechanical conversion in
+      axial flight ($J_x > 0$).</p>
 
     <p>The convention also changes how a flight condition is described. A rotor case is naturally
       posed with an advance ratio and a disk angle, since the flow arrives obliquely across the disk;
@@ -3373,29 +3334,17 @@ formats and limitations of each polar source.</p>
       </table>
     </div>
 
-    <p>The near-zero hub forces ($10^{-19}$, not exactly $0$) are a useful sanity check in their own
-      right: a hover case is axisymmetric, so there is no preferred azimuth for the loading to push the
-      hub towards, and both must be zero. Any value larger than solver round-off therefore signals either
-      a genuine asymmetry in the input, such as uneven blades or a non-axisymmetric geometry, or a
-      condition that is not in fact hover, with an in-plane component left in it. Neither is physical
-      hover loading. The summary table prints a value at round-off level as plain <code>0</code> rather
-      than as solver noise in scientific notation, so a nonzero entry is always worth reading.</p>
+    <p>In hover, aerodynamic axisymmetry dictates that integrated in-plane hub forces ($C_H, C_Y$) and
+      hub moments ($C_{Mx}, C_{My}$) vanish identically. Computed values on the order of machine epsilon
+      ($\sim 10^{-19}$) reflect numerical precision limits. Any non-zero in-plane hub loads indicate
+      asymmetric input geometry, unequal blade distribution, or non-zero in-plane freestream velocity.</p>
 
-
-
-    <p>The same case at $\mu_x=0.3$, with the rotational speed and the collective unchanged, turns on
-      every mechanism the hover case above leaves dormant.
-      $U_T=\Omega r+V_x\sin\psi$ (<a class="xref" href="#cap-12-1" title="5.2.1 Tangential component, $U_T$">Section
-        5.2.1</a>) now depends on $\psi$: the advancing blade
-      ($\psi=90^\circ$) sees higher relative velocity, the retreating blade ($\psi=270^\circ$) sees lower &mdash;
-      at $\mu_x=0.3$ with this geometry's root cutout, low enough locally that part of the retreating disk
-      falls into reverse flow ($U_T<0$, <a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>).
-        $\alpha_{eff}$, $\phi$, and the induced velocity all
-        inherit this azimuthal dependence (<a class="xref" href="#cap-13-2" title="5.3.2 Inflow angle, $\phi$">Section
-          5.3.2</a>, <a class="xref" href="#cap-4-2" title="9.2 Inflow model">Section 9.2</a>), and the relaxation
-        schedule's
-        azimuth-crossing reduction (<a class="xref" href="#cap-4-5-3" title="9.5.3 Relaxation">Section 9.5.3</a>)
-        activates to keep the solver stable through it.</p>
+    <p>At forward advance ($\mu_x = 0.3$), tangential velocity $U_T(r,\psi) = \Omega r + V_x\sin\psi$
+      generates azimuthal dynamic pressure asymmetry between the advancing blade ($\psi = 90^\circ$) and
+      retreating blade ($\psi = 270^\circ$). Over the inboard retreating sector ($r/R < \mu_x$), reverse
+      flow develops ($U_T < 0$, <a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>),
+      introducing non-uniform induced inflow and requiring dynamic under-relaxation (<a class="xref"
+        href="#cap-4-5-3" title="9.5.3 Relaxation">Section 9.5.3</a>).</p>
 
     <div class="tablewrap">
       <table>
@@ -3403,74 +3352,59 @@ formats and limitations of each polar source.</p>
           <th>Quantity</th>
           <th>Hover ($\mu_x=0$)</th>
           <th>Forward flight ($\mu_x=0.3$)</th>
-          <th>Observed change</th>
+          <th>Physical mechanism</th>
         </tr>
         <tr>
           <td>$C_T$</td>
           <td>$0.02863$</td>
           <td>$0.04429$</td>
-          <td>advancing-side dynamic-pressure gain outweighs the retreating-side loss at fixed collective (<a
-              class="xref" href="#sec-123-flight-condition-sweeps" title="12.3 Flight Condition Sweeps">Section 12.3</a>
-            makes this same point for a full $\mu_x$ sweep)</td>
+          <td>Advancing-blade dynamic pressure increase exceeds retreating-blade deficit at fixed collective</td>
         </tr>
         <tr>
           <td>$C_Q=C_P$?</td>
           <td>equal</td>
           <td>$C_Q=0.003702$, $C_P=0.003702$</td>
-          <td>still equal &mdash; that identity holds at any $\mu_x$ (<a class="xref" href="#cap-14-4"
-              title="5.4.4 Force, torque, and power coefficients: rotor convention">Section 5.4.4</a>), it isn't
-            hover-specific</td>
+          <td>Identical by rotor coefficient definition ($C_P = C_Q$) across all flight regimes (<a class="xref"
+              href="#cap-14-4" title="5.4.4 Force, torque, and power coefficients: rotor convention">Section 5.4.4</a>)</td>
         </tr>
         <tr>
           <td>Thrust $T$</td>
           <td>$4248$ N</td>
           <td>$6571$ N</td>
-          <td>&mdash;</td>
+          <td>Dimensional thrust at constant collective pitch</td>
         </tr>
         <tr>
           <td>$C_H$ (in-plane drag)</td>
           <td>$\sim0$</td>
           <td>$0.003239$</td>
-          <td>reverse flow and the $U_T$ asymmetry now push the hub in-plane (<a class="xref" href="#cap-5-7"
-              title="10.7 The summary table">Section 10.7</a>)</td>
+          <td>Net longitudinal in-plane H-force resulting from asymmetric blade element drag and tilted lift vectors</td>
         </tr>
         <tr>
           <td>$C_Y$ (side force)</td>
           <td>$\sim0$</td>
           <td>$-0.000665$</td>
-          <td>same azimuthal-asymmetry origin, orthogonal direction</td>
+          <td>Lateral Y-force resulting from azimuthal asymmetry across disk</td>
         </tr>
         <tr>
           <td>$FM$</td>
-          <td>$0.833$ (meaningful)</td>
+          <td>$0.833$ (valid)</td>
           <td>$1.78$</td>
-          <td><b>not physically meaningful past hover</b> &mdash; $FM$ compares to the ideal actuator-disk power, a
-            hover-only reference; <a class="xref" href="#sec-123-flight-condition-sweeps"
-              title="12.3 Flight Condition Sweeps">Section 12.3</a> warns explicitly that $FM>1$ in forward flight
-            signals absent collective trim, not a solver error</td>
+          <td>Defined only in hover; in forward flight, actuator disk hover power ceases to represent physical ideal (<a
+              class="xref" href="#sec-123-flight-condition-sweeps" title="12.3 Flight Condition Sweeps">Section 12.3</a>)</td>
         </tr>
         <tr>
           <td>Convergence</td>
           <td>100%, 4.08 mean iter.</td>
           <td>99.97%, 4.60 mean iter.</td>
-          <td>a few elements (likely inside the reverse-flow region) take longer or don't fully converge &mdash;
-            expected, not a red flag by itself</td>
+          <td>Minor convergence rate reduction in isolated inboard reverse-flow elements</td>
         </tr>
       </table>
     </div>
 
-    <p>Read the two columns together and one pattern stands out. In hover the disk is axisymmetric,
-      so the side force, the in-plane drag and the hub moments are zero, and nothing distinguishes one
-      azimuth from another. Adding an in-plane component breaks that symmetry, and each of those
-      quantities becomes a number worth reading.</p>
-
-    <p>None of those numbers is noise. Each has a named cause: the blade sees a different velocity on
-      the advancing and the retreating side, part of the retreating disk falls into reverse flow, and
-      the induced velocity is no longer uniform across the disk. So when a forward-flight result looks
-      surprising, the useful first question is which of those three is responsible, and whether it is
-      configured the way you intended.</p>
-
-    <a id="cap-1"></a>
+    <p>Comparing hover and forward flight illustrates the transition from axisymmetric flow to azimuthal
+      asymmetry. In forward flight, in-plane hub forces ($C_H, C_Y$) and tilting moments emerge directly
+      from advancing/retreating dynamic pressure differentials, retreating-blade reverse flow, and
+      non-uniform induced inflow.</p>
 
     <hr>
 
@@ -3665,11 +3599,10 @@ formats and limitations of each polar source.</p>
       is the quantity that indicates how hard the blade sections are working. The radius also enters
       every coefficient through the disk area $\pi R^{2}$ and the tip speed $\Omega R$.</p>
 
-    <p><b>Configuration and valid range.</b> The number of blades is an integer of two or more, and the radius is in
-      metres. Both are properties of the machine being modelled rather than free parameters, so they are
-      normally taken from the design. Changing the radius does not rescale the table, because the table
-      is stored in normalised form: the same table on a larger radius describes a proportionally larger
-      blade.</p>
+    <p><b>Configuration and valid range.</b> Blade count is an integer ($N_b \ge 2$), and radius is
+      specified in meters ($R > 0$). Both represent geometric design constants. Because chord
+      distributions are stored non-dimensionally as $c/R$, modifying rotor radius proportionally scales
+      physical blade chord dimensions without altering relative planform geometry.</p>
 
     <p><span class="gui">GUI</span> &mdash; the <i>Global Geometry</i> group, fields <i>Number of
         Blades</i> and <i>Rotor Radius [m]</i>, always visible at the top of the tab.</p>
@@ -3933,17 +3866,17 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       limitations, available options, and separate <span class="gui">GUI</span>,
       <span class="bemt">.bemt</span>, and <span class="cli">CLI</span> instructions.
     </p>
-    <p>The Airfoil tab is the largest of the seven. It holds the complete two-dimensional aerodynamic
-      model: where the lift and drag coefficients come from and how they behave past stall (<a class="xref"
-        href="#cap-3-2" title="8.2 Aerodynamic model">Section 8.2</a>), the
-      lag of separation behind a changing angle of attack (<a class="xref" href="#cap-3-3"
-        title="8.3 Dynamic stall">Section 8.3</a>), what happens where the flow arrives
-      backwards (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>) or fast enough to be
-      compressible (<a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>), how a measured polar
-      is imported (<a class="xref" href="#cap-3-6" title="8.6 Data import / tabulated polar">Section 8.6</a>),
-      and the profile contour a polar can be generated from (8.7 and 8.8). All of it, except the section
-      list of 8.1 itself, is <b>per radial section</b> when two or more sections are defined
-      (see 8.1.5).</p>
+    <p>The <b>Airfoil</b> tab defines the sectional aerodynamic properties across the blade span:
+      static lift and drag polars with post-stall models (<a class="xref" href="#cap-3-2"
+        title="8.2 Aerodynamic model">Section 8.2</a>), dynamic stall unsteady lag (<a class="xref"
+        href="#cap-3-3" title="8.3 Dynamic stall">Section 8.3</a>), reverse-flow post-stall extensions
+      (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>), subsonic
+      compressibility corrections (<a class="xref" href="#cap-3-5"
+        title="8.5 Compressibility">Section 8.5</a>), tabulated polar ingestion (<a class="xref"
+        href="#cap-3-6" title="8.6 Data import / tabulated polar">Section 8.6</a>), and 2D coordinate
+      profiling for polar generation via NeuralFoil (Sections 8.7&ndash;8.8). When multiple radial stations
+      are defined (<a class="xref" href="#cap-3-1" title="8.1 Radial sections (multi-section airfoil)">Section
+        8.1</a>), these settings apply independently per spanwise section.</p>
 
     <h3 id="cap-3-1">8.1 Radial sections (multi-section airfoil)</h3>
     <p>A blade can use a single airfoil from root to tip, or vary the airfoil along the radius
@@ -3992,15 +3925,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       <i>shape</i> along the span.
     </p>
 
-    <p><b>Limitation when applied outside its intended use.</b> On a blade genuinely built from one section
-      &mdash; most small propellers, most test rotors, most untapered analytical studies &mdash; the
-      cost is zero and this is the correct mode. On a real helicopter or wind-turbine blade it is not:
-      those carry a thick root, often 18&ndash;24&nbsp;% thickness for spar depth and stiffness,
-      blending into an 8&ndash;12&nbsp;% tip chosen for drag divergence. Forcing the thick root section
-      onto the tip overstates profile drag exactly where the dynamic pressure is highest, which
-      surfaces as excess torque and a depressed figure of merit; forcing the thin tip section onto the
-      root understates the low-Reynolds drag rise and misplaces the root stall angle, so the case
-      predicts a root that keeps working when the real one has separated.</p>
+    <p><b>Scope and modeling assumptions.</b> Uniform single-profile modeling is appropriate for
+      constant-section blades, small-scale propellers, and idealized rotor studies. However, full-scale
+      rotorcraft and wind turbine blades incorporate spanwise aerodynamic tailoring (e.g., thick
+      18&ndash;24% root sections for structural depth transitioning to thin 8&ndash;12% transonic tip
+      sections). Enforcing a single profile throughout introduces systematic errors: applying the thick root
+      profile at the tip overpredicts profile power due to high dynamic pressure, whereas applying the thin
+      tip profile at the root underestimates low-Reynolds drag and delays root separation.</p>
 
     <p><b>The boundary.</b> Move to multiple sections whenever thickness or camber actually varies
       along the blade, whenever the tip approaches drag divergence while the root sits at low
@@ -4382,22 +4313,19 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       A_2=(C_{l,s}-C_{d,max}\sin\alpha_s\cos\alpha_s)\frac{\sin\alpha_s}{\cos^2\alpha_s}\,,\quad
       B_2=\frac{C_{d,s}-C_{d,max}\sin^2\alpha_s}{\cos\alpha_s}$$
     </div>
-    <p>where $\alpha_s$ is the angle at which the base polar is left behind and $(C_{l,s}, C_{d,s})$
-      are its coefficients there. $C_{d,max}$ is the drag of a flat plate normal to the flow, $2.01$ by
-      default for a purely two-dimensional section, or $1.11+0.018\,AR$ when an effective aspect ratio
-      $AR$ is supplied (Viterna and Janetzke, 1982). $A_2$ and $B_2$ are constructed so that the
-      continuation reproduces $(C_{l,s}, C_{d,s})$ exactly at the anchor: the extension is by
-      construction continuous in value there, though not necessarily in derivative. For
-      $90^\circ&lt;|\alpha|\le180^\circ$ the relation is reflected about $90^\circ$, with $C_l$ changing
-      sign and $C_d$ staying even, closing at $\alpha=\pm180^\circ$ where the geometric trailing edge
-      points into the flow.</p>
+    <p>where $\alpha_s$ is the stall transition angle, and $(C_{l,s}, C_{d,s})$ are the corresponding
+      aerodynamic coefficients from the base polar. The peak normal drag coefficient $C_{d,max}$ defaults
+      to $2.01$ for 2D sections or evaluates as $1.11 + 0.018\,AR$ when an aspect ratio $AR$ is specified
+      (Viterna &amp; Corrigan, 1981). Coefficients $A_2$ and $B_2$ enforce $C^0$ continuity with the base
+      polar at $\alpha_s$. In the deep post-stall regime ($90^\circ < |\alpha| \le 180^\circ$),
+      coefficients are evaluated by reflection about $90^\circ$ ($C_l$ anti-symmetric, $C_d$ symmetric),
+      closing at $\alpha = \pm 180^\circ$.</p>
 
-    <p><b>The blend width.</b> A finite window $\Delta\alpha$ transitions from the base coefficients to
-      the continuation instead of switching between them at a point. Widening it makes the handover
-      gentler, at the cost of altering the coefficients over a wider band of angles where the base polar
-      was still valid; narrowing it keeps the base data authoritative for longer and sharpens the
-      handover, which reintroduces the kind of feature in the residual that a smooth polar exists to
-      avoid.</p>
+    <p><b>Transition window ($\Delta\alpha$).</b> A finite transition window $\Delta\alpha$ blends the
+      base polar into the post-stall continuation. A wider blending window provides smoother gradient
+      continuity at the expense of modifying base polar data over a broader angle range; a narrower window
+      preserves base polar fidelity closer to stall but sharpens transitions, potentially impacting
+      solver gradient evaluation.</p>
 
     <figure>
       <img src="img/19-teoria-do-elemento-de-p-3.png" alt="Viterna-Corrigan extension over the full angle range">
@@ -5141,41 +5069,31 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   headers it did see, rather than guessing by position &mdash; a file whose first column happens to
                   be $C_l$ would otherwise import silently as an angle sweep. A header no alias covers has to be
                   renamed in the file before importing.</p>
-                <p><b>A sweep is declared by an extra column, not by a block layout.</b> This is the question the
-                  format most often raises, and the answer is the same for all three optional axes: add the column,
-                  and repeat its value on every row that belongs to that condition. One <em>block</em> is one
-                  combination of the optional columns present:</p>
+                <p><b>Multi-dimensional polar specification.</b> Multi-dimensional polar datasets specify
+                  optional conditioning axes (spanwise station $r/R$, Reynolds number $Re$, Mach number $M$) by
+                  appending columns with corresponding scalar values repeated across each slice:</p>
                 <pre>alpha_deg,Cl,Cd,reynolds,mach
 -5,-0.30,0.0140,200000,0.2
  0, 0.19,0.0115,200000,0.2
 -5,-0.32,0.0121,600000,0.2
  0, 0.21,0.0098,600000,0.2</pre>
-                <p>Those four rows are two slices &mdash; $Re=2\times10^5$ and $Re=6\times10^5$, both at $M=0.2$
-                  &mdash; each with its own $\alpha$ sweep. Grouping is by <em>value</em>, not by position
-                  &mdash; rows sharing the same combination of optional values form one slice &mdash; so the rows
-                  need not be sorted, and the
-                  blocks need not be contiguous. The same file may carry $r/R$, Reynolds and Mach at once; the
-                  engine then resolves the polar in every axis present, per radial station and per flight
-                  condition. With no optional column at all, the file is one polar used everywhere on the blade.</p>
-                <p>Delimiter and decimal are those of a standard CSV: comma-separated, dot as the decimal
-                  separator, one header line. A semicolon-separated or
-                  comma-decimal export from a localised spreadsheet is <em>not</em> converted &mdash; it arrives as
-                  a single unparsable column and fails the required-column check. Blank cells in an optional column
-                  are preserved as "no value for this axis" rather than dropping the block, which is what makes a
-                  round trip through <b>Export CSV&hellip;</b> and back exact.</p>
-                <p><b>What the importer tells you before you trust it.</b> On import the panel reports the file
-                  name, how many polars were built from it, and which extra axes were recognised ("Extra axes
-                  detected: reynolds, mach", or "none (single polar)"). That line is the check that the header was
-                  understood the way you intended: an <code>Re</code> column spelled <code>Reynolds_number</code>
-                  imports without error and produces <em>one</em> polar, silently averaging nothing and resolving
-                  nothing &mdash; the count of polars and the axis list are how that shows up. <b>Export
-                    CSV&hellip;</b> writes this same format (columns <code>alpha_deg, Cl, Cd, r_norm, reynolds,
-mach</code>), so exporting once is the quickest way to obtain a template to fill in.</p>
-                <p>Angles are degrees and all aerodynamic coefficients are dimensionless. The covered angle range
-                  is exactly the range present in the rows. The exported CSV uses the columns
-                  <code>alpha_deg,Cl,Cd,r_norm,reynolds,mach</code>, and is a valid import template. The final three
-                  columns are retained even when an axis is unused; their cells are blank in that case.
-                </p>
+                <p>This sample defines two operating slices ($Re = 2\times 10^5$ and $Re = 6\times 10^5$ at $M =
+                  0.2$), each containing an angle-of-attack sweep. Slices are grouped dynamically by unique tuples of
+                  $(r/R, Re, M)$ without requiring sorted or contiguous rows. A single CSV may span multiple radial
+                  stations, Reynolds numbers, and Mach numbers; the solver interpolates across all supplied dimensions
+                  during execution. Omitting parametric columns defines a single global static polar.</p>
+                <p>Delimiter and decimal are standard CSV (comma-delimited, dot decimal separator, single header
+                  row). Non-standard exports (such as semicolon-separated or comma-decimal European locale formats)
+                  must be converted before import. Blank entries in optional columns represent unconditioned axes.</p>
+                <p><b>Import diagnostics and header validation.</b> Upon file ingestion, the UI reports the file
+                  path, total ingested polar slices, and detected multidimensional axes (e.g., <code>Extra axes
+                    detected: reynolds, mach</code> or <code>none (single polar)</code>). This summary validates
+                  column parsing; unrecognized column headers (e.g., <code>Reynolds_number</code> instead of
+                  <code>reynolds</code>) are ignored, producing an unstratified single polar. Using <b>Export
+                    CSV&hellip;</b> generates a properly formatted template with canonical column headers
+                  (<code>alpha_deg, Cl, Cd, r_norm, reynolds, mach</code>).</p>
+                <p>Angles are expressed in degrees and aerodynamic coefficients are non-dimensional. Angle range is
+                  bounded by the minimum and maximum $\alpha$ present in the data table.</p>
 
                 <h3 id="cap-3-7">8.7 Profile 2D geometry</h3>
                 <p>This block holds the two-dimensional contour of the section: the shape itself, not the blade
@@ -5283,25 +5201,18 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
  0.000000   0.000000
  0.500000  -0.035000
  1.000000  -0.001300</pre>
-                <p><b>Anything that is not a pair of numbers is skipped</b> &mdash; a profile name, a header, a
-                  comment, a blank line &mdash; so the usual UIUC / airfoiltools download works untouched. The
-                  extension decides nothing: <code>.dat</code>, <code>.txt</code> and <code>.csv</code> are offered
-                  in the dialog, and the content is what is parsed. A line with three or more numbers is skipped
-                  too, which is worth knowing before wondering where a column of $C_p$ values went.</p>
-                <p><b>Selig works as downloaded.</b> Its layout is a name line followed by a single closed loop:
-                  trailing edge, forward over the upper surface, around the leading edge, back along the lower
-                  surface, to the trailing edge. The points are used <em>exactly as given</em> &mdash; no
-                  reordering, no closing of the trailing edge, no rescaling &mdash; because reordering a contour
-                  requires guessing which surface each point belongs to, and a guess that is wrong once produces a
-                  plausible-looking profile with a crossed panel in it.</p>
-                <p><b>Lednicer files are rejected with an explicit format error.</b> A Lednicer file opens with a line
-                  holding the number of points of each surface (<code>61.&nbsp;&nbsp;61.</code>), and that line is a
-                  perfectly readable pair of numbers. The importer rejects any $|x|$ beyond $1.5$ chords and names
-                  the likely cause and the fix. The fix is either editing the file &mdash; delete the count line, and
-                  join the two surfaces, which Lednicer lists separately and both starting at the leading edge,
-                  into one loop &mdash; or downloading the Selig version of the same airfoil, which needs no
-                  editing. A file from which no pair of numbers at all could be read is rejected the same way,
-                  naming the file.</p>
+                <p><b>Coordinate parsing rules.</b> Non-numeric lines (profile designations, headers, comments,
+                  and blank lines) are automatically ignored during ingestion. Supported file extensions include
+                  <code>.dat</code>, <code>.txt</code>, and <code>.csv</code>. Lines containing three or more
+                  numerical entries (such as surface pressure coefficient $C_p$ distributions) are omitted by the 2D
+                  coordinate parser.</p>
+                <p><b>Selig format ingestion.</b> Standard Selig-formatted coordinate loops (ordered continuously
+                  from trailing edge &rarr; upper surface &rarr; leading edge &rarr; lower surface &rarr; trailing
+                  edge) are ingested directly without reordering or interpolation.</p>
+                <p><b>Lednicer format handling.</b> Coordinate files formatted in Lednicer style (which open with header
+                  point counts and separate upper/lower coordinate tables) are rejected with a descriptive validation
+                  error. To use Lednicer files, merge the curves into a continuous closed contour or use standard
+                  Selig-formatted coordinates.</p>
                 <p>Nothing else is validated: the contour is not required to be closed, to start at the trailing
                   edge, or to have a particular point count. What it <em>is</em> required to be is normalised
                   &mdash; $x$ spanning $0$ to $1$ &mdash; because the chord is the length scale everything
@@ -6148,14 +6059,16 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                   more than time.
                 </p>
 
-                <p class="boxed note"><b>When convergence stalls, changing the solver is rarely the fix.</b> A
-                  failure to converge is usually structural. In order of frequency: the polar is being read outside
-                  the angle range it actually contains, so the coefficients are a held edge value and $g$ is flat;
-                  reverse flow is present and untreated, so the residual jumps across the boundary; or the stall model
-                  has a derivative corner that a slope-based method cannot cross. Each has a direct remedy — extend
-                  the polar, choose a continuous reverse-flow treatment, smooth the stall model — and each is worth
-                  trying before touching the solver. Raising the iteration budget helps only when the residual is
-                  still shrinking when the budget runs out.</p>
+                <p class="boxed note"><b>Solver convergence troubleshooting.</b> Numerical stagnation typically
+                  stems from underlying formulation discontinuities rather than the root-finding algorithm itself.
+                  Common causes include: (1) operating beyond the angle-of-attack bounds of a static polar (yielding
+                  zero gradient $g'(\lambda_{total}) = 0$); (2) unmitigated reverse-flow discontinuities across the
+                  $U_T = 0$ boundary; or (3) derivative discontinuities in non-smooth stall models. Recommended
+                  remedies are enabling 360&deg; polar extensions (<a class="xref" href="#cap-3-2-4"
+                    title="8.2.4 Full-range extension and blend width">Section 8.2.4</a>), applying continuous
+                  reverse-flow blending (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>), or
+                  selecting smooth stall formulations. Increasing the maximum iteration limit is effective only when
+                  residuals exhibit steady, monotonic decay.</p>
 
                 <p><span class="gui">GUI</span> &mdash; the <i>Solver</i> dropdown in the <i>Induced-inflow
                     solver</i> block.</p>
@@ -6396,13 +6309,11 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                       hand, convert the value to the ratio first.
                     </p>
 
-                    <p><span class="cli">CLI</span> &mdash; set this component with exactly one of
-                      <code>--mu-inplane X</code>, <code>--j-inplane X</code>, <code>--v-inplane X</code> or
-                      <code>--alpha-disk-deg X</code>. Giving more than one is an error, because they would each specify
-                      the same component. The flags are named after the row rather than after the letter, so the same
-                      command means the same thing in both modes. <code>--v-inplane</code> and
-                      <code>--alpha-disk-deg</code> must be accompanied by <code>--rpm</code>, since converting a speed
-                      or an angle into a ratio requires the tip speed.
+                    <p><span class="cli">CLI</span> &mdash; define in-plane flow using exactly one of
+                      <code>--mu-inplane X</code>, <code>--j-inplane X</code>, <code>--v-inplane X</code>, or
+                      <code>--alpha-disk-deg X</code>. Specifying multiple mutually exclusive flags raises an input error.
+                      Dimensional velocity (<code>--v-inplane</code>) and angle (<code>--alpha-disk-deg</code>) require
+                      <code>--rpm</code> to compute reference tip speed.
                     </p>
                     <h3 id="cap-5-2">10.2 Along-shaft flow &mdash; the second row</h3>
 
@@ -6465,24 +6376,22 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                       which the interface shows as soon as the dropdown is switched back.
                     </p>
 
-                    <p><span class="cli">CLI</span> &mdash; set this component with exactly one of
-                      <code>--v-axial X</code>, <code>--j-axial X</code>, <code>--mu-axial X</code> or
-                      <code>--alpha-rotor-deg X</code>. Giving more than one is an error, because they would each
-                      specify the same component. The ratio and the angle both require <code>--rpm</code>, since
-                      converting them to a speed requires the tip speed. <code>--alpha-rotor-deg</code> and
-                      <code>--alpha-disk-deg</code> cannot be combined either: they are the same angle measured from two
-                      different references, and together they leave the condition over-specified.
+                    <p><span class="cli">CLI</span> &mdash; define along-shaft flow using exactly one of
+                      <code>--v-axial X</code>, <code>--j-axial X</code>, <code>--mu-axial X</code>, or
+                      <code>--alpha-rotor-deg X</code>. Non-dimensional ratios (<code>--mu-axial</code>,
+                      <code>--j-axial</code>) and angles require <code>--rpm</code>. Setting both
+                      <code>--alpha-rotor-deg</code> and <code>--alpha-disk-deg</code> is rejected as an over-constrained
+                      condition.
                     </p>
                     <h3 id="cap-5-3">10.3 Collective pitch</h3>
                     <a id="cap-5-3-1"></a>
 
-                    <p><b>The physics.</b> The collective is a uniform offset added to the twist already built into the
-                      blade. It is the primary thrust control because it raises the angle of attack of every blade
-                      element by the same amount at once, without altering the flow arriving at the disk. Its useful
-                      range is bounded from above not by a fixed number but by stall: since the collective shifts every
-                      station equally while the inflow angle varies along the blade, one station always reaches its
-                      stall angle before the others, and beyond that point more collective buys less thrust rather than
-                      more.</p>
+                    <p><b>The physics.</b> The collective is a uniform offset added to the geometric blade twist. It serves
+                      as the primary thrust control by shifting the angle of attack across all blade stations
+                      simultaneously at constant freestream flow. The operational upper boundary is determined by
+                      aerodynamic stall: because built-in twist and induced inflow vary radially, critical stall margin is
+                      reached progressively along the span, beyond which additional pitch input triggers blade stall,
+                      reducing total thrust and increasing torque.</p>
 
                     <p><b>The mathematics.</b> The pitch angle of the element at radius $r$ is the collective plus the
                       geometric twist stored with the geometry,</p>
@@ -6913,16 +6822,13 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                           no
                           figures are drawn.</p>
 
-                        <p><span class="cli">CLI</span> &mdash; <code>--outdir PATH</code> overrides the folder, and
-                          <code>--plots</code> the figures, both taking precedence over what the batch stores.
-                          <code>--plots performance</code> draws one aggregated curve over all conditions,
-                          <code>--plots disk_map</code> draws the twelve disk fields for each condition, and
-                          <code>--plots convergence</code> draws the iteration history of each. <code>--plots</code>
-                          with no
-                          values draws nothing. Results are written to <code>results.csv</code> unless
-                          <code>--no-csv</code> is given. With many conditions, <code>--export-layout per_case</code>
-                          puts
-                          each condition's figures in its own subfolder instead of naming them all in one.
+                        <p><span class="cli">CLI</span> &mdash; <code>--outdir PATH</code> specifies the export
+                          directory, overriding project defaults. The <code>--plots</code> flag controls post-processing
+                          graphics: <code>performance</code> (integrated coefficient sweeps), <code>disk_map</code> (2D
+                          spatial disk distributions), and <code>convergence</code> (solver residual histories). Tabular
+                          summaries are exported to <code>results.csv</code> unless suppressed with <code>--no-csv</code>.
+                          For parametric batches, <code>--export-layout per_case</code> partitions figures into
+                          dedicated condition subdirectories.
                         </p>
 
                         <h3 id="cap-6-6">11.6 Reports</h3>
@@ -6999,76 +6905,45 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                         </div>
 
                         <h4 id="cap-7-1">12.1.1 Disk Map</h4>
-                        <p>This view needs exactly one run selected. It gives the <b>spatial</b> answer at a single
-                          flight condition:
-                          paints one solved quantity over the rotor disk, in the plane the blade actually sweeps, so you
-                          can
-                          see <i>where</i> on the disk the loading, the inflow or the stall lives rather than only how
-                          much of
-                          it there is in total. Choose any one of $\lambda_i$, $F_n$, $F_t$, $C_l$, $C_d$, $V_i$, $U_p$,
-                          $U_t$, $W$, $\alpha$, $\phi$, $\lambda_{total}$, $F_{t,i}$ and $F_{t,p}$ &mdash; the two parts
-                          of
-                          the tangential force, the first from tilting the lift vector by the inflow angle and the
-                          second
-                          from profile drag, whose ratio says whether power is being spent turning the flow or
-                          overcoming
-                          drag &mdash; $M$ (local Mach number), or $q$ (dynamic pressure, $q=\tfrac12\rho W^2$) &mdash;
-                          or
-                          a grid with all 16 fields together; toggle "mask reverse flow" (uses
-                          <code>mask_reverse_flow_plots</code>, 8.4.4); for a single field,
-                          linear/log colour scale controls and manual min/max.
+                        <p>The <b>Disk Map</b> visualizes 2D spatial distributions across the rotor disk for a single
+                          evaluated flight condition. Available scalar fields include induced and total inflow
+                          ($\lambda_i, \lambda_{total}, V_i$), sectional velocities ($U_p, U_t, W$), aerodynamic angles
+                          ($\alpha, \phi$), sectional blade forces ($F_n, F_t$), force components ($F_{t,i}$ induced,
+                          $F_{t,p}$ profile), aerodynamic coefficients ($C_l, C_d$), local Mach number ($M$), and
+                          dynamic pressure ($q = \tfrac12\rho W^2$). Multi-panel layouts display all 16 distributions
+                          simultaneously. Display controls include linear/logarithmic color scaling, manual range limits,
+                          and reverse-flow masking (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section
+                            8.4</a>).
                         </p>
 
-                        <p><b>What the picture is made of.</b> Each cell is one element of the azimuth&times;radius
-                          mesh,
-                          carrying the converged solution of the local velocity triangle: $U_t=\Omega r+\mu_x\Omega
-                          R\sin\psi$
-                          in the disk plane, $U_p$ through it, $W=\sqrt{U_p^2+U_t^2}$, $\phi=\text{atan2}(U_p,U_t)$ and
-                          $\alpha=\theta-\phi$. The normal load per unit span follows as</p>
+                        <p><b>Computational discretization.</b> Each mesh cell $(r_i, \psi_j)$ represents one element
+                          of the blade discretization containing converged velocity triangle components: in-plane
+                          velocity $U_t = \Omega r + \mu_x\Omega R\sin\psi$, normal velocity $U_p$, total velocity
+                          $W = \sqrt{U_p^2 + U_t^2}$, inflow angle $\phi = \operatorname{atan2}(U_p, U_t)$, and effective
+                          angle of attack $\alpha = \theta - \phi$. Sectional normal force per unit span evaluates as:</p>
 
                         <div class="eqn">$$F_n=\tfrac12\rho W^{2}c\,\bigl(C_l\cos\phi-C_d\sin\phi\bigr).$$</div>
 
-                        <p><b>Interpretation.</b> In hover the disk is axisymmetric: every field must depend on radius
-                          alone, so a correct map is a set of concentric rings, and any azimuthal variation at all is a
-                          symptom, not a result. The rings are not an artifact &mdash; dynamic pressure grows as
-                          $(\Omega r)^2$, which pushes load outboard, while the tip-loss factor drives the circulation
-                          to zero
-                          over the last few per cent of span, so $F_n$ peaks in a band typically near
-                          $0.75$&ndash;$0.9\,R$ and collapses beyond it. In forward flight that concentric picture tilts
-                          into
-                          a left/right gradient: the advancing side sees $U_t$ larger, hence more dynamic pressure at
-                          the same
-                          pitch, and the retreating side compensates by working at higher $\alpha$ on less of it. The
-                          inflow
-                          map and the angle-of-attack map are close to mirror images by construction, because a larger
-                          $\lambda_i$ means a larger $\phi$ and therefore a smaller $\alpha$ at fixed pitch; if they are
-                          <i>not</i> inverse in shape, the twist or a chord discontinuity is dominating, and that is
-                          worth
-                          knowing.
+                        <p><b>Disk map physical interpretation.</b> In hover, the solution is purely axisymmetric,
+                          producing concentric radial contours. The radial load $F_n(r)$ peaks typically between $0.75R$
+                          and $0.90R$, reflecting the balance between outboard dynamic pressure growth ($\sim (\Omega r)^2$)
+                          and tip-loss circulation decay ($F \to 0$ as $r \to R$). In forward flight ($\mu_x > 0$),
+                          azimuthal asymmetry develops: dynamic pressure increases on the advancing blade ($\psi = 90^\circ$)
+                          and decreases on the retreating blade ($\psi = 270^\circ$). Inflow $\lambda_i(r,\psi)$ and angle
+                          of attack $\alpha(r,\psi)$ exhibit complementary distributions, as higher induced inflow increases
+                          $\phi$ and reduces local $\alpha = \theta - \phi$.
                         </p>
 
-                        <p><b>Sharp features are usually physics.</b> The reverse-flow boundary is a genuine change of
-                          sign
-                          in $U_t$, and the outer tip band is a genuine cliff, so a hard edge there is the solution, not
-                          noise. Suspect numerics only when an edge appears where no such boundary exists.</p>
+                        <p><b>Physical boundaries.</b> Discontinuities along reverse-flow boundaries ($U_t = 0$) and
+                          rapid tip-loss decays represent physical flow features rather than numerical artifacts.</p>
 
-                        <p><b>Why the log scale exists.</b> When a field's extremes live in a handful of elements
-                          &mdash;
-                          $C_d$ inside a stalled patch, $q$ at the tip &mdash; a linear colour map spends its whole
-                          range on
-                          those few cells and renders one bright point on a flat background. A logarithmic scale, or a
-                          manual
-                          maximum that clips the outlier, restores the structure in the rest of the disk. Both are
-                          purely
-                          display choices and change no number.</p>
+                        <p><b>Color mapping and dynamic range.</b> When localized flow features (such as stall patches
+                          or transonic tip dynamic pressure) exhibit sharp extrema, logarithmic scaling or manual range
+                          clamping preserves visual contrast across the broader disk domain without altering underlying
+                          numerical data.</p>
 
-                        <p><b>Limits.</b> Masking reverse flow only stops those cells being drawn; the forces, the
-                          integrated coefficients and the exported data always contain that region, so blanking it never
-                          removes its contribution &mdash; and a map with the mask on hides exactly the area where
-                          modelling
-                          confidence is lowest. One map is also one condition: it says nothing about trends, and a map
-                          that
-                          looks healthy can still sit on a badly chosen operating point.</p>
+                        <p><b>Limits.</b> Masking reverse flow is a visualization toggle; underlying force integrations
+                          and exported tabular metrics retain all blade element contributions.</p>
                         <h4 id="cap-7-2">12.1.2 Coefficients vs. Axis</h4>
                         <p>This view accepts one run or several. It gives the <b>sweep</b> answer: each solved condition
                           collapses to
@@ -7088,25 +6963,11 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                           points
                           is the signature of that mistake.</p>
 
-                        <p><b>Custom X-Y and grouping.</b> Ticking <i>Custom X-Y</i> replaces the fixed coefficient grid
-                          with
-                          a single panel where any summary quantity can be plotted against any other, split into one
-                          curve per
-                          distinct value of a third one (<i>Group curves by</i>). The <i>Group tolerance</i> box beside
-                          it says
-                          how far apart two values must be to count as different curves; the default is $0.01$ in the
-                          units of
-                          the grouping quantity, and it applies to the automatic series detection of the coefficient
-                          grid as
-                          well. It exists because several grouping quantities are <em>derived</em> rather than typed: a
-                          nominal
-                          sweep of $\alpha_{rotor} = -10, -5, 0, 5, 10$ is stored as $V_z = \tan\alpha\,V_x$ and read
-                          back
-                          as $\operatorname{atan2}(V_z, V_x)$, so each combination with the other axis returns
-                          $-10.001$, $-9.999$, $-10.002$&hellip; and an exact comparison would draw one curve per point.
-                          Raise it when one nominal value still appears as several near-identical curves; lower it (or
-                          set
-                          $0$) to keep a genuinely fine sweep separated.</p>
+                        <p><b>Custom X-Y plotting and series grouping.</b> Enabling <i>Custom X-Y</i> allows arbitrary
+                          pairing of integrated output metrics, categorized into distinct curves via the <i>Group curves
+                            by</i> parameter. The <i>Group tolerance</i> setting (default $0.01$) defines the numerical
+                          threshold for grouping discrete sweep levels, filtering numerical precision variations in
+                          derived kinematic parameters (e.g., trigonometric reconstruction of flight angles).</p>
 
                         <p><b>What the classic shapes mean.</b> Against collective, thrust first rises almost linearly
                           &mdash; each degree adds $\alpha$ over the whole blade at fixed dynamic pressure &mdash; then
@@ -7215,31 +7076,16 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                           painted on
                           the surface: $F_n$, $F_t$, $\alpha_{eff}$, $\lambda_i$, $C_l$, $C_d$, or Mach.</p>
 
-                        <p><b>What this view adds over a flat map.</b> A disk map and a spanwise cut both show the load
-                          divorced from the shape that produced it. Here the same solved field is wrapped onto the real
-                          planform &mdash; actual chord distribution, actual twist, actual radial stations &mdash; so
-                          the load
-                          is read against its own cause. That distinction is not cosmetic. Local lift coefficient and
-                          local
-                          load per unit span differ by the chord,</p>
+                        <p><b>3D geometric projection.</b> Projecting aerodynamic distributions directly onto
+                          the 3D blade geometry correlates sectional force development with local chord $c(r)$ and
+                          geometric twist $\theta_{geo}(r)$. Local lift per unit span evaluates as:</p>
 
                         <div class="eqn">$$\frac{dL}{dr}=\tfrac12\rho W^{2}\,c(r)\,C_l ,$$</div>
 
-                        <p>so a station showing a high $C_l$ can mean two entirely different things: a wide-chord
-                          station
-                          genuinely working near its stall limit, or a narrow-chord station carrying an ordinary amount
-                          of
-                          load and needing a high coefficient only because it has little area to do it with. On a flat
-                          map
-                          both are the same shade. Seen on the blade, the first appears as a bright patch on a broad
-                          section
-                          and the second as a bright patch that is visibly thin, and only the first is a stall problem.
-                          The
-                          same reasoning applies at the tip, where the chord often tapers: a modest $C_l$ there can
-                          still be
-                          the binding limit once Mach is added, which is why colouring by Mach and by $C_l$ in turn is
-                          the
-                          quickest way to identify which limit is active.</p>
+                        <p>Coupling $C_l$ with local chord distinguishes between highly loaded wide-chord blade
+                          sections and low-solidity sections operating at elevated lift coefficients. Furthermore,
+                          evaluating $C_l$ and local Mach number simultaneously identifies spanwise regions
+                          constrained by aerodynamic stall versus advancing-tip compressibility.</p>
 
                         <p><b>Read twist together with angle of attack.</b> Painting $\alpha_{eff}$ on the twisted
                           surface
