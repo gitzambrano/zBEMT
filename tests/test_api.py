@@ -1,4 +1,10 @@
-"""Tests for `zbemt.api`: the project lifecycle (create/save/load/validate), running a single case or a batch, running external polar solvers, exporting results (figures, tabular data, reports), filename sanitization, report section/column naming and ordering, condition labels, and output-folder handling.
+"""Verify the application boundary and project lifecycle.
+
+The tests exercise project creation, save/load, validation, single-case and batch
+execution, optional polar generation, result exports, report content, naming, and
+output-directory handling. Fixtures provide temporary projects and model inputs;
+assertions cover returned objects and serialized artifacts. Solver accuracy is tested
+only through the dedicated physics and golden-result suites.
 """
 
 import re

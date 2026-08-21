@@ -1,4 +1,15 @@
-"""Tab 5 -- Run Case: one flight condition, numeric summary."""
+"""Implement GUI tab 5, Run Case.
+
+Purpose: define and execute one flight condition and present its numeric
+summary. Inputs are the active project, two flow components, collective, RPM,
+and optional trim settings. Outputs are progress signals, a completed in-memory
+result, and a history entry managed by ``AppState``.
+
+The tab follows the display-axis convention from ``nomenclature.py`` while
+``api.py`` and ``studies.py`` perform validation and execution off the GUI
+thread. It does not persist files directly and cannot establish model accuracy
+beyond the validation and convergence information returned by the solver.
+"""
 
 from __future__ import annotations
 

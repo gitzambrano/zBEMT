@@ -1,20 +1,24 @@
-"""
-models.py
-=========
+"""Define project dataclasses and serialize them to JSON-based ``.bemt`` files.
 
-Project data models (dataclasses) and serialization to ``.bemt`` (JSON)
-files.
+Purpose and objectives:
+    Provide the shared data contract for GUI, CLI, API, studies, and engine
+    layers, including defaults, nested definitions, and round trips.
 
-This file does NOT contain physics nor geometry/polar generation — only
-the data structure and how it turns into/back from disk. The physics
-lives in ``bemt.py`` (engine), 3D geometry generation in ``geometry.py``,
-and everything that is 2D (airfoil aerodynamic model + profile geometry)
-in ``airfoils.py``.
+Inputs and outputs:
+    Inputs are dataclass instances, dictionaries, paths, and JSON-compatible
+    values. Outputs are project definitions in memory or validated ``.bemt``
+    files and file lists on disk.
 
-General convention: every ``...Def`` is "raw" data, editable by the GUI
-and serializable. The physics classes that the engine (``bemt.py``)
-actually uses (``AnalyticalAirfoil``, ``TableAirfoil``, ``Rotor``,
-``BEMTConfig`` etc.) are constructed from these, never duplicated here.
+Functions and conventions:
+    Constructors and conversion helpers build definitions; ``save_bemt`` and
+    ``load_bemt`` implement file I/O. ``...Def`` classes contain editable raw
+    data. Files use SI units, explicit field names, and string tokens for
+    non-finite numbers so strict JSON readers remain compatible.
+
+Limitations and interactions:
+    This module contains no solver, geometry generation, or polar calculation.
+    ``api.py`` owns the application boundary; ``bemt.py``, ``geometry.py``,
+    and ``airfoils.py`` consume these definitions.
 """
 
 from __future__ import annotations
@@ -188,11 +192,17 @@ def migrar_config_raw(raw: dict) -> dict:
     (which distinguishes tip, root and both). Without this migration the
     field was silently discarded -- including in the repository's
     reference project, which stored ``use_prandtl_loss: true`` and had
-    been running with the default."""
+    been running with the default.
+
+    ``False`` must map to ``"off"``: that is the value the engine reads as
+    "apply no loss factor". Writing anything outside
+    ``off | tip | root | both`` makes the engine fall back to ``"both"``,
+    so a project that had the correction switched off would silently come
+    back with it switched on."""
     migrado = dict(raw)
     if "use_prandtl_loss" in migrado:
         antigo = bool(migrado.pop("use_prandtl_loss"))
-        migrado.setdefault("prandtl_loss_mode", "both" if antigo else "none")
+        migrado.setdefault("prandtl_loss_mode", "both" if antigo else "off")
     return migrado
 
 

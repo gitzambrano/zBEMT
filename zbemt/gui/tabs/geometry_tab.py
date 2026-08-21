@@ -1,5 +1,11 @@
-"""Tab 2 -- Geometry: the radial table is the source of truth; the
-parametric generator is just a convenience to fill it."""
+"""Implement the Geometry GUI tab.
+
+The tab accepts global blade dimensions and spanwise chord, twist, and radial
+stations. It displays and edits the authoritative radial table and can fill it from
+a parametric generator. Outputs are validated geometry definitions and preview
+figures; project persistence crosses the application boundary. The tab does not
+select airfoil polars or execute BEMT.
+"""
 
 from __future__ import annotations
 

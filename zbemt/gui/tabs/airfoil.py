@@ -1,5 +1,17 @@
-"""Tab 3 -- Airfoil: polar (analytical or tabulated), stall, reverse flow,
-compressibility and external polar generation."""
+"""Implement GUI tab 3, Airfoil.
+
+Purpose: configure the two-dimensional aerodynamic model, radial sections,
+stall, reverse flow, compressibility, profile geometry, and external polar
+generation. Inputs are editable airfoil definitions and optional imported
+tables; outputs are project-model updates, preview plots, and generated polar
+data. ``airfoils.py`` and ``external_solvers.py`` provide the calculations,
+``validation.py`` checks combinations, and ``api.py`` owns persistence.
+
+Conventions and limitations: angles are in degrees, lengths use SI units, and
+tabulated data must cover the operating range or use the documented extension
+model. Preview curves are diagnostic and do not replace validation of the
+selected polar in the complete rotor or propeller case.
+"""
 
 from __future__ import annotations
 

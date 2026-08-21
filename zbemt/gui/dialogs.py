@@ -1,4 +1,10 @@
-"""Modal dialogs of the GUI."""
+"""Define modal GUI dialogs for geometry and project operations.
+
+Dialogs accept user-entered values through Qt widgets and return validated values or
+an explicit cancellation. They delegate domain validation and persistence to the
+application and model layers, do not run the aerodynamic solver, and must remain
+usable in headless test construction where supported.
+"""
 
 from __future__ import annotations
 

@@ -1,14 +1,13 @@
-"""
-api.py
-======
+"""Provide the application boundary for project I/O, execution, and exports.
 
-The ONLY layer that ``gui.py`` and ``main_batch.py`` know about. Neither
-of them calls ``bemt.py``, ``external_solvers.py``, ``studies.py``, or
-writes a file directly — everything goes through here.
-
-"Expensive" functions (run the engine): ``run_case`` / ``run_batch``.
-Everything else is project management or explicit (never implicit)
-post-processing of an already-computed ``Results``.
+The module accepts project paths, model definitions, flight conditions, batches, and
+callback options. It creates, validates, loads, saves, runs, and exports projects,
+returning ``Project``, ``Results``, serialized ``.bemt`` data, tables, figures, and
+reports. Public operations cover project lifecycle, case and batch execution, polar
+generation, and result export. GUI and CLI callers use this boundary; it delegates
+physics, geometry, airfoil construction, and nomenclature to their dedicated
+modules and owns direct project-file access. Results remain limited by selected
+models, input validity, and convergence status.
 """
 
 from __future__ import annotations

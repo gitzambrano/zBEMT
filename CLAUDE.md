@@ -41,7 +41,7 @@ Never mix languages within one file.
 
 ## Subagents
 
-Use Haiku subagents for mechanical, repetitive work with a clear pattern:
+Use less powerful subagents for mechanical, repetitive work with a clear pattern:
 translation passes, the same edit applied across many files, boilerplate,
 running and parsing test output, simple refactors.
 
@@ -111,23 +111,23 @@ component in each mode.
 
 Slot names, used by `gui/widgets.py` and `gui/common.py`:
 
-| Mode | Slot | Batch axis label | Physical flow |
-|---|---|---|---|
-| Rotor | `inplane` | Edgewise (in-plane) Flow | Advance in the disk plane |
-| Rotor | `axial` | Axial (along-shaft) Flow | Climb or descent along the shaft |
-| Propeller | `inplane` | Cross (in-plane) Flow | Cross-flow, vertical |
-| Propeller | `axial` | Axial (along-shaft) Flow | Airspeed along the shaft |
+| Mode      | Slot        | Batch axis label         | Physical flow                    |
+| --------- | ----------- | ------------------------ | -------------------------------- |
+| Rotor     | `inplane` | Edgewise (in-plane) Flow | Advance in the disk plane        |
+| Rotor     | `axial`   | Axial (along-shaft) Flow | Climb or descent along the shaft |
+| Propeller | `inplane` | Cross (in-plane) Flow    | Cross-flow, vertical             |
+| Propeller | `axial`   | Axial (along-shaft) Flow | Airspeed along the shaft         |
 
 ### Rotor mode
 
 Shaft vertical, so `x` is in-plane (edgewise) and `z` is along the shaft.
 
-| Flow | GUI units | Shown in results | Engine key | `.bemt` / CLI key |
-|---|---|---|---|---|
-| Edgewise | μ_x, J_x, V_x [m/s] | μ_x, J_x, V_x | `mu_x`, `J_x`, `Vx` | same |
-| Axial | α_rotor [deg], V_z [m/s], μ_z, J_z | α_rotor, V_z, μ_z, J_z, λ_z | `alpha_rotor_deg`, `Vz`, `mu_z`, `J_z`, `lambda_z` | same |
-| Axial total (output) | — | V_z,total, λ_total | `Vz_total`, `lambda_total` | same |
-| Induced (output) | — | v_i, λ_i | `Vi`, `lambda_i` | same |
+| Flow                 | GUI units                            | Shown in results               | Engine key                                                   | `.bemt` / CLI key |
+| -------------------- | ------------------------------------ | ------------------------------ | ------------------------------------------------------------ | ------------------- |
+| Edgewise             | μ_x, J_x, V_x [m/s]                 | μ_x, J_x, V_x                 | `mu_x`, `J_x`, `Vx`                                    | same                |
+| Axial                | α_rotor [deg], V_z [m/s], μ_z, J_z | α_rotor, V_z, μ_z, J_z, λ_z | `alpha_rotor_deg`, `Vz`, `mu_z`, `J_z`, `lambda_z` | same                |
+| Axial total (output) | —                                   | V_z,total, λ_total            | `Vz_total`, `lambda_total`                               | same                |
+| Induced (output)     | —                                   | v_i, λ_i                      | `Vi`, `lambda_i`                                         | same                |
 
 α_rotor = atan2(V_z, V_x), measured from the disk plane; climb is positive,
 descent negative. λ_z = V_z/(ΩR) = μ_z. Level forward cruise is μ_x > 0 with
@@ -138,12 +138,12 @@ descent negative. λ_z = V_z/(ΩR) = μ_z. Level forward cruise is μ_x > 0 with
 Shaft horizontal, so `x` is along the shaft (axial) and `z` is the vertical
 cross-flow in the disk plane.
 
-| Flow | GUI units | Shown in results | Engine key | `.bemt` / CLI key |
-|---|---|---|---|---|
-| Axial | J_x, μ_x, V_x [m/s] | J_x, μ_x, V_x, λ_x | `Vz`, `mu_z`, `J_z`, `lambda_z` | `Vx`, `mu_x`, `J_x`, `lambda_x` |
-| Cross | V_z [m/s], α_disk [deg], μ_z, J_z | V_z, α_disk, μ_z, J_z | `Vx`, `mu_x`, `J_x`, `alpha_disk_deg` | `Vz`, `mu_z`, `J_z`, `alpha_disk_deg` |
-| Axial total (output) | — | V_x,total, λ_total | `Vz_total`, `lambda_total` | `Vx_total`, `lambda_total` |
-| Induced (output) | — | v_i, λ_i | `Vi`, `lambda_i` | same |
+| Flow                 | GUI units                           | Shown in results        | Engine key                                    | `.bemt` / CLI key                           |
+| -------------------- | ----------------------------------- | ----------------------- | --------------------------------------------- | --------------------------------------------- |
+| Axial                | J_x, μ_x, V_x [m/s]                | J_x, μ_x, V_x, λ_x    | `Vz`, `mu_z`, `J_z`, `lambda_z`       | `Vx`, `mu_x`, `J_x`, `lambda_x`       |
+| Cross                | V_z [m/s], α_disk [deg], μ_z, J_z | V_z, α_disk, μ_z, J_z | `Vx`, `mu_x`, `J_x`, `alpha_disk_deg` | `Vz`, `mu_z`, `J_z`, `alpha_disk_deg` |
+| Axial total (output) | —                                  | V_x,total, λ_total     | `Vz_total`, `lambda_total`                | `Vx_total`, `lambda_total`                |
+| Induced (output)     | —                                  | v_i, λ_i               | `Vi`, `lambda_i`                          | same                                          |
 
 J_x = V_x/(nD) is the classic propeller advance ratio, built from the axial
 component. α_disk = atan2(V_z, V_x) is measured from the shaft and is 0° when
@@ -158,18 +158,18 @@ rotates when `is_propeller=True` is only what the user meets: the displayed
 symbol, and the key written into `.bemt` files, CSV headers and the results
 table.
 
-| Internal key | Rotor label | Propeller label |
-|---|---|---|
-| `Vz` | V_z | V_x |
-| `Vx` | V_x | V_z |
-| `mu_x` | μ_x | μ_z |
-| `mu_z` | μ_z | μ_x |
-| `J_x` | J_x | J_z |
-| `J_z` | J_z | J_x |
-| `lambda_z` | λ_z | λ_x |
-| `Vz_total` | V_z,total | V_x,total |
-| `alpha_rotor_deg` | α_rotor | *(hidden)* |
-| `alpha_disk_deg` | *(hidden)* | α_disk |
+| Internal key        | Rotor label  | Propeller label |
+| ------------------- | ------------ | --------------- |
+| `Vz`              | V_z          | V_x             |
+| `Vx`              | V_x          | V_z             |
+| `mu_x`            | μ_x         | μ_z            |
+| `mu_z`            | μ_z         | μ_x            |
+| `J_x`             | J_x          | J_z             |
+| `J_z`             | J_z          | J_x             |
+| `lambda_z`        | λ_z         | λ_x            |
+| `Vz_total`        | V_z,total    | V_x,total       |
+| `alpha_rotor_deg` | α_rotor     | *(hidden)*    |
+| `alpha_disk_deg`  | *(hidden)* | α_disk         |
 
 **`zbemt/nomenclature.py` owns the whole rotation.** Edit a symbol, a unit, a
 tooltip or a slot name there and every surface follows: the GUI fields, the
@@ -233,6 +233,22 @@ Rules:
 10. Mark each interface with its colour: GUI blue, CLI red, `.bemt` green.
     Wrap every mention in `<span class="gui">`, `<span class="cli">` or
     `<span class="bemt">`.
+11. Every reference to another section is a link, underlined, carrying the
+    target's title as its `title`. A number written as plain text is a defect:
+    it cannot be followed, and it drifts silently when sections are renumbered.
+    `tests/test_documentation.py` enforces both the link and the fact that its
+    number and its target agree.
+12. Chapters 6-12 are self-contained. A reference out of one of them is allowed
+    only as a statement of scope — "that setting lives in another tab" — never
+    as a deferral of physics, and every such exception is listed by name in
+    `TestCapitulosDeAbaSaoEstanques`.
+
+**HTML `id` attributes are exempt from the English rule.** Several are in
+Portuguese (`cap-projeto`, `cap-nomenclatura`, the `INDICE-GERAL` and
+`INDICE-DE-CAMPOS:*` markers). They are addresses, not text: no reader sees
+them, and the generators, the help registry and the field-help map all resolve
+against them. Renaming them buys nothing and risks breaking every popup. Do not
+rename them; do not add new ones in Portuguese either.
 
 Regenerate and commit:
 

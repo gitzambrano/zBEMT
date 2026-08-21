@@ -1,32 +1,13 @@
-"""Tab 6 -- Run Batch: generate cases, review the queue, run.
+"""Implement the Run Batch GUI tab.
 
-The tab had five loose blocks and THREE run buttons (saved batch,
-factorial analysis, explicit list), each with its own set of fields. The
-two case-generation modes were parallel paths that never met: the
-factorial fired directly, without ever showing what was going to run, and
-the explicit list lived in its own table that the factorial never fed.
-
-The design now is a sequence of three stages, with a QUEUE in the middle:
-
-    1. Generate cases   ->   2. Case queue   ->   3. Run
-
-The two generation modes still exist -- they're what stage 1 offers --
-but both feed into the same queue. This solves three things at once: you
-can see the 24 cases of a 3x4x2 factorial BEFORE firing 24 solves; you
-can mix modes (generate a factorial and add one case by hand); and
-"save as batch" now works for the factorial too, because the queue is
-already materialized into conditions.
-
-The RUN MODE (direct, or one of the two trim loops) lives in stage 1, not
-in 3 (item 12). It decides what counts as INPUT for a case: in
-"Fixed RPM, target thrust/CT" the collective is solved by the loop, so it
-can no longer be offered as an axis or as a fixed value -- choosing the
-mode only in stage 3 let someone build a whole axis for a quantity that
-was going to be overwritten. The mode names and the "Trim target"/
-"Target value" pair are the SAME as in the Run Case tab (`run_case.py`):
-it's the same concept, and two different naming schemes for it forced a
-mental translation. Stage 3 is left with only what's about running
-(button, progress, cancel) plus an echo of what was chosen in stage 1.
+The tab accepts an active project, sweep definitions, fixed flight-condition values,
+and optional saved batches. It generates factorial or explicit conditions, places
+them in a reviewable queue, and executes the queue with progress and cancellation.
+Outputs are queued conditions, worker signals, and in-memory results; project I/O
+and solver execution cross the ``api.py`` boundary. Display-axis labels follow the
+nomenclature contract while the model retains disk-axis keys. The tab does not
+change the aerodynamic model and remains subject to project validation and engine
+convergence limits.
 """
 
 from __future__ import annotations

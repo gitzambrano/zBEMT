@@ -1,4 +1,9 @@
-"""Tests for `zbemt.geometry`: geometry generators, validation of custom (table-defined) geometry, and resample/interpolate/edit operations on a blade spanwise distributions.
+"""Verify blade-geometry generation, validation, and editing operations.
+
+The tests supply parametric specifications and spanwise tables, then inspect
+resampling, interpolation, editing, and validation results. Outputs must preserve
+station ordering, dimensions, and physical bounds. The tests do not exercise airfoil
+polar selection or BEMT execution.
 """
 
 import unittest

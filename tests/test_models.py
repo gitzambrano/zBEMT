@@ -1,4 +1,9 @@
-"""Tests for `zbemt.models`: save/load round-trips for projects, default project paths, the Project dataclass, airfoil-sections round-trips, project-name persistence, and JSON-safe serialization of non-finite values.
+"""Verify model dataclasses and ``.bemt`` serialization.
+
+The tests cover project defaults, save/load round trips, airfoil sections, project
+metadata, paths, and JSON-safe handling of non-finite values. Inputs are model
+objects and temporary files; outputs are reconstructed objects and serialized data.
+The tests do not run the aerodynamic solver.
 """
 
 import math
@@ -341,8 +346,37 @@ class TestSerializacaoQ1(unittest.TestCase):
         self.assertEqual(
             migrar_config_raw({"use_prandtl_loss": True})["prandtl_loss_mode"], "both")
         self.assertEqual(
-            migrar_config_raw({"use_prandtl_loss": False})["prandtl_loss_mode"], "none")
+            migrar_config_raw({"use_prandtl_loss": False})["prandtl_loss_mode"], "off")
         self.assertNotIn("use_prandtl_loss", migrar_config_raw({"use_prandtl_loss": True}))
+
+    def test_migracao_prandtl_desligado_produz_valor_que_o_motor_reconhece(self):
+        """`False` has to become "off", not a value outside the enum.
+
+        The engine selects the loss factor with a dict lookup whose default
+        is "both", so a migrated value the enum does not contain switches the
+        correction back ON for a project that had it OFF. Regression for the
+        migration writing "none"."""
+        from zbemt.bemt import BEMTConfig
+        modos_validos = {"off", "tip", "root", "both"}
+        for antigo, esperado in ((True, "both"), (False, "off")):
+            with self.subTest(use_prandtl_loss=antigo):
+                modo = migrar_config_raw(
+                    {"use_prandtl_loss": antigo})["prandtl_loss_mode"]
+                self.assertIn(modo, modos_validos)
+                self.assertEqual(modo, esperado)
+                # and the migrated value survives a trip through the dataclass
+                self.assertEqual(BEMTConfig(prandtl_loss_mode=modo).prandtl_loss_mode,
+                                 esperado)
+
+    def test_as_duas_migracoes_de_prandtl_concordam(self):
+        """`models` and `studies` both migrate the same legacy key; they
+        disagreed, one writing "off" and the other "none"."""
+        from zbemt.studies import _migrate_config_dict
+        for antigo in (True, False):
+            with self.subTest(use_prandtl_loss=antigo):
+                self.assertEqual(
+                    migrar_config_raw({"use_prandtl_loss": antigo})["prandtl_loss_mode"],
+                    _migrate_config_dict({"use_prandtl_loss": antigo})["prandtl_loss_mode"])
 
     def test_migracao_nao_atropela_valor_ja_no_schema_novo(self):
         migrado = migrar_config_raw({"use_prandtl_loss": True, "prandtl_loss_mode": "tip"})

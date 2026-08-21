@@ -1,4 +1,15 @@
-"""Tab 7 -- Results: 2D/3D visualization, export, and report hub."""
+"""Implement GUI tab 7, Results.
+
+Purpose: inspect, compare, export, and report completed runs. Inputs are the
+result history and active project from ``AppState``; outputs are plots and
+delegated export/report requests, not new solver results. Selection helpers
+choose compatible views, while ``api.py`` and visualization modules perform
+serialization and rendering.
+
+Labels follow ``nomenclature.py`` and plot titles state the operating
+condition. A visualization is a view of an existing solution, so integrated
+coefficients do not replace local convergence and physical plausibility checks.
+"""
 
 from __future__ import annotations
 

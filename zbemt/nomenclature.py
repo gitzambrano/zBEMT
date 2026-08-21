@@ -1,60 +1,14 @@
-"""The single source of the axis nomenclature: one table, every surface.
+"""Define the user-visible axis and quantity nomenclature.
 
-WHAT PROBLEM THIS SOLVES
-------------------------
-The engine (`bemt.py`, Sec.6c) decomposes the free stream in DISK axes and
-never changes its mind: `mu_x` is the in-plane component, `Vz` is the
-component along the shaft. The user, however, reads VEHICLE axes -- and on a
-propeller the shaft is horizontal, so the component the engine calls `z` is
-the one the pilot calls `x`. The letters rotate; the physics does not.
-
-That rotation used to be re-implemented by hand in ten places, each with a
-comment claiming to be "the single source" for its own narrow surface:
-`api._SIMBOLO_DE_COLUNA_HELICE` (report and table headers),
-`viz/plots._SUMMARY_KEY_LABELS_HELICE` (plot axis labels),
-`studies._SIMBOLO_DE_VARIAVEL_HELICE` (condition names),
-`gui/widgets.UNIDADES_DE_CONDICAO` (input unit combos),
-`gui/common._ROTULOS_DE_CONDICAO` (row labels and tooltips), and more. The
-concrete cost: a report's table header and the axis label of the chart
-embedded in that same report came from two different tables and could
-silently disagree.
-
-This module is that one table. Everything a human reads about a flow axis --
-symbol, unit, tooltip, slot name, visibility, and the key written to disk --
-comes from `QUANTITIES` below.
-
-THE THREE RENDER TARGETS COME FROM ONE LATEX SOURCE
----------------------------------------------------
-Each quantity stores its symbol ONCE, as a mathtext body (`r"\\mu_x"`). The
-matplotlib label, the Qt rich-text label and the HTML report header are
-DERIVED from it by `to_mathtext`/`to_html`/`to_unicode`. There is no second
-list of HTML entities and no third list of Unicode subscripts to age
-silently -- which is also what CLAUDE.md's "render all mathematical notation
-in LaTeX" asks for.
-
-LAYERING
---------
-Pure data and pure functions: no Qt, no matplotlib, no argparse, no disk
-access. It therefore sits below `api`, `studies`, `viz.plots`, `cli` and the
-GUI, and all of them import it without a cycle. It reaches neither the engine
-nor the disk, so it does not compete with the rule that `api` is the only
-path to those.
-
-THE KEY ROTATION
-----------------
-`display_key`/`to_display_keys` translate the engine's key into the one the
-user sees -- and, in propeller mode, the one written into `.bemt` files, CSV
-headers and the results table. Rotor mode is the identity, because the rotor
-letters already are the engine letters.
-
-The rotation is a SWAP (`mu_x` <-> `mu_z`), so `to_display_keys` builds a new
-dict in a single pass. Renaming key by key would collapse both components
-onto one value -- that is the one bug this module must never have, and
-`tests/test_nomenclature.py::TestKeyRotation` holds the line on it.
-
-A rotated dict is an OUTPUT. It is never fed back into the application: only
-`from_display_keys`, at the same boundary that produced it, turns it back
-into engine keys.
+This pure data module supplies symbols, units, tooltips, slot names, visibility,
+and serialized display keys for rotor and propeller modes. It accepts internal
+engine keys, display-mode flags, and mathematical symbols; it returns labels,
+renderings, and boundary key mappings. ``to_display_keys`` and
+``from_display_keys`` perform one-pass conversion, while rendering helpers serve
+the GUI, plots, reports, and CLI. The engine remains in disk axes; only user-facing
+boundaries apply the rotor/propeller swap. A rotated mapping is output-only and must
+not be passed back into the application. The module imports no Qt, plotting backend,
+engine, filesystem, or argument parser.
 """
 from __future__ import annotations
 

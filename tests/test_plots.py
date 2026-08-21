@@ -1,4 +1,8 @@
-"""Tests for `zbemt.viz.plots`: planform/polar/convergence plots, disk-map visual reading and reverse-flow masking, additional disk-map fields, geometry and chord/twist plots, coefficient-vs-axis and XY plots, selection flattening, robust color-range handling, and disk colorbar labeling.
+"""Verify plot preparation, labels, ranges, and visual data selection.
+
+The tests supply synthetic geometry, polar, convergence, disk-map, and result data;
+assertions inspect generated figures, labels, masks, selections, and robust range
+handling. Plot generation is isolated from file persistence and solver execution.
 """
 
 import tempfile

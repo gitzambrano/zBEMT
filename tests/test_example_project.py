@@ -1,4 +1,9 @@
-"""End-to-end tests for the versioned example projects (mu sweep and starter_propeller): running them through the engine and checking the results converge and fall within a physically plausible range.
+"""Verify the versioned example projects end to end.
+
+Each test loads a project, runs its configured case or sweep, and checks convergence
+and physically plausible ranges. Project files are inputs and solver results are
+outputs; the tests intentionally exercise the same public execution path used by
+users. The suite does not rewrite example data.
 """
 
 import os
@@ -115,4 +120,3 @@ class TestExampleStarterPropeller(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

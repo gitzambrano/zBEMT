@@ -1,4 +1,13 @@
-"""
+"""Implement the command-line interface for the same workflows as the GUI.
+
+Purpose: parse project, geometry, airfoil, flight-condition, batch, solver, and
+export options and delegate all behavior to ``api.py``. Inputs are arguments,
+project files, and optional ``--set`` paths. Outputs are validation messages,
+results, saved projects, tables, figures, and reports. This module contains no
+physics and no independent serialization; axis labels and keys follow
+``nomenclature.py``. CLI limitations are the options exposed by the parser and
+the physical limitations reported by the selected models.
+
 cli.py
 ======
 

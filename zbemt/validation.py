@@ -1,43 +1,14 @@
-"""
-validation.py
-=============
+"""Validate project inputs before aerodynamic execution.
 
-Verification of mutually exclusive, redundant, or effect-less
-configuration combinations -- scattered between `AirfoilDef`
-(models.py/airfoils.py) and `BEMTConfig` (bemt.py). NOT part of the list
-of 11 files in Section 3 of the original plan; it was added later to
-concentrate these checks in a single place, instead of duplicating them
-inside `gui.py` (which would only know how to validate what the user is
-editing on screen at that moment) or scattering sanity `if`s inside
-`bemt.py` (which must stay untouched -- see docs/plano.md).
-
-Each check returns an `Issue`:
-  - level="error"   -> the combination is physically inconsistent or will
-                        produce a meaningless result / will raise an
-                        exception inside the engine. GUI and
-                        `main_batch.py` must prevent execution (or
-                        require explicit confirmation) when there are
-                        errors.
-  - level="warning"  -> the combination is redundant or probably not what
-                        the user meant, but does not break anything.
-  - level="info"      -> a field is being silently ignored given the
-                        current combination (not a user error, just
-                        transparency about what the engine will actually
-                        do).
-
-Note (docs/plano_v2.md Section 4.2): the GUI (gui.py) uses cascading
-selection (progressive disclosure) to make a good part of the
-combinations below UNREACHABLE by clicking on screen -- but these checks
-continue to exist here as a formal guarantee for the script/API/hand-
-edited `.bemt` path, which does not go through the cascading dropdowns
-(see `validate_project`, called by `api.py` before running, regardless of
-how the project was assembled).
-
-`validate_airfoil_def` does not touch disk nor run the engine -- it can
-be called for preview directly by the GUI (see docs/plano.md Section 8,
-final note). `validate_config` is also pure, but depends on
-`airfoil_def` because several checks are cross-checked between the two
-objects.
+The module checks airfoil definitions, engine configuration, and complete projects for
+invalid, redundant, ignored, or risky combinations. It accepts model definitions and
+engine settings and returns ``Issue`` records or aggregate validation results. The
+public functions are ``validate_airfoil_def``, ``validate_config``, and
+``validate_project``. ``api.py`` invokes them; GUI and CLI layers present their
+messages. Errors identify non-executable inputs, warnings identify questionable but
+allowed inputs, and informational records identify settings ignored by the active
+model. The checks are pure, do not access files, and cannot establish aerodynamic
+accuracy or replace experimental validation.
 """
 
 from __future__ import annotations

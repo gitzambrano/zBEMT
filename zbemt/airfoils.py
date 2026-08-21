@@ -1,24 +1,14 @@
-"""
-airfoils.py
-===========
+"""Build and evaluate the aerodynamic models assigned to blade sections.
 
-Concentrates EVERYTHING that is 2D:
-
-  a) the airfoil's aerodynamic model — analytical (linear/clip/enhanced),
-     tabulated (single polar, radial multi-section, and/or function of
-     Reynolds and/or Mach), Viterna-Corrigan extension, table+Viterna
-     blend;
-  b) the 2D profile geometry (NACA4/5, CST, Bezier, imported from .dat),
-     used only when generating a polar via an external engine is
-     intended (NeuralFoil — see external_solvers.py, Phase 7).
-
-This file NEVER calls NeuralFoil and NEVER reads the disk outside the
-explicit file import/export functions.
-
-`to_airfoil()` is the bridge function to the engine: takes an
-`AirfoilDef` (models.py) and returns an object ready to be passed to
-`bemt.py` (`AnalyticalAirfoil` / `TableAirfoil` / `MultiSectionTableAirfoil`,
-optionally wrapped in `ViternaExtendedAirfoil`).
+The module accepts airfoil definitions, profile geometry, polar tables, radial
+profiles, local Reynolds and Mach values, and angles of attack. It returns analytical
+or tabulated airfoil objects, aerodynamic coefficients, previews, and imported or
+exported tables. Public builders and evaluators are consumed by ``models.py``,
+``bemt.py``, ``api.py``, and the Airfoil GUI tab. Angles are degrees at file and GUI
+boundaries and radians where numerical routines require them. Extrapolated and
+semi-empirical models have limited validity outside their calibrated ranges. The
+module does not invoke external polar engines implicitly; explicit integrations are
+handled by ``external_solvers.py``.
 """
 
 from __future__ import annotations

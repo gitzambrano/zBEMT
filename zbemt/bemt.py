@@ -1,12 +1,30 @@
-"""
-================================================================================
- Generic BEMT for propellers/rotors -- vectorized engine in Python
-================================================================================
-Implementation of a BEMT (Blade Element Momentum Theory) solver for
-rotary-wing rotors (helicopter, eVTOL) and airplane propellers, covering
-hover, climb/descent and forward flight, with several optional physical
-models (reverse flow, dynamic stall, dynamic inflow, rotational
-corrections).
+"""Vectorized Blade Element Momentum Theory engine for rotors and propellers.
+
+Purpose and objectives:
+    Solve blade-element/momentum cases on a radial--azimuthal mesh, aggregate
+    loads, and expose convergence data. This is the physics layer; it does not
+    parse projects or write files.
+
+Inputs and outputs:
+    Inputs are ``Rotor`` geometry and airfoil objects, ``BEMTConfig`` settings,
+    and a flight condition. Outputs are element-state arrays, converged
+    ``Results``, load coefficients, and optional solver history. Inputs use SI
+    units and disk axes: ``mu_x`` is in-plane and ``Vz`` is along the shaft.
+
+Public operations:
+    ``solve_bemt`` solves a case; ``element_state`` evaluates local quantities;
+    ``aggregate_results`` integrates loads; solver helpers implement the
+    configured numerical methods.
+
+Conventions, limitations, and interactions:
+    Rotor/propeller display labels are applied outside this module. The model
+    is quasi-steady except for explicitly configured dynamic-stall and
+    time-marching options, uses annular momentum theory, and requires external
+    validation in strongly separated or highly unsteady regimes. ``models.py``
+    supplies data, ``airfoils.py`` supplies polars, ``studies.py`` prepares
+    cases, and ``api.py`` is the GUI/CLI execution boundary.
+
+The following notes define the numerical formulation implemented below.
 
 --------------------------------------------------------------------------------
 CORE IDEA OF BEMT

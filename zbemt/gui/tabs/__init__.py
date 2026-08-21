@@ -1,4 +1,9 @@
-"""One tab per module, in workflow order."""
+"""Provide the GUI tabs in workflow order.
+
+Each submodule owns one tab's widgets, event handlers, and presentation state. Tabs
+receive shared application state, delegate project and solver operations through the
+application boundary, and expose no independent persistence or aerodynamic model.
+"""
 
 from .project import ProjectTab
 from .geometry_tab import GeometryTab

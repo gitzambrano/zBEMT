@@ -1,4 +1,10 @@
-"""Tests for help_content and help_blocks (coverage, structure, and anchors)."""
+"""Verify the coverage, structure, and anchors of GUI help content.
+
+The tests inspect the HTML documentation and block-help registry, checking that
+visible fields and blocks resolve to explanatory content and valid anchors. Inputs
+are the repository documentation and help registries; outputs are assertion results.
+These tests enforce interface consistency rather than aerodynamic correctness.
+"""
 import re
 import unittest
 

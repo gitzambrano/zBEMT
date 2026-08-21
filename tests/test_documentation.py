@@ -25,6 +25,129 @@ def _html() -> str:
     return DOC.read_text(encoding="utf-8")
 
 
+class TestMatematicaRenderiza(unittest.TestCase):
+    """No HTML tag may sit between two math delimiters.
+
+    KaTeX's auto-render walks TEXT NODES looking for `$`...`$`. An element
+    between the two delimiters splits the run in half, so the opening `$$`
+    never meets its closing one: the equation is not rendered at all and the
+    reader is shown its raw LaTeX source instead.
+
+    It is an easy defect to introduce and an easy one to miss, because the
+    markup is well formed and the link inside it points at the right place.
+    It happened once, to the coupling equation of 5.9.1, when a pass that
+    turned prose cross-references into links did not know to skip formulas --
+    and what the reader saw was a paragraph of `$\\lambda_i$` and `$\\mu_x$`.
+    """
+
+    def _blocos_de_matematica(self, html: str) -> list:
+        corpo = html[html.index("<body>"):]
+        corpo = re.sub(r"<script\b.*?</script>|<style\b.*?</style>", " ", corpo, flags=re.S)
+        blocos = re.findall(r"\$\$.*?\$\$", corpo, re.S)
+        blocos += re.findall(r"(?<!\$)\$[^$\n]*\$(?!\$)", corpo)
+        return blocos
+
+    def test_katex_embutido_e_copia_fiel_do_vendor(self):
+        """The embedded KaTeX must be the vendor build, byte for byte.
+
+        It is minified JavaScript sitting in the same file as the prose, so a
+        careless find-and-replace over the document edits the LIBRARY too. That
+        happened: a rename of `\\lambda` to `\\lambda_{total}` and of `\\mu` to
+        `\\mu_x` reached 205 places inside the bundle and deleted KaTeX's own
+        definitions of both commands. Every `$\\lambda_i$` and `$\\mu_x$` in the
+        document then failed with "Undefined control sequence" and the reader
+        was shown raw LaTeX.
+
+        Nothing in the prose can detect that, which is why the check is here:
+        compare the embedded copy against `docs/vendor/katex/`. Regenerate with
+        `python tools/katex_inline.py` if this fails.
+        """
+        html = _html()
+        vendor = RAIZ / "docs" / "vendor" / "katex"
+        for nome in ("katex.min.js", "auto-render.min.js"):
+            with self.subTest(arquivo=nome):
+                fonte = (vendor / nome).read_text(encoding="utf-8").strip()
+                self.assertIn(
+                    fonte, html,
+                    f"the embedded {nome} differs from docs/vendor/katex/{nome}; "
+                    "run `python tools/katex_inline.py` to restore it")
+
+    def test_nenhuma_tag_html_dentro_de_matematica(self):
+        blocos = self._blocos_de_matematica(_html())
+        self.assertGreater(len(blocos), 500, "no math found -- the scan is broken")
+        com_tag = [b for b in blocos if re.search(r"<[a-zA-Z/]", b)]
+        self.assertEqual(
+            [re.sub(r"\s+", " ", b)[:160] for b in com_tag], [],
+            "math containing an HTML tag: KaTeX will not render it and the "
+            "raw LaTeX is shown to the reader")
+
+    def test_delimitadores_de_matematica_estao_emparelhados(self):
+        """An unclosed `$` swallows the prose after it into a bogus formula.
+
+        Checked the way the browser sees it. KaTeX walks the DOM and scans
+        each run of CONSECUTIVE text nodes; an element breaks the run, and a
+        newline inside one does not. Testing the raw source line by line
+        instead would flag every inline formula that a reformatter happened to
+        wrap across two lines, which renders perfectly well.
+        """
+        from html.parser import HTMLParser
+
+        ignorados = {"script", "noscript", "style", "textarea", "pre", "code", "option"}
+
+        class Trechos(HTMLParser):
+            def __init__(self):
+                super().__init__(convert_charrefs=True)
+                self.trechos, self._atual, self._linha, self._pular = [], [], 0, 0
+
+            def _fechar(self):
+                if self._atual:
+                    self.trechos.append((self._linha, "".join(self._atual)))
+                    self._atual = []
+
+            def handle_starttag(self, tag, attrs):
+                self._fechar()
+                if tag in ignorados:
+                    self._pular += 1
+
+            def handle_endtag(self, tag):
+                self._fechar()
+                if tag in ignorados and self._pular:
+                    self._pular -= 1
+
+            def handle_startendtag(self, tag, attrs):
+                self._fechar()
+
+            def handle_data(self, data):
+                if self._pular:
+                    return
+                if not self._atual:
+                    self._linha = self.getpos()[0]
+                self._atual.append(data)
+
+        html = _html()
+        leitor = Trechos()
+        leitor.feed(html[html.index("<body>"):])
+        leitor._fechar()
+
+        abertos, encontrados = [], 0
+        for linha, trecho in leitor.trechos:
+            i = 0
+            while i < len(trecho):
+                j = trecho.find("$", i)
+                if j < 0:
+                    break
+                fim = "$$" if trecho.startswith("$$", j) else "$"
+                k = trecho.find(fim, j + len(fim))
+                if k < 0:
+                    abertos.append(f"line {linha}: {trecho[j:j + 90]!r}")
+                    break
+                encontrados += 1
+                i = k + len(fim)
+
+        self.assertGreater(encontrados, 500, "no math found -- the scan is broken")
+        self.assertEqual(abertos, [], f"unclosed math delimiters: {abertos}")
+
+
 class TestDocumentationIsSelfContained(unittest.TestCase):
     def test_prosa_principal_e_justificada(self):
         """Running prose must use justified alignment in the document."""
@@ -42,7 +165,9 @@ class TestDocumentationIsSelfContained(unittest.TestCase):
         for trecho in (
             "fixed-thrust trim",
             "fixed-$C_T$ trim",
-            "\\sigma = \\frac{B S_b}{\\pi R^2}",
+            # The blade count is N_b throughout, as the nomenclature table
+            # defines it; the sizing formulas used to write it as B.
+            "\\sigma = \\frac{N_b S_b}{\\pi R^2}",
             "AR = \\frac{R^2}{S_b}",
             # Title only, without its section number: chapters get renumbered
             # when the document is restructured, and the number is not what
@@ -319,6 +444,119 @@ class TestReferenciasNumericasResolvem(unittest.TestCase):
         self.assertEqual(
             quebradas, [],
             f"prose points at sections that do not exist: {quebradas}")
+
+    def test_toda_referencia_e_um_link_para_a_secao_certa(self):
+        """A cross-reference must be a link, and the link must resolve to
+        the heading carrying that number.
+
+        The two halves used to drift apart: the number was maintained by
+        hand and the anchor by a different hand, so a reference could name
+        5.6.2 and open 8.2, or -- for most of the document's life -- name a
+        section and be no link at all, leaving the reader to search. Binding
+        the number to the anchor here is what stops both.
+        """
+        html = _html()
+        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if inicio in html:
+            html = html[:html.index(inicio)] + html[html.index(fim):]
+        for m in re.finditer(
+                r"<!-- INDICE-DE-CAMPOS:.*?<!-- /INDICE-DE-CAMPOS:[^>]*-->",
+                html, re.S):
+            html = html.replace(m.group(0), "")
+
+        # number -> the id of the heading that carries it
+        numero_para_id = {}
+        for m in re.finditer(r'<h[2-6]\s+id="([^"]+)"[^>]*>\s*(\d+(?:\.\d+)*)[.\s]',
+                             html):
+            numero_para_id.setdefault(m.group(2), m.group(1))
+        self.assertGreater(len(numero_para_id), 50, "no numbered headings with an id")
+
+        sem_link, apontando_errado = [], []
+        # every "Section N.M" outside an <a>, a <code> or a <pre>
+        neutro = re.sub(r"<a\b.*?</a>|<code>.*?</code>|<pre>.*?</pre>", " ",
+                        html, flags=re.S)
+        for m in re.finditer(r"\bSection\s+(\d+(?:\.\d+)*)", neutro):
+            sem_link.append(m.group(1))
+
+        for m in re.finditer(
+                r'<a[^>]*href="#([^"]+)"[^>]*>\s*(?:Section|Chapter)\s+(\d+(?:\.\d+)*)\s*</a>',
+                html):
+            destino, numero = m.group(1), m.group(2)
+            esperado = numero_para_id.get(numero)
+            if esperado is None:
+                apontando_errado.append(f"{numero} (no such heading)")
+            elif destino != esperado:
+                apontando_errado.append(f"{numero} -> #{destino}, expected #{esperado}")
+
+        self.assertEqual(sorted(set(sem_link)), [],
+                         "cross-references written as plain text instead of links: "
+                         f"{sorted(set(sem_link))}")
+        self.assertEqual(sorted(set(apontando_errado)), [],
+                         "links whose number and target disagree: "
+                         f"{sorted(set(apontando_errado))}")
+
+
+class TestCapitulosDeAbaSaoEstanques(unittest.TestCase):
+    """Chapters 6-12 are the GUI-tab chapters, and DC-4 makes each field
+    section self-contained: the reader must not have to follow a link to
+    understand or to set a field.
+
+    A reference out of one of those chapters is therefore a defect unless
+    it is a statement of SCOPE -- "that setting lives in another tab" --
+    rather than a deferral of physics. The few of those are listed here by
+    hand, so that adding one is a deliberate act.
+    """
+
+    #: (chapter, target) pairs that are scope statements, not deferrals.
+    EXCECOES = {
+        (8, "9"),      # "the rotor-wide settings are in the Config/Engine tab"
+        (8, "13.2"),   # the checks panel runs the validation rules of 13.2
+        (11, "10"),    # a batch sweeps the four quantities Run Case defines
+        (11, "10.1"),  # ... and a single ad hoc condition uses its flags
+    }
+
+    def test_nenhuma_referencia_sai_do_capitulo(self):
+        html = _html()
+        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if inicio in html:
+            html = html[:html.index(inicio)] + html[html.index(fim):]
+        for m in re.finditer(
+                r"<!-- INDICE-DE-CAMPOS:.*?<!-- /INDICE-DE-CAMPOS:[^>]*-->",
+                html, re.S):
+            html = html.replace(m.group(0), "")
+
+        linhas = html.split("\n")
+        inicio_do_capitulo = {}
+        for i, linha in enumerate(linhas):
+            m = re.match(r'<h2[^>]*>\s*(\d+)\.', linha)
+            if m:
+                inicio_do_capitulo[int(m.group(1))] = i
+        limites = sorted(inicio_do_capitulo.items())
+
+        def capitulo_de(i):
+            atual = None
+            for numero, comeco in limites:
+                if i >= comeco:
+                    atual = numero
+            return atual
+
+        citacao = re.compile(r"\b(?:Section|Chapter)\s+(\d+(?:\.\d+)*)")
+        fugas = []
+        for i, linha in enumerate(linhas):
+            cap = capitulo_de(i)
+            if cap is None or not (6 <= cap <= 12):
+                continue
+            for m in citacao.finditer(linha):
+                alvo = m.group(1)
+                if int(alvo.split(".")[0]) == cap:
+                    continue
+                if (cap, alvo) in self.EXCECOES:
+                    continue
+                fugas.append(f"chapter {cap}, line {i + 1}: -> {alvo}")
+
+        self.assertEqual(fugas, [],
+                         "tab chapters must be self-contained (DC-4); these "
+                         f"reference material outside their own chapter: {fugas}")
 
 
 class TestExemplosCitadosExistem(unittest.TestCase):

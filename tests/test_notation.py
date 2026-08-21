@@ -257,3 +257,12 @@ class TestRotulosDaGui(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+"""Verify rendered mathematical notation across user-facing surfaces.
+
+Purpose: prevent plain-text or Unicode approximations from replacing LaTeX
+symbols and subscripts in GUI, plots, help, reports, and HTML documentation.
+Inputs are source modules and documentation fixtures; outputs are unittest or
+pytest failures identifying the invalid surface. Code identifiers inside
+``<code>`` and serialized keys are allowed. The checks complement notation and
+nomenclature parity tests and do not modify application files.
+"""

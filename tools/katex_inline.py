@@ -18,9 +18,13 @@ Idempotent: it first tries to undo a previous injection (looking for the
 HTML markers below) before applying the new one, so running it twice in a
 row does not duplicate the block.
 
-The .woff2 fonts remain an external file (253 KB, see comment in
-`documentation.html`) -- only CSS and JS (which together are only ~300 KB
-of text) are worth inlining.
+The .woff2 fonts remain external files (253 KB in total), reached by the
+`@font-face` rules with paths rewritten to `vendor/katex/fonts/`, since the
+rules move out of `docs/vendor/katex/` when the CSS is inlined. Only the CSS
+and the JS -- together about 300 KB of text -- are worth embedding. The
+`.woff`/`.ttf` variants of the upstream package are fallbacks for browsers
+this documentation does not need to support and would triple the file size,
+so they are not shipped.
 """
 from pathlib import Path
 import re
