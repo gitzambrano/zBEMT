@@ -1,8 +1,6 @@
-"""
-styles.py
+"""styles.py
 =========
 
-GUI visual theme (docs/plano_v3.md Part 7, item 7): graphite palette +
 "instrument blue" (inspired by avionics panels -- numbers in monospace font,
 like a flight instrument, matching the app domain: BEMT/rotor). Applied once
 in ``gui.main()`` via ``app.setStyleSheet(APP_QSS)`` on the base ``QStyle``
@@ -20,8 +18,7 @@ Palette (named, not "generic blue #3f6fb4 as always"):
 Colors of the 4 status levels (gray/amber/green/red, ``STATUS_COLORS``)
 are reused by the flow bar between tabs (``gui.FlowIndicatorBar``) to color
 Project/Geometry/Airfoil/Config/Run Case/Run Batch/Results markers --
-kept as they were, only the rest of the theme changed.
-"""
+kept as they were, only the rest of the theme changed."""
 
 from pathlib import Path
 

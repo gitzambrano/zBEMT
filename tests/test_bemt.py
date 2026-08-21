@@ -1,4 +1,10 @@
-"""Tests for `zbemt.bemt`: the core BEMT solver -- hover and forward-flight solutions, agreement between solver methods, advance-velocity identities, propeller-convention result aggregation, table/Viterna-extrapolated airfoils, `BEMTConfig` defaults, the Prandtl-Glauert compressibility ceiling, and heterogeneous multi-section airfoils.
+"""Verify the core blade-element/momentum solver.
+
+The tests cover hover, forward flight, propeller conventions, solver-method
+agreement, convergence identities, airfoil extrapolation, compressibility limits,
+and heterogeneous sections. Inputs are controlled configurations and model objects;
+outputs are compared against physical identities, tolerances, and golden values.
+These tests do not define GUI or file-format behavior.
 """
 
 import math

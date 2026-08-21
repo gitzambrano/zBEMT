@@ -1,4 +1,11 @@
-"""Tab 1 -- Project: create/open, rotor vs propeller mode, metadata."""
+"""Implement the Project GUI tab.
+
+The tab creates, opens, saves, and validates projects; selects rotor or propeller
+mode; and edits project metadata. Inputs are project paths, names, mode settings,
+and shared project definitions. Outputs are updated application state and persisted
+``.bemt`` projects. Solver execution and file-format interpretation remain owned by
+the application boundary.
+"""
 
 from __future__ import annotations
 

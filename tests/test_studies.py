@@ -1,4 +1,9 @@
-"""Tests for `zbemt.studies`: running a single case, parameter sweeps, running a batch (with progress and cancellation), solver benchmarking, building a config with an airfoil override, factorial batches, multi-section-airfoil single cases, saved-case batch round-trips, cancellation mid-case, and trimmed run cases.
+"""Verify study orchestration around individual cases and batches.
+
+The tests cover single runs, sweeps, factorial batches, cancellation, progress
+callbacks, trim modes, saved cases, and airfoil overrides. Inputs are model objects,
+callbacks, and controlled configurations; outputs are results, progress events, and
+cancellation behavior. Numerical equations remain tested in the core solver suite.
 """
 
 import os

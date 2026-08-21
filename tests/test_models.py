@@ -1,4 +1,9 @@
-"""Tests for `zbemt.models`: save/load round-trips for projects, default project paths, the Project dataclass, airfoil-sections round-trips, project-name persistence, and JSON-safe serialization of non-finite values.
+"""Verify model dataclasses and ``.bemt`` serialization.
+
+The tests cover project defaults, save/load round trips, airfoil sections, project
+metadata, paths, and JSON-safe handling of non-finite values. Inputs are model
+objects and temporary files; outputs are reconstructed objects and serialized data.
+The tests do not run the aerodynamic solver.
 """
 
 import math

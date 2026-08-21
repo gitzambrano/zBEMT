@@ -1,4 +1,9 @@
-"""Tests for `zbemt.validation`: validating airfoil definitions, engine config, projects, full-range extrapolation of multi-section tables, airfoil sections, flight conditions, rejection of zero rotation speed, the tip-Mach warning, and full-range-polar vs. reverse-flow interaction.
+"""Verify validation of airfoils, configurations, projects, and flight conditions.
+
+The tests supply valid and invalid combinations and assert error, warning, and
+informational records, including extrapolation, multi-section, Mach, and zero-speed
+limits. Validation is expected to be pure: no solver run or persistent file is
+required.
 """
 
 import unittest

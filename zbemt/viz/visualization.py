@@ -1,9 +1,7 @@
-"""
-visualization.py
+"""visualization.py
 =================
 
 3D via PyVista, isolated in this file — it is the platform's only
-"heavy" and optional dependency (see docs/plano.md, Section 4 / 8.5).
 The ``pyvista`` import only happens here, and only inside the functions
 that actually draw (never at module level) — the rest of the platform
 (geometry, airfoil, BEMT, batch, 2D plots, GUI without the 3D tab) keeps
@@ -33,8 +31,7 @@ Axis convention (rotor "at rest", seen from outside): X,Y in the disk
 plane, with azimuth ``psi=0`` along +X (same convention as the rest of
 the platform — see ``bemt.element_state``, where ``Ut`` uses
 ``sin(psi)`` and X is the ``psi=0`` reference); Z along the rotor axis,
-out of the disk plane.
-"""
+out of the disk plane."""
 
 from __future__ import annotations
 

@@ -1,5 +1,9 @@
-"""Instant tooltip (zbemt/gui/instant_tooltip.py): shows/hides without
-relying on the native QToolTip delay."""
+"""Verify the non-blocking instant field tooltip behavior.
+
+The tests construct the tooltip widget, provide field text, and inspect visibility
+and timing transitions without relying on the native Qt tooltip delay. They cover
+presentation behavior only and do not invoke the solver or modify project files.
+"""
 import os
 import unittest
 

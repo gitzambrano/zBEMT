@@ -1,22 +1,12 @@
-"""
-external_solvers.py
-====================
+"""Integrate optional external airfoil-polar generation engines.
 
-Integration with the external polar-generation engine: **NeuralFoil**
-(Peter Sharpe, pip package ``neuralfoil`` — neural network trained on
-thousands of XFOIL runs, evaluates a polar in milliseconds without
-needing to run an iterative panel solver).
-
-Phase 7 (docs/plano_v3.md): XFOIL is NOT supported in this version -- by
-explicit scope decision, the only external engine implemented and
-exposed by the GUI/CLI is NeuralFoil. Before this Phase, this file was
-a stub (``run_polar`` raised ``NotImplementedError`` for both engines);
-from here on ``run_polar("neuralfoil", ...)`` actually runs.
-
-``api.py`` already knows how to convert the return value into
-``PolarSlice``s inside ``AirfoilDef`` (see ``models.PolarSlice``) and the
-GUI/CLI already know how to call
-``api.run_external_polar()``/``api.run_external_polar_from_geometry()``.
+The module accepts profile geometry, Reynolds and Mach lists, angle limits, and
+engine options. It detects supported engines, validates requests, and returns
+polar slices or structured errors; it does not run BEMT or persist projects.
+``airfoils.py`` consumes successful tables, ``api.py`` exposes the operation, and the
+Airfoil GUI supplies requests. NeuralFoil is the supported engine; unsupported
+engines are rejected explicitly. Returned data inherit the external engine's
+operating envelope and confidence limitations.
 """
 
 from __future__ import annotations

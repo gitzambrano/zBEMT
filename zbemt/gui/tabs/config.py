@@ -1,4 +1,17 @@
-"""Tab 4 -- Config/Engine: mesh, inflow, corrections, solver, and exit."""
+"""Implement GUI tab 4, Config/Engine.
+
+Purpose: expose mesh, atmosphere, inflow, loss/correction, Pitt--Peters, and
+solver settings in the order used by the engine.
+
+Inputs and outputs: reads the active ``AppState`` project, displays editable
+controls, and writes values back to the project model when applied or saved.
+Builders create groups; synchronizers load/store ``BEMTConfig``; validation
+helpers update the issue panel. ``api.py`` owns persistence and execution.
+
+Conventions and limitations: controls use SI units and progressive disclosure.
+Valid but inactive controls remain visible and disabled. Rotor/propeller mode
+and airfoil behavior are configured on their respective tabs.
+"""
 
 from __future__ import annotations
 

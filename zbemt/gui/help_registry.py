@@ -1,23 +1,12 @@
-"""Short per-field help content, for the "?" instant tooltip
-(`field_help.py`) -- Part 1 of the documentation redesign plan
-(see `production-plan.md`/session history: contextual per-field popup).
+"""Extract short field descriptions from the authoritative HTML documentation.
 
-This is NOT a third hand-maintained list: the ONE-line explanation per
-field already exists in `docs/documentation.html`, in the "Parameters by
-tab" table (`guia-campos` section, `id="ajuda-{campo}"`, the same source
-`field_help.mapa_de_campos()` uses to find the ANCHOR). This module just
-reads the same table and returns the TEXT of the cell next to it --
-crossing the same source twice instead of duplicating the content in
-Python is what avoids the "third list that ages silently with every new
-field" that the plan itself warns not to create.
-
-Scope of this part of the plan: the RICH per-field popup (short
-definition + "see full documentation" link, delivered via `QToolTip`
-HTML on the existing "?" button -- instant on hover, no browser opening,
-no new widget, no layout risk). The whole-BLOCK "?" (one explanation
-per `QGroupBox`) and the full HTML restructuring (tutorial ->
-fundamentals -> by tab) are bigger and are left for a dedicated
-session -- see the scope note in `production-plan.md`/follow-up task.
+The module reads ``docs/documentation.html`` and returns a cached mapping from each
+field name to sanitized HTML text and its documentation anchor. GUI help components
+use this mapping for hover text; ``field_help_data.py`` resolves sections and
+``help_popup.py`` renders them. The parser accepts the documented field-row pattern
+and fails closed with an empty mapping when documentation is unavailable. It is a
+presentation helper, not a completeness validator, and maintains no independent
+physics database.
 """
 from __future__ import annotations
 

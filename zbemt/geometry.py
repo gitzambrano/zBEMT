@@ -1,4 +1,13 @@
-"""
+"""Generate, validate, interpolate, and edit radial blade geometry.
+
+Purpose: maintain the spanwise chord and twist representation consumed by the
+engine and previewed by the GUI. Inputs are radius, blade count, root cutout,
+radial stations, chord, twist, and preset parameters. Outputs are validated
+geometry definitions and interpolated arrays. Public generators and editors
+interact with ``models.py``, ``api.py``, ``bemt.py``, and the Geometry tab.
+Stations are normalized by radius; interpolation is piecewise linear and does
+not model structural deformation or three-dimensional airfoil geometry.
+
 geometry.py
 ===========
 

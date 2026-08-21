@@ -1,4 +1,10 @@
-"""Tests for `zbemt.airfoils`: building/dispatching airfoil models (analytical, table, CST/Bezier), polar preview vs. the engine, reverse-flow handling in the preview, unique-condition/axis-value helpers, table slicing, NACA/CST geometry generation, profile file I/O, and polar CSV import/export.
+"""Verify airfoil construction, evaluation, preview, and table I/O.
+
+The tests cover analytical and tabulated models, geometry generators, polar slicing,
+reverse-flow behavior, preview consistency, and import/export round trips. Fixtures
+provide model definitions and numerical inputs; assertions verify coefficients,
+selection behavior, file representations, and validation errors. The suite does not
+require an external polar engine unless a test explicitly detects it.
 """
 
 import math

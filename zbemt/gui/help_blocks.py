@@ -1,12 +1,11 @@
-"""Rich help content by conceptual block (Layer 2 of the documentation plan).
+"""Provide concise block-level help for GUI group boxes.
 
-Each entry corresponds to a relevant QGroupBox in the GUI: the groupbox TITLE
-is clickable and opens this content (no "?" button anymore).
-
-The body is simple HTML (QLabel RichText): equations in Unicode, no MathJax.
-Each block covers the essential math -- the "Open full documentation →" link
-points to the corresponding PHYSICS section in ``docs/documentation.html``,
-never to the field table.
+The registry maps each visible block identifier to a title, Qt rich-text body, and
+documentation anchor. ``help_popup.py`` renders the entries and tab widgets provide
+the identifiers. Bodies use HTML ``<sub>`` and ``<sup>`` notation supported by Qt
+rich text and summarize the block's physical role; the HTML documentation remains
+the complete reference. This module contains data only and has no solver, file, or
+persistent-state responsibilities.
 """
 from __future__ import annotations
 

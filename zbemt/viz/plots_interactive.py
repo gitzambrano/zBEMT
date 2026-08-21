@@ -1,5 +1,4 @@
-"""
-plots_interactive.py
+"""plots_interactive.py
 =====================
 
 Plotly charts (native browser zoom/pan/color) for the GUI --
@@ -21,9 +20,7 @@ the summary table.
 
 Initial coverage (the most used view in the Results tab): only
 `coefficients_vs_axis`. The other three views (disk map, azimuth/span,
-planform/profile preview) still use matplotlib for now -- see
-`production-plan.md` for the open item.
-"""
+planform/profile preview) still use matplotlib for now -- see"""
 from __future__ import annotations
 
 import numpy as np

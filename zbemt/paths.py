@@ -1,29 +1,23 @@
-"""
+"""Resolve repository, documentation, project, and output paths.
+
+Purpose: centralize filesystem locations so GUI, CLI, reports, and generators
+use the same offline resources. Inputs are optional base paths and project
+names; outputs are ``Path`` objects and validated directories. Functions do
+not run the solver or interpret project physics. ``api.py`` owns project I/O,
+while documentation and screenshot tools consume the resolved paths. Paths are
+platform-aware; missing optional resources are reported to callers rather than
+
 paths.py
 ========
 
 Resolves where the data that is NOT code lives: embedded documentation,
 user projects, and the output folder.
 
-Why this exists: up to now the GUI computed everything as
-``Path(__file__).parents[2]``, which gives the repository root in an
-editable install (``pip install -e .``) but the ``site-packages`` folder
-in a real installed wheel -- there's no ``projects/`` or ``docs/`` there,
-and the GUI would try to create projects inside the Python installation.
-
-The three functions below handle both cases, in this priority order:
-
-1. explicit environment variable (the user said so, obey);
-2. the repository, when running from inside it (development mode --
-   this is what keeps `projects/starter_rotor` showing up in the GUI
-   for anyone who cloned it);
-3. the user data directory (``~/.zbemt``), for a real installation.
-
-No new dependency: `platformdirs` would handle case 3 more precisely
-per OS, but ``~/.zbemt`` is predictable, works the same on
-Windows/Linux/macOS, and doesn't cost the engine a dependency, which is
-deliberately lean (see `pyproject.toml`).
-"""
+The resolver distinguishes editable and installed layouts and returns the
+same logical resource locations in both cases.
+The resolution order is explicit environment variable, repository resources
+when available, and the user data directory for installed use. The returned
+paths are platform-aware and callers must handle missing optional resources."""
 
 from __future__ import annotations
 

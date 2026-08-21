@@ -131,8 +131,8 @@ def montar_html(nome_aba: str, campos: list, numeros: dict | None = None) -> str
     numeros = numeros or {}
 
     def rotulo(ancora: str) -> str:
-        # With no matching numbered heading, falls back to the anchor name --
-        # ugly on purpose, so the gap shows up on the page and not only here.
+        # A missing heading is reported by its anchor so the inventory remains
+        # inspectable instead of silently dropping the field.
         return numeros.get(ancora, ancora)
 
     itens = "".join(
@@ -142,8 +142,8 @@ def montar_html(nome_aba: str, campos: list, numeros: dict | None = None) -> str
     return (
         f'<div class="boxed">\n'
         f"<b>Fields in this tab, in the order they appear on screen</b> "
-        f"({len(campos)}). Each one links to the section that explains it; "
-        f"it is the same destination as the field Help in the window.\n"
+        f"({len(campos)}). The sections below are self-contained and use the "
+        f"same explanations as the field Help in the window.\n"
         f'<ol class="indice-de-campos">{itens}</ol>\n'
         f"</div>"
     )
@@ -161,7 +161,7 @@ def injetar(html: str, nome_aba: str, bloco: str) -> str:
     padrao = re.compile(rf'(<h2 id="{re.escape(cap)}">.*?</h2>\n)')
     achado = padrao.search(html)
     if not achado:
-        raise SystemExit(f"capítulo {cap} não encontrado na documentação")
+        raise SystemExit(f"chapter {cap} was not found in the documentation")
     return html[:achado.end()] + novo + "\n" + html[achado.end():]
 
 
@@ -176,14 +176,14 @@ def main(escrever: bool) -> int:
     # index seeing another.
     numeros = numeros_de_secao(html)
     for nome_aba, campos in ordem.items():
-        print(f"{nome_aba:<12} {len(campos)} campos")
+        print(f"{nome_aba:<12} {len(campos)} fields")
         if campos:
             html = injetar(html, nome_aba, montar_html(nome_aba, campos, numeros))
     if escrever:
         doc.write_text(html, encoding="utf-8")
-        print("documentação atualizada")
+        print("documentation updated")
     else:
-        print("(use --escrever para injetar na documentação)")
+        print("(use --escrever to inject the index into the documentation)")
     return 0
 
 

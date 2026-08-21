@@ -1,4 +1,9 @@
-"""Tests for `zbemt.external_solvers`: which engines are supported, availability checks, and running an external polar solver (validation and computation), including behavior when the optional package is not installed.
+"""Verify optional external polar-engine integration.
+
+The tests check supported-engine identification, availability detection, request
+validation, and returned polar slices when the optional package is installed. They
+also verify clear behavior when it is unavailable. Geometry and operating-point
+inputs are isolated fixtures; no project is persisted by these tests.
 """
 
 import os
