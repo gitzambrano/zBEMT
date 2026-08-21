@@ -96,7 +96,7 @@ _QUANTITIES: tuple = (
            "the blades and makes the advancing and retreating sides differ"),
        propeller_description=(
            "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R), "
-           "the cross-flow normalised by tip speed. This is the component that "
+           "the cross-flow normalized by tip speed. This is the component that "
            "varies with azimuth and makes one side of the disk see more speed "
            "than the other. Zero in straight cruise")),
     _q("J_x", "inplane", r"J_x", r"J_z", "J_z", unit="-",
@@ -129,7 +129,7 @@ _QUANTITIES: tuple = (
            "in the advance-ratio vocabulary instead of the inflow one"),
        propeller_description=(
            "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R), "
-           "the airspeed normalised by tip speed. THE SAME NUMBER as "
+           "the airspeed normalized by tip speed. THE SAME NUMBER as "
            "&lambda;<sub>x</sub>, in the advance-ratio vocabulary")),
     _q("J_z", "axial", r"J_z", r"J_x", "J_x", unit="-",
        rotor_description=(
@@ -479,7 +479,7 @@ def symbol_name(engine_key: str, is_propeller: bool = False) -> str:
 
 
 def _como_mathtext(corpo: str) -> str:
-    """Wraps a symbol body so the converters recognise it as mathtext. A body
+    """Wraps a symbol body so the converters recognize it as mathtext. A body
     with no notation (`"RPM"`) is left alone, so it never gets treated as a
     name with a subscript."""
     return f"${corpo}$" if _needs_math(corpo) else corpo

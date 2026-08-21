@@ -1570,11 +1570,11 @@
       ],
       "mu_x": [
         "&mu;<sub>z</sub>",
-        "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R), the cross-flow normalised by tip speed. This is the component that varies with azimuth and makes one side of the disk see more speed than the other. Zero in straight cruise"
+        "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R), the cross-flow normalized by tip speed. This is the component that varies with azimuth and makes one side of the disk see more speed than the other. Zero in straight cruise"
       ],
       "mu_z": [
         "&mu;<sub>x</sub>",
-        "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R), the airspeed normalised by tip speed. THE SAME NUMBER as &lambda;<sub>x</sub>, in the advance-ratio vocabulary"
+        "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R), the airspeed normalized by tip speed. THE SAME NUMBER as &lambda;<sub>x</sub>, in the advance-ratio vocabulary"
       ],
       "rotor_D": [
         "D",

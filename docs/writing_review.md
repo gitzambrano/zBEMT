@@ -4,9 +4,26 @@ This report lists the writing defects found in `docs/documentation.html` and
 in the `zbemt/` docstrings, measured against the `writing-rules` skill
 (`.claude/skills/writing-rules/SKILL.md`).
 
-**Nothing in this report has been applied.** Every entry is a proposal. The
-seven new rules in Section 8 are proposals as well, and they are not in the
-skill yet.
+**Status: applied.** The rules `G25` to `G31` of Section 8 are now in the
+skill. The revisions below were applied to the source, in these passes:
+
+- Every British spelling became American (`G31`), in the manual and in the
+  code.
+- Every Portuguese user-facing string, warning and comment became English.
+- 161 prose semicolons in `docs/documentation.html` became sentences
+  (`G14`), and its Latin abbreviations became words (`G20`).
+- The 24 bare `argparse` help strings became real instructions (`P2`).
+- The module docstrings named below were rewritten.
+
+Two things were deliberately **not** done, and remain open:
+
+- The blanket sweep of the roughly 950 ` -- ` prose dashes in the
+  docstrings. Only the dashes in the findings below were changed. A
+  mechanical sweep of the rest risks changing meaning, and needs a pass of
+  its own.
+- The 284 `&mdash;` entities in `docs/documentation.html`, for the same
+  reason. Many sit in headings, where changing the text would also mean
+  changing every cross-reference `title` that quotes it.
 
 ---
 

@@ -4,8 +4,8 @@ The module checks airfoil definitions, engine configuration, and complete projec
 invalid, redundant, ignored, or risky combinations. It accepts model definitions and
 engine settings and returns ``Issue`` records or aggregate validation results. The
 public functions are ``validate_airfoil_def``, ``validate_config``, and
-``validate_project``. ``api.py`` invokes them; GUI and CLI layers present their
-messages. Errors identify non-executable inputs, warnings identify questionable but
+``validate_project``. ``api.py`` invokes them. The GUI and CLI layers present
+their messages. Errors identify non-executable inputs, warnings identify questionable but
 allowed inputs, and informational records identify settings ignored by the active
 model. The checks are pure, do not access files, and cannot establish aerodynamic
 accuracy or replace experimental validation.

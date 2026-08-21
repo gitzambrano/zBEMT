@@ -36,7 +36,7 @@ def _xy_label(key: str, is_propeller: bool = False) -> str:
     """Plain-text axis label for any `Results.summary` key.
 
     There used to be a whole second copy of `plots._SUMMARY_KEY_LABELS` here,
-    hand-transcribed into Unicode -- and, having no mode argument, it labelled
+    hand-transcribed into Unicode -- and, having no mode argument, it labeled
     a propeller's CROSS-flow "mu_x" on every custom X-Y plot. Both problems go
     away by rendering the one label source into the target this file needs.
     """

@@ -7,12 +7,12 @@ Working rules for this repository.
 `docs/software_requirements.md` is binding. Every requirement in it carries a
 code (`PR-4`, `EN-2`, `QR-8`, …), and the software must satisfy all of them.
 
-- Before changing behaviour, check whether a requirement governs it. If one
+- Before changing behavior, check whether a requirement governs it. If one
   does, the requirement decides — not convenience, and not what the code
   happens to do today.
 - If a change would break a requirement, do not make it silently. Say so, and
   either change the requirement deliberately or find another approach.
-- New behaviour that is worth keeping needs a requirement. Add it, with a code,
+- New behavior that is worth keeping needs a requirement. Add it, with a code,
   in the section it belongs to.
 - Cite the code when a test or a commit exists because of a requirement. That
   is what makes the link findable in both directions.
@@ -39,7 +39,7 @@ GUI strings.
 3. Run the full suite once, at the end, after every requested change is done.
 4. Never report work as done while a test fails or an implementation is
    partial.
-5. When a fix changes documented behaviour, update the documentation in the
+5. When a fix changes documented behavior, update the documentation in the
    same change.
 6. Verify a subagent's work yourself, with `git diff` and a real test run. Its
    own summary is not evidence.

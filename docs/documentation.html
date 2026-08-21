@@ -768,21 +768,21 @@
 
     <p>zBEMT solves the blade-element and momentum formulations on a common radial--azimuthal mesh.
       The blade is discretized into radial and azimuthal stations. At each element $(r,\psi)$, both
-      formulations describe the same local load; their equality determines the induced velocity. The
+      formulations describe the same local load. Their equality determines the induced velocity. The
       integrated solution follows from these local aerodynamic states and a consistent momentum balance.</p>
 
     <ul>
       <li><b>Blade element theory</b> (<a class="xref" href="#sec-28-blade-element-theory"
-          title="5.6 Blade Element Theory">Section 5.6</a>) computes the load directly from the local flow the
-        airfoil actually sees: angle of attack, then $C_l$/$C_d$ from the airfoil polar. It needs the
-        induced velocity as an input (it changes the local angle of attack) but says nothing about what
+          title="5.6 Blade Element Theory">Section 5.6</a>) computes the load directly from the local flow at the
+        airfoil: angle of attack, then $C_l$/$C_d$ from the airfoil polar. It needs the
+        induced velocity as an input (it changes the local angle of attack) but does not determine what
         that induced velocity should be.</li>
       <li><b>Momentum theory</b> (<a class="xref" href="#sec-29-momentum-theory" title="5.7 Momentum Theory">Section
           5.7</a>), applied to an elementary annular ring of the disk
         (<a class="xref" href="#cap-18-5" title="5.7.5 From global disk to elementary ring">Section 5.7.5</a>), says the
         opposite: given a load, conservation of momentum for the air passing
         through that ring determines the induced velocity ($\lambda_i$) required to sustain it. It needs
-        the load as an input and says nothing about airfoils.</li>
+        the load as an input and does not describe the airfoil.</li>
     </ul>
 
     <p>Neither theory alone closes the governing system. The solver couples them iteratively:
@@ -804,7 +804,7 @@
     <p>Use this guide in the same order as the <span class="gui">GUI</span>. First describe the aircraft or
       propeller, then the blade geometry and airfoil data, choose the physical corrections and
       solver settings, define one case or a batch, and finally inspect the results. The equations
-      are included whenever they help select a value or diagnose a result; source-level details that do
+      are included whenever they help select a value or diagnose a result. Source-level details that do
       not change that decision are intentionally omitted.</p>
 
     <figure>
@@ -886,7 +886,7 @@
 zbemt --project projects/starter_rotor     # run a project from the CLI
 zbemt --help                               # every flag</code></pre>
 
-    <p>If the commands are not found, the installation directory is not on your path; running
+    <p>If the commands are not found, the installation directory is not on your path. Running
       <code>python -m zbemt.gui.app</code> and <code>python -m zbemt.cli</code> does the same thing.
       Both accept no arguments at all, in which case they fall back to the starter rotor, so there is
       always something to look at.
@@ -934,7 +934,7 @@ zbemt --help                               # every flag</code></pre>
     <p>The <b><span class="bemt">.bemt</span> files</b> are the record of what was configured. A project is a folder of
       small
       text files in JSON format, one per subject, which can be read, edited, copied between machines and
-      tracked in version control. They are the definition of the case; everything else reads from
+      tracked in version control. They are the definition of the case. Everything else reads from
       them.</p>
 
     <p>The <b><span class="cli">CLI</span></b> runs a project without a display. It is the way to launch a long sweep,
@@ -943,7 +943,7 @@ zbemt --help                               # every flag</code></pre>
 
     <h3 id="cap-interfaces-2">2.2 The project folder</h3>
 
-    <p>A project is a folder containing two subfolders. Inputs are the definition of the case; outputs
+    <p>A project is a folder containing two subfolders. Inputs are the definition of the case. Outputs
       are what a run produced.</p>
 
     <div class="tablewrap">
@@ -965,7 +965,7 @@ zbemt --help                               # every flag</code></pre>
         </tr>
         <tr>
           <td><code>airfoil.bemt</code></td>
-          <td>The aerodynamic model: analytical coefficients or an imported polar, stall behaviour, reverse flow,
+          <td>The aerodynamic model: analytical coefficients or an imported polar, stall behavior, reverse flow,
             compressibility.</td>
           <td>Airfoil tab</td>
         </tr>
@@ -995,7 +995,7 @@ zbemt --help                               # every flag</code></pre>
 
     <p>A key that is absent from a file takes its default value, so a short file is valid and describes
       a rotor using defaults for everything it does not mention. A key that is present but not
-      recognised is reported as unknown and ignored; it does not stop the run, but the value is not
+      recognized is reported as unknown and ignored. It does not stop the run, but the value is not
       used, and the field falls back to its default. This is the usual cause of a hand-edited file that
       appears to have no effect.</p>
 
@@ -1012,7 +1012,7 @@ zbemt --help                               # every flag</code></pre>
     <p>Each interface plays a different part.</p>
 
     <p>The <span class="gui">GUI</span> edits and writes the files. Typing a value into a field changes
-      the project held in memory; nothing reaches disk until you save, at which point the whole project
+      the project held in memory. Nothing reaches disk until you save, at which point the whole project
       is written back to <span class="bemt">.bemt</span> files &mdash; the same files you could have
       edited by hand. This is what makes the <span class="gui">GUI</span> the easiest way to author a
       project: build it on screen, save it, and the folder is ready for any of the three.</p>
@@ -1042,7 +1042,7 @@ zbemt --help                               # every flag</code></pre>
 
     <p><b>Only the <span class="gui">GUI</span>.</b> Open it with <code>zbemt-gui</code>, create a
       project, fill in the tabs, and run from the Run Case or Run Batch tab. Saving writes the
-      <span class="bemt">.bemt</span> files; you never need to look at them. This is the recommended
+      <span class="bemt">.bemt</span> files. You never need to look at them. This is the recommended
       route for a first project.
     </p>
 
@@ -1057,7 +1057,7 @@ zbemt --help                               # every flag</code></pre>
       where the geometry, the airfoil and the configuration live &mdash; but the
       <span class="cli">CLI</span> can create one: <code>zbemt --new projects/MyRotor</code> writes a
       folder with default geometry and airfoil, which you then shape with flags. A fresh project has no
-      saved case, so that first command creates the folder and runs nothing; from then on, a condition
+      saved case, so that first command creates the folder and runs nothing. From then on, a condition
       given on the command line is what gets solved:
     </p>
 
@@ -1092,8 +1092,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
 
     <p>There are two kinds of run. A <b>single case</b> solves one flight condition. A <b>batch</b>
       solves a list of conditions one after another, with everything except the condition held fixed, so
-      the results are directly comparable. The numbers are the same whichever way the run was started;
-      what differs is what is shown and what is written to disk.</p>
+      the results are directly comparable. The numbers are the same whichever way the run was started. What differs is what is shown and what is written to disk.</p>
 
     <h4 id="cap-interfaces-5-1">2.5.1 What appears on screen</h4>
 
@@ -1106,8 +1105,8 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
         </tr>
         <tr>
           <th><span class="gui">GUI</span></th>
-          <td>Summary metrics table in Run Case tab; detailed radial cuts, residual history, and 2D disk maps available in Results tab.</td>
-          <td>Progress bar and condition status table; batch runs saved to Results tab for comparative sweep overlays.</td>
+          <td>Summary metrics table in Run Case tab. Detailed radial cuts, residual history, and 2D disk maps available in Results tab.</td>
+          <td>Progress bar and condition status table. Batch runs saved to Results tab for comparative sweep overlays.</td>
         </tr>
         <tr>
           <th><span class="cli">CLI</span></th>
@@ -1138,7 +1137,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
           <td><code>results.csv</code></td>
           <td>Summary table metrics across all evaluated flight conditions.</td>
           <td><i>Export</i> block or table export buttons (CSV/TSV).</td>
-          <td>Written by default; suppressed via <code>--no-csv</code>.</td>
+          <td>Written by default. Suppressed via <code>--no-csv</code>.</td>
           <td>&mdash;</td>
         </tr>
 
@@ -1154,7 +1153,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
           <td><code>disk_map_*.png</code></td>
           <td>2D spatial disk distributions (individual scalar maps and multi-field grids).</td>
           <td><i>Export</i> &rsaquo; plots.</td>
-          <td><code>--plots disk_map</code> (or specific field, e.g. <code>--plots disk_map_CT</code>)</td>
+          <td><code>--plots disk_map</code> (or specific field, for example, <code>--plots disk_map_CT</code>)</td>
           <td><code>plots</code> in batch</td>
         </tr>
 
@@ -1186,7 +1185,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       and asking for a report does not write loose images: the first controls what sits on disk as PNG
       files, the second what is embedded in the HTML. When a report would carry a very large number of
       figures it is written as a small main page with companion pages beside it, so the main page stays
-      quick to open; nothing is left out.</p>
+      quick to open. Nothing is left out.</p>
 
     <p><b>Nothing else is written.</b> A run never modifies the project. Saving a condition or a batch
       back into <code>saved_cases.bemt</code> or <code>batches.bemt</code> is a separate, explicit
@@ -1244,8 +1243,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       polar.</p>
 
     <h4 id="uso-config">Config/Engine &mdash; mesh and physical models</h4>
-    <p><i>Ne</i> discretizes the radius and <i>Npsi</i> discretizes the azimuth;
-      together they define the mesh over which the solver integrates forces. Inflow,
+    <p><i>Ne</i> discretizes the radius and <i>Npsi</i> discretizes the azimuth. Together they define the mesh over which the solver integrates forces. Inflow,
       Prandtl losses and solver are independent models composed over that mesh.
       The static validation runs on its own — the panel at the bottom of the tab restates it
       after every edit, here or in any other tab, so what it shows is always the current
@@ -1258,13 +1256,12 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       earlier runs.</p>
 
     <h4 id="uso-batch">Run Batch &mdash; generate, queue, run</h4>
-    <p>Choose axes or add individual conditions. Both paths feed the same queue;
-      review it before running. A batch is not an automatic trim: with the collective
+    <p>Choose axes or add individual conditions. Both paths feed the same queue. Review it before running. A batch is not an automatic trim: with the collective
       held fixed, thrust and power are outputs that vary with the condition.</p>
 
     <h4 id="uso-resultados">Results &mdash; compare before exporting</h4>
     <p>Select one or more runs from the history to compare charts and tables.
-      Export writes result files; generating a report creates the self-contained HTML
+      Export writes result files. Generating a report creates the self-contained HTML
       of the run. Neither changes the physics that was already solved.</p>
 
     <a id="cap-0"></a>
@@ -1292,10 +1289,10 @@ zbemt --help     # command line</pre>
 
     <h4 id="cap-0-1">3.2.1 Flow indicator bar</h4>
     <p>The bar fixed at the top of the <span class="gui">GUI</span> shows a coloured indicator for each
-      of the seven steps above (green = configured and valid; amber = configured with warnings; red
-      = blocking error; gray = not yet configured). Clicking any indicator jumps directly to
+      of the seven steps above (green = configured and valid. Amber = configured with warnings. Red
+      = blocking error. Gray = not yet configured). Clicking any indicator jumps directly to
       the corresponding tab — useful for resuming a large project without navigating sequentially through the
-      tabs. The <b>Help</b> button opens this document; shortcut <b>F1</b> sits at the far
+      tabs. The <b>Help</b> button opens this document. Shortcut <b>F1</b> sits at the far
       right of the same bar.</p>
 
     <h4 id="cap-0-2">3.2.2 Live edits, unsaved marker, save and restore</h4>
@@ -1317,11 +1314,11 @@ zbemt --help     # command line</pre>
 
     <p><b>Save.</b> <b>Save</b> writes the whole project folder and clears the
       asterisks. The button is in the Project tab and repeated in Geometry, Airfoil and
-      Config/Engine (labelled <b>Save</b> in the Geometry tab), so you never have to change
+      Config/Engine (labeled <b>Save</b> in the Geometry tab), so you never have to change
       tabs to commit what you just typed; <code>Ctrl+S</code> does the same from anywhere in
       the <span class="gui">GUI</span>.</p>
 
-    <p><b>Restore.</b> <b>Restore</b> — labelled <b>Restore</b> in the Geometry
+    <p><b>Restore.</b> <b>Restore</b> — labeled <b>Restore</b> in the Geometry
       and Airfoil tabs — does the opposite: it reloads the project folder exactly as it stands
       on disk and discards every unsaved edit. It is a full reload, not a step-by-step undo,
       and it asks for confirmation first when there is unsaved work. This is what makes free
@@ -1365,7 +1362,7 @@ zbemt --help     # command line</pre>
           <td><code>Ctrl+Enter</code></td>
           <td>Re-reads the current tab's fields into the project in memory. Edits already apply as you type (<a
               class="xref" href="#cap-0-2" title="3.2.2 Live edits, unsaved marker, save and restore">Section
-              3.2.2</a>), so this only forces a refresh; it never writes to disk</td>
+              3.2.2</a>), so this only forces a refresh. It never writes to disk</td>
         </tr>
         <tr>
           <td><code>Ctrl+R</code></td>
@@ -1572,7 +1569,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         component along the shaft &mdash; the one the induced velocity adds to &mdash; is $z$ for a rotor
         and $x$ for a propeller, while the in-plane component is $x$ for a rotor and $z$ for a propeller.
         The angle is measured from the disk plane for a rotor ($\alpha_{rotor}$) and from the shaft for a
-        propeller ($\alpha_{disk}$). The solver always works in disk axes; what rotates is what appears on
+        propeller ($\alpha_{disk}$). The solver always works in disk axes. What rotates is what appears on
         screen and what is written into <code>.bemt</code> files, CSV headers and <span class="cli">CLI</span> flags.
       </figcaption>
     </figure>
@@ -1788,7 +1785,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
           <td>dimensionless</td>
           <td>Free-stream inflow ratio along $z$, $\lambda_z=V_z/\Omega R$ &mdash; the same number as $\mu_z$, written
             in the inflow vocabulary instead of the advance-ratio one. In rotor axes $z$ is the shaft, so this is climb
-            ($>0$) or descent ($&lt;0$); it is an input datum, known before any aerodynamics. In propeller mode the
+            ($>0$) or descent ($&lt;0$). It is an input datum, known before any aerodynamics. In propeller mode the
             shaft component is displayed as $\lambda_x$ instead.</td>
         </tr>
         <tr>
@@ -1821,7 +1818,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
           <td>$\mu_z$</td>
           <td>dimensionless</td>
           <td>Advance ratio along $z$, $\mu_z=V_z/\Omega R$ &mdash; the same number as $\lambda_z$. In rotor axes it is
-            climb/descent; in propeller mode the label $\mu_z$ is carried by the vertical cross-flow.</td>
+            climb/descent. In propeller mode the label $\mu_z$ is carried by the vertical cross-flow.</td>
         </tr>
         <tr>
           <td>$\sigma$</td>
@@ -1908,7 +1905,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         <tr>
           <td>$v_i$</td>
           <td>m/s</td>
-          <td>Velocity induced by the rotor. It acts <b>always along the shaft</b>, in either mode; only the letter
+          <td>Velocity induced by the rotor. It acts <b>always along the shaft</b>, in either mode. Only the letter
             naming that axis changes.</td>
         </tr>
         <tr>
@@ -2020,7 +2017,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
           <td>$J_z$</td>
           <td>dimensionless</td>
           <td>Advance ratio along $z$ in propeller form, $J_z=V_z/nD=\pi\mu_z$. In rotor axes it is the climb/descent
-            ratio; in propeller mode it is the <em>cross-flow</em> ratio, a different number from $J_x$ and zero in
+            ratio. In propeller mode it is the <em>cross-flow</em> ratio, a different number from $J_x$ and zero in
             straight cruise. Never interchangeable with $J_x$ &mdash; the subscript is the only thing separating them,
             which is why an unsubscripted $J$ is never used here.</td>
         </tr>
@@ -2095,7 +2092,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         </tr>
         <tr>
           <td>$(\cdot)_0$</td>
-          <td>Value at zero lift (e.g. $C_{d0}$).</td>
+          <td>Value at zero lift (for example, $C_{d0}$).</td>
         </tr>
         <tr>
           <td>$F_{t,i}$, $F_{t,p}$</td>
@@ -2157,7 +2154,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         With zero in-plane cross-flow, $U_T = \Omega r > 0$ across the entire disk, rendering reverse-flow
         corrections (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>) inactive.</li>
       <li><b>Absence of cyclic unsteady drivers:</b> Dynamic stall models (which track time-dependent
-        separation lag under cyclic pitch variations) and harmonic inflow variations (e.g., Pitt-Peters
+        separation lag under cyclic pitch variations) and harmonic inflow variations (for example, Pitt-Peters
         harmonic coefficients) evaluate to zero. Discretization can therefore use modest azimuthal
         resolution ($N_\psi$).</li>
     </ul>
@@ -2253,13 +2250,13 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p>There are exactly two angles in the program and each mode uses only its own
       (<a class="xref" href="#sec-21-nomenclature" title="4.1 Nomenclature">Section 4.1</a>). Propeller mode's is
       $\alpha_{disk}$,
-      measured <b>from the shaft</b>, normalised to $(-180^\circ,\,180^\circ]$:</p>
+      measured <b>from the shaft</b>, normalized to $(-180^\circ,\,180^\circ]$:</p>
     <ul>
       <li><b>Zero</b> in straight cruise, when the free stream is aligned with the thrust axis. That is
         the whole point of having a second name: a propeller reader checking a two-degree misalignment
-        reads $2^\circ$, not $88^\circ$. (The rotor angle is still computed and still exported; in cruise
+        reads $2^\circ$, not $88^\circ$. (The rotor angle is still computed and still exported. In cruise
         it reads $\alpha_{rotor}=90^\circ$.)</li>
-      <li><b>Positive when the flow arrives from below</b>, i.e. the disk is tilted nose-up relative to
+      <li><b>Positive when the flow arrives from below</b>, that is, the disk is tilted nose-up relative to
         the free stream. Axial descent &mdash; flow arriving on the front face &mdash; reads
         $180^\circ$.</li>
       <li>It is a property of the <em>flight condition</em>, not of any blade section. The section's
@@ -2283,7 +2280,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <p>Both coefficient families are computed at every evaluation regardless of
       <code>is_propeller</code> (<a class="xref" href="#sec-122-results-aggregation"
-        title="12.2 Results Aggregation">Section 12.2</a>); the mode decides which family is
+        title="12.2 Results Aggregation">Section 12.2</a>). The mode decides which family is
       displayed, plotted and swept by default. The definitions are in
       Sections <a class="xref" href="#cap-14-4"
         title="5.4.4 Force, torque, and power coefficients: rotor convention">5.4.4</a> and <a class="xref"
@@ -2439,13 +2436,13 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       zero under static conditions ($J_x = 0$) and increases toward its design peak with forward speed.
       Conversely, the hover Figure of Merit ($FM$) is physically meaningful only at static conditions
       ($FM = 0.66$), decaying in forward flight where the static momentum reference is invalid. Beyond
-      $J_x \approx 1.2$, fixed-pitch blade sections operate below their zero-lift angles of attack; thrust
+      $J_x \approx 1.2$, fixed-pitch blade sections operate below their zero-lift angles of attack. Thrust
       becomes negative (windmilling), and $\eta_{prop}$ is set to $0$ by convention to prevent ambiguous
       positive efficiency values from negative thrust and power. These evaluations represent fixed-collective
       (untrimmed) operating points.</p>
 
     <p>Specifying the cruise case the wrong way &mdash; the $65$ m/s entered in the cross-flow field,
-      i.e. <code>mu_x = 0.264</code> with <code>Vz = 0</code> &mdash; converges just as cleanly and
+      that is, <code>mu_x = 0.264</code> with <code>Vz = 0</code> &mdash; converges just as cleanly and
       reports $T=7336$ N, $P=291$ kW, $\eta_{prop}=0$ and $FM=0.83$: a figure of merit that looks
       respectable, a thrust two and a half times too large, and an efficiency of zero. Nothing but the
       validation warning and the shape of the disk map says which of the two runs describes the
@@ -2512,7 +2509,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       (where the Prandtl factor, <a class="xref" href="#cap-4-3" title="9.3 Tip and root loss">Section 9.3</a>, varies
       rapidly). $N_\psi$ controls azimuthal resolution:
       in pure hover ($\mu_x=0$) the flow is axisymmetric and $N_\psi=1$ already solves the problem
-      exactly; in forward flight, $N_\psi$ determines how well the azimuthal variation of $\alpha_{eff}$
+      exactly. In forward flight, $N_\psi$ determines how well the azimuthal variation of $\alpha_{eff}$
       is resolved, and with dynamic stall active, also the azimuthal resolution of the
       <code>frequency</code> method — the Nyquist theorem requires $N_\psi\gtrsim2\times$(largest harmonic of
       $f_{st}(\psi)$ to capture) to avoid aliasing.
@@ -2554,7 +2551,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <div class="eqn">$$U_P \;=\; V_z \;+\; v_i \;=\; (\lambda_z + \lambda_i)\,\Omega R \;=\; \lambda_{total}\,\Omega R$$
     </div>
     <p>where $\lambda_z = V_z / (\Omega R)$ is the prescribed axial inflow ratio (climb or descent
-      in rotor mode, or axial advance $\lambda_x$ in propeller mode; see <a class="xref" href="#cap-prop-2"
+      in rotor mode, or axial advance $\lambda_x$ in propeller mode. See <a class="xref" href="#cap-prop-2"
         title="4.2.2 The axis rotation, and the name flips it causes">Section 4.2.2</a>), and
       $\lambda_i = v_i / (\Omega R)$ is the induced inflow ratio determined iteratively by the BEMT
       solver (<a class="xref" href="#sec-210-the-fixed-point-equation"
@@ -2576,7 +2573,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     </figure>
 
     <p>These three components are evaluated at every station of the mesh. Two places need care. Near
-      the hub, $U_T=\Omega r$ goes to zero with the radius; at the reverse-flow boundary, it passes
+      the hub, $U_T=\Omega r$ goes to zero with the radius. At the reverse-flow boundary, it passes
       through zero by changing sign. In both, $W$ can become very small, and quantities divided by it
       would grow without bound. The evaluation therefore holds $W$ above a small floor, far below any
       speed a loaded element sees, so the guard acts only where the load is negligible anyway and leaves
@@ -2622,7 +2619,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       in the normal direction, a tilt caused entirely by the sum of climb/descent velocity and induced velocity
       (<a class="xref" href="#cap-12-2" title="5.2.2 Component perpendicular to the disk, $U_P$">Section 5.2.2</a>).
       When the rotor is unloaded ($U_P=0$, zero inflow), $\phi=0$ and the relative wind is tangent to the
-      disk plane; as induced velocity grows, $\phi$ increases, tilting the elementary lift vector
+      disk plane. As induced velocity grows, $\phi$ increases, tilting the elementary lift vector
       (<a class="xref" href="#cap-19-3" title="5.6.3 Elementary lift and drag">Section 5.6.3</a>) and projecting part of
       it onto the tangential direction, which produces
       induced drag (<a class="xref" href="#cap-19-4" title="5.6.4 Normal and tangential projection to disk">Section
@@ -2691,8 +2688,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <p><b>Forward flight operational boundaries.</b> Advance ratio establishes two aerodynamic limits:
       (1) reverse flow on the retreating blade ($U_T < 0$), forming a circular region of diameter
-      $\mu_x R$ tangent to the hub (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>);
-      and (2) compressibility effects on the advancing tip ($\Omega R + V_x$), which elevate the local Mach
+      $\mu_x R$ tangent to the hub (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>). And (2) compressibility effects on the advancing tip ($\Omega R + V_x$), which elevate the local Mach
       number toward transonic drag divergence (<a class="xref" href="#cap-3-5"
         title="8.5 Compressibility">Section 8.5</a>). The envelope between retreating blade stall and advancing
       tip compressibility dictates maximum forward speed.</p>
@@ -2719,7 +2715,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       \lambda_{total}=\lambda_z+\lambda_i$$</div>
     <p>These parameters non-dimensionalize axial velocity components by the tip speed $\Omega R$. The
       free-stream inflow ratio $\lambda_z = V_z / (\Omega R)$ is defined by the flight condition (equivalent
-      to axial advance $\lambda_x$ in propeller coordinates; see <a class="xref" href="#cap-prop-2"
+      to axial advance $\lambda_x$ in propeller coordinates. See <a class="xref" href="#cap-prop-2"
         title="4.2.2 The axis rotation, and the name flips it causes">Section 4.2.2</a>). The induced inflow
       ratio $\lambda_i = v_i / (\Omega R)$ is computed iteratively by the BEMT solver (<a class="xref"
         href="#sec-210-the-fixed-point-equation" title="5.8 The fixed-point equation">Section 5.8</a> and
@@ -2733,7 +2729,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <div class="eqn">$$\sigma(r) \;=\; \frac{N_b\,c(r)}{2\pi r} \qquad\text{(local)}\,,\qquad \sigma \;=\;
       \frac{N_b\,\bar c}{\pi R}\quad\text{(mean, reference chord }\bar c\text{)}$$</div>
     <p>Solidity is the fraction of the disk that is blade: locally, the blade area in an annulus divided
-      by the area of that annulus; globally, the total blade area divided by the disk area. It is
+      by the area of that annulus. Globally, the total blade area divided by the disk area. It is
       dimensionless, and it is the one geometric number that says how much lifting surface the rotor has
       available for the disk area it sweeps.</p>
 
@@ -2759,7 +2755,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p>$FM$ is the ratio of ideal disk-actuator power (<a class="xref" href="#cap-18-1"
         title="5.7.1 Global actuator disk">Section 5.7.1</a>) to actual power <em>in hover</em>; $FM=1$ is the ideal
       limit, well-designed rotors operate at $0.7$–$0.8$. The numerator $C_T^{3/2}/\sqrt2$ is the hover ideal, so the
-      ratio only measures efficiency in hover or close to it; away from hover it is still computed, but it is no longer
+      ratio only measures efficiency in hover or close to it. Away from hover it is still computed, but it is no longer
       bounded by $1$ and no longer means anything (<a class="xref" href="#sec-123-flight-condition-sweeps"
         title="12.3 Flight Condition Sweeps">Section 12.3</a>).</p>
 
@@ -2805,8 +2801,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       axial flight ($J_x > 0$).</p>
 
     <p>The convention also changes how a flight condition is described. A rotor case is naturally
-      posed with an advance ratio and a disk angle, since the flow arrives obliquely across the disk;
-      a propeller case is posed with an advance ratio built from the speed along the shaft and the
+      posed with an advance ratio and a disk angle, since the flow arrives obliquely across the disk. A propeller case is posed with an advance ratio built from the speed along the shaft and the
       diameter ($J_x$), since the flow arrives essentially along the axis. The underlying velocity field
       is the same either way.</p>
 
@@ -2843,7 +2838,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <p><b>The assumption.</b> Each radial section of the blade is treated as an independent
       two-dimensional airfoil, working in the local flow $(U_P,U_T)$ and feeling no direct aerodynamic
-      influence from its neighbours. Under it, the state of an element is fixed entirely by its relative
+      influence from its neighbors. Under it, the state of an element is fixed entirely by its relative
       speed $W$ (<a class="xref" href="#cap-12-3" title="5.2.3 Total relative velocity, $W$">Section 5.2.3</a>), its
       effective angle of attack $\alpha_{eff}$
       (<a class="xref" href="#cap-13-3" title="5.3.3 Effective angle of attack, $\alpha_{eff}$">Section 5.3.3</a>) and
@@ -2853,13 +2848,13 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 <p>The airfoil polar is the local two-dimensional constitutive relation that maps effective angle
 of attack, Reynolds number and Mach number to lift and profile-drag coefficients. The blade-element
 equations use those coefficients to calculate sectional loads. This chapter establishes the physical
-role of the polar; the Airfoil tab chapter specifies every polar model and its configuration.</p>
+role of the polar. The Airfoil tab chapter specifies every polar model and its configuration.</p>
 
 <p>For attached, incompressible flow, thin-airfoil theory gives the useful reference relation</p>
 <div class="eqn">$$C_l(\alpha)\approx C_{l_\alpha}(\alpha-\alpha_0),\qquad C_{l_\alpha}\approx2\pi\ \mathrm{rad}^{-1}.$$</div>
 <p>Here $\alpha$ is effective angle of attack, $\alpha_0$ is the zero-lift angle, and
 $C_{l_\alpha}$ is the lift-curve slope. Cambered airfoils commonly have $\alpha_0&lt;0$.
-Separation invalidates the attached-flow relation and changes both coefficients; the selected polar
+Separation invalidates the attached-flow relation and changes both coefficients. The selected polar
 must therefore cover, or be extended to cover, the operating conditions of the blade.</p>
 
 <p>The polar enters the elemental-load equations</p>
@@ -2909,7 +2904,7 @@ formats and limitations of each polar source.</p>
       \tfrac12\,\rho\,W^2\,c\,C_d(\alpha_{eff})\;dr$$</div>
     <p>$dL$ acts perpendicular to the local relative velocity $W$ and $dD$ along it. Every
       quantity in these two expressions has a distinct role, and reading them apart is what makes the
-      behaviour of the whole rotor predictable.</p>
+      behavior of the whole rotor predictable.</p>
 
     <p><b>The dynamic pressure sets the scale.</b> The factor $\tfrac12\rho W^2$ is the dynamic
       pressure of the flow the section actually meets. Air density (<code>rho</code>) multiplies every
@@ -2959,7 +2954,7 @@ formats and limitations of each polar source.</p>
         systematically positive and largest on the advancing side ($\psi\approx90^\circ$, where $U_T=\Omega
         r+V_x\sin\psi$ is maximum) than on the
         retreating side ($\psi\approx270^\circ$, where $U_T$ is minimum and can enter reverse flow near root, <a
-          class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>); the longitudinal-lateral asymmetry of
+          class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>). The longitudinal-lateral asymmetry of
         the field is the same harmonic signature of
         $\lambda_i(r,\psi)$ discussed in <a class="xref" href="#cap-4-2" title="9.2 Inflow model">Section 9.2</a>. $F_t$
         changes sign: positive (absorbing torque
@@ -2969,7 +2964,7 @@ formats and limitations of each polar source.</p>
 
     <p><b>The two parts of the torque, and the two parts of the power.</b> Splitting $dF_t$ along the
       two terms of its own definition splits the torque, and with it the shaft power, into two
-      contributions with quite different behaviour:</p>
+      contributions with quite different behavior:</p>
 
     <div class="eqn">$$dF_{t,i}=dL\sin\phi\,,\qquad dF_{t,p}=dD\cos\phi\,,$$</div>
 
@@ -3007,7 +3002,7 @@ formats and limitations of each polar source.</p>
       $N_b$ blades per unit annular area, which enters equality with momentum theory (<a class="xref" href="#cap-18-5"
         title="5.7.5 From global disk to elementary ring">Section 5.7.5</a>). The linearized form above, obtained by
       assuming $C_l$ linear in $\alpha$ and integrating
-      analytically, serves for order-of-magnitude estimation; zBEMT solves numerically,
+      analytically, serves for order-of-magnitude estimation. ZBEMT solves numerically,
       element by element, with the actual airfoil polar, without this linearization.</p>
 
 
@@ -3059,7 +3054,7 @@ formats and limitations of each polar source.</p>
       <b>Numerical example.</b> Rotor with $R=0.5$ m ($A\approx0.785\,\text{m}^2$), $T=19.6$ N
       ($M=2$ kg, $\rho=1.225\,\text{kg/m}^3$): $v_h=\sqrt{19.6/(2\times1.225\times0.785)}
       \approx3.2\,\text{m/s}$, $P_i=Tv_h\approx62.7$ W. With $FM\approx0.7$, the actual induced
-      power is $P_i/FM\approx90$ W; the profile power (<a class="xref" href="#cap-19-4"
+      power is $P_i/FM\approx90$ W. The profile power (<a class="xref" href="#cap-19-4"
         title="5.6.4 Normal and tangential projection to disk">Section 5.6.4</a>) adds to this value.
     </div>
 
@@ -3148,8 +3143,7 @@ formats and limitations of each polar source.</p>
       $r+dr$ (area $dA=2\pi r\,dr$). The central hypothesis (and the main conceptual limitation of classical BEMT) is
       that distinct radial rings do not exchange mass or momentum
       with each other: each ring behaves like an independent actuator disk, isolated from neighbors. This
-      hypothesis ignores radial turbulent mixing and tip vortex induction on inner rings;
-      the Prandtl correction (<a class="xref" href="#cap-4-3" title="9.3 Tip and root loss">Section 9.3</a>)
+      hypothesis ignores radial turbulent mixing and tip vortex induction on inner rings. The Prandtl correction (<a class="xref" href="#cap-4-3" title="9.3 Tip and root loss">Section 9.3</a>)
       reintroduces approximately the effect of finite number of blades
       that this hypothesis suppresses.</p>
 
@@ -3165,7 +3159,7 @@ formats and limitations of each polar source.</p>
         href="#sec-28-blade-element-theory" title="5.6 Blade Element Theory">Section 5.6</a>), determines
       $\lambda_i(r,\psi)$: the coupling formalized in <a class="xref" href="#sec-211-formal-coupling"
         title="5.9 Formal Coupling">Section 5.9</a>. Elementary momentum theory
-      addresses only the axial balance (thrust); the angular momentum conservation required to produce
+      addresses only the axial balance (thrust). The angular momentum conservation required to produce
       torque is accounted for by the blade element side (tangential force, <a class="xref" href="#cap-19-4"
         title="5.6.4 Normal and tangential projection to disk">Section 5.6.4</a>), not
       reintroduced here as an independent momentum unknown.</p>
@@ -3219,7 +3213,7 @@ formats and limitations of each polar source.</p>
 
     <div class="boxed note">
       Each element $(r,\psi)$ has unknown $\lambda_i(r,\psi)$ solved essentially independently of
-      neighboring elements; coupling between elements occurs only via the Prandtl factor
+      neighboring elements. Coupling between elements occurs only via the Prandtl factor
       (<a class="xref" href="#cap-4-3" title="9.3 Tip and root loss">Section 9.3</a>) and nonuniform inflow models (<a
         class="xref" href="#cap-4-2" title="9.2 Inflow model">Section 9.2</a>), without a dense coupling matrix.
       The system is therefore $N_e\times N_\psi$ independent scalar fixed-point equations, all advanced
@@ -3263,7 +3257,7 @@ formats and limitations of each polar source.</p>
       to the axial component alone in hover, where $\mu_x=0$, and grows with the in-plane component in
       forward flight, which is why the same load needs less induced velocity as the rotor advances. And
       because both terms vanish together at the root of a hovering rotor, a small constant is added under
-      the root so that the expression stays finite there; it is far below the tolerance of <a class="xref"
+      the root so that the expression stays finite there. It is far below the tolerance of <a class="xref"
         href="#cap-4-5-2" title="9.5.2 Iteration limit and tolerance">Section 9.5.2</a>
       and does not affect a converged result.</p>
 
@@ -3288,7 +3282,7 @@ formats and limitations of each polar source.</p>
           5.9.1</a>).</li>
     </ol>
     <p>The returned aerodynamic state is used by the numerical solver and by the Results plots. The
-      sequence is useful for diagnosing a solution; normal <span class="gui">GUI</span> use requires
+      sequence is useful for diagnosing a solution. Normal <span class="gui">GUI</span> use requires
       checking convergence and the physical inputs described above.</p>
 
     <a id="cap-5-10"></a>
@@ -3429,7 +3423,7 @@ formats and limitations of each polar source.</p>
           <td>$FM$</td>
           <td>$0.833$ (valid)</td>
           <td>$1.78$</td>
-          <td>Defined only in hover; in forward flight, actuator disk hover power ceases to represent physical ideal (<a
+          <td>Defined only in hover. In forward flight, actuator disk hover power ceases to represent physical ideal (<a
               class="xref" href="#sec-123-flight-condition-sweeps" title="12.3 Flight Condition Sweeps">Section 12.3</a>)</td>
         </tr>
         <tr>
@@ -3453,13 +3447,13 @@ formats and limitations of each polar source.</p>
     <p>The Project tab creates, opens, and saves the project and defines the operation convention used
       by every other tab. The convention identifies whether the shaft is vertical (rotor) or horizontal
       (propeller), which determines the displayed meaning of the flow components. Blade geometry and
-      flight conditions are configured in later tabs; this tab selects the project context edited by the
+      flight conditions are configured in later tabs. This tab selects the project context edited by the
       <span class="gui">GUI</span>.
     </p>
 
     <figure>
       <img src="img/gui/project.png" alt="Project tab">
-      <figcaption>The Project tab. The projects already on disk are listed on the left; the operation
+      <figcaption>The Project tab. The projects already on disk are listed on the left. The operation
         mode, the name and the create, open and save actions are on the right, with the active project and
         its folder reported underneath.</figcaption>
     </figure>
@@ -3492,10 +3486,10 @@ formats and limitations of each polar source.</p>
       therefore which field the airspeed belongs in.</p>
 
     <p>Because the shaft direction differs, the same letter names different components in the two
-      modes. For a rotor, $x$ lies in the disk plane and $z$ runs along the shaft; for a propeller the
+      modes. For a rotor, $x$ lies in the disk plane and $z$ runs along the shaft. For a propeller the
       two are exchanged. This is the single most common source of a wrong propeller result: entering the
       airspeed in the field that means cross-flow. The window relabels both flow rows when the mode is
-      switched, so the labels can be trusted; the letters cannot be assumed.</p>
+      switched, so the labels can be trusted. The letters cannot be assumed.</p>
 
     <p><b>Configuration and limitation.</b> Choose the mode before building the case. Switching mode on a project
       that already has saved conditions does not convert them: the stored numbers stay where they are and
@@ -3524,7 +3518,7 @@ formats and limitations of each polar source.</p>
       descriptive of the machine and the study rather than leaving it at the default.</p>
 
     <p><b>Configuration and limitation.</b> Use characters that are valid in a folder name. Renaming a project after
-      it exists changes the stored name but not the folder it already lives in; to move it, save it under
+      it exists changes the stored name but not the folder it already lives in. To move it, save it under
       a new name and the folder follows.</p>
 
     <p><span class="gui">GUI</span> &mdash; the <i>Project Name</i> field, above the create, open and
@@ -3549,7 +3543,7 @@ formats and limitations of each polar source.</p>
       This is deliberate: an experiment can be tried and abandoned without consequence. The cost is that
       closing the <span class="gui">GUI</span> with unsaved work loses it, so the <span class="gui">GUI</span> asks
       before letting that happen. The
-      list on the left shows the projects found in the repository's own projects folder; a project kept
+      list on the left shows the projects found in the repository's own projects folder. A project kept
       anywhere else is reached with the open button.</p>
 
     <p><span class="gui">GUI</span> &mdash; <i>New Project</i>, <i>Open from another folder</i> and
@@ -3601,7 +3595,7 @@ formats and limitations of each polar source.</p>
       its governing equation and units, explains direct and secondary effects, states applicability and
       limitations, lists options, and separates <span class="gui">GUI</span>,
       <span class="bemt">.bemt</span>, and <span class="cli">CLI</span> configuration. The list above
-      covers the fields that sit directly on the tab; the chapter also documents the radial table itself
+      covers the fields that sit directly on the tab. The chapter also documents the radial table itself
       (<a class="xref" href="#cap-2-3" title="7.3 The radial table">Section 7.3</a>) and the fields of the <i>Generate
         Table</i> dialog (7.4.1 and 7.4.2), which carry their own
       help where they appear.
@@ -3617,7 +3611,7 @@ formats and limitations of each polar source.</p>
         <li>Check the <b>preview</b> on the right. The plan view shows the planform, and the chord and
           twist view shows the two distributions against radius.</li>
         <li><b>Save</b> when the blade is right. Every edit is already in the project held in memory and the preview
-          already reflects it; saving is what writes it to disk. <b>Restore</b> reloads the last saved version and
+          already reflects it. Saving is what writes it to disk. <b>Restore</b> reloads the last saved version and
           discards the edits since.</li>
       </ol>
     </div>
@@ -3635,7 +3629,7 @@ formats and limitations of each polar source.</p>
       fraction of the disk that is blade,</p>
     <div class="eqn">$$\sigma=\frac{N_b\,S_b}{\pi R^{2}},$$</div>
     <p>where $N_b$ is the number of blades and $S_b$ the planform area of one of them. Solidity is what
-      the thrust coefficient is normalised against when blade loading is discussed, since $C_T/\sigma$
+      the thrust coefficient is normalized against when blade loading is discussed, since $C_T/\sigma$
       is the quantity that indicates how hard the blade sections are working. The radius also enters
       every coefficient through the disk area $\pi R^{2}$ and the tip speed $\Omega R$.</p>
 
@@ -3694,7 +3688,7 @@ formats and limitations of each polar source.</p>
       of attack and stalls inboard while the tip is still lightly loaded. Twist that decreases towards
       the tip is what evens this out.</p>
 
-    <p><b>The mathematics.</b> The chord is stored normalised by the radius and the twist in degrees,
+    <p><b>The mathematics.</b> The chord is stored normalized by the radius and the twist in degrees,
       so the table is a set of triples</p>
     <div class="eqn">$$\left(\frac{r}{R},\; \frac{c}{R},\; \theta_{geo}\right).$$</div>
     <p>The three columns are lists of equal length. Between stations the solver interpolates, so the
@@ -3703,8 +3697,8 @@ formats and limitations of each polar source.</p>
       $\theta(r)=\theta_{col}+\theta_{geo}(r)$ at each station.</p>
 
     <p><b>Configuration and valid range.</b> Radial positions run from the root cutout to $1.0$ and must increase down
-      the column. Chord is normalised, so a chord of $0.08$ on a radius of $1.25$ m is $0.1$ m. Twist is
-      in degrees and is normally positive at the root and falling towards the tip; a blade whose twist
+      the column. Chord is normalized, so a chord of $0.08$ on a radius of $1.25$ m is $0.1$ m. Twist is
+      in degrees and is normally positive at the root and falling towards the tip. A blade whose twist
       rises outboard is almost always a sign of a sign convention applied backwards. Ten to twenty
       stations describe most blades adequately, with more where the planform changes quickly.</p>
 
@@ -3715,12 +3709,12 @@ formats and limitations of each polar source.</p>
 
     <p><span class="bemt">.bemt</span> &mdash; the keys <code>r_norm</code>, <code>chord_norm</code>
       and <code>twist_deg</code> in <code>geom.bemt</code>, three lists of equal length. They are the
-      authoritative description of the blade; everything else in the file describes how they were
+      authoritative description of the blade. Everything else in the file describes how they were
       obtained.</p>
 
     <p><span class="cli">CLI</span> &mdash; <code>--geom-preset custom --geom-custom-points
 r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial position, the
-      normalised chord and the twist separated by colons. <code>--geom-file PATH</code> loads a complete
+      normalized chord and the twist separated by colons. <code>--geom-file PATH</code> loads a complete
       geometry that has already been saved.</p>
     <h3 id="cap-2-2">7.4 Generating the table from a preset</h3>
 
@@ -3764,7 +3758,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       </table>
     </div>
 
-    <p><b>Configuration and persistence.</b> Confirming the dialog <b>replaces</b> the whole table; it does not add to
+    <p><b>Configuration and persistence.</b> Confirming the dialog <b>replaces</b> the whole table. It does not add to
       what is already there. The number of stations generated is also set in the dialog. After generating,
       the table can still be edited by hand: the preset is a starting point, not a constraint.</p>
 
@@ -3785,8 +3779,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <h4 id="cap-2-2-0">7.4.1 The dialog's fields</h4>
 
     <p><b>The planform.</b> <code>kind</code> selects which of the three shapes is generated, and
-      decides which of the fields below are read. A rectangular blade needs only its chord; a tapered one
-      needs the root chord and how far it narrows; an elliptic one needs its widest chord.</p>
+      decides which of the fields below are read. A rectangular blade needs only its chord. A tapered one
+      needs the root chord and how far it narrows. An elliptic one needs its widest chord.</p>
 
     <p><b>The chord.</b> For a rectangular blade the chord is constant along the span. For a tapered
       blade the root chord is given together with <code>tip_chord_norm</code>, the chord at the tip as a
@@ -3802,14 +3796,14 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       A root value larger than the tip value is the normal case, and typically the difference is between
       $8^\circ$ and $16^\circ$.</p>
 
-    <p><b>The root cutout.</b> The field labelled <i>Root cutout (r/R)</i> sets where the generated
+    <p><b>The root cutout.</b> The field labeled <i>Root cutout (r/R)</i> sets where the generated
       table starts: no station is produced inside it, because there is no lifting blade there. It is the
       same quantity documented in 7.2, which gives its key, its range and its effect on the integration,
       and this dialog is the only place the window offers a control for it.</p>
 
     <p><b>The resolution.</b> <code>n_stations</code> is how many rows the generated table has. It
       controls how finely the planform is described, not how finely the disk is solved, which is set
-      separately by the mesh. Fifteen to twenty-five stations describe most blades; more is worth having
+      separately by the mesh. Fifteen to twenty-five stations describe most blades. More is worth having
       only where the planform changes quickly.</p>
 
     <p><b>Configuration.</b> Fill the fields the chosen planform uses and confirm. The dialog
@@ -3849,13 +3843,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       preserved, and the maximum chord of an elliptic one. Root cutout and twist are unaffected.</p>
 
     <p>This is a way of sizing the planform, not a finite-wing correction. Higher solidity allows more
-      load per unit of disk area but raises profile drag and therefore power; higher aspect ratio tends
+      load per unit of disk area but raises profile drag and therefore power. Higher aspect ratio tends
       to reduce the induced loss for a comparable distribution of lift.</p>
 
     <h3 id="cap-2-6">7.5 The blade section</h3>
 
     <p><b>Definition.</b> The geometry records which aerofoil the blade uses. It is a label rather than
-      a shape: the aerodynamic behaviour of the section, its lift and drag against angle of attack, is
+      a shape: the aerodynamic behavior of the section, its lift and drag against angle of attack, is
       defined in the Airfoil tab. The name exists so that a geometry can state which section it was
       designed around, and so that a blade using several sections along its span can say which one
       applies where.</p>
@@ -3925,7 +3919,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       changes is how many sections exist.</p>
 
     <p>A station lying between two defined sections takes its coefficients by linear interpolation in
-      $r/R$ between the two neighbouring polars, evaluated at the same angle of attack and the same
+      $r/R$ between the two neighboring polars, evaluated at the same angle of attack and the same
       condition. The blend is in the <em>coefficients</em>, not in the shapes: the two profiles are never
       merged into an intermediate airfoil, their polars are mixed. Outside the outermost pair the nearest
       section is used unchanged rather than extrapolated. <a class="xref" href="#cap-3-1-3"
@@ -3941,7 +3935,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       absent and the definition lives in <code>airfoil.bemt</code> alone.</p>
 
     <p><span class="cli">CLI</span> &mdash; <code>--airfoil-sections-file PATH</code> loads a prepared
-      set of sections. There is no flag for editing one section at a time; a multi-section blade is built
+      set of sections. There is no flag for editing one section at a time. A multi-section blade is built
       in the window and saved, or the file is written by hand.</p>
 
     <h4 id="cap-3-1-1">8.1.1 "Single airfoil" mode (0 or 1 section)</h4>
@@ -3959,7 +3953,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       M(r) = \frac{U(r)}{a},\qquad U(r) \simeq \Omega r + V_x\sin\psi,$$</div>
     <p>and that variation stays resolved: each radial station selects the tabulated condition
       closest to its own Reynolds and Mach, so the root and the tip of a single-profile blade already
-      receive different drag and different stall behaviour. Since $U$ grows linearly with $r$ while
+      receive different drag and different stall behavior. Since $U$ grows linearly with $r$ while
       the chord usually tapers only mildly, the tip Reynolds is typically five to ten times the root
       value, and that whole spread is captured. What this mode gives up is the change of profile
       <i>shape</i> along the span.
@@ -3967,7 +3961,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
     <p><b>Scope and modeling assumptions.</b> Uniform single-profile modeling is appropriate for
       constant-section blades, small-scale propellers, and idealized rotor studies. However, full-scale
-      rotorcraft and wind turbine blades incorporate spanwise aerodynamic tailoring (e.g., thick
+      rotorcraft and wind turbine blades incorporate spanwise aerodynamic tailoring (for example, thick
       18&ndash;24% root sections for structural depth transitioning to thin 8&ndash;12% transonic tip
       sections). Enforcing a single profile throughout introduces systematic errors: applying the thick root
       profile at the tip overpredicts profile power due to high dynamic pressure, whereas applying the thin
@@ -3979,7 +3973,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       depends on the profile difference this mode cannot represent.</p>
     <h4 id="cap-3-1-2">8.1.2 Adding a section</h4>
 
-    <p><b>What it does.</b> The behaviour depends on how many sections already exist, because a
+    <p><b>What it does.</b> The behavior depends on how many sections already exist, because a
       multi-section blade needs at least two: one section on its own would describe the same thing a
       single airfoil does, with an extra field to get wrong.</p>
 
@@ -3991,7 +3985,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
     <p>With <b>two or more sections</b>, the button copies the section currently selected to a new
       radial position, chosen automatically at the midpoint of the largest gap between existing
-      neighbours: with sections at $0.15$ and $1.0$, the next lands at $0.575$. The copy takes the
+      neighbors: with sections at $0.15$ and $1.0$, the next lands at $0.575$. The copy takes the
       original's name with a suffix, and its position can be moved afterwards.</p>
 
     <p><b>Configuration.</b> Add sections where the profile actually changes, and edit the new one
@@ -4005,13 +3999,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       <code>airfoil.bemt</code> into two entries there.
     </p>
 
-    <p><span class="cli">CLI</span> &mdash; no flag; sections are added in the window or by editing
+    <p><span class="cli">CLI</span> &mdash; no flag. Sections are added in the window or by editing
       the file, and loaded with <code>--airfoil-sections-file PATH</code>.</p>
 
     <h4 id="cap-3-1-3">8.1.3 Radial position of a section</h4>
 
     <p><b>The physics.</b> A real blade rarely uses one aerofoil from root to tip. The inboard part
-      carries the structure and wants a thick section; the tip wants a thin one, because that is where the
+      carries the structure and wants a thick section. The tip wants a thin one, because that is where the
       relative velocity and the Mach number are highest and where thickness costs the most drag. Defining
       sections at several radii lets the blade change profile along the span, and the radial position is
       what says where each one applies.</p>
@@ -4033,7 +4027,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
     <p><span class="gui">GUI</span> &mdash; the list in the <i>Radial Sections</i> block, with the field
       <i>r/R of this section</i> beneath it. Clicking a row stores what is on screen into the section
-      being edited and loads the clicked one, so nothing is lost when moving between them; the preview
+      being edited and loads the clicked one, so nothing is lost when moving between them. The preview
       follows.
     </p>
 
@@ -4044,7 +4038,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     </p>
 
     <p><span class="cli">CLI</span> &mdash; <code>--airfoil-sections-file PATH</code> loads a prepared
-      set of sections; there is no flag for editing one section at a time.</p>
+      set of sections. There is no flag for editing one section at a time.</p>
 
     <h4 id="cap-3-1-4">8.1.4 Removing a section</h4>
 
@@ -4071,7 +4065,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <h4 id="cap-3-1-5">8.1.5 What is edited per section vs. what is global</h4>
     <p>Everything from 8.2 to 8.9 belongs to <b>one section</b> when two or more sections are defined.
       That includes the dynamic-stall switch of 8.3.3, so one section can have the lag model active while
-      its neighbour does not, which is what a blade with a thick root and a thin tip usually wants. A
+      its neighbor does not, which is what a blade with a thick root and a thin tip usually wants. A
       generated polar is per section too: the external solver of 8.8 runs on the section currently
       selected, and a multi-section blade needs it run once for each.</p>
 
@@ -4130,7 +4124,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       option and the only one that reproduces an asymmetric or irregular real curve. Choose the generated
       source to produce such a table from a profile shape when no measured data exist.</p>
 
-    <p><b>How a condition selects its data.</b> A tabulated source may carry several slices, labelled
+    <p><b>How a condition selects its data.</b> A tabulated source may carry several slices, labeled
       by radial position, Reynolds number and Mach number. The three axes are not treated alike. Between
       radial positions the coefficients are <b>interpolated</b>. Between Reynolds numbers and between
       Mach numbers the <b>nearest</b> available slice is selected, without interpolation, and nothing
@@ -4183,13 +4177,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       For an analytical source the four coefficients are the keys <code>cl_alpha</code>, default $2\pi$;
       <code>alpha0_deg</code>, default $-4.5$; <code>cd0</code>, default $0.0155$; and <code>k</code>,
       default $0.0$. The angle is stored in degrees and the slope per radian. For a tabulated source the
-      coefficients live in <code>table_slices</code> instead, described in 8.6; a project saved from the
+      coefficients live in <code>table_slices</code> instead, described in 8.6. A project saved from the
       generated source stores <code>source: "table"</code> as well, since what the engine reads is the
       table.
     </p>
 
     <p><span class="cli">CLI</span> &mdash; <code>--airfoil-source {analytical,table}</code> selects
-      the source. The four analytical coefficients have no flags of their own; set them with
+      the source. The four analytical coefficients have no flags of their own. Set them with
       <code>--set airfoil.cl_alpha=6.1</code>, <code>--set airfoil.alpha0_deg=-4.5</code>,
       <code>--set airfoil.cd0=0.012</code> and <code>--set airfoil.k=0.01</code>.
     </p>
@@ -4265,7 +4259,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       rises over a window half as wide again towards the flat-plate level.</p>
 
     <p>It is a semi-empirical approximation, not measured data, and it is calibrated to reproduce
-      flat-plate behaviour qualitatively rather than any particular section quantitatively. What it buys
+      flat-plate behavior qualitatively rather than any particular section quantitatively. What it buys
       is a polar that is $C^1$-continuous everywhere — which is what the Newton and Aitken solvers of
       9.5.1 need — from the same five parameters the <code>linear</code> and <code>clip</code> options
       already use, with no extra experimental data.</p>
@@ -4278,7 +4272,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
         $\alpha_{stall}^+=16^\circ$ and $\alpha_{stall}^-=-10^\circ$. <code>linear</code> ignores stall
         and the lift line continues without bound; <code>clip</code> saturates abruptly at the stall
         value, leaving a corner; <code>enhanced</code> decays smoothly towards flat-plate
-        behaviour.</figcaption>
+        behavior.</figcaption>
     </figure>
 
     <h5 id="cap-3-2-2-4">8.2.2.4 <code>viterna</code> — the full-range extension as the stall model</h5>
@@ -4297,8 +4291,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <h4 id="cap-3-2-3">8.2.3 Stall angles</h4>
 
     <p><b>Definition and physical effect.</b> These two angles define where the section stops behaving
-      linearly. Below them the flow is attached and lift rises in proportion to the angle of attack;
-      above them the flow begins to separate from the upper surface and lift stops following the line.
+      linearly. Below them the flow is attached and lift rises in proportion to the angle of attack. Above them the flow begins to separate from the upper surface and lift stops following the line.
       They are not the angles of maximum lift: separation starts before the peak, and the peak is already
       past the point where the polar has left the straight line. Two are needed because an airfoil is not
       symmetric about zero incidence, so it departs from the line at a different angle on the negative
@@ -4311,7 +4304,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
     <p>and outside which the chosen stall model takes over: clipping the lift, closing it smoothly, or
       handing over to the full-range extension. The stall model decides <em>how</em> the departure is
-      shaped; these angles decide <em>where</em> it begins. They also fix the anchor point of every one
+      shaped. These angles decide <em>where</em> it begins. They also fix the anchor point of every one
       of those closures, since each is evaluated on the line at $\alpha_{stall}^\pm$ and continues from
       there.</p>
 
@@ -4331,7 +4324,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <p><span class="bemt">.bemt</span> &mdash; the keys <code>alpha_stall_pos_deg</code>, default
       $15.0$, and <code>alpha_stall_neg_deg</code>, default $-6.0$, in <code>airfoil.bemt</code>.</p>
 
-    <p><span class="cli">CLI</span> &mdash; no flags of their own; set them with
+    <p><span class="cli">CLI</span> &mdash; no flags of their own. Set them with
       <code>--set airfoil.alpha_stall_pos_deg=14</code> and
       <code>--set airfoil.alpha_stall_neg_deg=-8</code>.
     </p>
@@ -4363,7 +4356,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
     <p><b>Transition window ($\Delta\alpha$).</b> A finite transition window $\Delta\alpha$ blends the
       base polar into the post-stall continuation. A wider blending window provides smoother gradient
-      continuity at the expense of modifying base polar data over a broader angle range; a narrower window
+      continuity at the expense of modifying base polar data over a broader angle range. A narrower window
       preserves base polar fidelity closer to stall but sharpens transitions, potentially impacting
       solver gradient evaluation.</p>
 
@@ -4380,7 +4373,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <p><b>Applicability and limitations.</b> Use the extension whenever the blade can reach angles the
       polar does not cover, which in practice means any case with reverse flow and any case with deep
       stall on the retreating side. It is semi-empirical and must not be read as measured stall or
-      reverse-flow data; it is least trustworthy exactly where the real flow is strongly
+      reverse-flow data. It is least trustworthy exactly where the real flow is strongly
       three-dimensional, unsteady, compressible or massively separated. Within the supplied angle range
       the tabulated data remain authoritative and the extension does nothing. Without the extension, the
       polar is undefined in the reverse-flow region, which is why <code>viterna_full_range</code> in
@@ -4401,7 +4394,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       extension is selected through <code>stall_model</code> set to <code>"viterna"</code> instead.
     </p>
 
-    <p><span class="cli">CLI</span> &mdash; no flags of their own; set them with
+    <p><span class="cli">CLI</span> &mdash; no flags of their own. Set them with
       <code>--set airfoil.extend_full_range=true</code> and
       <code>--set airfoil.viterna_blend_width_deg=4</code>. Select the analytical Viterna option with
       <code>--airfoil-stall-model viterna</code>.
@@ -4435,7 +4428,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
         <tr>
           <td><code>analytical</code> + <code>enhanced</code></td>
           <td>The same six numbers.</td>
-          <td>A $C^1$-continuous polar with qualitatively correct post-stall decay towards flat-plate behaviour.</td>
+          <td>A $C^1$-continuous polar with qualitatively correct post-stall decay towards flat-plate behavior.</td>
           <td>Reach beyond roughly $\pm90^\circ$, so it does not cover reverse flow on its own.</td>
         </tr>
         <tr>
@@ -4443,7 +4436,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
           <td>The same six numbers.</td>
           <td>A polar defined over the whole $\pm180^\circ$ circle, which is what the default reverse-flow treatment
             requires. The default.</td>
-          <td>Represent any particular section's real post-stall behaviour; the high-angle branch is empirical.</td>
+          <td>Represent any particular section's real post-stall behavior. The high-angle branch is empirical.</td>
         </tr>
         <tr>
           <td><code>table</code></td>
@@ -4530,7 +4523,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       \qquad \tau=\frac{A\,c}{2W}.$$</div>
 
     <p>This is the whole model. The hysteresis is a consequence: while the angle rises, $f$ lags above
-      $f_{st}$, so the blade is more attached than static, and lift is higher; while it falls, $f$ lags
+      $f_{st}$, so the blade is more attached than static, and lift is higher. While it falls, $f$ lags
       below, and lift is lower. Drag follows an analogous expression that depends on both $f$ and
       $f_{st}$, because drag near the transition grows faster than a straight blend between the attached
       and separated values would give:</p>
@@ -4614,7 +4607,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
     <p>so the lag in azimuthal terms depends on the chord-to-radius ratio and not on the rotational
       speed at all. A stubby blade, with a chord that is a large fraction of its radius, lags strongly and
-      shows a wide hysteresis loop; a slender blade barely lags. The same expression explains why the
+      shows a wide hysteresis loop. A slender blade barely lags. The same expression explains why the
       effect is always largest inboard, where $c/r$ is largest.</p>
 
     <p>Increasing $A$ widens the loop: more lift than the static polar predicts while the angle is
@@ -4638,7 +4631,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       <code>airfoil.bemt</code>, default $8.0$.
     </p>
 
-    <p><span class="cli">CLI</span> &mdash; no flag of its own; set it with
+    <p><span class="cli">CLI</span> &mdash; no flag of its own. Set it with
       <code>--set airfoil.dynamic_stall_A=6</code>.
     </p>
 
@@ -4657,7 +4650,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
     <p><b>Configuration.</b> The defaults, fading between $40^\circ$ and $50^\circ$, sit above any angle a
       sensible rotor operates at and below the region where the model stops meaning anything. The start
-      angle must be below the end angle; the configuration is rejected otherwise.</p>
+      angle must be below the end angle. The configuration is rejected otherwise.</p>
 
     <p><span class="gui">GUI</span> &mdash; the fields <i>Fade start [deg]</i> and <i>Fade end
         [deg]</i>.</p>
@@ -4667,7 +4660,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       <code>airfoil.bemt</code>.
     </p>
 
-    <p><span class="cli">CLI</span> &mdash; no flags of their own; set them with
+    <p><span class="cli">CLI</span> &mdash; no flags of their own. Set them with
       <code>--set airfoil.dynamic_stall_fade_start_deg=35</code> and
       <code>--set airfoil.dynamic_stall_fade_end_deg=45</code>.
     </p>
@@ -4685,7 +4678,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <p><b>Configuration and limitation.</b> The frequency-domain method is appropriate for a steady periodic analysis.
       When marching, enough revolutions must be
       run for the starting guess to be forgotten, and the answer is averaged over the last few so that
-      what is reported is the settled cycle rather than one arbitrary revolution; the number averaged must
+      what is reported is the settled cycle rather than one arbitrary revolution. The number averaged must
       not exceed the number run.</p>
 
     <p><span class="gui">GUI</span> &mdash; not offered as a choice: the frequency-domain method is
@@ -4697,12 +4690,12 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       <code>dynamic_stall_time_march_avg_last</code>, default $3$. The model itself is selected by
       <code>dynamic_stall_model</code>, default <code>"oye"</code>, which is the model described above and
       the only one implemented. <code>dynamic_stall_f_reg</code>, default $0.001$, is the smallest
-      difference between the attached and separated lift curves that the inversion treats as non-zero; it
+      difference between the attached and separated lift curves that the inversion treats as non-zero. It
       keeps the separation function finite where the two curves meet, and only needs raising if a result
       looks implausible exactly at the edge of the stall region.
     </p>
 
-    <p><span class="cli">CLI</span> &mdash; no flags of their own; set them with
+    <p><span class="cli">CLI</span> &mdash; no flags of their own. Set them with
       <code>--set airfoil.dynamic_stall_method=time_march</code>,
       <code>--set airfoil.dynamic_stall_time_march_revolutions=12</code> and
       <code>--set config.dynamic_stall_f_reg=0.005</code>.
@@ -4728,7 +4721,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
             <p>That inequality traces a circle of diameter $\mu_x R$, tangent to the hub and lying entirely on
               the retreating side. Its size is fixed by the advance ratio alone: at $\mu_x=0.2$ it covers a fifth
               of the radius, and at $\mu_x=0.5$ half of it. Two consequences follow. At low advance ratio the
-              region is small and the choice of model barely matters; and if the root cutout is larger than the
+              region is small and the choice of model barely matters. And if the root cutout is larger than the
               circle, the reversed region is not integrated at all, so the setting has no effect on the
               result.</p>
 
@@ -4801,7 +4794,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
             <p><b>Continuity of the last two options.</b> The inflow angle $\phi=\operatorname{atan2}(U_P,U_T)$
               passes smoothly through $U_T=0$, and so does $\alpha=\theta-\phi$. Anything expressed as a function
-              of the angle of attack is therefore automatically continuous across the boundary; only a treatment
+              of the angle of attack is therefore automatically continuous across the boundary. Only a treatment
               that tests the <em>sign</em> of $U_T$ introduces a jump. That is the whole difference between the
               first three options and the last two.</p>
 
@@ -4844,7 +4837,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
               extended polar is rejected by validation, because the extension is what makes it meaningful.
             </p>
 
-            <p><span class="cli">CLI</span> &mdash; no flag of its own; set it with
+            <p><span class="cli">CLI</span> &mdash; no flag of its own. Set it with
               <code>--set config.reverse_flow_model=thin_plate_blend</code>.
             </p>
 
@@ -4881,29 +4874,29 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
               <code>config.bemt</code>, default $5.0$.
             </p>
 
-            <p><span class="cli">CLI</span> &mdash; no flag of its own; set it with
+            <p><span class="cli">CLI</span> &mdash; no flag of its own. Set it with
               <code>--set config.reverse_flow_blend_factor=20</code>.
             </p>
 
             <h4 id="cap-3-4-3">8.4.3 Thin-plate transition</h4>
 
             <p><b>Definition and configuration.</b> These two angles place the changeover used by
-              <code>thin_plate_blend</code>, and do nothing under any other option. The centre is the angle of
-              attack at which the section is treated as half aerofoil and half flat plate; the width is how many
+              <code>thin_plate_blend</code>, and do nothing under any other option. The center is the angle of
+              attack at which the section is treated as half aerofoil and half flat plate. The width is how many
               degrees the changeover takes.
             </p>
 
             <p><b>Physical interpretation.</b> Together these angles state where the real polar stops being
-              trustworthy. Moving the centre outward keeps the measured polar in charge further into the stalled
+              trustworthy. Moving the center outward keeps the measured polar in charge further into the stalled
               range, which is right when the data genuinely extend that far and wrong when they do not, because
               beyond the measured range the polar merely holds its last value. Narrowing the width sharpens the
               changeover and, taken far enough, reintroduces the sharp feature the method exists to avoid.</p>
 
-            <p><b>Configuration and valid range.</b> The defaults, a centre of $35^\circ$ and a width of $20^\circ$,
+            <p><b>Configuration and valid range.</b> The defaults, a center of $35^\circ$ and a width of $20^\circ$,
               hand over across the
               range where most polars stop being reliable. Because the weighting depends only on the angle of
               attack, it applies wherever large angles occur, including on the retreating side outside the reverse
-              circle, so a centre set too low inflates drag over a genuinely attached part of the disk.</p>
+              circle, so a center set too low inflates drag over a genuinely attached part of the disk.</p>
 
             <p><span class="gui">GUI</span> &mdash; the fields <i>thin_plate_blend_center_deg</i> and
               <i>thin_plate_blend_width_deg</i>, shown only when <code>thin_plate_blend</code> is selected.
@@ -4914,7 +4907,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
               <code>config.bemt</code>.
             </p>
 
-            <p><span class="cli">CLI</span> &mdash; no flags of their own; set them with
+            <p><span class="cli">CLI</span> &mdash; no flags of their own. Set them with
               <code>--set config.thin_plate_blend_center_deg=40</code> and
               <code>--set config.thin_plate_blend_width_deg=15</code>.
             </p>
@@ -4939,7 +4932,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <code>config.bemt</code>, a switch, default <code>true</code>.
                 </p>
 
-                <p><span class="cli">CLI</span> &mdash; no flag of its own; set it with
+                <p><span class="cli">CLI</span> &mdash; no flag of its own. Set it with
                   <code>--set config.mask_reverse_flow_plots=false</code>.
                 </p>
 
@@ -4970,7 +4963,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   linearised assumption stops describing the flow at all, because a shock forms and wave drag appears
                   and neither is contained in this expression. The factor is therefore capped at its $M=0.9$ value,
                   $1/\sqrt{1-0.9^2}\approx2.29$, rather than allowed to run away. Nothing below $M=0.9$ is altered by
-                  that cap; above it, the coefficients reported are capped values and not a transonic prediction.</p>
+                  that cap. Above it, the coefficients reported are capped values and not a transonic prediction.</p>
 
                 <p><b>Physical effect.</b> Because the same factor multiplies both coefficients, the lift-to-drag
                   ratio of a section is unchanged, so the correction does not by itself move where the blade is
@@ -4985,7 +4978,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   rotors means a tip speed above roughly $0.6a$, and always for a propeller, whose tip speeds are
                   higher. Leave it off when the polar is already resolved in Mach, because the table then carries the
                   effect and applying the correction on top would count it twice. The speed of sound it uses is set in
-                  the Config/Engine tab and should match the altitude and temperature being modelled: a cold day
+                  the Config/Engine tab and should match the altitude and temperature being modeled: a cold day
                   raises the tip Mach number of an otherwise unchanged rotor.</p>
 
                 <p><b>When the polar already carries Mach.</b> A tabulated polar can be swept in Mach, with one
@@ -5019,7 +5012,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <code>config.bemt</code>, a switch, default <code>true</code>.
                 </p>
 
-                <p><span class="cli">CLI</span> &mdash; no flag of its own; set it with
+                <p><span class="cli">CLI</span> &mdash; no flag of its own. Set it with
                   <code>--set config.use_compressibility=false</code>.
                 </p>
 
@@ -5027,9 +5020,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>A tabulated polar replaces an analytical relation with direct linear interpolation through the
                   supplied points $(\alpha_i,C_{l,i},C_{d,i})$. It is the appropriate source for wind-tunnel, CFD,
                   or externally generated coefficients. The table values, including any asymmetry or post-stall
-                  behavior, are the aerodynamic data used by the blade elements; analytical lift, drag and stall
+                  behavior, are the aerodynamic data used by the blade elements. Analytical lift, drag and stall
                   parameters do not supplement missing table data.</p>
-                <p>Each polar slice may be labelled by radial position $r/R$, Reynolds number, and Mach number.
+                <p>Each polar slice may be labeled by radial position $r/R$, Reynolds number, and Mach number.
                   The solver interpolates between radial slices. It selects the nearest available Reynolds and Mach
                   slices rather than interpolating between them, so the supplied condition grid must cover the
                   operating envelope with adequate resolution. Outside the supplied angle range, the table must be
@@ -5103,7 +5096,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     </tr>
                   </table>
                 </div>
-                <p>Any column the list does not recognise is ignored, so a file carrying $C_m$, transition
+                <p>Any column the list does not recognize is ignored, so a file carrying $C_m$, transition
                   location or a comment column costs nothing. A missing <em>required</em> column is the one
                   rejection at this stage: the importer raises, naming the column it could not find and listing the
                   headers it did see, rather than guessing by position &mdash; a file whose first column happens to
@@ -5120,15 +5113,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>This sample defines two operating slices ($Re = 2\times 10^5$ and $Re = 6\times 10^5$ at $M =
                   0.2$), each containing an angle-of-attack sweep. Slices are grouped dynamically by unique tuples of
                   $(r/R, Re, M)$ without requiring sorted or contiguous rows. A single CSV may span multiple radial
-                  stations, Reynolds numbers, and Mach numbers; the solver interpolates across all supplied dimensions
+                  stations, Reynolds numbers, and Mach numbers. The solver interpolates across all supplied dimensions
                   during execution. Omitting parametric columns defines a single global static polar.</p>
                 <p>Delimiter and decimal are standard CSV (comma-delimited, dot decimal separator, single header
                   row). Non-standard exports (such as semicolon-separated or comma-decimal European locale formats)
                   must be converted before import. Blank entries in optional columns represent unconditioned axes.</p>
                 <p><b>Import diagnostics and header validation.</b> Upon file ingestion, the UI reports the file
-                  path, total ingested polar slices, and detected multidimensional axes (e.g., <code>Extra axes
+                  path, total ingested polar slices, and detected multidimensional axes (for example, <code>Extra axes
                     detected: reynolds, mach</code> or <code>none (single polar)</code>). This summary validates
-                  column parsing; unrecognized column headers (e.g., <code>Reynolds_number</code> instead of
+                  column parsing. Unrecognized column headers (for example, <code>Reynolds_number</code> instead of
                   <code>reynolds</code>) are ignored, producing an unstratified single polar. Using <b>Export
                     CSV&hellip;</b> generates a properly formatted template with canonical column headers
                   (<code>alpha_deg, Cl, Cd, r_norm, reynolds, mach</code>).</p>
@@ -5138,13 +5131,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <h3 id="cap-3-7">8.7 Profile 2D geometry</h3>
                 <p>This block holds the two-dimensional contour of the section: the shape itself, not the blade
                   planform. It is required only when a polar is to be generated from the shape, which is the external
-                  solver of 8.8; with an analytical or an already tabulated polar it is optional and purely
+                  solver of 8.8. With an analytical or an already tabulated polar it is optional and purely
                   illustrative, feeding the profile preview and nothing else.</p>
 
                 <p>The contour never enters the blade element equations. What the solver reads is the polar, and the
                   shape reaches the solution only through the coefficients a generator produces from it. Once those
                   coefficients exist, editing the contour changes nothing until the generator is run again. The
-                  sources below are four ways of arriving at the same thing, a list of normalised coordinate
+                  sources below are four ways of arriving at the same thing, a list of normalized coordinate
                   pairs.</p>
                 <div class="tablewrap">
                   <table>
@@ -5154,7 +5147,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     </tr>
                     <tr>
                       <td id="cap-3-7-2"><code>naca4</code> / <code>naca5</code></td>
-                      <td>4 or 5-digit NACA code (e.g. <code>2412</code>, <code>23012</code>)</td>
+                      <td>4 or 5-digit NACA code (for example, <code>2412</code>, <code>23012</code>)</td>
                     </tr>
                     <tr>
                       <td id="cap-3-7-3"><code>cst</code></td>
@@ -5182,7 +5175,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><b>The physics.</b> The contour never enters the blade element equations. What the solver reads
                   is the polar, and the shape matters only because a polar can be generated from it. A profile is
-                  therefore needed when a polar is to be produced from the section itself; it is optional, and purely
+                  therefore needed when a polar is to be produced from the section itself. It is optional, and purely
                   illustrative, when the polar is analytical or already tabulated.</p>
 
                 <p><b>What can be entered.</b> Four ways to obtain the same thing, a set of contour
@@ -5190,7 +5183,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><b>A NACA code</b> is the quickest, and covers most conventional sections. The four-digit family
                   encodes the maximum camber, its position and the thickness, so <code>2412</code> is a section with
-                  two per cent camber at forty per cent of the chord and twelve per cent thickness; the five-digit
+                  two per cent camber at forty per cent of the chord and twelve per cent thickness. The five-digit
                   family encodes a different camber line. The code is a string, not a number, because the leading
                   zeros carry meaning: <code>0012</code> is the symmetric twelve-per-cent section.</p>
 
@@ -5207,7 +5200,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p><b>Configuration.</b> Use a NACA code unless there is a specific section to reproduce. CST and
                   Bézier are for shapes being designed rather than looked up, and both are stored exactly as typed, so
                   a malformed list is reported when the geometry is generated rather than silently accepted. The
-                  number of points controls how finely the contour is sampled; the default of $200$ resolves the
+                  number of points controls how finely the contour is sampled. The default of $200$ resolves the
                   leading edge adequately for polar generation.</p>
 
                 <p><span class="gui">GUI</span> &mdash; the <i>Profile 2D geometry</i> block: a <i>Source</i>
@@ -5223,17 +5216,17 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   rather than what the contour is;
                   <code>naca_code</code>, a string, default <code>"0012"</code>; <code>cst_upper</code> and
                   <code>cst_lower</code>, lists of coefficients; <code>bezier_control_points</code>, a list of
-                  coordinate pairs; <code>imported_path</code> for a file; and <code>n_points</code>, default
+                  coordinate pairs; <code>imported_path</code> for a file. And <code>n_points</code>, default
                   $200$.
                 </p>
 
                 <p><span class="cli">CLI</span> &mdash; <code>--airfoil-geometry SPEC</code> when generating a
-                  polar; individual fields are set with <code>--set</code>, for example
+                  polar. Individual fields are set with <code>--set</code>, for example
                   <code>--set airfoil.geometry.naca_code=2412</code>.
                 </p>
 
                 <h4 id="cap-3-7-6">8.7.2 The coordinate file the importer reads</h4>
-                <p><b>One point per line, two numbers, $x$ then $y$, both normalised by the chord</b>, separated
+                <p><b>One point per line, two numbers, $x$ then $y$, both normalized by the chord</b>, separated
                   by space, tab or comma. That is the entire contract:</p>
                 <pre>NACA 0012
  1.000000   0.001300
@@ -5254,7 +5247,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   error. To use Lednicer files, merge the curves into a continuous closed contour or use standard
                   Selig-formatted coordinates.</p>
                 <p>Nothing else is validated: the contour is not required to be closed, to start at the trailing
-                  edge, or to have a particular point count. What it <em>is</em> required to be is normalised
+                  edge, or to have a particular point count. What it <em>is</em> required to be is normalized
                   &mdash; $x$ spanning $0$ to $1$ &mdash; because the chord is the length scale everything
                   downstream assumes, and a contour in millimetres would otherwise reach NeuralFoil as an airfoil
                   of a thousand chords' extent.</p>
@@ -5277,7 +5270,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p><span class="cli">CLI</span> &mdash; <code>--airfoil-geometry SPEC</code>, where the
                   specification is a four- or five-digit NACA code such as <code>naca2412</code> or
                   <code>naca23012</code>. It is used only together with <code>--gen-neuralfoil</code>, described in
-                  8.8. There is no flag for a CST, Bézier or imported contour on its own; those are set in the window
+                  8.8. There is no flag for a CST, Bézier or imported contour on its own. Those are set in the window
                   or written into the project file.
                 </p>
 
@@ -5290,7 +5283,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>The generated coefficients are applicable only within the profile, Reynolds, Mach and angle
                   range requested. They must be reviewed against available data when separation, transition,
                   compressibility, roughness, Reynolds sensitivity or deep stall materially affects the design. The
-                  optional NeuralFoil package is required; the <span class="gui">GUI</span> disables this block and
+                  optional NeuralFoil package is required. The <span class="gui">GUI</span> disables this block and
                   states the missing dependency when it is unavailable.</p>
 
                 <h4 id="cap-3-8-1">8.8.1 Run the solver</h4>
@@ -5303,7 +5296,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p><b>Configuration and applicability.</b> Give the Reynolds and Mach numbers the blade actually works
                   at, which
                   follow from the tip speed and the radial position of the section rather than from a round number.
-                  A wider angle range costs little to generate and avoids extrapolation later; a step of half a
+                  A wider angle range costs little to generate and avoids extrapolation later. A step of half a
                   degree resolves the stall knee adequately.</p>
 
                 <p><span class="gui">GUI</span> &mdash; the fields <i>Reynolds list</i>, <i>Mach list</i>,
@@ -5315,7 +5308,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <code>external_reynolds_list</code> and <code>external_mach_list</code>, both lists of numbers, and
                   the angle range as <code>external_alpha_min_deg</code> (default $-20$),
                   <code>external_alpha_max_deg</code> (default $20$) and <code>external_alpha_step_deg</code>
-                  (default $0.5$). <code>external_engine</code> records which generator produced the table; it is
+                  (default $0.5$). <code>external_engine</code> records which generator produced the table. It is
                   <code>"none"</code> by default and <code>"neuralfoil"</code> once the solver has been run. It is a
                   record of provenance: the engine reads the resulting table, not the generator.
                 </p>
@@ -5336,8 +5329,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <li><b>Generation.</b> One polar is produced for each combination of the Reynolds and Mach values
                     requested, over the angle sweep given. The result exists only in the session.</li>
                   <li><b>Preview and project, in one step.</b> The generated polars join the same list a manual CSV
-                    import fills, described in 8.6; the <i>Source</i> selector moves itself to
-                    <code>neuralfoil</code>; the preview of 8.9 redraws on the new curves; and the same polars become
+                    import fills, described in 8.6. The <i>Source</i> selector moves itself to
+                    <code>neuralfoil</code>; the preview of 8.9 redraws on the new curves. And the same polars become
                     the polar table of the section currently selected. There is no separate confirmation to press, so
                     the generated polar is usable from Run Case immediately.
                   </li>
@@ -5371,7 +5364,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 </p>
 
                 <p><span class="bemt">.bemt</span> &mdash; none. The exported file is a loose CSV and is not part
-                  of the project; nothing in the project folder records that it was written.</p>
+                  of the project. Nothing in the project folder records that it was written.</p>
 
                 <p><span class="cli">CLI</span> &mdash; <code>--export-table PATH</code>, used together with
                   <code>--gen-neuralfoil</code>, writes the same file to <code>PATH</code>. Without it, the generated
@@ -5411,7 +5404,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p><span class="bemt">.bemt</span> &mdash; none. The preview is a view of the airfoil definition
                   and stores nothing of its own.</p>
 
-                <p><span class="cli">CLI</span> &mdash; none. Preview is a window feature; from the command line
+                <p><span class="cli">CLI</span> &mdash; none. Preview is a window feature. From the command line
                   the equivalent is to generate a report, which embeds the polar curves alongside the results.</p>
 
                 <h3 id="cap-3-10">8.10 Navigate (r/R, Reynolds, Mach)</h3>
@@ -5444,7 +5437,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><b>The practical use, and the trap.</b> Walk the axes to the extremes the case will actually
                   produce &mdash; root Reynolds and tip Mach &mdash; and confirm a tabulated slice exists near
-                  each. Selection is nearest-neighbour, not interpolation, and nothing warns when the request
+                  each. Selection is nearest-neighbor, not interpolation, and nothing warns when the request
                   falls outside the tabulated range: a table that stops at $M = 0.4$ quietly supplies its
                   $M = 0.4$ data to a tip running at $0.75$, and the run converges cleanly to an answer with no
                   compressible drag rise in it at all. A polar family that does not bracket the operating envelope
@@ -5455,7 +5448,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   listing only the values the loaded polar actually contains.</p>
 
                 <p><span class="bemt">.bemt</span> &mdash; none. The navigator is a viewing state and is not saved
-                  with the project; reopening a project starts on the first available slice.</p>
+                  with the project. Reopening a project starts on the first available slice.</p>
 
                 <p><span class="cli">CLI</span> &mdash; none, for the same reason. The conditions the slices carry
                   are stored with the polar itself, described in 8.6.</p>
@@ -5483,7 +5476,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>The Config/Engine tab holds everything that decides how the problem is solved: how finely the
                   disk is sampled, what the air is like, which inflow model and which corrections apply, and which
                   solver runs. Three settings that might be expected here are elsewhere, because they belong to
-                  what is being modelled rather than to how it is solved: dynamic stall, reverse flow and
+                  what is being modeled rather than to how it is solved: dynamic stall, reverse flow and
                   compressibility are set in the Airfoil tab, and the rotor or propeller mode in the Project tab,
                   which this tab shows only as a read-only label.</p>
 
@@ -5496,7 +5489,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <h3 id="cap-4-1">9.1 Mesh and atmosphere</h3>
 
                 <p>Two unrelated groups of settings share this block on screen. The mesh decides how finely the
-                  disk is sampled; the air properties describe what it turns in. Two further settings, the kinematic
+                  disk is sampled. The air properties describe what it turns in. Two further settings, the kinematic
                   viscosity and the convergence history, have no control on the tab and are documented at the end of
                   the section because they belong to the same group in the project file.</p>
 
@@ -5549,7 +5542,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><b>The mathematics.</b> It appears linearly in every elemental load,</p>
                 <div class="eqn">$$dT=\tfrac{1}{2}\rho W^{2} c\,C_l\,dr ,$$</div>
-                <p>and again in the normalisation of the coefficients, $C_T=T/(\rho\pi R^{2}(\Omega R)^{2})$. The
+                <p>and again in the normalization of the coefficients, $C_T=T/(\rho\pi R^{2}(\Omega R)^{2})$. The
                   coefficients are therefore almost insensitive to it, while the dimensional thrust and power scale
                   with it directly.</p>
 
@@ -5579,7 +5572,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p><b>Configuration and units.</b> Enter the value in m/s for the temperature being studied. The default
                   $340.294$
                   corresponds to standard sea-level conditions. It should be changed together with the density
-                  whenever an altitude is being modelled, since both follow from the same atmosphere.</p>
+                  whenever an altitude is being modeled, since both follow from the same atmosphere.</p>
 
                 <p><span class="gui">GUI</span> &mdash; the field <i>a_sound [m/s]</i>.</p>
 
@@ -5591,7 +5584,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <h4 id="cap-4-1-4">9.1.4 Integration offset</h4>
 
                 <p><b>The physics.</b> The blade element equations misbehave at the two ends of the span. At the
-                  axis the tangential velocity goes to zero, so the inflow angle approaches ninety degrees; at the
+                  axis the tangential velocity goes to zero, so the inflow angle approaches ninety degrees. At the
                   tip the Prandtl loss factor goes to zero. Both are genuine limits of the theory rather than
                   numerical accidents, and a mesh node placed exactly on either of them produces a division by zero.
                   The offset moves the outermost nodes a small distance inward from those limits.</p>
@@ -5604,7 +5597,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><b>Configuration and valid range.</b> Leave it at the default of $0.005$ unless a solution fails at
                   the very
-                  first or last station. It must stay small compared with the spacing between stations; a large
+                  first or last station. It must stay small compared with the spacing between stations. A large
                   offset quietly shortens the blade.</p>
 
                 <p><span class="gui">GUI</span> &mdash; the field <i>integration_offset</i> in the mesh block.</p>
@@ -5631,7 +5624,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   for air, and it changes with altitude and temperature in the same way as the density and the speed
                   of sound.</p>
 
-                <p><span class="gui">GUI</span> &mdash; not shown as a field; it is set from the project file or
+                <p><span class="gui">GUI</span> &mdash; not shown as a field. It is set from the project file or
                   the command line.</p>
 
                 <p><span class="bemt">.bemt</span> &mdash; the key <code>nu_air</code> in
@@ -5651,7 +5644,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   enough for the stored
                   history to be a burden, accepting that the convergence plots are then unavailable for that run.</p>
 
-                <p><span class="gui">GUI</span> &mdash; not shown as a field; the history is always collected for
+                <p><span class="gui">GUI</span> &mdash; not shown as a field. The history is always collected for
                   runs started from the <span class="gui">GUI</span>, because the Results tab draws it.</p>
 
                 <p><span class="bemt">.bemt</span> &mdash; the key <code>collect_history</code> in
@@ -5761,7 +5754,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   when the lateral variation is significant, which it becomes as the advance ratio rises. Choose
                   <code>glauert_local</code> deliberately, when the point is to compare against the classical result.
                   Choose <code>pitt_peters_steady</code> when the quantity of interest is the disk-level inflow rather
-                  than an independent solution on each annulus. These are modelling decisions, not solver tolerances:
+                  than an independent solution on each annulus. These are modeling decisions, not solver tolerances:
                   changing family changes the answer, and the difference is physical rather than numerical. In hover
                   all four agree, because there is no azimuthal variation for a harmonic to describe.
                 </p>
@@ -5785,7 +5778,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p><span class="cli">CLI</span> &mdash; <code>--inflow coleman_local</code>, or any of
                   <code>glauert_local</code>, <code>drees_local</code> and <code>pitt_peters_steady</code>. The flag
                   also still accepts the superseded names ending in <code>_global</code>, so that an older script
-                  keeps running; they are not offered in the window and are not a supported choice for new work.
+                  keeps running. They are not offered in the window and are not a supported choice for new work.
                   A value naming a time-marching variant is accepted by the parser and then rejected by validation,
                   so that the run stops with an explanation rather than with a bare usage error.
                 </p>
@@ -5802,7 +5795,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>with $L$ the gain matrix and $\mathbf{C}$ the aerodynamic forcing. It has to be reached by
                   iteration, because the inflow the states describe depends on the loads, and the loads depend on the
                   inflow. The outer iteration count, the relaxation and the tolerance are the three controls on that
-                  loop; the state count decides how many harmonics the disk field carries.</p>
+                  loop. The state count decides how many harmonics the disk field carries.</p>
 
                 <p><b>Configuration and convergence.</b> Leave all four at their defaults. Raise the outer iteration
                   count if a
@@ -5831,7 +5824,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p><b>The physics.</b> Momentum theory treats the disk as though it had an infinite number of
                   infinitely thin blades, so that every ring of the disk is worked on uniformly. A real rotor has a
                   few discrete blades with gaps between them. Near the tip the pressure difference across the blade
-                  has to fall to zero, because air escapes round the end rather than being turned; the same happens,
+                  has to fall to zero, because air escapes round the end rather than being turned. The same happens,
                   less strongly, at the root. The escaping flow rolls up into the tip vortex, and the lift the section
                   actually produces is less than a two-dimensional calculation predicts.</p>
 
@@ -5907,7 +5900,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p>Both corrections here relax the same assumption: that each blade section behaves like an isolated
                   two-dimensional aerofoil. They act on different coefficients and do not overlap, so they are enabled
-                  separately. Rotational augmentation raises lift near the root; the radial-flow correction lowers
+                  separately. Rotational augmentation raises lift near the root. The radial-flow correction lowers
                   drag where the spanwise component of the flow is large.</p>
 
                 <h4 id="cap-4-4-1">9.4.1 Rotational augmentation</h4>
@@ -5932,7 +5925,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p>Every factor earns its place. The ratio $\lambda_r$ compares the local rotational speed with the
                   inflow through the disk: where rotation dominates, as at the root in hover, the weight saturates at
-                  one; where the inflow dominates, as at the tip or at high advance ratio, it vanishes and the
+                  one. Where the inflow dominates, as at the tip or at high advance ratio, it vanishes and the
                   two-dimensional value is recovered. The $(c/r)^{2}$ factor concentrates the effect inboard.</p>
 
                 <p>The bracket is the important one. It is the gap between the attached lift line and the actual
@@ -5978,7 +5971,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <div class="eqn">$$U_R=V_x\cos\psi,$$</div>
 
                 <p>largest when the blade points across the flight direction and zero when it points along it. This
-                  component exists only in forward flight; in hover and in purely axial flight it is absent.</p>
+                  component exists only in forward flight. In hover and in purely axial flight it is absent.</p>
 
                 <p>The spanwise flow is felt by the boundary-layer, and so contributes to skin friction, but it does
                   not turn the section, and so contributes nothing to lift. Treating the whole velocity as acting on
@@ -5988,7 +5981,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><b>Configuration and applicability.</b> Enable it for forward flight at appreciable advance ratio,
                   where the skew
-                  is large enough to matter; in hover it does nothing. The maximum skew angle bounds how far it is
+                  is large enough to matter. In hover it does nothing. The maximum skew angle bounds how far it is
                   allowed to act, and it exists because near the reverse-flow boundary the unbounded form drives the
                   drag coefficient towards zero, which is the opposite of the physics. Leave it at $60$ degrees unless
                   there is a specific reason to change it, and treat a large increase as a way of producing
@@ -6002,7 +5995,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   in <code>config.bemt</code>.</p>
 
                 <p><span class="cli">CLI</span> &mdash; <code>--radial-flow-correction</code> and
-                  <code>--no-radial-flow-correction</code> switch it; the maximum skew angle has no flag of its own
+                  <code>--no-radial-flow-correction</code> switch it. The maximum skew angle has no flag of its own
                   and is set with <code>--set config.radial_flow_max_skew_deg=45</code>.
                 </p>
 
@@ -6103,7 +6096,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   stems from underlying formulation discontinuities rather than the root-finding algorithm itself.
                   Common causes include: (1) operating beyond the angle-of-attack bounds of a static polar (yielding
                   zero gradient $g'(\lambda_{total}) = 0$); (2) unmitigated reverse-flow discontinuities across the
-                  $U_T = 0$ boundary; or (3) derivative discontinuities in non-smooth stall models. Recommended
+                  $U_T = 0$ boundary. Or (3) derivative discontinuities in non-smooth stall models. Recommended
                   remedies are enabling 360&deg; polar extensions (<a class="xref" href="#cap-3-2-4"
                     title="8.2.4 Full-range extension and blend width">Section 8.2.4</a>), applying continuous
                   reverse-flow blending (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>), or
@@ -6125,14 +6118,14 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p><b>What they are.</b> The tolerance decides when the iteration has succeeded, and the limit when
                   it gives up. Convergence means $|h(\lambda_{total})|<\text{tol}$, tested on the unrelaxed residual for
                     the reason given above. Each element carries its own status, which is what the convergence map in
-                    the Results tab displays; exhausting the budget leaves an element marked unconverged rather than
+                    the Results tab displays. Exhausting the budget leaves an element marked unconverged rather than
                     silently accepted.</p>
 
                     <p><b>Configuration and convergence criterion.</b> Tighten the tolerance when the reported residual
                       is not small enough for
                       the quantity being studied, remembering that a tolerance far below the accuracy of the polar buys
                       nothing. The limit is a safety bound rather than a quality setting: a case that fails at 200
-                      iterations is usually not one that succeeds at 2000. Neither field changes the equations; they
+                      iterations is usually not one that succeeds at 2000. Neither field changes the equations. They
                       change how much confidence the reported numbers deserve.</p>
 
                     <p><span class="gui">GUI</span> &mdash; the fields <i>max_iter</i> and <i>tol</i>.</p>
@@ -6161,7 +6154,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       a case
                       oscillates, lower the factor before raising the iteration limit, because an oscillating iteration
                       does not converge however long it runs. The five schedule parameters are the radial and azimuthal
-                      thresholds at which the reduction begins and how strong it is; they rarely need changing.</p>
+                      thresholds at which the reduction begins and how strong it is. They rarely need changing.</p>
 
                     <p><span class="gui">GUI</span> &mdash; the field <i>relax</i>, the <i>relax_schedule</i> checkbox,
                       and the schedule parameters, which appear only when the schedule is enabled.</p>
@@ -6177,7 +6170,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <p><span class="cli">CLI</span> &mdash; <code>--relax X</code> and
                       <code>--relax-schedule</code> / <code>--no-relax-schedule</code>. The five schedule parameters
                       have
-                      no flags of their own; set them with <code>--set</code>, for example
+                      no flags of their own. Set them with <code>--set</code>, for example
                       <code>--set config.relax_root_factor=0.15</code>.
                     </p>
 
@@ -6206,7 +6199,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       may end the sweep, default $0.95$.
                     </p>
 
-                    <p><span class="cli">CLI</span> &mdash; no flags of their own; use <code>--set</code>, for example
+                    <p><span class="cli">CLI</span> &mdash; no flags of their own. Use <code>--set</code>, for example
                       <code>--set config.early_exit_fraction=0.99</code>.
                     </p>
 
@@ -6256,7 +6249,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           thrust is a result, or a trim mode, in which the collective is solved for a requested thrust
                           (<a class="xref" href="#cap-5-5" title="10.5 Run mode and trim">Section 10.5</a>).</li>
                         <li>Fill the <b>two flow rows</b>. Together they define a single operating point. Each row has a
-                          dropdown that selects how the value is expressed; changing it converts the number on screen
+                          dropdown that selects how the value is expressed. Changing it converts the number on screen
                           and
                           leaves the physical quantity untouched.</li>
                         <li>Set the <b>collective</b> and the <b>RPM</b>. In a trim run, the collective that is entered
@@ -6278,7 +6271,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <p><b>The physics.</b> The disk sweeps out a plane, and the free stream can be split into a
                       component lying <em>in</em> that plane and a component running <em>along the shaft</em>. This row
                       sets the first of the two. Its physical effect is to break the symmetry of the problem: a blade
-                      travelling into this component meets a higher relative velocity than one travelling with it, so
+                      traveling into this component meets a higher relative velocity than one traveling with it, so
                       the load on a blade rises and falls once per revolution, and the whole solution becomes a function
                       of the azimuth $\psi$. When this component is zero the problem is axisymmetric, every azimuth
                       gives the same answer, and the disk is in hover or in purely axial flight.</p>
@@ -6331,7 +6324,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       to the shaft.</p>
 
                     <p><span class="gui">GUI</span> &mdash; the first flow row of the Run Case block, a dropdown
-                      followed by a spinbox. It is labelled <i>Edgewise (in-plane) Flow</i> for a rotor and <i>Cross
+                      followed by a spinbox. It is labeled <i>Edgewise (in-plane) Flow</i> for a rotor and <i>Cross
                         (in-plane) Flow</i> for a propeller. Changing the dropdown converts the displayed number at
                       once. Two of the
                       options, the speed in m/s and the angle, cannot be computed from the ratio alone: they also need
@@ -6403,7 +6396,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       typically falls between $J_x=0.6$ and $J_x=1.2$.</p>
 
                     <p><span class="gui">GUI</span> &mdash; the second flow row, a dropdown followed by a spinbox,
-                      labelled <i>Axial (along-shaft) flow</i> in both modes. Changing the dropdown converts the
+                      labeled <i>Axial (along-shaft) flow</i> in both modes. Changing the dropdown converts the
                       displayed number using the in-plane component, the rotational speed and the radius already present
                       in the form, so those should be filled before switching to an angle.</p>
 
@@ -6467,7 +6460,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       the profile drag power all at once, and in a real machine it is usually held fixed by the drive
                       system rather than treated as a free variable. It also fixes the reference against which the
                       dimensionless quantities on this page are measured, so changing it at a fixed $\mu_x$ silently
-                      changes the actual airspeed being modelled.</p>
+                      changes the actual airspeed being modeled.</p>
 
                     <p><b>The mathematics.</b> The field enters as the angular velocity</p>
                     <div class="eqn">$$\Omega=\frac{2\pi\,\mathrm{RPM}}{60},$$</div>
@@ -6509,7 +6502,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <div class="eqn">$$e(\theta_{col})=T(\theta_{col})-T^{*}=0
                       \qquad\text{or}\qquad e(\theta_{col})=C_T(\theta_{col})-C_T^{*}=0.$$</div>
                     <p>The two targets are not interchangeable. Thrust is dimensional, whereas
-                      $C_T=T/(\rho A(\Omega R)^2)$ is normalised by the tip speed, so at a fixed coefficient target a
+                      $C_T=T/(\rho A(\Omega R)^2)$ is normalized by the tip speed, so at a fixed coefficient target a
                       change in rotational speed changes the dimensional thrust that satisfies it.</p>
 
                     <p><b>Configuration and applicability.</b> Use the direct mode unless the case is defined by a
@@ -6546,7 +6539,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       and
                       <code>{name, mu_z, Vx, collective_deg, rpm}</code> in a propeller one, following the same rule as
                       the individual fields above. The key <code>name</code> is the label shown in the dropdown and in
-                      the command line listing; it defaults to <code>"Case 1"</code> and must be unique within the file,
+                      the command line listing. It defaults to <code>"Case 1"</code> and must be unique within the file,
                       since a case is selected by it.
                     </p>
 
@@ -6613,7 +6606,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           no
                           physics, so it is immediate and can be repeated freely. <b>Replace queue</b> discards the
                           current
-                          queue before generating; leaving it unchecked adds to what is already there.</li>
+                          queue before generating. Leaving it unchecked adds to what is already there.</li>
                         <li>Fill the <b>fixed values</b>. These are the quantities not chosen as axes, and they are held
                           at these values for every condition in the queue. They change the answer, so choose them
                           deliberately (<a class="xref" href="#cap-6-2" title="11.2 Fixed values">Section 11.2</a>).
@@ -6797,7 +6790,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><span class="cli">CLI</span> &mdash; <code>--from-bemt-batch NAME</code> runs the stored
                           queue.
-                          There is no flag for editing it; a queue is built in the <span class="gui">GUI</span> or by
+                          There is no flag for editing it. A queue is built in the <span class="gui">GUI</span> or by
                           writing
                           <code>batches.bemt</code> directly.
                         </p>
@@ -6806,7 +6799,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><b>Definition.</b> A saved batch is a named queue kept with the project, together with a
                           record
-                          of how it was generated. The record exists so that a sweep can be recognised later for what it
+                          of how it was generated. The record exists so that a sweep can be recognized later for what it
                           was,
                           and so that the <span class="gui">GUI</span> can reopen it with the axes filled in rather than
                           as an anonymous list of
@@ -6826,7 +6819,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           was
                           produced, which is <code>"custom"</code> for a hand-built list, <code>"factorial"</code> for a
                           Cartesian product, or one of <code>"mu_sweep"</code>, <code>"alpha_sweep"</code> and
-                          <code>"collective_sweep"</code> for a single-axis sweep; and <code>sweep_params</code>, the
+                          <code>"collective_sweep"</code> for a single-axis sweep. And <code>sweep_params</code>, the
                           values
                           that were swept, kept so the sweep can be reconstructed. Both describe the queue rather than
                           defining it: what runs is always <code>conditions</code>.
@@ -6913,7 +6906,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           and
                           Run Batch until the project is closed, allowing single-case inspection and comparison.
                           Checkboxes
-                          select one or more entries; each view is enabled only for compatible selections. A global
+                          select one or more entries. Each view is enabled only for compatible selections. A global
                           integral
                           does not demonstrate local convergence, so maps, slices, and convergence information remain
                           part
@@ -6982,7 +6975,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           clamping preserves visual contrast across the broader disk domain without altering underlying
                           numerical data.</p>
 
-                        <p><b>Limits.</b> Masking reverse flow is a visualization toggle; underlying force integrations
+                        <p><b>Limits.</b> Masking reverse flow is a visualization toggle. Underlying force integrations
                           and exported tabular metrics retain all blade element contributions.</p>
                         <h4 id="cap-7-2">12.1.2 Coefficients vs. Axis</h4>
                         <p>This view accepts one run or several. It gives the <b>sweep</b> answer: each solved condition
@@ -6990,7 +6983,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           a single point, and the points line up into the performance curves. Where a disk map shows one
                           condition in full spatial detail, this view throws that detail away deliberately to show how
                           the
-                          integrated behaviour moves as one flight variable changes. Choose the X axis from $\mu_x$,
+                          integrated behavior moves as one flight variable changes. Choose the X axis from $\mu_x$,
                           $\alpha_{deg}$, collective, or RPM (<a class="xref" href="#sec-123-flight-condition-sweeps"
                             title="12.3 Flight Condition Sweeps">Section 12.3</a>) and, with 2+ selections,
                           toggle between combining everything into a single curve or overlaying one series per
@@ -6999,7 +6992,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>Choose the axis that actually varied.</b> The selected results are sorted along the chosen
                           quantity before being joined. Plotted against a variable that was held fixed, many conditions
                           land
-                          on the same abscissa and the connecting line becomes meaningless zig-zag; a vertical stack of
+                          on the same abscissa and the connecting line becomes meaningless zig-zag. A vertical stack of
                           points
                           is the signature of that mistake.</p>
 
@@ -7007,7 +7000,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           pairing of integrated output metrics, categorized into distinct curves via the <i>Group curves
                             by</i> parameter. The <i>Group tolerance</i> setting (default $0.01$) defines the numerical
                           threshold for grouping discrete sweep levels, filtering numerical precision variations in
-                          derived kinematic parameters (e.g., trigonometric reconstruction of flight angles).</p>
+                          derived kinematic parameters (for example, trigonometric reconstruction of flight angles).</p>
 
                         <p><b>What the classic shapes mean.</b> Against collective, thrust first rises almost linearly
                           &mdash; each degree adds $\alpha$ over the whole blade at fixed dynamic pressure &mdash; then
@@ -7032,7 +7025,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           induced
                           power and stall, and the maximum between them is the design point this plot exists to locate.
                           Note
-                          that this measure is a hover definition; away from hover the same formula can exceed one and
+                          that this measure is a hover definition. Away from hover the same formula can exceed one and
                           stops
                           meaning efficiency.</p>
 
@@ -7091,7 +7084,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           actually see
                           as an alternating load, and it is the quantity that drives vibration and fatigue &mdash; the
                           mean
-                          value from a performance curve says nothing about it. Its peak-to-peak amplitude grows with
+                          value from a performance curve does not show it. Its peak-to-peak amplitude grows with
                           $\mu_x$,
                           and inboard stations at high $\mu_x$ show the extra kink where the curve crosses into reverse
                           flow.</p>
@@ -7108,8 +7101,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           band entirely. When the curves look implausibly smooth, add stations before believing them.
                         </p>
                         <h4 id="cap-7-4">12.1.4 3D</h4>
-                        <p>This view needs exactly one run selected. The two-dimensional plan view is always available;
-                          the rotor
+                        <p>This view needs exactly one run selected. The two-dimensional plan view is always available. The rotor
                           or blade in three dimensions and the 3D load distribution are produced through an optional
                           rendering
                           package, and those buttons stay disabled when it is not installed. Choose which field is
@@ -7135,7 +7127,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           colour
                           is a statement about the twist distribution, not about the flight condition.</p>
 
-                        <p><b>Limits.</b> This view re-colours results that already exist; it never re-solves anything.
+                        <p><b>Limits.</b> This view re-colours results that already exist. It never re-solves anything.
                           Changing the painted field costs a redraw and changes no number, and if the underlying case
                           was run
                           on a coarse mesh, the smooth surface interpolates over detail that was never computed &mdash;
@@ -7148,7 +7140,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><b>Definition.</b> The views above answer questions on screen. This block turns what is on
                           screen, or the whole selection behind it, into files: images, a numeric table, or one
-                          self-contained report. Nothing here re-solves anything; every output is drawn from results
+                          self-contained report. Nothing here re-solves anything. Every output is drawn from results
                           that
                           already exist in the session history.</p>
 
@@ -7199,7 +7191,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           send to someone who does not have zBEMT. When a selection would carry a very large number of
                           figures the report is written instead as a small main page with companion pages beside it, so
                           the
-                          main page stays quick to open; nothing is left out of it either way.</p>
+                          main page stays quick to open. Nothing is left out of it either way.</p>
 
                         <p><b>The relationship to the loose image files.</b> The images written by <i>Export disk maps
                             in
@@ -7212,7 +7204,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>Reading the plots before exporting them.</b> Every plot in this tab carries the standard
                           controls &mdash; zoom, pan, and an axis dialog for limits and for switching an axis between
                           linear
-                          and logarithmic &mdash; in all four view modes. Those settings affect what is on screen; an
+                          and logarithmic &mdash; in all four view modes. Those settings affect what is on screen. An
                           exported figure is drawn afresh.</p>
 
                         <p><span class="gui">GUI</span> &mdash; the buttons <i>Export disk maps in batch</i>,
@@ -7251,7 +7243,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <div class="boxed note">
                           <b>$\eta_{prop}$ is built from the component along the shaft.</b> Propulsive efficiency is
                           $\eta=TV/P$, and the velocity that does useful work is the one in the direction thrust acts,
-                          which is along the shaft. In propeller mode that component is the one labelled $V_x$ and
+                          which is along the shaft. In propeller mode that component is the one labeled $V_x$ and
                           $J_x$:
                           $$\eta_{prop}=\frac{J_x\,C_{T,prop}}{C_{P,prop}},\qquad J_x=\frac{\pi V_x}{\Omega R}.$$
                           It is <em>not</em> built from the in-plane component. In a correctly specified propeller case
@@ -7260,7 +7252,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           sweep.
                           In the windmill regime, where thrust is negative, thrust and power both change sign and the
                           raw
-                          ratio comes back positive and flattering; propulsive efficiency has no meaning there, and $0$
+                          ratio comes back positive and flattering. Propulsive efficiency has no meaning there, and $0$
                           is
                           reported instead.
                         </div>
@@ -7311,7 +7303,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           sum
                           of three contributions that behave differently, and the shape of the total is what fixes the
                           speeds
-                          for best endurance and best range. Two of the three are computed by zBEMT; the third belongs
+                          for best endurance and best range. Two of the three are computed by zBEMT. The third belongs
                           to the
                           airframe and is added outside it.</p>
 
@@ -7344,7 +7336,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>The sum.</b> Falling induced power and rising parasite power give a curve with a minimum
                           at
                           an intermediate speed &mdash; the classical bucket. The bottom of the bucket is the speed of
-                          minimum power and therefore of maximum endurance; the speed for maximum range is where a line
+                          minimum power and therefore of maximum endurance. The speed for maximum range is where a line
                           from
                           the origin is tangent to the curve, which lies further right.</p>
 
@@ -7363,7 +7355,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           run, since thrust is otherwise an output &mdash; gives the induced and profile parts directly,
                           as
                           the two components of torque multiplied by the rotational speed. The parasite part is added
-                          afterwards from the airframe's own flat-plate area; nothing in the rotor geometry can supply
+                          afterwards from the airframe's own flat-plate area. Nothing in the rotor geometry can supply
                           it.</p>
 
 
@@ -7442,7 +7434,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           a
                           free stream, so past hover the ratio can exceed $1$. A value above unity in a forward-flight
                           sweep
-                          is not a solver error; it is the definition being read outside its domain.</p>
+                          is not a solver error. It is the definition being read outside its domain.</p>
 
                         <p><b>Why the column is produced anyway.</b> Written out, $FM$ is</p>
 
@@ -7484,7 +7476,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>Every flag sets a field the <span class="gui">GUI</span> can also edit, and a <span
                             class="bemt">.bemt</span> written by
                           any of the three is read back identically by the other two. After installing, the command
-                          <code>zbemt</code> is available; without installing, <code>python -m zbemt.cli</code> is the
+                          <code>zbemt</code> is available. Without installing, <code>python -m zbemt.cli</code> is the
                           equivalent.
                         </p>
 
@@ -7509,7 +7501,7 @@ zbemt --project projects/MyProject \
     --gen-neuralfoil --airfoil-geometry naca2412 \
     --reynolds 1e5,5e5,1e6 --mach 0.1,0.3 --alpha-range -10:20:0.5 \
     --export-table saida/naca2412_neuralfoil.csv</code></pre>
-                        <p>Complete table of flags (grouped by corresponding tab; see each linked section for the
+                        <p>Complete table of flags (grouped by corresponding tab. See each linked section for the
                           physical meaning of each field):</p>
                         <div class="tablewrap">
                           <table>
@@ -7593,9 +7585,8 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Any field</td>
-                              <td><code>--set NAMESPACE.FIELD=VALUE</code> (e.g.,
-                                <code>--set config.Ne=90 --set config.Npsi=144</code>) &mdash; reaches any configuration
-                                or airfoil field, with or without a dedicated flag; the name is checked against the
+                              <td><code>--set NAMESPACE.FIELD=VALUE</code> (for example, <code>--set config.Ne=90 --set config.Npsi=144</code>) &mdash; reaches any configuration
+                                or airfoil field, with or without a dedicated flag. The name is checked against the
                                 project schema, so a typo becomes an error message rather than silence
                               </td>
                             </tr>
@@ -7636,7 +7627,7 @@ zbemt --project projects/MyProject \
                               <td>error</td>
                               <td><code>use_dynamic_stall=True</code> with <code>stall_model="linear"</code></td>
                               <td>Øye interpolates between $C_{l,att}$ and the separated $C_l$ from the <i>static</i>
-                                polar; without stall in the base polar there is no separation to model.</td>
+                                polar. Without stall in the base polar there is no separation to model.</td>
                             </tr>
                             <tr>
                               <td>info</td>
@@ -7720,30 +7711,30 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Rigid-blade formulation</td>
-                              <td>Neglects aeroelastic blade deflection and flapping dynamics. Hub pitching/rolling moments represent rigid-structure loads.</td>
+                              <td>zBEMT neglects aeroelastic blade deflection and flapping dynamics. Therefore, the hub pitching and rolling moments represent rigid-structure loads only.</td>
                             </tr>
                             <tr>
                               <td>Annular independence</td>
-                              <td>Each radial annulus is solved via isolated 1D momentum conservation. Inter-annulus turbulent mixing and full 3D wake roll-up are approximated via empirical tip/root loss models.</td>
+                              <td>zBEMT solves each radial annulus with isolated 1D momentum conservation. Therefore, empirical tip and root loss models approximate the turbulent mixing between annuli and the full 3D wake roll-up.</td>
                             </tr>
                             <tr>
                               <td>Vortex ring state ($-2v_h \lesssim V_z \lesssim 0$)</td>
-                              <td>Classical momentum theory lacks unique real roots in steep axial descent; empirical momentum extensions provide approximate trends.</td>
+                              <td>Classical momentum theory has no unique real roots in steep axial descent. Therefore, empirical momentum extensions give approximate trends only.</td>
                             </tr>
                             <tr>
                               <td>Single-parameter thrust trim</td>
-                              <td>Trim operates via 1D root-finding on collective pitch. Multivariable trim (coupled collective, cyclic pitch, and 6-DOF moments) is not supported.</td>
+                              <td>Trim uses 1D root-finding on the collective pitch. Therefore, zBEMT does not support multivariable trim, which would couple the collective, the cyclic pitch, and the 6-DOF moments.</td>
                             </tr>
                             <tr>
                               <td>Offline external polar generation</td>
-                              <td>External solvers (e.g., NeuralFoil) execute offline to produce polar tables; coupled on-the-fly aerodynamic calls during solver iterations are not supported (<a class="xref" href="#cap-3-8" title="8.8 External solver — NeuralFoil">Section 8.8</a>).</td>
+                              <td>External solvers (for example, NeuralFoil) execute offline to produce polar tables. Coupled on-the-fly aerodynamic calls during solver iterations are not supported (<a class="xref" href="#cap-3-8" title="8.8 External solver — NeuralFoil">Section 8.8</a>).</td>
                             </tr>
                             <tr>
                               <td>Subsonic compressibility correction</td>
                               <td>Linearized Prandtl-Glauert scaling applies up to $M_{\max} = 0.9$ (amplification factor bound $2.29$). Transonic shock formation and drag divergence above $M \approx 0.75$ require specialized CFD polar data (<a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>).</td>
                             </tr>
                             <tr>
-                              <td>Tabulated polar compressibility coupling</td>
+                              <td>Coupling of compressibility to a tabulated polar</td>
                               <td>Enabling analytical compressibility corrections on polars that already incorporate Mach variation double-counts compressibility effects (<a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>).</td>
                             </tr>
                             <tr>
@@ -7753,9 +7744,9 @@ zbemt --project projects/MyProject \
                           </table>
                         </div>
 
-                        <p>None of these invalidate a result by themselves — they define the conditions under which a
-                          result should be trusted at face value versus treated as an estimate needing outside
-                          corroboration (a trim loop, a wake model, or a reference dataset).</p>
+                        <p>None of these invalidate a result on their own. They define when you can trust a result at
+                          face value, and when you must treat it as an estimate. An estimate needs outside
+                          corroboration, such as a trim loop, a wake model, or a reference dataset.</p>
 
 
                         <a id="s24"></a>
@@ -7777,7 +7768,7 @@ zbemt --project projects/MyProject \
                               American Helicopter Society</i>, 1988.</li>
                           <li>Snel, H.; Houwink, R.; Bosschers, J. et al. "Sectional prediction of 3D effects for
                             stalled flow on rotating blades", ECWEC, 1993.</li>
-                          <li>Øye, S. "Dynamic stall simulated as time lag of separation", 1991; see <a
+                          <li>Øye, S. "Dynamic stall simulated as time lag of separation", 1991. See <a
                               href="https://docs.qblade.org/src/theory/aerodynamics/dynamic_stall/OYE_stall.html"
                               target="_blank">QBlade documentation</a> for the formulation of Bergami dynamic $C_d$.
                           </li>
@@ -7798,13 +7789,12 @@ zbemt --project projects/MyProject \
                                 Helicopter Aerodynamics</i></a>. They are bundled here, not loaded from the original
                             site, so that this documentation works without connectivity &mdash; it is the built-in Help
                             documentation (also opened with F1) and must work in an offline lab. Each caption maintains
-                            the credit and link to the original page. <b>The license belongs to the original author;
-                              before publicly redistributing zBEMT, confirm the terms with him.</b></li>
+                            the credit and link to the original page. <b>The license belongs to the original author. Before publicly redistributing zBEMT, confirm the terms with him.</b></li>
                         </ul>
 
                         <hr>
                         <p style="text-align:center; color:var(--sub); font-size:.85rem;">End of document. Figures
-                          without explicit credit are graphs generated from the equations of the zBEMT solver; figures
+                          without explicit credit are graphs generated from the equations of the zBEMT solver. Figures
                           with credit are reproduced from open sources cited in each caption.</p>
 
         </div>

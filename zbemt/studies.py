@@ -6,7 +6,7 @@ Purpose and objectives:
 
 Inputs and outputs:
     Inputs are ``Project``, ``FlightCondition``, ``BatchDefinition``, and
-    optional callbacks. Outputs are ``Results`` or ordered result lists; this
+    optional callbacks. Outputs are ``Results`` or ordered result lists. This
     module never writes project or result files.
 
 Functions and interactions:
@@ -16,7 +16,7 @@ Functions and interactions:
 
 Conventions and limitations:
     RPM is required because it defines the nondimensional velocity scale.
-    Conditions use engine disk axes; display conversion belongs to
+    Conditions use engine disk axes. Display conversion belongs to
     ``nomenclature.py``. Returned results do not imply experimental accuracy.
 """
 
@@ -449,7 +449,7 @@ def _factorial_slot(variable: str) -> str:
 
     The membership comes from `nomenclature`, which is also what names the
     slot's row in the GUI -- a variable cannot be grouped one way here and
-    labelled another way on screen."""
+    labeled another way on screen."""
     if variable in _FACTORIAL_VARIABLES and variable not in _OTHER_FACTORIAL_VARIABLES:
         return nomenclature.slot_of(variable)
     return variable

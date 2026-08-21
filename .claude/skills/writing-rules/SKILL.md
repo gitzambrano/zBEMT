@@ -49,6 +49,20 @@ Procedural and Descriptive rules apply only to their own kind of text.
 | G22 | Keep sentence length in check: about 20 words for an instruction, about 25 words for a description. | Write a long sentence with several clauses. |
 | G23 | When an approved word does not fit, restructure the sentence around a word that does. "Make sure that you can see the oil level." | Force a word-for-word swap that reads as nonsense. "Make sure that the oil level is visible." (when "visible" is not an approved word here) |
 | G24 | Re-read every sentence that uses "with." Confirm the reader cannot mistake it for association, means, or an instrument. "Seal the opening with sealant PN 4471." | Leave "with" open to more than one reading. "Install the panel with the fasteners." (unclear whether "with" means "using" or "together with") |
+| G25 | In prose, write a sentence break instead of `--`, and write "approximately" instead of `~`. "The mesh is radial-azimuthal. Convergence is approximately quadratic." | Use `--` or `~` as a substitute for punctuation or a word in prose. "a radial--azimuthal mesh", "~quadratic convergence" |
+| G26 | Write "and" or "or" between two words. "the rotor and propeller labels", "a thrust or CT target" | Join two words with a slash and leave the reader to guess which you mean. "Rotor/propeller labels", "a thrust/CT target" |
+| G27 | Keep a parenthesis short, and put a fact the reader needs in its own sentence. | Hide a needed fact inside a long parenthesis. |
+| G28 | Write a range in words. "5 to 30 iterations" | Write a range with a hyphen. "5-30 iterations" |
+| G29 | Write a cross-reference in full. "Section 5" | Abbreviate a cross-reference. "Sec.5" |
+| G30 | Say what the code or the theory computes. "the local flow at the airfoil", "Momentum theory does not determine the airfoil loads." | Give code or a theory human intent. "the flow the airfoil sees", "Momentum theory says nothing about airfoils." |
+| G31 | Use American spelling. "behavior", "normalize", "labeled", "center" | Use British spelling. "behaviour", "normalise", "labelled", "centre" |
+
+**`G25`, `G26` and `G28` never apply to code.** A command-line flag keeps
+its dashes (`--project`, `--set`, `--max-iter`). A hyphenated compound
+adjective keeps its single hyphen (`a radial-azimuthal mesh`, `a
+fixed-point solver`). A file path, an operator, a numeric literal and a
+range inside a code sample stay exactly as the code writes them. These
+rules govern prose only.
 
 All documentation in this project, including docstrings, helper text,
 tooltips, and GUI strings, must follow this table.
@@ -99,9 +113,15 @@ tooltips, and GUI strings, must follow this table.
     sentence before it.
 13. `G23` and `G24`: confirm any reworded sentence keeps its original
     meaning, and that every "with" reads without ambiguity.
-14. `D3` (descriptive text only): confirm each paragraph has one topic and
+14. `G25`, `G26` and `G28`: in prose, replace `--`, `~`, a joining slash
+    and a hyphenated range. First confirm the text is prose. Never touch a
+    command-line flag, a compound adjective, a path, or a code sample.
+15. `G20`, `G29`, `G30` and `G31`: replace a Latin abbreviation, an
+    abbreviated cross-reference, a word that gives code human intent, and
+    any British spelling.
+16. `D3` (descriptive text only): confirm each paragraph has one topic and
     6 sentences or fewer.
-15. Reread the whole text start to finish. Confirm every rule from step 3
+17. Reread the whole text start to finish. Confirm every rule from step 3
     is satisfied, and that no fact or hedge was lost in the edit.
 
 ## Scope

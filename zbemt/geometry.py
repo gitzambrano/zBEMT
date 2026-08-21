@@ -5,8 +5,9 @@ engine and previewed by the GUI. Inputs are radius, blade count, root cutout,
 radial stations, chord, twist, and preset parameters. Outputs are validated
 geometry definitions and interpolated arrays. Public generators and editors
 interact with ``models.py``, ``api.py``, ``bemt.py``, and the Geometry tab.
-Stations are normalized by radius; interpolation is piecewise linear and does
-not model structural deformation or three-dimensional airfoil geometry.
+zBEMT normalizes the stations by the radius. The interpolation is piecewise
+linear. It does not model structural deformation or three-dimensional airfoil
+geometry.
 
 geometry.py
 ===========

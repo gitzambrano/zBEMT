@@ -958,7 +958,7 @@ class AirfoilTab(QWidget):
         "polar in every axis present, per radial station and flight condition.\n\n"
         "With no optional column at all, the file is a single polar used "
         "everywhere on the blade.\n\n"
-        "The importer shows which columns it recognised before anything is "
+        "The importer shows which columns it recognized before anything is "
         "applied, and 'Export CSV…' writes this very format — export once to "
         "have a template to fill in."
     )
@@ -973,7 +973,7 @@ class AirfoilTab(QWidget):
         "whatever the source above was — an imported contour is the final list "
         "of points, not another family to generate from.\n\n"
         "WHAT THE FILE MUST CONTAIN: one point per line, two numbers — x then "
-        "y, both normalised by the chord — separated by space, tab or comma:\n"
+        "y, both normalized by the chord — separated by space, tab or comma:\n"
         "    1.000000   0.001300\n"
         "    0.500000   0.065000\n"
         "    0.000000   0.000000\n"

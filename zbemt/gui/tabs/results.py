@@ -1430,7 +1430,7 @@ class ResultsTab(QWidget):
         box = QWidget()
         layout = QVBoxLayout(box)
 
-        # Mode: fixed grid (original behaviour, 11/9 panels) or free X-Y
+        # Mode: fixed grid (original behavior, 11/9 panels) or free X-Y
         # (user request: "plot anything against anything, with several
         # curves, one per grouping variable"). Default stays the grid --
         # nothing changes for anyone who already used this tab. A single
@@ -2051,7 +2051,7 @@ class ResultsTab(QWidget):
         fig.colorbar(mapeavel, ax=ax, shrink=0.6, pad=0.08,
                      label=self._rotulo_de_campo_3d(campo))
         # `build_disk_grid` returns the DIMENSIONAL radius (`R_DIM`, in
-        # metres), not r/R -- labelling the axes with "/ R" said the tip
+        # metres), not r/R -- labeling the axes with "/ R" said the tip
         # was at 8 radii.
         ax.set_xlabel("x [m]")
         ax.set_ylabel("y [m]")

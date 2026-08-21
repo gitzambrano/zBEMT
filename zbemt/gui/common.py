@@ -276,7 +276,7 @@ def mostrar_todas_as_opcoes_em(raiz: QWidget) -> int:
     """Applies `mostrar_todas_as_opcoes` to every combo under `raiz`.
 
     Called once on the assembled window, so that a new combo added
-    anywhere inherits the behaviour without having to remember to ask for
+    anywhere inherits the behavior without having to remember to ask for
     it. Returns how many it touched."""
     combos = raiz.findChildren(QComboBox)
     for combo in combos:

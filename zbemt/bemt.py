@@ -1,9 +1,9 @@
 """Vectorized Blade Element Momentum Theory engine for rotors and propellers.
 
 Purpose and objectives:
-    Solve blade-element/momentum cases on a radial--azimuthal mesh, aggregate
-    loads, and expose convergence data. This is the physics layer; it does not
-    parse projects or write files.
+    Solve blade-element and momentum cases on a radial-azimuthal mesh,
+    aggregate loads, and expose convergence data. This module is the physics
+    layer. Therefore, it does not parse projects and it does not write files.
 
 Inputs and outputs:
     Inputs are ``Rotor`` geometry and airfoil objects, ``BEMTConfig`` settings,
@@ -12,17 +12,22 @@ Inputs and outputs:
     units and disk axes: ``mu_x`` is in-plane and ``Vz`` is along the shaft.
 
 Public operations:
-    ``solve_bemt`` solves a case; ``element_state`` evaluates local quantities;
-    ``aggregate_results`` integrates loads; solver helpers implement the
-    configured numerical methods.
+    - ``solve_bemt`` solves a case.
+    - ``element_state`` evaluates the local quantities.
+    - ``aggregate_results`` integrates the loads.
+    - The solver helpers implement the configured numerical methods.
 
 Conventions, limitations, and interactions:
-    Rotor/propeller display labels are applied outside this module. The model
-    is quasi-steady except for explicitly configured dynamic-stall and
-    time-marching options, uses annular momentum theory, and requires external
-    validation in strongly separated or highly unsteady regimes. ``models.py``
-    supplies data, ``airfoils.py`` supplies polars, ``studies.py`` prepares
-    cases, and ``api.py`` is the GUI/CLI execution boundary.
+    Code outside this module applies the rotor and propeller display labels.
+    The model is quasi-steady, except for the dynamic-stall and time-marching
+    options that you configure explicitly. It uses annular momentum theory.
+    Therefore, it needs external validation in a strongly separated or highly
+    unsteady regime. The neighboring modules are these:
+
+    - ``models.py`` supplies the data.
+    - ``airfoils.py`` supplies the polars.
+    - ``studies.py`` prepares the cases.
+    - ``api.py`` is the execution boundary for the GUI and the CLI.
 
 The following notes define the numerical formulation implemented below.
 
@@ -31,42 +36,43 @@ CORE IDEA OF BEMT
 --------------------------------------------------------------------------------
 The blade is discretized into Ne radial stations x Npsi azimuthal stations.
 In each element (r,psi), two independent theories describe the same
-aerodynamic load and are equated to find the induced velocity:
+aerodynamic load. The solver equates them to find the induced velocity:
 
-  (1) Blade element theory: the load is computed directly from the local
-      flow seen by the airfoil (angle of attack, Cl/Cd from the airfoil
-      polar) -- see `element_state`.
+  (1) Blade element theory. This computes the load directly from the local
+      flow at the airfoil, using the angle of attack and the Cl and Cd from
+      the airfoil polar. See `element_state`.
   (2) Momentum theory, applied to an elemental ring of the disk: the change
       in momentum of the air crossing that ring requires a certain induced
       velocity (lambda_i) to sustain the load computed in (1).
 
 The coupling between the two is a fixed-point equation in lambda_i (the
 induced velocity, non-dimensionalized by Omega*R): lambda_i = g(lambda_i),
-solved numerically per element (Sec.5, "ITERATIVE SOLVERS").
+solved numerically per element (Section 5, "ITERATIVE SOLVERS").
 
 --------------------------------------------------------------------------------
 ARCHITECTURE: FULL VECTORIZATION
 --------------------------------------------------------------------------------
 The fixed-point equation of each element (r,psi) is mathematically
-independent of its neighbors -- there is no spatial coupling within the
-iteration (coupling between elements only exists in the 'global'/
-'pitt_peters' inflow mode, which solves a small number of global degrees of
-freedom instead of one lambda_i per element). Because of this,
+independent of its neighbors. There is no spatial coupling within the
+iteration. Coupling between elements exists only in the 'global' and
+'pitt_peters' inflow modes, which solve a small number of global degrees of
+freedom instead of one lambda_i per element. Because of this,
 `element_state()` evaluates ALL Ne x Npsi elements at once with NumPy
 operations, and each "solver iteration" is a single vectorized pass over
-the entire mesh (typically 5-30 iterations to convergence, not thousands).
+the entire mesh (typically 5 to 30 iterations to convergence, not thousands).
 
 --------------------------------------------------------------------------------
 AVAILABLE ITERATIVE METHODS (`BEMTConfig.solver`)
 --------------------------------------------------------------------------------
-  - 'fixed_point' : Picard iteration with relaxation -- the simplest and
-                     most robust method, but the slowest to converge.
+  - 'fixed_point' : Picard iteration with relaxation. This is the simplest
+                     and most robust method. However, it is the slowest to
+                     converge.
   - 'newton'       : vectorized Newton-Raphson with numerical Jacobian
-                      (central difference), ~quadratic convergence near the
-                      root -- default method.
-  - 'bisection'    : vectorized bisection, needs no derivative; used as a
-                      fallback in regions where g(lambda)-lambda is not
-                      monotonic (post-stall).
+                      (central difference). Convergence is approximately
+                      quadratic near the root. This is the default method.
+  - 'bisection'    : vectorized bisection. It needs no derivative. The
+                      solver uses it as a fallback in regions where
+                      g(lambda)-lambda is not monotonic (post-stall).
   - 'aitken'       : Picard accelerated by Aitken Delta^2 extrapolation, a
                       good cost/robustness compromise.
 
@@ -1022,10 +1028,11 @@ class ViternaExtendedAirfoil:
         auto_detect = (alpha_stall_pos_deg is None or alpha_stall_neg_deg is None) and not base_has_stall_attrs
 
         if auto_detect and not is_table:
-            raise ValueError("ViternaExtendedAirfoil: alpha_stall_pos_deg/alpha_stall_neg_deg "
-                              "can only be None (auto-detect) when the base airfoil "
-                              "is a TableAirfoil -- an analytical model has no CLmax/CLmin "
-                              "'de tabela' para detectar; informe os ângulos de estol.")
+            raise ValueError("ViternaExtendedAirfoil: alpha_stall_pos_deg and "
+                              "alpha_stall_neg_deg can be None, for auto-detection, "
+                              "only when the base airfoil is a TableAirfoil. An "
+                              "analytical model has no tabulated CLmax or CLmin to "
+                              "detect. Give the stall angles.")
 
         if auto_detect:
             idx_p, a_sp_rad, _ = _detect_stall_extremum(base_airfoil.alpha, base_airfoil.cl_tab, "pos")
@@ -2703,8 +2710,9 @@ def _check_rotor_rotation(rotor: Rotor) -> None:
     if rotor.OmegaR <= 1e-9:
         raise ValueError(
             f"Rotor rotation is zero or negative (RPM={rotor.Omega_rpm:g}, "
-            f"R={rotor.R:g} m => Omega*R={rotor.OmegaR:g} m/s). O BEMT "
-            f"adimensionaliza por Omega*R, então a rotação precisa ser > 0.")
+            f"R={rotor.R:g} m => Omega*R={rotor.OmegaR:g} m/s). BEMT "
+            f"non-dimensionalizes by Omega*R. Therefore, the rotation must be "
+            f"greater than zero.")
 
 
 def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
@@ -2742,11 +2750,11 @@ def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
     spec = _resolve_inflow_field_model(cfg.inflow_field_model)
     if spec["unsteady"]:
         raise ValueError(
-            f"inflow_field_model={cfg.inflow_field_model!r} é a variante NÃO-ESTACIONÁRIA "
-            "de Pitt-Peters: `solve_bemt` resolve só condições de voo isoladas (equilíbrio "
-            "algébrico), não uma sequência temporal -- use "
-            "`run_sweep_unsteady_pitt_peters(rotor, airfoil, cfg, time_mu_Vv=...)` para "
-            "marchar o inflow no tempo, ou troque para 'pitt_peters_steady'."
+            f"inflow_field_model={cfg.inflow_field_model!r} is the UNSTEADY variant "
+            "of Pitt-Peters. `solve_bemt` resolves isolated flight conditions only, "
+            "at algebraic equilibrium. It does not resolve a time sequence. Use "
+            "`run_sweep_unsteady_pitt_peters(rotor, airfoil, cfg, time_mu_Vv=...)` to "
+            "march the inflow in time, or change to 'pitt_peters_steady'."
         )
     coupling = spec["coupling"]
 
@@ -2971,9 +2979,9 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
     given_long = {k: v for k, v in long_specs.items() if v is not None}
     if len(given_long) != 1:
         raise ValueError(
-            f"resolve_advance_velocity: forneça EXATAMENTE UM entre "
-            f"mu_x/J_x/alpha_disk_deg (componente longitudinal). "
-            f"Recebido: {list(given_long)}")
+            f"resolve_advance_velocity: give EXACTLY ONE of mu_x, J_x or "
+            f"alpha_disk_deg, which is the longitudinal component. "
+            f"Received: {list(given_long)}")
     (long_kind, long_val), = given_long.items()
 
     # `alpha_rotor_deg` is an EXACT synonym of `alpha_deg`: the same
@@ -2984,17 +2992,17 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
     if alpha_rotor_deg is not None:
         if alpha_deg is not None:
             raise ValueError(
-                "resolve_advance_velocity: alpha_deg e alpha_rotor_deg são a "
-                "MESMA grandeza (o ângulo a partir do plano do disco) -- "
-                "forneça só um.")
+                "resolve_advance_velocity: alpha_deg and alpha_rotor_deg are "
+                "the SAME quantity, the angle from the disk plane. Give only "
+                "one of them.")
         alpha_deg = alpha_rotor_deg
     axial_specs = {"Vz": Vz, "mu_z": mu_z, "J_z": J_z, "alpha_deg": alpha_deg}
     given_axial = {k: v for k, v in axial_specs.items() if v is not None}
     if len(given_axial) > 1:
         raise ValueError(
-            f"resolve_advance_velocity: forneça NO MÁXIMO UM entre "
-            f"Vz/Vz/mu_z/J_z/alpha_deg (componente vertical/axial). "
-            f"Recebido: {list(given_axial)}")
+            f"resolve_advance_velocity: give AT MOST ONE of Vz, mu_z, J_z or "
+            f"alpha_deg, which is the vertical or axial component. "
+            f"Received: {list(given_axial)}")
 
     # RESOLUTION ORDER: normally the in-plane component comes first and
     # the axial one can derive from it (`alpha_deg`). With
@@ -3003,11 +3011,11 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
     # first. The two angles together do not close (see docstring).
     if long_kind == "alpha_disk_deg" and "alpha_deg" in given_axial:
         raise ValueError(
-            "resolve_advance_velocity: alpha_deg (a partir do PLANO) e "
-            "alpha_disk_deg (a partir do EIXO) são o mesmo ângulo escrito de "
-            "duas formas (alpha_disk = 90 - alpha_rotor): dados os dois, nenhuma "
-            "componente fixa a escala da velocidade. Forneça um ângulo e uma "
-            "componente dimensional/adimensional.")
+            "resolve_advance_velocity: alpha_deg, measured from the PLANE, and "
+            "alpha_disk_deg, measured from the SHAFT, are the same angle written "
+            "two ways (alpha_disk = 90 - alpha_rotor). If you give both, no "
+            "component fixes the velocity scale. Give one angle and one "
+            "dimensional or non-dimensional component.")
 
     def _axial_de(spec: dict, Vinf_long_conhecido: float) -> float:
         if not spec:
@@ -3761,7 +3769,7 @@ if __name__ == "__main__":
                   f"(local={df_local['elapsed_s'].sum()*1000:.1f}ms, "
                   f"global={df_global['elapsed_s'].sum()*1000:.1f}ms)")
         else:
-            print("  (bloco 2 desligado em RUN_PLAN -- speedup 'local vs global' não calculado)")
+            print("  (block 2 is off in RUN_PLAN. The 'local vs global' speedup is not computed.)")
         print()
 
     # =====================================================================

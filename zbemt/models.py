@@ -1,8 +1,9 @@
 """Define project dataclasses and serialize them to JSON-based ``.bemt`` files.
 
 Purpose and objectives:
-    Provide the shared data contract for GUI, CLI, API, studies, and engine
-    layers, including defaults, nested definitions, and round trips.
+    Provide the shared data contract for the GUI, the CLI, the API, the studies
+    and the engine layers. The contract includes the defaults, the nested
+    definitions, and the round trips.
 
 Inputs and outputs:
     Inputs are dataclass instances, dictionaries, paths, and JSON-compatible
@@ -10,10 +11,10 @@ Inputs and outputs:
     files and file lists on disk.
 
 Functions and conventions:
-    Constructors and conversion helpers build definitions; ``save_bemt`` and
-    ``load_bemt`` implement file I/O. ``...Def`` classes contain editable raw
-    data. Files use SI units, explicit field names, and string tokens for
-    non-finite numbers so strict JSON readers remain compatible.
+    Constructors and conversion helpers build the definitions. ``save_bemt``
+    and ``load_bemt`` implement the file I/O. ``...Def`` classes contain editable raw
+    data. Files use SI units, explicit field names, and string tokens for non-finite
+    numbers. Therefore, strict JSON readers stay compatible.
 
 Limitations and interactions:
     This module contains no solver, geometry generation, or polar calculation.

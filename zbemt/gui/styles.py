@@ -178,10 +178,11 @@ QPushButton {{
     border: 1px solid {_BORDER_STRONG};
     border-radius: 5px;
     padding: 5px 14px;
-    /* 520px, não 360px: o Qt (QStyleSheetStyle) clampa o sizeHint calculado
-       a partir de max-width -- não é só um teto de layout, ele CORTA o
-       texto do botão mais longo do app ("Check airfoil (live preview on
-       the right)", ~492px de texto) se o valor for menor que isso. */
+    /* 520px, not 360px. Qt (QStyleSheetStyle) clamps the computed
+       sizeHint to max-width. This is not only a layout ceiling. It CUTS
+       the text of the longest button in the app ("Check airfoil (live
+       preview on the right)", approximately 492px of text) when the value
+       is smaller than that. */
     max-width: 520px;
 }}
 QPushButton:hover {{ border-color: {_ACCENT}; }}
@@ -206,9 +207,11 @@ QSpinBox, QDoubleSpinBox {{
 }}
 QSpinBox, QDoubleSpinBox {{ font-family: {_MONO}; }}
 
-/* Garante que inputs dentro de diálogos/popups fiquem legíveis (fundo branco, texto escuro)
-   e com padding reduzido (evita cortar campos em layouts apertados como o do Matplotlib).
-   min-width: evita que os QDoubleSpinBox do SubplotTool sejam comprimidos a ponto de cortar. */
+/* Keeps inputs inside dialogs and popups readable, with a white
+   background and dark text, and with reduced padding. The reduced padding
+   stops fields from being cut in a tight layout such as the Matplotlib
+   one. min-width stops the QDoubleSpinBox controls of SubplotTool from
+   being compressed until they cut. */
 QDialog QLineEdit, QDialog QPlainTextEdit, QDialog QTextEdit, QDialog QComboBox,
 QDialog QSpinBox, QDialog QDoubleSpinBox {{
     background: {_CARD};
@@ -234,11 +237,11 @@ QComboBox::drop-down {{
     border: none;
     background: transparent;
 }}
-/* `width`/`height` REPETIDOS em cada estado, de propósito: o Qt não herda
-   essas duas de uma regra menos específica para a sub-parte, e sem elas o
-   SVG é desenhado no tamanho natural do widget -- visto na tela, o chevron
-   do estado aberto saía gigante, no meio do combo, POR CIMA do texto da
-   opção ("Tip + root (both)" ficava cortado atrás dele). */
+/* `width` and `height` are REPEATED in each state on purpose. Qt does not
+   inherit these two from a less specific rule for the sub-part. Without
+   them, the SVG is drawn at the natural size of the widget. On screen, the
+   chevron of the open state came out huge, in the middle of the combo, ON
+   TOP of the option text ("Tip + root (both)" was cut behind it). */
 QComboBox::down-arrow {{ image: url({_seta("chevron-down")}); width: 10px; height: 7px; }}
 QComboBox::down-arrow:on {{
     image: url({_seta("chevron-down-accent")}); width: 10px; height: 7px;
@@ -246,10 +249,10 @@ QComboBox::down-arrow:on {{
 QComboBox::down-arrow:disabled {{
     image: url({_seta("chevron-down-disabled")}); width: 10px; height: 7px;
 }}
-/* espaço à direita para a seta não encostar no texto da opção */
+/* Space on the right, so the arrow does not touch the option text. */
 QComboBox {{ padding-right: 24px; }}
 
-/* Botões de passo do spinbox: mesma razão que a seta acima. */
+/* Spinbox step buttons, for the same reason as the arrow above. */
 QSpinBox::up-button, QDoubleSpinBox::up-button {{
     subcontrol-origin: border;
     subcontrol-position: top right;
@@ -293,19 +296,19 @@ QComboBox QAbstractItemView {{
     selection-color: {_INK};
 }}
 
-/* `padding` vertical, não só `spacing`: uma linha de QFormLayout ocupada
-   só por um QCheckBox é mais BAIXA que uma linha de campo (o indicador
-   mede menos que um spinbox), e o Qt espaça as linhas pela altura delas
-   -- "Enable dynamic stall (Øye)" encostava em "Lag constant A:", e as
-   três linhas de "3D rotational effects" liam como um bloco só. */
+/* Vertical `padding`, not only `spacing`. A QFormLayout row that holds
+   only a QCheckBox is SHORTER than a field row, because the indicator
+   measures less than a spinbox. Qt spaces the rows by their height.
+   Therefore, "Enable dynamic stall (Øye)" touched "Lag constant A:", and
+   the three rows of "3D rotational effects" read as one block. */
 QCheckBox, QRadioButton {{ spacing: 6px; padding: 4px 0; }}
 
-/* Qualquer regra QSS que mire QCheckBox/QRadioButton (mesmo só
-   `spacing`, acima) tira do estilo nativo (Fusion) o desenho do
-   indicador e passa a exigir que o QSS desenhe TODAS as sub-partes --
-   sem uma regra ``::indicator`` explícita, o indicador sai transparente
-   e sem borda: o quadradinho do checkbox desmarcado sumia por completo,
-   sem deixar pista de que ali havia um campo marcável. */
+/* Any QSS rule that targets QCheckBox or QRadioButton, even only
+   `spacing` above, takes the indicator drawing away from the native
+   (Fusion) style. It then requires QSS to draw EVERY sub-part. Without an
+   explicit ``::indicator`` rule, the indicator comes out transparent and
+   with no border. The small square of the cleared checkbox disappeared
+   completely, and left no sign that a checkable field was there. */
 QCheckBox::indicator, QRadioButton::indicator {{
     width: 14px;
     height: 14px;

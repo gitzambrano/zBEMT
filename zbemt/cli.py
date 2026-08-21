@@ -104,8 +104,9 @@ DEFAULT_RPM = 600.0
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description="Run a zBEMT project (new or existing) via api.py, "
-                     "without GUI — full parity with GUI (docs/parity_registry.md).",
+        description="Run a new or existing zBEMT project without the GUI, "
+                     "through api.py. The CLI has full parity with the GUI "
+                     "(docs/parity_registry.md).",
     )
     project_group = p.add_mutually_exclusive_group(required=True)
     project_group.add_argument("--project", metavar="PATH",
@@ -116,9 +117,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", default=None,
                     help="Project name, used only with --new (default: folder name).")
     p.add_argument("--save-as", metavar="PATH", default=None,
-                    help="Save the project (with all fields set by the flags below "
-                         "already applied) in this folder before running. Omit = does not persist "
-                         "flags to disk (only affects this call's execution).")
+                    help="Save the project in this folder before running, with every "
+                         "field set by the flags below already applied. If you omit it, zBEMT "
+                         "does not write the flags to disk, and they affect this call only.")
 
     # --- listing/selecting saved batches and cases (Part 3.3, item 1-2) --
     p.add_argument("--list-batches", action="store_true",
@@ -231,9 +232,13 @@ def _build_parser() -> argparse.ArgumentParser:
                     default=None, help="Generate project.geometry from a parametric preset.")
     p.add_argument("--geom-file", metavar="PATH", default=None,
                     help="Load entire project.geometry from a .bemt (RotorGeometryDef).")
-    p.add_argument("--geom-radius", type=float, default=None, help="radius_m.")
-    p.add_argument("--geom-root-cutout", type=float, default=None, help="root_cutout_norm.")
-    p.add_argument("--geom-n-blades", type=int, default=None, help="n_blades.")
+    p.add_argument("--geom-radius", type=float, default=None,
+                    help="Set the rotor radius, in metres (RotorGeometryDef.radius_m).")
+    p.add_argument("--geom-root-cutout", type=float, default=None,
+                    help="Set the root cutout, as a fraction of the radius "
+                         "(RotorGeometryDef.root_cutout_norm).")
+    p.add_argument("--geom-n-blades", type=int, default=None,
+                    help="Set the number of blades (RotorGeometryDef.n_blades).")
     p.add_argument("--geom-chord", type=float, default=None,
                     help="constant chord_norm (rectangular preset).")
     p.add_argument("--geom-taper-ratio", type=float, default=None,
@@ -241,22 +246,26 @@ def _build_parser() -> argparse.ArgumentParser:
                          "as root_chord_norm).")
     p.add_argument("--geom-max-chord", type=float, default=None,
                     help="max_chord_norm (elliptic preset).")
-    p.add_argument("--geom-twist-root", type=float, default=None, help="twist_root_deg.")
-    p.add_argument("--geom-twist-tip", type=float, default=None, help="twist_tip_deg.")
+    p.add_argument("--geom-twist-root", type=float, default=None,
+                    help="Set the generated twist at the root, in degrees "
+                         "(linear twist preset).")
+    p.add_argument("--geom-twist-tip", type=float, default=None,
+                    help="Set the generated twist at the tip, in degrees "
+                         "(linear twist preset).")
     p.add_argument("--geom-custom-points", metavar="r:c:t,r:c:t,...", default=None,
                     help="Point-by-point table (custom preset): r/R:chord_norm:twist_deg, "
                          "separated by comma.")
 
     # --- Airfoil (AirfoilDef) — Part 3.3 -------------------------------
     p.add_argument("--airfoil-source", choices=["analytical", "table"], default=None,
-                    help="AirfoilDef.source.")
+                    help="Choose where the polar comes from (AirfoilDef.source).")
     p.add_argument("--airfoil-table", metavar="CSV", default=None,
                     help="Import a polar table (CSV) to AirfoilDef.table_slices "
                          "and set source='table' (same importer as airfoils.import_polar_csv).")
     p.add_argument("--dynamic-stall", dest="dynamic_stall", action="store_true", default=None,
-                    help="AirfoilDef.use_dynamic_stall=True.")
+                    help="Turn dynamic stall on (AirfoilDef.use_dynamic_stall=True).")
     p.add_argument("--no-dynamic-stall", dest="dynamic_stall", action="store_false",
-                    help="AirfoilDef.use_dynamic_stall=False.")
+                    help="Turn dynamic stall off (AirfoilDef.use_dynamic_stall=False).")
     # There is no flag for BEMTConfig.dynamic_stall_model: today only one
     # model is supported ("oye"), so the field has no real choice to
     # expose in the CLI -- what turns dynamic stall on/off is the boolean
@@ -265,9 +274,10 @@ def _build_parser() -> argparse.ArgumentParser:
     # implemented, this is where the choice flag should be added back.
     p.add_argument("--airfoil-stall-model", choices=["linear", "clip", "enhanced", "viterna"],
                     default=None,
-                    help="AirfoilDef.stall_model: shape of STATIC polar beyond stall. "
-                         "'linear' keeps rising, 'clip'/'enhanced' plateau, 'viterna' "
-                         "extends to full range (+/-180deg).")
+                    help="Choose the shape of the STATIC polar beyond stall "
+                         "(AirfoilDef.stall_model). 'linear' keeps rising. 'clip' and "
+                         "'enhanced' plateau. 'viterna' extends to the full range, "
+                         "+/-180 deg.")
     p.add_argument("--airfoil-sections-file", metavar="PATH", default=None,
                     help="Load project.airfoil_sections (multi-section) from a .bemt "
                          "(list of AirfoilDef).")
@@ -276,34 +286,37 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--inflow", default=None,
                     choices=["glauert_local", "glauert_global", "coleman_local", "coleman_global",
                              "drees_local", "drees_global", "pitt_peters_steady", "pitt_peters_unsteady"],
-                    help="BEMTConfig.inflow_field_model.")
+                    help="Choose the inflow field model (BEMTConfig.inflow_field_model).")
     p.add_argument("--prandtl-loss-mode", choices=["off", "tip", "root", "both"], default=None,
-                    help="BEMTConfig.prandtl_loss_mode.")
+                    help="Choose which Prandtl tip and root losses apply (BEMTConfig.prandtl_loss_mode).")
     p.add_argument("--pitt-peters-states", type=int, choices=[3, 5], default=None,
-                    help="BEMTConfig.pitt_peters_states.")
+                    help="Set the number of Pitt-Peters inflow states (BEMTConfig.pitt_peters_states).")
     p.add_argument("--pitt-peters-outer-iter", type=int, default=None,
-                    help="BEMTConfig.pitt_peters_outer_iter.")
+                    help="Set the outer iteration limit for Pitt-Peters (BEMTConfig.pitt_peters_outer_iter).")
     p.add_argument("--pitt-peters-relax", type=float, default=None,
-                    help="BEMTConfig.pitt_peters_relax.")
+                    help="Set the relaxation factor for Pitt-Peters (BEMTConfig.pitt_peters_relax).")
     p.add_argument("--pitt-peters-tol", type=float, default=None,
-                    help="BEMTConfig.pitt_peters_tol.")
+                    help="Set the convergence tolerance for Pitt-Peters (BEMTConfig.pitt_peters_tol).")
     p.add_argument("--rotational-augmentation", dest="rot_aug", action="store_true", default=None,
-                    help="BEMTConfig.use_rotational_augmentation=True (Himmelskamp/Snel).")
+                    help="Turn rotational augmentation on, also called the Himmelskamp effect or the Snel correction (BEMTConfig.use_rotational_augmentation=True).")
     p.add_argument("--no-rotational-augmentation", dest="rot_aug", action="store_false",
-                    help="BEMTConfig.use_rotational_augmentation=False.")
+                    help="Turn rotational augmentation off (BEMTConfig.use_rotational_augmentation=False).")
     p.add_argument("--radial-flow-correction", dest="radial_flow", action="store_true", default=None,
-                    help="BEMTConfig.use_radial_flow_correction=True.")
+                    help="Turn the radial flow correction on (BEMTConfig.use_radial_flow_correction=True).")
     p.add_argument("--no-radial-flow-correction", dest="radial_flow", action="store_false",
-                    help="BEMTConfig.use_radial_flow_correction=False.")
+                    help="Turn the radial flow correction off (BEMTConfig.use_radial_flow_correction=False).")
     p.add_argument("--solver", choices=["fixed_point", "newton", "bisection", "aitken"], default=None,
-                    help="BEMTConfig.solver.")
-    p.add_argument("--max-iter", type=int, default=None, help="BEMTConfig.max_iter.")
-    p.add_argument("--tol", type=float, default=None, help="BEMTConfig.tol.")
-    p.add_argument("--relax", type=float, default=None, help="BEMTConfig.relax.")
+                    help="Choose the iterative solver (BEMTConfig.solver).")
+    p.add_argument("--max-iter", type=int, default=None,
+                    help="Set the iteration limit for the solver (BEMTConfig.max_iter).")
+    p.add_argument("--tol", type=float, default=None,
+                    help="Set the convergence tolerance for the solver (BEMTConfig.tol).")
+    p.add_argument("--relax", type=float, default=None,
+                    help="Set the relaxation factor for the solver (BEMTConfig.relax).")
     p.add_argument("--relax-schedule", dest="relax_schedule", action="store_true", default=None,
-                    help="BEMTConfig.relax_schedule=True.")
+                    help="Turn the relaxation schedule on (BEMTConfig.relax_schedule=True).")
     p.add_argument("--no-relax-schedule", dest="relax_schedule", action="store_false",
-                    help="BEMTConfig.relax_schedule=False.")
+                    help="Turn the relaxation schedule off (BEMTConfig.relax_schedule=False).")
 
     # --- Export ---------------------------------------------------------
     p.add_argument("--outdir", default=None,

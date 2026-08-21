@@ -1,13 +1,14 @@
 """Provide the application boundary for project I/O, execution, and exports.
 
-The module accepts project paths, model definitions, flight conditions, batches, and
-callback options. It creates, validates, loads, saves, runs, and exports projects,
-returning ``Project``, ``Results``, serialized ``.bemt`` data, tables, figures, and
-reports. Public operations cover project lifecycle, case and batch execution, polar
-generation, and result export. GUI and CLI callers use this boundary; it delegates
-physics, geometry, airfoil construction, and nomenclature to their dedicated
-modules and owns direct project-file access. Results remain limited by selected
-models, input validity, and convergence status.
+The module accepts project paths, model definitions, flight conditions,
+batches, and callback options. It creates, validates, loads, saves, runs, and
+exports projects. It returns ``Project``, ``Results``, serialized ``.bemt``
+data, tables, figures, and reports. Public operations cover project lifecycle,
+case and batch execution, polar generation, and result export. GUI and CLI
+callers use this boundary. It delegates physics, geometry, airfoil
+construction, and nomenclature to their dedicated modules. It also owns the
+direct project-file access. The selected models, the validity of the inputs,
+and the convergence status all limit the results.
 """
 
 from __future__ import annotations
@@ -54,13 +55,15 @@ def new_project(path: str, name: Optional[str] = None) -> Project:
 
 
 def project_outputs_dir(project_or_path, create: bool = False) -> str:
-    """``outputs/`` folder of a project -- the CANONICAL definition, in one place.
+    """The ``outputs/`` folder of a project.
+
+    This is the canonical definition, in one place.
 
     Accepts a `Project` (uses `project.path`) or the path to the project
     folder. Returns ``"outputs"`` (relative to the current directory) when
     there is no project path: it is the same fallback the GUI and CLI
     already used, so that a project not yet saved keeps exporting instead
-    of blowing up.
+    of raising an error.
 
     ``create=True`` creates the folder (and its parents) before returning.
 
@@ -1095,9 +1098,9 @@ _REPORT_CSS = """
   tbody tr:nth-child(even) td { background: #fafbfc; }
   tr:hover td { background: #f1f6fb; }
   img { max-width: 100%; border: 1px solid #e5e5e5; border-radius: 4px; }
-  /* Metadados "o que foi rodado" em duas colunas lado a lado -- o bloco
-     ficou generoso de propósito (mais campos), então uma coluna única
-     ficaria alta demais em telas largas. */
+  /* The "what was run" metadata sits in two columns side by side. The
+     block is deliberately generous, because it holds many fields.
+     Therefore, a single column would be too tall on a wide screen. */
   .meta-cols { display: flex; flex-wrap: wrap; gap: 8px 48px; justify-content: center; }
   .meta { display: grid; grid-template-columns: max-content 1fr; gap: 3px 16px;
           font-size: 14px; flex: 1 1 420px; max-width: 560px; }
@@ -1124,33 +1127,35 @@ _REPORT_CSS = """
   .tablewrap th, .tablewrap td { width: 74px; min-width: 74px; max-width: 74px;
                                  padding: 4px 6px; white-space: nowrap;
                                  overflow: hidden; text-overflow: ellipsis; }
-  /* A coluna de condição é a âncora de leitura: ao rolar de lado, perder
-     de vista QUAL caso é aquela linha torna o resto ilegível. */
+  /* The condition column is the reading anchor. When the reader scrolls
+     sideways and loses sight of WHICH case a row is, the rest becomes
+     unreadable. */
   .tablewrap th:first-child, .tablewrap td:first-child {
       position: sticky; left: 0; z-index: 1; width: 130px; min-width: 130px;
       max-width: 130px; background: #fff; border-right: 2px solid #c8d2dc; }
   .tablewrap th:first-child { background: var(--accent-soft); z-index: 2; }
   .tablewrap tbody tr:nth-child(even) td:first-child { background: #fafbfc; }
-  /* Linha de unidade: some visualmente para trás do símbolo (menor, cinza)
-     -- é referência, não conteúdo que se lê linha a linha. */
+  /* The unit row recedes visually behind the symbol, smaller and grey.
+     It is a reference, not content that the reader reads row by row. */
   .tablewrap th.un { font-weight: 400; font-size: 10.5px; color: #6b7280;
                      border-top: 0; padding-top: 0; padding-bottom: 5px;
                      cursor: default; }
-  /* Tooltip INSTANTÂNEO. O `title=` nativo só aparece depois de ~1 s
-     parado sobre a célula, e num cabeçalho de 50 colunas de uma letra
+  /* An INSTANT tooltip. The native `title=` appears only after
+     approximately 1 s at rest over the cell, and in a header of 50
+     one-letter columns
      cada, esse atraso transforma a leitura da tabela numa fila de esperas.
      NÃO é mais um `::after` posicionado com `position: absolute` dentro do
      próprio `<th>` -- esse `<th>` mora dentro de `.tablewrap`, que tem
-     `overflow-x: auto` para conter a rolagem da tabela larga (ver acima).
-     Por regra do CSS, definir só `overflow-x` faz o navegador computar
-     `overflow-y` como `auto` TAMBÉM (não dá pra rolar só um eixo e deixar
-     o outro "visible" de verdade) -- então o balão, que nasce abaixo do
-     cabeçalho via `top: 100%`, ficava CORTADO pela própria caixa que
-     deveria rolar horizontalmente, mesmo com `opacity: 1`. Balão sempre
-     invisível, apesar do CSS "funcionar". Por isso o balão agora é um
-     ÚNICO elemento compartilhado, `position: fixed` (relativo à
-     VIEWPORT, nunca cortado por nenhum ancestral), posicionado por um
-     pouquinho de JS no `mouseover`/`mouseout` -- ver `_REPORT_JS`. */
+     `overflow-x: auto` contains the scrolling of the wide table, as above.
+     By CSS rule, setting only `overflow-x` makes the browser compute
+     `overflow-y` as `auto` TOO. One axis cannot scroll while the other
+     stays truly "visible". Therefore, the balloon, which starts below the
+     header through `top: 100%`, was CUT by the same box that had to scroll
+     horizontally, even with `opacity: 1`. The balloon was always invisible,
+     although the CSS appeared to work. Therefore, the balloon is now a
+     SINGLE shared element with `position: fixed`, relative to the VIEWPORT,
+     and no ancestor ever cuts it. A small amount of JavaScript positions it
+     on `mouseover` and `mouseout`. See `_REPORT_JS`. */
   .tt { cursor: help; }
   .tt-popup {
       position: fixed; transform: translateX(-50%);
@@ -1160,24 +1165,25 @@ _REPORT_CSS = """
       display: none; pointer-events: none; z-index: 9999;
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
   }
-  /* Cabeçalho vertical: a tabela de eco de configuração (`cfg_*`) tem
-     nomes de campo crus e compridos (ex. `reverse_flow_model`) que uma
-     coluna de 74px nunca acomoda na horizontal -- truncar com reticências
-     escondia o nome quase inteiro. Girado 90°, o nome cabe inteiro numa
-     coluna estreita; a altura extra do cabeçalho é o preço, pago só uma
-     vez por tabela, não por linha. */
+  /* A vertical header. The configuration echo table (`cfg_*`) has long
+     raw field names, for example `reverse_flow_model`, that a 74px column
+     never fits horizontally. Truncation with an ellipsis hid almost the
+     whole name. Rotated 90 degrees, the name fits a narrow column. The
+     extra header height is the price, and the table pays it once, not once
+     per row. */
   .tablewrap.vert th.tt { writing-mode: vertical-rl; transform: rotate(180deg);
       white-space: nowrap; overflow: visible; text-overflow: clip;
       height: 140px; vertical-align: bottom; text-align: left; padding-bottom: 8px; }
-  /* A 1a coluna ("condition") fica de fora da rotação -- curta, sticky,
-     girá-la só atrapalharia a leitura. */
+  /* The first column ("condition") stays out of the rotation. It is short
+     and sticky, so rotating it would only hinder reading. */
   .tablewrap.vert th.tt.horiz { writing-mode: horizontal-tb; transform: none;
       height: auto; vertical-align: middle; text-align: left; padding-bottom: inherit; }
-  /* Figura centrada: um gráfico colado na margem esquerda lê como
-     rascunho, não como relatório -- `figure` já é `display: block`, o
-     `margin: auto` centra dentro do `body` (que tem `max-width`). */
-  /* Índice dos relatórios-satélite: seção pesada mora em arquivo próprio
-     (ver `_FIGURAS_ANTES_DE_ARQUIVO_PROPRIO`), linkada daqui. */
+  /* A centered figure. A plot pinned to the left margin reads as a draft,
+     not as a report. `figure` is already `display: block`, so `margin: auto`
+     centers it inside the `body`, which has a `max-width`. */
+  /* Index of the satellite reports. A heavy section lives in its own file,
+     as `_FIGURAS_ANTES_DE_ARQUIVO_PROPRIO` describes, and is linked from
+     here. */
   ul.satelites { list-style: none; padding: 0; display: flex; flex-wrap: wrap;
                  gap: 10px; }
   ul.satelites li { flex: 1 1 300px; border: 1px solid #dde1e6; border-radius: 4px;

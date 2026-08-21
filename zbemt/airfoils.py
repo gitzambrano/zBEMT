@@ -7,8 +7,8 @@ exported tables. Public builders and evaluators are consumed by ``models.py``,
 ``bemt.py``, ``api.py``, and the Airfoil GUI tab. Angles are degrees at file and GUI
 boundaries and radians where numerical routines require them. Extrapolated and
 semi-empirical models have limited validity outside their calibrated ranges. The
-module does not invoke external polar engines implicitly; explicit integrations are
-handled by ``external_solvers.py``.
+module does not invoke external polar engines implicitly.
+``external_solvers.py`` handles the explicit integrations.
 """
 
 from __future__ import annotations
@@ -244,7 +244,7 @@ def build_table(airfoil_def: AirfoilDef, reynolds: Optional[float] = None,
     When the table has a Reynolds and/or Mach axis, the slice used is the
     one closest to the requested condition (`_select_slice_for_condition`).
     Real interpolation BETWEEN Reynolds/Mach slices remains future work;
-    today it is nearest neighbour.
+    today it is nearest neighbor.
 
     There are two ways to inform the condition:
 
@@ -252,7 +252,7 @@ def build_table(airfoil_def: AirfoilDef, reynolds: Optional[float] = None,
       what the engine uses. Each radial station picks ITS OWN slice, with
       the Reynolds and Mach of that section (see `radial_reynolds_mach`).
       Since Re grows nearly linearly with radius, root and tip end up on
-      different polars, which is the physically correct behaviour.
+      different polars, which is the physically correct behavior.
     - scalar ``reynolds``/``mach`` -- a single pair for the whole blade.
       Used by the GUI preview and by anyone who just wants one
       representative polar.
@@ -323,7 +323,7 @@ def _sections_from_radial_profile(slices: list[PolarSlice], radial: tuple) -> di
     Only emits a section when the chosen slice CHANGES along the radius
     (plus the edges), instead of one per sampled station: the
     `MultiSectionTableAirfoil` interpolates between the sections it
-    receives, and repeating the same polar at neighbouring stations adds
+    receives, and repeating the same polar at neighboring stations adds
     no information -- only assembly cost."""
     r_norms = radial[0]
     sections: dict = {}
@@ -475,10 +475,12 @@ def _dynamic_stall_params_da_pa(ordered_defs: list) -> dict:
         if len(valores) > 1:
             warnings.warn(
                 f"to_blade_airfoil: sections with dynamic stall enabled disagree "
-                f"on '{campo}' ({sorted(map(str, valores))}). This parameter is "
-                f"PÁ, não da seção -- o motor marcha uma vez por solve. Valendo: "
-                f"{getattr(escolhida, campo)!r} (seção {escolhida.name or 'r_norm='}"
-                f"{escolhida.r_norm}).", UserWarning, stacklevel=3)
+                f"on '{campo}' ({sorted(map(str, valores))}). This parameter "
+                f"belongs to the blade, not to the section, because the engine "
+                f"marches once per solve. zBEMT uses "
+                f"{getattr(escolhida, campo)!r}, from section "
+                f"{escolhida.name or 'r_norm='}"
+                f"{escolhida.r_norm}.", UserWarning, stacklevel=3)
     return {
         "use_dynamic_stall": True,
         "method": escolhida.dynamic_stall_method,
@@ -502,7 +504,7 @@ def to_blade_airfoil(airfoil_defs: list, reynolds: Optional[float] = None,
 
     - ``airfoil_defs`` with 0 or 1 element: delegates to the usual
       ``to_airfoil()`` (the single element, or a default ``AirfoilDef()``
-      if empty) -- the old path, no change in behaviour or return type.
+      if empty) -- the old path, no change in behavior or return type.
     - ``airfoil_defs`` with 2+ elements (ALL needing ``r_norm`` defined):
       builds, for EACH section, the "normal" airfoil via
       ``to_airfoil(section_def)`` -- each one free to be analytical,
@@ -694,7 +696,7 @@ def condition_label(cond: dict) -> str:
     label = cond.get("label") or ""
     if condicao and label:
         return f"{condicao} ({label})"
-    return condicao or label or "polar única"
+    return condicao or label or "single polar"
 
 
 #: Historical alias: the function was private before the GUI needed to
@@ -746,7 +748,7 @@ def preview_polar_multi(airfoil_def: AirfoilDef, conditions: Optional[list[dict]
 
     alpha, cl, cd = preview_polar(airfoil_def, alpha_deg_range,
                                    use_compressibility=use_compressibility)
-    curves.append({"label": airfoil_def.name or "modelo atual", "alpha_deg": alpha, "cl": cl, "cd": cd})
+    curves.append({"label": airfoil_def.name or "current model", "alpha_deg": alpha, "cl": cl, "cd": cd})
     return curves
 
 
@@ -1092,7 +1094,7 @@ def load_profile_dat(path: str) -> ProfileGeometry:
     fora = [v for v in x if abs(v) > _X_MAXIMO_DE_CONTORNO]
     if fora:
         raise ValueError(
-            f"{path}: x = {fora[0]:g} is outside the chord (a contour normalised "
+            f"{path}: x = {fora[0]:g} is outside the chord (a contour normalized "
             f"by the chord has x between 0 and 1). The usual cause is a Lednicer "
             f"file, whose first line is the number of points of each surface and "
             f"reads as a coordinate here. Delete that line — and note that "

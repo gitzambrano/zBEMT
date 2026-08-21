@@ -51,7 +51,7 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Radial Sections — more than one airfoil along the blade",
         "body": [
             "A real blade rarely uses one profile from root to tip. The two ends face genuinely different flow, and the sections are chosen accordingly: a thick, high-camber, high-maximum-lift profile inboard where the local velocity is low and structural depth is needed, and a thin, low-drag, high-critical-Mach profile outboard where the velocity is high and compressibility is the binding constraint.",
-            "With two or more sections defined, the engine assigns each blade element the polar of the <b>nearest</b> defined station and no longer looks at the single-airfoil definition at all. There is no blending between neighbouring sections: the change is a step at the midpoint between two stations, which is visible as a discontinuity in the spanwise load if the two polars differ strongly.",
+            "With two or more sections defined, the engine assigns each blade element the polar of the <b>nearest</b> defined station and no longer looks at the single-airfoil definition at all. There is no blending between neighboring sections: the change is a step at the midpoint between two stations, which is visible as a discontinuity in the spanwise load if the two polars differ strongly.",
             "The consequence to expect in the result is concentrated where the sections differ most in maximum lift and in zero-lift angle: a section with a more negative α₀ produces lift at a lower geometric pitch, so switching profiles mid-span shifts the local angle of attack the same way a twist step would.",
             "With zero or one section the tab is in single-airfoil mode and the whole blade uses one polar. That is the right choice when the polar is the dominant uncertainty anyway — a second section is only worth defining when its polar is genuinely known.",
         ],
@@ -243,7 +243,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>Correction.</b> The Prandtl-Glauert factor β = √(1 − M²) stretches the incompressible lift slope to its compressible equivalent:"
             "\n\n"
             r"$$C_l \to \dfrac{C_l}{\beta}, \quad C_d \to \dfrac{C_d}{\beta}, \quad \beta = \sqrt{1 - M^2}$$",
-            "The factor is 1.005 at M = 0.1, 1.048 at M = 0.3, 1.25 at M = 0.6 and formally diverges at M → 1, which is why the engine floors β instead of letting it blow up. Above M ≈ 0.75–0.8 the linearization is void anyway: shocks and wave drag are not modelled.",
+            "The factor is 1.005 at M = 0.1, 1.048 at M = 0.3, 1.25 at M = 0.6 and formally diverges at M → 1, which is why the engine floors β instead of letting it blow up. Above M ≈ 0.75–0.8 the linearization is void anyway: shocks and wave drag are not modeled.",
             "Enable it whenever the tip Mach exceeds ≈ 0.3. Do <b>not</b> enable it on a tabulated polar that already carries a Mach axis — that counts compressibility twice, and validation warns about exactly this combination.",
         ],
         "anchor": "cap-3-5",
@@ -253,7 +253,7 @@ BLOCK_HELP: dict[str, dict] = {
         "body": [
             "NeuralFoil is a neural network trained on a large body of XFOIL runs: given the 2D contour and (α, Re, M) it returns Cl and Cd in milliseconds, so a dense Re×M×α grid can be built without an external flow solver.",
             "What comes out is an ordinary tabulated polar — one complete Cl(α), Cd(α) curve per (Re, M) pair. From that point on the engine treats it exactly like an imported table: linear interpolation in α, selection/interpolation of the slice by local Re, M and r/R.",
-            "Because it is a table, the same two limits apply: nothing outside the swept α range is known (hold-edge behaviour unless the Viterna full-range extension is on), and Cl_α and α₀ used by the rotational-augmentation correction are re-estimated numerically from the generated curve.",
+            "Because it is a table, the same two limits apply: nothing outside the swept α range is known (hold-edge behavior unless the Viterna full-range extension is on), and Cl_α and α₀ used by the rotational-augmentation correction are re-estimated numerically from the generated curve.",
             "Accuracy is best for conventional sections at −5° &lt; α &lt; 25°; it degrades at extreme α, very thin sections and unusual shapes. For production cases, validate one operating point against measured or XFOIL data.",
         ],
         "anchor": "cap-3-8",
@@ -369,7 +369,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<br>Linear convergence, very robust.<br><b>newton</b> (default) — Newton-Raphson on r(λ) = g(λ) − λ; quadratic near the root, but the finite-difference Jacobian degrades on derivative corners (a reason to avoid <code>stall_model=\"clip\"</code> with it).<br><b>bisection</b> — derivative-free, guaranteed once the root is bracketed, slowest.<br><b>aitken</b> — Δ² extrapolation over two Picard iterates: superlinear, no derivative needed.",
             "<b>Convergence is always tested on the true residual g(λ) − λ, before relaxation.</b> Near root, tip and the reverse-flow azimuths the relaxation factor is deliberately small, so a relaxed step is small there whether or not the element has converged — testing it would report convergence exactly where convergence is hardest.",
             "<b>Adaptive relaxation.</b> With relax_schedule on, the effective factor is relax·relax_root_factor for r/R &lt; relax_root_threshold, similarly near the tip (relax_tip_threshold) and at azimuths flagged by relax_azimuth_threshold. Lower factors buy stability at those nodes at the cost of iterations.",
-            "If an element refuses to converge, the usual causes are physical, not numerical: the polar is queried outside its α range, reverse flow is unmodelled, or the stall model has a corner. Loosen tol, smooth the stall model, or change solver before raising max_iter.",
+            "If an element refuses to converge, the usual causes are physical, not numerical: the polar is queried outside its α range, reverse flow is unmodeled, or the stall model has a corner. Loosen tol, smooth the stall model, or change solver before raising max_iter.",
         ],
         "anchor": "cap-4-5",
     },
