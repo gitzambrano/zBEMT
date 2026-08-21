@@ -30,7 +30,7 @@ Procedural and Descriptive rules apply only to their own kind of text.
 | G3 | Use active voice. "The solver computes the induced velocity." | Use passive voice when the actor is known. "The induced velocity is computed by the solver." |
 | G4 | Use only simple verb forms: infinitive, imperative, simple present, simple past, simple future, or past participle as an adjective. "The airfoil table failed to load." | Build a compound tense with an auxiliary verb. "The airfoil table has failed to load." |
 | G5 | Use a past participle as an adjective to show a state. "Examine the damaged blade." | Use it to build a passive construction. "The blade was damaged by the impact." |
-| G6 | Write every part of the sentence, including subject, verb, and article. Don't use contractions. "If a custom geometry table is used, validate it first." | Drop words or contract to save space. "If custom table, validate first." / "Don't skip validation." |
+| G6 | Write the full sentence: its verb, its articles, and any connector it needs. Don't use contractions. "If a custom geometry table is used, validate it first." | Write telegraphic text that drops the verb, the articles, or an adverbial connector to save space. "Custom table: validate first." |
 | G7 | Keep a multi-word noun to 3 words or fewer. "Convergence tolerance for induced velocity." | Stack four or more nouns together. "Induced velocity convergence tolerance check." |
 | G8 | Use a single plain verb. "Remove the batch entry." | Build a phrasal verb from two words. "Take out the batch entry." |
 | G9 | Use an "-ing" word only as a technical noun or as a modifier in one. "Open the Troubleshooting tab." | Use "-ing" as a verb form. "While troubleshooting the case, check the log." |
