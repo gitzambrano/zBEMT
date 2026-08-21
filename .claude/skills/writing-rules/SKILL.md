@@ -25,28 +25,30 @@ Procedural and Descriptive rules apply only to their own kind of text.
 
 | # | Do | Don't |
 |---|----|----|
-| 1 | Write in formal, technical English. "The solver did not converge within the iteration limit." | Write in a casual or conversational tone. "Looks like the solver just couldn't converge in time." |
-| 2 | Give each sentence one topic or one instruction. "Set the tip loss factor. Then run the solver." | Chain unrelated ideas into one sentence. "Set the tip loss factor and run the solver, which then writes the report." |
-| 3 | Use active voice. "The solver computes the induced velocity." | Use passive voice when the actor is known. "The induced velocity is computed by the solver." |
-| 4 | Use only simple verb forms: infinitive, imperative, simple present, simple past, simple future, or past participle as an adjective. "The airfoil table failed to load." | Build a compound tense with an auxiliary verb. "The airfoil table has failed to load." |
-| 5 | Use a past participle as an adjective to show a state. "Examine the damaged blade." | Use it to build a passive construction. "The blade was damaged by the impact." |
-| 6 | Write every part of the sentence, including subject, verb, and article. Don't use contractions. "If a custom geometry table is used, validate it first." | Drop words or contract to save space. "If custom table, validate first." / "Don't skip validation." |
-| 7 | Keep a multi-word noun to 3 words or fewer. "Convergence tolerance for induced velocity." | Stack four or more nouns together. "Induced velocity convergence tolerance check." |
-| 8 | Use a single plain verb. "Remove the batch entry." | Build a phrasal verb from two words. "Take out the batch entry." |
-| 9 | Use an "-ing" word only as a technical noun or as a modifier in one. "Open the Troubleshooting tab." | Use "-ing" as a verb form. "While troubleshooting the case, check the log." |
-| 10 | Use the same term for the same thing every time. Always "airfoil polar," never switch to "aero table" mid-document. | Rotate synonyms for the same concept. "Airfoil polar" in one line, "aero table" in the next. |
-| 11 | Use an approved verb to name an action. "Check the residual." | Turn the action into a noun. "Do a check of the residual." |
-| 12 | Use an article before a noun. "Open the results tab." | Drop the article for a telegraphic style. "Open results tab." |
-| 13 | Use plain, well-known words. "The batch run failed." | Use slang or jargon outside the project's own vocabulary. "The batch run bombed." |
-| 14 | Split related facts into separate sentences. "The residual did not converge. Increase the iteration limit." | Join them with a semicolon. "The residual did not converge; increase the iteration limit." |
-| 15 | Use a plain sentence break instead of a dash. "The blade twist changes the local angle of attack. This shifts the lift distribution." | Use a dash to join two ideas. "The blade twist changes the local angle of attack — this shifts the lift distribution." |
-| 16 | Add a connector when one sentence follows logically from the one before it: *however*, *therefore*, *thus*, *then*, *nevertheless*. "The polar has no post-stall data. Therefore, the solver falls back to Viterna extrapolation." | Leave the logical link implicit. "The polar has no post-stall data. The solver falls back to Viterna extrapolation." |
-| 17 | Use "that" after verbs like "make sure," "confirm," or "show." "Make sure that the airfoil table is loaded." | Drop "that" and risk a misread clause. "Make sure the airfoil table is loaded." |
-| 18 | Replace a pronoun with the noun it refers to, if more than one noun could fit. "If the pins are damaged, replace the pins." | Leave an ambiguous pronoun. "If the pins are damaged, replace them." |
-| 19 | State what "this" refers to when more than one reading is possible. "If the tab is locked, this lock blocks editing." | Leave "this" to point at an unclear antecedent. "If the tab is locked, this blocks editing." |
-| 20 | Spell out "for example," "that is," "and so on." | Use a Latin abbreviation. "e.g.," "i.e.," "etc." |
-| 21 | Use a numbered or bulleted list for a sequence or a set of conditions with 3 or more items. | Bury a 3-step sequence inside one paragraph of prose. |
-| 22 | Keep sentence length in check: about 20 words for an instruction, about 25 words for a description. | Write a long sentence with several clauses. |
+| G1 | Write in formal, technical English. "The solver did not converge within the iteration limit." | Write in a casual or conversational tone. "Looks like the solver just couldn't converge in time." |
+| G2 | Give each sentence one topic or one instruction. "Set the tip loss factor. Then run the solver." | Chain unrelated ideas into one sentence. "Set the tip loss factor and run the solver, which then writes the report." |
+| G3 | Use active voice. "The solver computes the induced velocity." | Use passive voice when the actor is known. "The induced velocity is computed by the solver." |
+| G4 | Use only simple verb forms: infinitive, imperative, simple present, simple past, simple future, or past participle as an adjective. "The airfoil table failed to load." | Build a compound tense with an auxiliary verb. "The airfoil table has failed to load." |
+| G5 | Use a past participle as an adjective to show a state. "Examine the damaged blade." | Use it to build a passive construction. "The blade was damaged by the impact." |
+| G6 | Write every part of the sentence, including subject, verb, and article. Don't use contractions. "If a custom geometry table is used, validate it first." | Drop words or contract to save space. "If custom table, validate first." / "Don't skip validation." |
+| G7 | Keep a multi-word noun to 3 words or fewer. "Convergence tolerance for induced velocity." | Stack four or more nouns together. "Induced velocity convergence tolerance check." |
+| G8 | Use a single plain verb. "Remove the batch entry." | Build a phrasal verb from two words. "Take out the batch entry." |
+| G9 | Use an "-ing" word only as a technical noun or as a modifier in one. "Open the Troubleshooting tab." | Use "-ing" as a verb form. "While troubleshooting the case, check the log." |
+| G10 | Use the same term for the same thing every time. Always "airfoil polar," never switch to "aero table" mid-document. | Rotate synonyms for the same concept. "Airfoil polar" in one line, "aero table" in the next. |
+| G11 | Use an approved verb to name an action. "Check the residual." | Turn the action into a noun. "Do a check of the residual." |
+| G12 | Use an article before a noun. "Open the results tab." | Drop the article for a telegraphic style. "Open results tab." |
+| G13 | Use plain, well-known words. "The batch run failed." | Use slang or jargon outside the project's own vocabulary. "The batch run bombed." |
+| G14 | Split related facts into separate sentences. "The residual did not converge. Increase the iteration limit." | Join them with a semicolon. "The residual did not converge; increase the iteration limit." |
+| G15 | Use a plain sentence break instead of a dash. "The blade twist changes the local angle of attack. This shifts the lift distribution." | Use a dash to join two ideas. "The blade twist changes the local angle of attack — this shifts the lift distribution." |
+| G16 | Add a connector when one sentence follows logically from the one before it: *however*, *therefore*, *thus*, *then*, *nevertheless*. "The polar has no post-stall data. Therefore, the solver falls back to Viterna extrapolation." | Leave the logical link implicit. "The polar has no post-stall data. The solver falls back to Viterna extrapolation." |
+| G17 | Use "that" after verbs like "make sure," "confirm," or "show." "Make sure that the airfoil table is loaded." | Drop "that" and risk a misread clause. "Make sure the airfoil table is loaded." |
+| G18 | Replace a pronoun with the noun it refers to, if more than one noun could fit. "If the pins are damaged, replace the pins." | Leave an ambiguous pronoun. "If the pins are damaged, replace them." |
+| G19 | State what "this" refers to when more than one reading is possible. "If the tab is locked, this lock blocks editing." | Leave "this" to point at an unclear antecedent. "If the tab is locked, this blocks editing." |
+| G20 | Spell out "for example," "that is," "and so on." | Use a Latin abbreviation. "e.g.," "i.e.," "etc." |
+| G21 | Use a numbered or bulleted list for a sequence or a set of conditions with 3 or more items. | Bury a 3-step sequence inside one paragraph of prose. |
+| G22 | Keep sentence length in check: about 20 words for an instruction, about 25 words for a description. | Write a long sentence with several clauses. |
+| G23 | When an approved word does not fit, restructure the sentence around a word that does. "Make sure that you can see the oil level." | Force a word-for-word swap that reads as nonsense. "Make sure that the oil level is visible." (when "visible" is not an approved word here) |
+| G24 | Re-read every sentence that uses "with." Confirm the reader cannot mistake it for association, means, or an instrument. "Seal the opening with sealant PN 4471." | Leave "with" open to more than one reading. "Install the panel with the fasteners." (unclear whether "with" means "using" or "together with") |
 
 All documentation in this project, including docstrings, helper text,
 tooltips, and GUI strings, must follow this table.
@@ -74,30 +76,32 @@ tooltips, and GUI strings, must follow this table.
 1. Read the text once, for meaning only. Do not edit yet.
 2. Decide whether it is procedural or descriptive, and pull in that
    section's rules (`P1`-`P5` or `D1`-`D3`) along with the General rules.
-3. Go through every applicable rule, one at a time, from rule 1 to the last
+3. Go through every applicable rule, one at a time, from `G1` to the last
    rule in each table. For each one, check whether the text complies. This
    step is mandatory: do not skip straight to a general impression.
-4. Rule 1: confirm the tone is formal and technical, not casual or
+4. `G1`: confirm the tone is formal and technical, not casual or
    conversational.
-5. Rules 2 and `P1`: split any sentence that holds more than one topic or
+5. `G2` and `P1`: split any sentence that holds more than one topic or
    instruction, unless the actions happen at the same time.
-6. Rule 14: split any sentence joined by a semicolon.
-7. Rule 15: replace any dash with a plain sentence break.
-8. Rule 10: look for synonym rotation, the same thing named two different
+6. `G14`: split any sentence joined by a semicolon.
+7. `G15`: replace any dash with a plain sentence break.
+8. `G10`: look for synonym rotation, the same thing named two different
    ways. Pick one name and use it everywhere.
-9. Rule 11: look for a nominalization ("perform a check of"). Replace it
+9. `G11`: look for a nominalization ("perform a check of"). Replace it
    with the verb ("check").
-10. Rule 1: look for a hedge stacked past the point of meaning ("it may
+10. `G1`: look for a hedge stacked past the point of meaning ("it may
     potentially help to improve"), or a vague or marketing adjective
     (robust, powerful, seamless). State the claim, or delete the word,
     without changing the strength of the original claim.
-11. Rules 7 and 8: replace any remaining noun cluster over 3 words, or any
+11. `G7` and `G8`: replace any remaining noun cluster over 3 words, or any
     phrasal verb, with a plain, specific one.
-12. Rule 16: add a connector where one sentence's meaning depends on the
+12. `G16`: add a connector where one sentence's meaning depends on the
     sentence before it.
-13. Rule D3 (descriptive text only): confirm each paragraph has one topic
-    and 6 sentences or fewer.
-14. Reread the whole text start to finish. Confirm every rule from step 3
+13. `G23` and `G24`: confirm any reworded sentence keeps its original
+    meaning, and that every "with" reads without ambiguity.
+14. `D3` (descriptive text only): confirm each paragraph has one topic and
+    6 sentences or fewer.
+15. Reread the whole text start to finish. Confirm every rule from step 3
     is satisfied, and that no fact or hedge was lost in the edit.
 
 ## Scope
