@@ -131,12 +131,7 @@
       font-size: 1rem;
     }
 
-    .page p,
-    .page li,
-    .page figcaption,
-    .page .boxed {
-      text-align: justify;
-    }
+    .page p, .page li, .page figcaption, .page .boxed{text-align:justify;}
 
     /* The tab points to the canonical section; do not repeat the same
      derivation in the operational chapter. The content stays in the HTML
@@ -144,11 +139,6 @@
      reading flow. */
     .tab-duplicate-detail {
       display: none;
-    }
-
-    .lead {
-      font-size: 1.12rem;
-      color: #30333a;
     }
 
     a {
@@ -607,150 +597,129 @@
     <p class="subtitle" style="font-size:.85rem;">User guide with the physical and mathematical model behind each
       control</p>
 
-    <!-- INDICE-GERAL -->
-    <nav class="indice-geral" aria-label="Table of contents">
-      <div class="indice-titulo">Contents</div>
-      <ol>
-        <li><a href="#how-to-think">0. How to think about zBEMT</a>
-          <ol>
-            <li><a href="#sec-01-scope">0.1 Scope</a></li>
-          </ol>
-        </li>
-        <li><a href="#cap-instalacao">1. Installation</a>
-          <ol>
-            <li><a href="#cap-instalacao-1">1.1 What to install</a></li>
-            <li><a href="#cap-instalacao-2">1.2 Starting it</a></li>
-            <li><a href="#cap-instalacao-3">1.3 When an optional package is missing</a></li>
-          </ol>
-        </li>
-        <li><a href="#cap-interfaces">2. The GUI, the CLI and the .bemt files</a>
-          <ol>
-            <li><a href="#cap-interfaces-1">2.1 What each one is for</a></li>
-            <li><a href="#cap-interfaces-2">2.2 The project folder</a></li>
-            <li><a href="#cap-interfaces-3">2.3 Setting a value</a></li>
-            <li><a href="#cap-interfaces-4">2.4 Checking a project before running it</a></li>
-            <li><a href="#cap-interfaces-5">2.5 What a run produces</a></li>
-          </ol>
-        </li>
-        <li><a href="#tutorial">3. Tutorial: first result</a>
-          <ol>
-            <li><a href="#sec-11-case-workflow">3.1 Case workflow</a></li>
-            <li><a href="#sec-12-workflow">3.2 Workflow</a></li>
-          </ol>
-        </li>
-        <li><a href="#cap-nomenclatura">4. Nomenclature and axes</a>
-          <ol>
-            <li><a href="#sec-21-nomenclature">4.1 Nomenclature</a></li>
-            <li><a href="#cap-nomenclatura-helice">4.2 Propeller mode</a></li>
-          </ol>
-        </li>
-        <li><a href="#cap-metodo">5. The method</a>
-          <ol>
-            <li><a href="#sec-23-disk-discretization-radial-azimuthal-mesh">5.1 Disk discretization: radial-azimuthal
-                mesh</a></li>
-            <li><a href="#sec-24-blade-element-velocities-u-p-u-t-w">5.2 Blade element velocities: $U_P$, $U_T$, $W$</a>
-            </li>
-            <li><a href="#sec-25-blade-element-angles-theta-phi-alpha">5.3 Blade element angles: $\theta$, $\phi$,
-                $\alpha$</a></li>
-            <li><a href="#sec-26-solidity-and-dimensionless-coefficients">5.4 Solidity and dimensionless
-                coefficients</a></li>
-            <li><a href="#sec-27-problem-formulation-two-theories-one-unknown">5.5 Problem formulation: two theories,
-                one unknown</a></li>
-            <li><a href="#sec-28-blade-element-theory">5.6 Blade Element Theory</a></li>
-            <li><a href="#sec-29-momentum-theory">5.7 Momentum Theory</a></li>
-            <li><a href="#sec-210-the-fixed-point-equation">5.8 The fixed-point equation</a></li>
-            <li><a href="#sec-211-formal-coupling">5.9 Formal Coupling</a></li>
-            <li><a href="#sec-212-two-worked-cases">5.10 Two worked cases: hover and forward flight</a></li>
-          </ol>
-        </li>
-        <li><a href="#cap-projeto">6. Project</a>
-          <ol>
-            <li><a href="#cap-projeto-1">6.1 Operation mode: rotor or propeller</a></li>
-            <li><a href="#cap-projeto-2">6.2 Project name</a></li>
-            <li><a href="#cap-projeto-3">6.3 Creating, opening and saving</a></li>
-          </ol>
-        </li>
-        <li><a href="#sec-5-geometry">7. Geometry</a>
-          <ol>
-            <li><a href="#cap-2-1">7.1 Number of blades and radius</a></li>
-            <li><a href="#cap-2-5">7.2 Root cutout</a></li>
-            <li><a href="#cap-2-3">7.3 The radial table</a></li>
-            <li><a href="#cap-2-2">7.4 Generating the table from a preset</a></li>
-            <li><a href="#cap-2-6">7.5 The blade section</a></li>
-            <li><a href="#cap-2-4">7.6 Preview</a></li>
-          </ol>
-        </li>
-        <li><a href="#sec-6-airfoil">8. Airfoil</a>
-          <ol>
-            <li><a href="#cap-3-1">8.1 Radial sections (multi-section airfoil)</a></li>
-            <li><a href="#cap-3-2">8.2 Aerodynamic model</a></li>
-            <li><a href="#cap-3-3">8.3 Dynamic stall</a></li>
-            <li><a href="#cap-3-4">8.4 Reverse flow</a></li>
-            <li><a href="#cap-3-5">8.5 Compressibility</a></li>
-            <li><a href="#cap-3-6">8.6 Data import / tabulated polar</a></li>
-            <li><a href="#cap-3-7">8.7 Profile 2D geometry</a></li>
-            <li><a href="#cap-3-8">8.8 External solver — NeuralFoil</a></li>
-            <li><a href="#cap-3-9">8.9 Preview of the polar and the profile</a></li>
-            <li><a href="#cap-3-10">8.10 Navigate (r/R, Reynolds, Mach)</a></li>
-          </ol>
-        </li>
-        <li><a href="#sec-93-configengine">9. Config/Engine</a>
-          <ol>
-            <li><a href="#cap-4-1">9.1 Mesh and atmosphere</a></li>
-            <li><a href="#cap-4-2">9.2 Inflow model</a></li>
-            <li><a href="#cap-4-3">9.3 Tip and root loss</a></li>
-            <li><a href="#cap-4-4">9.4 Three-dimensional corrections</a></li>
-            <li><a href="#cap-4-5">9.5 The induced-inflow solver</a></li>
-          </ol>
-        </li>
-        <li><a href="#sec-10-run-case">10. Run Case</a>
-          <ol>
-            <li><a href="#cap-5-1">10.1 In-plane flow — the first row</a></li>
-            <li><a href="#cap-5-2">10.2 Along-shaft flow — the second row</a></li>
-            <li><a href="#cap-5-3">10.3 Collective pitch</a></li>
-            <li><a href="#cap-5-4">10.4 Rotational speed</a></li>
-            <li><a href="#cap-5-5">10.5 Run mode and trim</a></li>
-            <li><a href="#cap-5-6">10.6 Saved cases</a></li>
-            <li><a href="#cap-5-7">10.7 The summary table</a></li>
-          </ol>
-        </li>
-        <li><a href="#sec-11-run-batch">11. Run Batch</a>
-          <ol>
-            <li><a href="#cap-6-1">11.1 Sweep axes</a></li>
-            <li><a href="#cap-6-2">11.2 Fixed values</a></li>
-            <li><a href="#cap-6-3">11.3 The condition queue</a></li>
-            <li><a href="#cap-6-4">11.4 Saved batches</a></li>
-            <li><a href="#cap-6-5">11.5 Where the results are written</a></li>
-            <li><a href="#cap-6-6">11.6 Reports</a></li>
-          </ol>
-        </li>
-        <li><a href="#results-section">12. Results</a>
-          <ol>
-            <li><a href="#sec-121-results">12.1 Results</a></li>
-            <li><a href="#sec-122-results-aggregation">12.2 Results Aggregation</a></li>
-            <li><a href="#sec-123-flight-condition-sweeps">12.3 Flight Condition Sweeps</a></li>
-          </ol>
-        </li>
-        <li><a href="#sec-15-outside-the-gui">13. Command-line reference</a>
-          <ol>
-            <li><a href="#cap-8-1">13.1 Running from the command line</a></li>
-            <li><a href="#cap-8-3">13.2 Validation rules</a></li>
-          </ol>
-        </li>
-        <li><a href="#limitations">14. Limitations</a>
-          <ol>
-          </ol>
-        </li>
-        <li><a href="#sec-references">References</a>
-          <ol>
-            <li><a href="#cap-31-creditos">Figure Credits</a></li>
-          </ol>
-        </li>
-      </ol>
-    </nav>
-    <!-- /INDICE-GERAL -->
+<!-- INDICE-GERAL -->
+<nav class="indice-geral" aria-label="Table of contents">
+<div class="indice-titulo">Contents</div>
+<ol>
+<li><a href="#how-to-think">0. How to think about zBEMT</a>
+<ol>
+<li><a href="#sec-01-scope">0.1 Scope</a></li>
+</ol></li>
+<li><a href="#cap-instalacao">1. Installation</a>
+<ol>
+<li><a href="#cap-instalacao-1">1.1 What to install</a></li>
+<li><a href="#cap-instalacao-2">1.2 Starting it</a></li>
+<li><a href="#cap-instalacao-3">1.3 When an optional package is missing</a></li>
+</ol></li>
+<li><a href="#cap-interfaces">2. The GUI, the CLI and the .bemt files</a>
+<ol>
+<li><a href="#cap-interfaces-1">2.1 What each one is for</a></li>
+<li><a href="#cap-interfaces-2">2.2 The project folder</a></li>
+<li><a href="#cap-interfaces-3">2.3 Setting a value</a></li>
+<li><a href="#cap-interfaces-4">2.4 Checking a project before running it</a></li>
+<li><a href="#cap-interfaces-5">2.5 What a run produces</a></li>
+</ol></li>
+<li><a href="#tutorial">3. Tutorial: first result</a>
+<ol>
+<li><a href="#sec-11-case-workflow">3.1 Case workflow</a></li>
+<li><a href="#sec-12-workflow">3.2 Workflow</a></li>
+</ol></li>
+<li><a href="#cap-nomenclatura">4. Nomenclature and axes</a>
+<ol>
+<li><a href="#sec-21-nomenclature">4.1 Nomenclature</a></li>
+<li><a href="#cap-nomenclatura-helice">4.2 Propeller mode</a></li>
+</ol></li>
+<li><a href="#cap-metodo">5. The method</a>
+<ol>
+<li><a href="#sec-23-disk-discretization-radial-azimuthal-mesh">5.1 Disk discretization: radial-azimuthal mesh</a></li>
+<li><a href="#sec-24-blade-element-velocities-u-p-u-t-w">5.2 Blade element velocities: $U_P$, $U_T$, $W$</a></li>
+<li><a href="#sec-25-blade-element-angles-theta-phi-alpha">5.3 Blade element angles: $\theta$, $\phi$, $\alpha$</a></li>
+<li><a href="#sec-26-solidity-and-dimensionless-coefficients">5.4 Solidity and dimensionless coefficients</a></li>
+<li><a href="#sec-27-problem-formulation-two-theories-one-unknown">5.5 Problem formulation: two theories, one unknown</a></li>
+<li><a href="#sec-28-blade-element-theory">5.6 Blade Element Theory</a></li>
+<li><a href="#sec-29-momentum-theory">5.7 Momentum Theory</a></li>
+<li><a href="#sec-210-the-fixed-point-equation">5.8 The fixed-point equation</a></li>
+<li><a href="#sec-211-formal-coupling">5.9 Formal Coupling</a></li>
+<li><a href="#sec-212-two-worked-cases">5.10 Two worked cases: hover and forward flight</a></li>
+</ol></li>
+<li><a href="#cap-projeto">6. Project</a>
+<ol>
+<li><a href="#cap-projeto-1">6.1 Operation mode: rotor or propeller</a></li>
+<li><a href="#cap-projeto-2">6.2 Project name</a></li>
+<li><a href="#cap-projeto-3">6.3 Creating, opening and saving</a></li>
+</ol></li>
+<li><a href="#sec-5-geometry">7. Geometry</a>
+<ol>
+<li><a href="#cap-2-1">7.1 Number of blades and radius</a></li>
+<li><a href="#cap-2-5">7.2 Root cutout</a></li>
+<li><a href="#cap-2-3">7.3 The radial table</a></li>
+<li><a href="#cap-2-2">7.4 Generating the table from a preset</a></li>
+<li><a href="#cap-2-6">7.5 The blade section</a></li>
+<li><a href="#cap-2-4">7.6 Preview</a></li>
+</ol></li>
+<li><a href="#sec-6-airfoil">8. Airfoil</a>
+<ol>
+<li><a href="#cap-3-1">8.1 Radial sections (multi-section airfoil)</a></li>
+<li><a href="#cap-3-2">8.2 Aerodynamic model</a></li>
+<li><a href="#cap-3-3">8.3 Dynamic stall</a></li>
+<li><a href="#cap-3-4">8.4 Reverse flow</a></li>
+<li><a href="#cap-3-5">8.5 Compressibility</a></li>
+<li><a href="#cap-3-6">8.6 Data import / tabulated polar</a></li>
+<li><a href="#cap-3-7">8.7 Profile 2D geometry</a></li>
+<li><a href="#cap-3-8">8.8 External solver — NeuralFoil</a></li>
+<li><a href="#cap-3-9">8.9 Preview of the polar and the profile</a></li>
+<li><a href="#cap-3-10">8.10 Navigate (r/R, Reynolds, Mach)</a></li>
+</ol></li>
+<li><a href="#sec-93-configengine">9. Config/Engine</a>
+<ol>
+<li><a href="#cap-4-1">9.1 Mesh and atmosphere</a></li>
+<li><a href="#cap-4-2">9.2 Inflow model</a></li>
+<li><a href="#cap-4-3">9.3 Tip and root loss</a></li>
+<li><a href="#cap-4-4">9.4 Three-dimensional corrections</a></li>
+<li><a href="#cap-4-5">9.5 The induced-inflow solver</a></li>
+</ol></li>
+<li><a href="#sec-10-run-case">10. Run Case</a>
+<ol>
+<li><a href="#cap-5-1">10.1 In-plane flow — the first row</a></li>
+<li><a href="#cap-5-2">10.2 Along-shaft flow — the second row</a></li>
+<li><a href="#cap-5-3">10.3 Collective pitch</a></li>
+<li><a href="#cap-5-4">10.4 Rotational speed</a></li>
+<li><a href="#cap-5-5">10.5 Run mode and trim</a></li>
+<li><a href="#cap-5-6">10.6 Saved cases</a></li>
+<li><a href="#cap-5-7">10.7 The summary table</a></li>
+</ol></li>
+<li><a href="#sec-11-run-batch">11. Run Batch</a>
+<ol>
+<li><a href="#cap-6-1">11.1 Sweep axes</a></li>
+<li><a href="#cap-6-2">11.2 Fixed values</a></li>
+<li><a href="#cap-6-3">11.3 The condition queue</a></li>
+<li><a href="#cap-6-4">11.4 Saved batches</a></li>
+<li><a href="#cap-6-5">11.5 Where the results are written</a></li>
+<li><a href="#cap-6-6">11.6 Reports</a></li>
+</ol></li>
+<li><a href="#results-section">12. Results</a>
+<ol>
+<li><a href="#sec-121-results">12.1 Results</a></li>
+<li><a href="#sec-122-results-aggregation">12.2 Results Aggregation</a></li>
+<li><a href="#sec-123-flight-condition-sweeps">12.3 Flight Condition Sweeps</a></li>
+</ol></li>
+<li><a href="#sec-15-outside-the-gui">13. Command-line reference</a>
+<ol>
+<li><a href="#cap-8-1">13.1 Running from the command line</a></li>
+<li><a href="#cap-8-3">13.2 Validation rules</a></li>
+</ol></li>
+<li><a href="#limitations">14. Limitations</a>
+<ol>
+</ol></li>
+<li><a href="#sec-references">References</a>
+<ol>
+<li><a href="#cap-31-creditos">Figure Credits</a></li>
+</ol></li>
+</ol>
+</nav>
+<!-- /INDICE-GERAL -->
 
-    <h2 id="how-to-think">0. How to think about zBEMT</h2>
+<h2 id="how-to-think">0. How to think about zBEMT</h2>
 
     <p>zBEMT solves the blade-element and momentum formulations on a common radial--azimuthal mesh.
       The blade is discretized into radial and azimuthal stations. At each element $(r,\psi)$, both
@@ -775,11 +744,14 @@
       the blade-element calculation predicts the load for a trial induced velocity, and momentum
       theory updates that induced velocity until both predictions agree. This is why the solver
       may need several iterations near stall, in strong inflow gradients or near the blade tip.
-      The practical controls for this process are documented in Section 9.5;
-      the full derivation is in Section 5.8.</p>
+      The practical controls for this process are documented in <a class="xref" href="#cap-4-5"
+        title="9.5 The induced-inflow solver">Section 9.5</a>;
+      the full derivation is in <a class="xref" href="#sec-210-the-fixed-point-equation"
+        title="5.8 The fixed-point equation">Section 5.8</a>.</p>
 
     <p>Everything beyond this &mdash; reverse flow, dynamic stall, non-uniform inflow, tip/root loss,
-      rotational augmentation, compressibility (Section 13) &mdash; is a correction layered on top of one
+      rotational augmentation, compressibility (<a class="xref" href="#cap-3-5"
+        title="8.5 Compressibility">Section 8.5</a>) &mdash; is a correction layered on top of one
       side or the other of this same two-theory equality, never a replacement for it. If a result looks
       wrong, the two-theory picture above is the first place to check: which side (element load, or
       momentum balance) does the suspicious number belong to, and which correction on that side could be
@@ -787,7 +759,7 @@
 
     <h3 id="sec-01-scope">0.1 Scope</h3>
 
-    <p class="lead">Use this guide in the same order as the <span class="gui">GUI</span>. First describe the aircraft or
+    <p>Use this guide in the same order as the <span class="gui">GUI</span>. First describe the aircraft or
       propeller, then the blade geometry and airfoil data, choose the physical corrections and
       solver settings, define one case or a batch, and finally inspect the results. The equations
       are included whenever they help select a value or diagnose a result; source-level details that do
@@ -1187,7 +1159,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
     <h2 id="tutorial">3. Tutorial: first result</h2>
 
     <h3 id="sec-11-case-workflow">3.1 Case workflow</h3>
-    <p class="lead">Create or open a project, define the blade and aerodynamic model, configure the
+    <p>Create or open a project, define the blade and aerodynamic model, configure the
       engine, specify an operating condition, execute the case, and interpret the results.</p>
 
     <nav class="manual-nav" aria-label="GUI steps">
@@ -1273,7 +1245,7 @@ zbemt --help     # command line</pre>
       (<a class="xref" href="#cap-0-5" title="3.2.5 First use">Section 3.2.5</a>) or create a new project.
     </div>
 
-    <p class="lead">The <span class="gui">GUI</span> organizes the project in <b>seven tabs</b>, in the order in which a
+    <p>The <span class="gui">GUI</span> organizes the project in <b>seven tabs</b>, in the order in which a
       project is normally
       set up: <b>1. Project</b> (create/open, choose Rotor or Propeller) &rarr; <b>2. Geometry</b>
       (radial table of chord/twist) &rarr; <b>3. Airfoil</b> (aerodynamic model and stall) &rarr;
@@ -1551,7 +1523,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <a id="cap-9"></a>
     <h2 id="cap-nomenclatura">4. Nomenclature and axes</h2>
 
-    <p class="lead">This chapter defines the vehicle-axis convention, the rotor and propeller display
+    <p>This chapter defines the vehicle-axis convention, the rotor and propeller display
       labels, the sign conventions, and the dimensional and nondimensional quantities used throughout
       the <span class="gui">GUI</span>, <span class="bemt">.bemt</span> files, and
       <span class="cli">CLI</span>. The equations are unchanged by the display convention.
@@ -2112,7 +2084,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <h3 id="cap-nomenclatura-helice">4.2 Propeller mode</h3>
 
 
-    <p class="lead">The physics chapters are written in <b>rotor axes</b>, because that is the frame
+    <p>The physics chapters are written in <b>rotor axes</b>, because that is the frame
       the engine solves in, and writing the derivations twice would create two texts to keep true instead
       of one. This chapter collects what is different when the machine is an airplane propeller: what
       changes physically, which letter then names which component, which advance ratio is the advance
@@ -3681,15 +3653,11 @@ formats and limitations of each polar source.</p>
     </figure>
 
     <!-- INDICE-DE-CAMPOS:geometria -->
-    <div class="boxed">
-      <b>Fields in this tab, in the order they appear on screen</b> (2). The sections below are self-contained and use
-      the same explanations as the field Help in the window.
-      <ol class="indice-de-campos">
-        <li><code>n_blades</code> &rarr; <a href="#cap-2-1">7.1</a></li>
-        <li><code>radius_m</code> &rarr; <a href="#cap-2-1">7.1</a></li>
-      </ol>
-    </div>
-    <!-- /INDICE-DE-CAMPOS:geometria -->
+<div class="boxed">
+<b>Fields in this tab, in the order they appear on screen</b> (2). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>n_blades</code> &rarr; <a href="#cap-2-1">7.1</a></li><li><code>radius_m</code> &rarr; <a href="#cap-2-1">7.1</a></li></ol>
+</div>
+<!-- /INDICE-DE-CAMPOS:geometria -->
     <p class="boxed"><b>Editorial scope.</b> Each field section below defines the quantity, identifies
       its governing equation and units, explains direct and secondary effects, states applicability and
       limitations, lists options, and separates <span class="gui">GUI</span>,
@@ -3990,43 +3958,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
         controls are on the left, with the resulting curves previewed on the right.</figcaption>
     </figure>
     <!-- INDICE-DE-CAMPOS:aerofolio -->
-    <div class="boxed">
-      <b>Fields in this tab, in the order they appear on screen</b> (30). The sections below are self-contained and use
-      the same explanations as the field Help in the window.
-      <ol class="indice-de-campos">
-        <li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li>
-        <li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li>
-        <li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li>
-        <li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li>
-        <li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li>
-        <li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li>
-        <li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li>
-        <li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li>
-        <li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li>
-        <li><code>r_norm</code> &rarr; <a href="#cap-3-8-3">8.8.3</a></li>
-        <li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li>
-        <li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li>
-        <li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li>
-        <li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li>
-        <li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li>
-        <li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li>
-        <li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li>
-        <li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li>
-        <li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li>
-        <li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li>
-        <li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li>
-        <li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li>
-        <li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li>
-        <li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li>
-        <li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li>
-        <li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li>
-        <li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li>
-        <li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li>
-        <li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li>
-        <li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li>
-      </ol>
-    </div>
-    <!-- /INDICE-DE-CAMPOS:aerofolio -->
+<div class="boxed">
+<b>Fields in this tab, in the order they appear on screen</b> (30). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-8-3">8.8.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
+</div>
+<!-- /INDICE-DE-CAMPOS:aerofolio -->
     <p class="boxed"><b>Editorial scope.</b> Each field section below is self-contained. It gives the
       physical definition, mathematical model, effects on the polar and loads, applicability and
       limitations, available options, and separate <span class="gui">GUI</span>,
@@ -5618,40 +5554,11 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                   </figcaption>
                 </figure>
                 <!-- INDICE-DE-CAMPOS:config -->
-                <div class="boxed">
-                  <b>Fields in this tab, in the order they appear on screen</b> (27). The sections below are
-                  self-contained and use the same explanations as the field Help in the window.
-                  <ol class="indice-de-campos">
-                    <li><code>Ne</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li>
-                    <li><code>Npsi</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li>
-                    <li><code>rho</code> &rarr; <a href="#cap-4-1-2">9.1.2</a></li>
-                    <li><code>a_sound</code> &rarr; <a href="#cap-4-1-3">9.1.3</a></li>
-                    <li><code>integration_offset</code> &rarr; <a href="#cap-4-1-4">9.1.4</a></li>
-                    <li><code>inflow_field_model</code> &rarr; <a href="#cap-4-2">9.2</a></li>
-                    <li><code>prandtl_loss_mode</code> &rarr; <a href="#cap-4-3">9.3</a></li>
-                    <li><code>radial_flow_max_skew_deg</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li>
-                    <li><code>use_rotational_augmentation</code> &rarr; <a href="#cap-4-4-1">9.4.1</a></li>
-                    <li><code>use_radial_flow_correction</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li>
-                    <li><code>pitt_peters_states</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li>
-                    <li><code>pitt_peters_outer_iter</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li>
-                    <li><code>pitt_peters_relax</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li>
-                    <li><code>pitt_peters_tol</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li>
-                    <li><code>relax_root_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li>
-                    <li><code>relax_root_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li>
-                    <li><code>relax_tip_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li>
-                    <li><code>relax_azimuth_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li>
-                    <li><code>relax_azimuth_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li>
-                    <li><code>solver</code> &rarr; <a href="#cap-4-5-1">9.5.1</a></li>
-                    <li><code>max_iter</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li>
-                    <li><code>tol</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li>
-                    <li><code>relax</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li>
-                    <li><code>relax_schedule</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li>
-                    <li><code>early_exit_fraction</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li>
-                    <li><code>stagnation_patience</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li>
-                    <li><code>stagnation_min_frac</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li>
-                  </ol>
-                </div>
-                <!-- /INDICE-DE-CAMPOS:config -->
+<div class="boxed">
+<b>Fields in this tab, in the order they appear on screen</b> (27). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>Ne</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>Npsi</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>rho</code> &rarr; <a href="#cap-4-1-2">9.1.2</a></li><li><code>a_sound</code> &rarr; <a href="#cap-4-1-3">9.1.3</a></li><li><code>integration_offset</code> &rarr; <a href="#cap-4-1-4">9.1.4</a></li><li><code>inflow_field_model</code> &rarr; <a href="#cap-4-2">9.2</a></li><li><code>prandtl_loss_mode</code> &rarr; <a href="#cap-4-3">9.3</a></li><li><code>radial_flow_max_skew_deg</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>use_rotational_augmentation</code> &rarr; <a href="#cap-4-4-1">9.4.1</a></li><li><code>use_radial_flow_correction</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>pitt_peters_states</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_outer_iter</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_relax</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_tol</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>relax_root_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_root_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_tip_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>solver</code> &rarr; <a href="#cap-4-5-1">9.5.1</a></li><li><code>max_iter</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>tol</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>relax</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_schedule</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>early_exit_fraction</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_patience</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_min_frac</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li></ol>
+</div>
+<!-- /INDICE-DE-CAMPOS:config -->
                 <p class="boxed"><b>Editorial scope.</b> Each field section below states the numerical quantity,
                   equation, physical effect, applicability, limitations, options, and separate
                   <span class="gui">GUI</span>, <span class="bemt">.bemt</span>, and <span class="cli">CLI</span>
@@ -6414,17 +6321,11 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                     </figure>
 
                     <!-- INDICE-DE-CAMPOS:run_case -->
-                    <div class="boxed">
-                      <b>Fields in this tab, in the order they appear on screen</b> (4). The sections below are
-                      self-contained and use the same explanations as the field Help in the window.
-                      <ol class="indice-de-campos">
-                        <li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li>
-                        <li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li>
-                        <li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li>
-                        <li><code>rpm</code> &rarr; <a href="#cap-5-4">10.4</a></li>
-                      </ol>
-                    </div>
-                    <!-- /INDICE-DE-CAMPOS:run_case -->
+<div class="boxed">
+<b>Fields in this tab, in the order they appear on screen</b> (4). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.4</a></li></ol>
+</div>
+<!-- /INDICE-DE-CAMPOS:run_case -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below follows the visible order and
                       states definition, sign convention, units, equations, direct and secondary effects, applicability,
                       limitations, options, and separate <span class="gui">GUI</span>, <span class="bemt">.bemt</span>,
@@ -6778,17 +6679,11 @@ mach</code>), so exporting once is the quickest way to obtain a template to fill
                     </figure>
 
                     <!-- INDICE-DE-CAMPOS:run_batch -->
-                    <div class="boxed">
-                      <b>Fields in this tab, in the order they appear on screen</b> (4). The sections below are
-                      self-contained and use the same explanations as the field Help in the window.
-                      <ol class="indice-de-campos">
-                        <li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li>
-                        <li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li>
-                        <li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li>
-                        <li><code>rpm</code> &rarr; <a href="#cap-5-4">10.4</a></li>
-                      </ol>
-                    </div>
-                    <!-- /INDICE-DE-CAMPOS:run_batch -->
+<div class="boxed">
+<b>Fields in this tab, in the order they appear on screen</b> (4). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.4</a></li></ol>
+</div>
+<!-- /INDICE-DE-CAMPOS:run_batch -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below explains how the control changes
                       the generated operating conditions, gives its mathematics, applicability and limitations, lists
                       options, and documents the separate <span class="gui">GUI</span>, <span class="bemt">.bemt</span>,
