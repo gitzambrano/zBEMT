@@ -740,22 +740,19 @@
         the load as an input and says nothing about airfoils.</li>
     </ul>
 
-    <p>Neither theory closes the problem alone. The coupling is an iterative balance:
-      the blade-element calculation predicts the load for a trial induced velocity, and momentum
-      theory updates that induced velocity until both predictions agree. This is why the solver
-      may need several iterations near stall, in strong inflow gradients or near the blade tip.
-      The practical controls for this process are documented in <a class="xref" href="#cap-4-5"
-        title="9.5 The induced-inflow solver">Section 9.5</a>;
-      the full derivation is in <a class="xref" href="#sec-210-the-fixed-point-equation"
+    <p>Neither theory alone closes the governing system. The solver couples them iteratively:
+      Blade Element Theory computes aerodynamic loads for an assumed induced velocity, while Momentum
+      Theory updates the induced inflow until both momentum balance and blade loads converge.
+      Numerical controls for this iteration are described in <a class="xref" href="#cap-4-5"
+        title="9.5 The induced-inflow solver">Section 9.5</a>, and the analytical derivation is given in <a class="xref"
+        href="#sec-210-the-fixed-point-equation"
         title="5.8 The fixed-point equation">Section 5.8</a>.</p>
 
-    <p>Everything beyond this &mdash; reverse flow, dynamic stall, non-uniform inflow, tip/root loss,
-      rotational augmentation, compressibility (<a class="xref" href="#cap-3-5"
-        title="8.5 Compressibility">Section 8.5</a>) &mdash; is a correction layered on top of one
-      side or the other of this same two-theory equality, never a replacement for it. If a result looks
-      wrong, the two-theory picture above is the first place to check: which side (element load, or
-      momentum balance) does the suspicious number belong to, and which correction on that side could be
-      misconfigured.</p>
+    <p>Secondary physical effects (such as reverse flow, dynamic stall, non-uniform inflow, tip/root
+      losses, rotational augmentation, and compressibility in <a class="xref" href="#cap-3-5"
+        title="8.5 Compressibility">Section 8.5</a>) are formulated as modular corrections applied to
+      either the blade element loads or the momentum equations. Diagnostic analysis should therefore
+      isolate discrepancies to the corresponding branch of this coupled formulation.</p>
 
     <h3 id="sec-01-scope">0.1 Scope</h3>
 
@@ -770,11 +767,10 @@
       <figcaption>UH-60 Black Hawk in flight: the physical system modeled by this document's
         formulation: a disk of $N_b$ blades rotating at angular velocity $\Omega$, producing thrust $T$
         and torque $Q$. Source: <a href="https://en.wikipedia.org/wiki/Sikorsky_UH-60_Black_Hawk"
-          target="_blank">Wikipedia, Sikorsky UH-60 Black Hawk</a> (Jordanian Air Force, public domain/US DoD), via <a
-          href="https://kumar-sumeet.github.io/HeliAeroNotes/Lectures/4_ForwardFlight/ForwardFlight.html"
-          target="_blank">S. Kumar, <i>Fundamentals of Helicopter Aerodynamics</i></a>.</figcaption>
+          target="_blank">Wikipedia</a>.</figcaption>
     </figure>
 
+    <a id="cap-1"></a>
     <h2 id="cap-instalacao">1. Installation</h2>
 
     <p>zBEMT requires Python 3.10 or later. The core solver uses NumPy, SciPy, Matplotlib, and pandas;
@@ -1245,14 +1241,13 @@ zbemt --help     # command line</pre>
       (<a class="xref" href="#cap-0-5" title="3.2.5 First use">Section 3.2.5</a>) or create a new project.
     </div>
 
-    <p>The <span class="gui">GUI</span> organizes the project in <b>seven tabs</b>, in the order in which a
-      project is normally
-      set up: <b>1. Project</b> (create/open, choose Rotor or Propeller) &rarr; <b>2. Geometry</b>
-      (radial table of chord/twist) &rarr; <b>3. Airfoil</b> (aerodynamic model and stall) &rarr;
-      <b>4. Config/Engine</b> (mesh, inflow, solver) &rarr; <b>5. Run Case</b> (one operating point)
-      and/or <b>6. Run Batch</b> (sweep) &rarr; <b>7. Results</b> (visualization, export). The
-      chapters follow exactly this order: one chapter per tab, in the order the tabs appear in the
-      window.
+    <p>The <span class="gui">GUI</span> workflow is organized into <b>seven tabs</b> matching standard
+      project setup: <b>1. Project</b> (mode and file management) &rarr; <b>2. Geometry</b> (radial blade
+      chord and twist distribution) &rarr; <b>3. Airfoil</b> (polar models and aerodynamic corrections)
+      &rarr; <b>4. Config/Engine</b> (discretization, inflow model, and solver numerical parameters) &rarr;
+      <b>5. Run Case</b> (single flight condition evaluation) or <b>6. Run Batch</b> (parametric sweeps)
+      &rarr; <b>7. Results</b> (post-processing and export). The reference manual follows this tab sequence
+      sequentially.
     </p>
 
     <h4 id="cap-0-1">3.2.1 Flow indicator bar</h4>
@@ -2257,19 +2252,16 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
           title="5.6 Blade Element Theory">Section 5.6</a>).</li>
     </ul>
 
-    <p><b>Why it is offered in the cross-flow ($z$) field and not next to the airspeed.</b> An angle
-      never fixes the scale of a velocity; it only resolves a known component into the other one. In
-      propeller mode the known component is the airspeed along the shaft, which the $x$-labelled field
-      carries, so the angle's job is to produce the cross-flow from it:</p>
+    <p><b>Cross-flow velocity and angle coupling.</b> A single angular parameter defines the
+      velocity vector orientation given an axial velocity scale. In propeller mode, the primary airspeed acts
+      along the shaft ($x$-axis), and the cross-flow component ($z$-axis) is determined via:</p>
     <div class="eqn">$$V_{\text{cross}} \;=\; \tan(\alpha_{disk})\;\bigl|V_{\text{shaft}}\bigr| .$$</div>
-    <p>The magnitude, not the signed value, is deliberate: with a negative along-shaft component the
-      signed form would flip which way the cross-flow points, and the angle reported back would then
-      disagree with the geometry it came from. Put the angle in the other field instead and the
-      resolution would have to divide by $\tan(\alpha_{disk})$ &mdash; which is $0/0$ in exactly the
-      straight cruise a propeller spends its life in. Hence the rule that holds in both modes:
-      <b>$x$ carries a velocity, $z$ carries the angle</b>. Supplying both angles at once is an error
-      rather than a redundancy: with two angles and no dimensional component, nothing sets the
-      scale.
+    <p>The absolute value $\bigl|V_{\text{shaft}}\bigr|$ ensures consistent cross-flow direction regardless
+      of axial flow sign. Defining the angle relative to the cross-flow axis instead would introduce a
+      singularity ($\tan(0)=0$) in axial cruise. Therefore, both operating modes enforce the convention:
+      <b>the $x$-axis specifies velocity scale, and the $z$-axis defines angle of incidence</b>. Defining
+      angular values on both axes simultaneously is invalid because no reference velocity scale is
+      established.
     </p>
 
     <h4 id="cap-prop-5">4.2.5 Coefficients: which convention, and which efficiency</h4>
@@ -2427,16 +2419,15 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       </table>
     </div>
 
-    <p>Read across the table and every statement of this chapter appears at once. $J_x$ carries the
-      condition while $J_z$ stays at zero throughout. $\eta_{prop}$ starts at zero at the static point
-      and climbs towards its peak as $J_x$ grows, which is the shape of every propeller efficiency
-      curve. $FM$ does the opposite &mdash; genuinely informative at the static point ($0.66$), then
-      decaying into meaninglessness as the flight speed rises, since it keeps comparing against a hover
-      ideal that no longer describes the condition. Past $J_x\approx1.2$ the blade section angles have
-      fallen below their zero-lift values at fixed pitch: thrust reverses, the propeller windmills, and
-      $\eta_{prop}$ is reported as $0$ rather than as a positive ratio of two negative numbers. The
-      same fixed-collective caveat as anywhere else applies &mdash; these are untrimmed results, so
-      thrust is an output, not a held constant.</p>
+    <p>The tabulated progression illustrates these aerodynamic metrics: axial flight speed is
+      governed by $J_x$ with zero cross-flow ($J_z = 0$). Propeller propulsive efficiency $\eta_{prop}$ is
+      zero under static conditions ($J_x = 0$) and increases toward its design peak with forward speed.
+      Conversely, the hover Figure of Merit ($FM$) is physically meaningful only at static conditions
+      ($FM = 0.66$), decaying in forward flight where the static momentum reference is invalid. Beyond
+      $J_x \approx 1.2$, fixed-pitch blade sections operate below their zero-lift angles of attack; thrust
+      becomes negative (windmilling), and $\eta_{prop}$ is set to $0$ by convention to prevent ambiguous
+      positive efficiency values from negative thrust and power. These evaluations represent fixed-collective
+      (untrimmed) operating points.</p>
 
     <p>Specifying the cruise case the wrong way &mdash; the $65$ m/s entered in the cross-flow field,
       i.e. <code>mu_x = 0.264</code> with <code>Vz = 0</code> &mdash; converges just as cleanly and
@@ -2547,17 +2538,14 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <h4 id="cap-12-2">5.2.2 Component perpendicular to the disk, $U_P$</h4>
     <div class="eqn">$$U_P \;=\; V_z \;+\; v_i \;=\; (\lambda_z + \lambda_i)\,\Omega R \;=\; \lambda_{total}\,\Omega R$$
     </div>
-    <p>where $\lambda_z=V_z/\Omega R$ is the free-stream inflow ratio along the shaft &mdash; an input
-      datum, the climb/descent ratio in rotor axes, and the one a propeller reader meets as $\lambda_x$,
-      the axial inflow (<a class="xref" href="#cap-prop-2"
-        title="4.2.2 The axis rotation, and the name flips it causes">Section 4.2.2</a>) &mdash; and
-      $\lambda_i=v_i/\Omega R$
-      is the induced inflow ratio: the unknown solved by the BEMT coupling (<a class="xref"
-        href="#sec-210-the-fixed-point-equation" title="5.8 The fixed-point equation">Section 5.8</a>). Both terms of
-      $U_P$ act along the shaft in either mode; only the letter naming that axis changes. Unlike
-      $U_T$, which is purely kinematic, $U_P$ contains the problem's unknown: its final value depends on
-      the solution of the blade element–momentum system. In zBEMT, $U_P$ is recalculated at each iteration of the
-      fixed-point solver with this same expression, varying only $\lambda_i$.</p>
+    <p>where $\lambda_z = V_z / (\Omega R)$ is the prescribed axial inflow ratio (climb or descent
+      in rotor mode, or axial advance $\lambda_x$ in propeller mode; see <a class="xref" href="#cap-prop-2"
+        title="4.2.2 The axis rotation, and the name flips it causes">Section 4.2.2</a>), and
+      $\lambda_i = v_i / (\Omega R)$ is the induced inflow ratio determined iteratively by the BEMT
+      solver (<a class="xref" href="#sec-210-the-fixed-point-equation"
+        title="5.8 The fixed-point equation">Section 5.8</a>). While $U_T$ is purely kinematic,
+      $U_P$ depends on the aerodynamically induced field $\lambda_i$ and is updated at each solver
+      iteration.</p>
 
     <h4 id="cap-12-3">5.2.3 Total relative velocity, $W$</h4>
     <div class="eqn">$$W \;=\; \sqrt{U_P^2 + U_T^2}$$</div>
@@ -2632,17 +2620,12 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         5.2.1</a>), the relationship between $\phi$ and $\lambda_{total}$ is
       explicit:</p>
     <div class="eqn">$$\phi \;=\; \arctan\!\left(\frac{\lambda_{total}\,\Omega R}{\Omega r+V_x\sin\psi}\right).$$</div>
-    <p>In hover and in axisymmetric climb/descent ($V_x=0$, hence $U_T=\Omega r$), this
-      expression simplifies to $\phi=\arctan(\lambda_{total}/x)$, with $x=r/R$: the inflow angle at each
-      radial station depends only on the ratio between $\lambda_{total}$, the unknown solved by the BEMT coupling
-      (<a class="xref" href="#sec-210-the-fixed-point-equation" title="5.8 The fixed-point equation">Section 5.8</a>),
-      and the normalized radial position. In forward flight, $U_T$ begins to vary also
-      with azimuth $\psi$, so $\phi$ inherits that azimuthal dependence even when $\lambda_{total}$
-      is treated as uniform over the disk (the <code>glauert_local</code> model, <a class="xref" href="#cap-4-2"
-        title="9.2 Inflow model">Section 9.2</a>); with
-      non-uniform inflow models (<a class="xref" href="#cap-4-2" title="9.2 Inflow model">Section 9.2</a>),
-      $\lambda_{total}$ begins to depend on $\psi$ as well, and the
-      expression above is applied locally at each mesh point $(r,\psi)$.</p>
+    <p>In hover and axial flight ($V_x = 0$, giving $U_T = \Omega r$), this reduces to $\phi =
+      \arctan(\lambda_{total} / x)$, where $x = r/R$. In forward flight ($V_x > 0$), azimuthal variations
+      in $U_T(r,\psi)$ induce an azimuthal dependence in $\phi(r,\psi)$ across the disk. For non-uniform
+      inflow formulations (<a class="xref" href="#cap-4-2" title="9.2 Inflow model">Section 9.2</a>),
+      $\lambda_{total}(r,\psi)$ also varies with azimuth, and $\phi$ is computed locally at each grid point
+      $(r,\psi)$.</p>
 
     <p>The angle must be evaluated with the quadrant-aware arctangent, not with a simple
       ratio, because $U_T$ can change sign in reverse flow. This preserves the physical
@@ -2685,38 +2668,27 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       whole rotor translates through the air with the speed at which its own tips turn, so it is the
       ratio of the two velocities a blade section experiences at once.</p>
 
-    <p><b>Physical effect.</b> The tangential velocity of a section is
-      $U_T=\Omega r+V_x\sin\psi$, so the free stream adds to the rotation on the advancing side and
-      subtracts on the retreating one. At a given radius the extremes are $\Omega r\,(1\pm\mu_x R/r)$: the
-      dynamic pressure therefore varies by a factor of $\bigl[(1+\mu_x R/r)/(1-\mu_x R/r)\bigr]^2$ around one
-      revolution, which at the tip and $\mu_x=0.3$ is nearly a factor of four between one side of the disk
-      and the other. Since the rotor must remain in balance, the retreating side has to make up in angle
-      of attack what it lacks in velocity, and it is that compensation &mdash; not the speed itself
-      &mdash; that eventually limits forward flight.</p>
+    <p><b>Physical effect of advance ratio.</b> The local tangential velocity $U_T = \Omega r +
+      V_x\sin\psi$ increases on the advancing blade ($\psi=90^\circ$) and decreases on the retreating
+      blade ($\psi=270^\circ$). The resulting dynamic pressure variation around the azimuth requires higher
+      blade angles of attack on the retreating side to maintain lift balance, which eventually precipitates
+      retreating blade stall at high advance ratios.</p>
 
-    <p><b>Where the limits come from.</b> Two of them scale directly with $\mu_x$. Wherever
-      $U_T$ changes sign the section meets the flow trailing-edge first; the locus is a circle of
-      diameter $\mu_x R$ tangent to the hub on the retreating side, so the reverse-flow region grows
-      linearly with advance ratio, from nothing in hover to a quarter of the disk radius at $\mu_x=0.25$
-      (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>). At the other extreme of the disk the
-      advancing tip sees
-      $\Omega R+V_x$, so its Mach number rises with $\mu_x$ toward the transonic range
-      (<a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>). Retreating-blade stall and
-      advancing-tip compressibility
-      close in from opposite sides, and their meeting is what sets the maximum speed of a conventional
-      helicopter.</p>
+    <p><b>Forward flight operational boundaries.</b> Advance ratio establishes two aerodynamic limits:
+      (1) reverse flow on the retreating blade ($U_T < 0$), forming a circular region of diameter
+      $\mu_x R$ tangent to the hub (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>);
+      and (2) compressibility effects on the advancing tip ($\Omega R + V_x$), which elevate the local Mach
+      number toward transonic drag divergence (<a class="xref" href="#cap-3-5"
+        title="8.5 Compressibility">Section 8.5</a>). The envelope between retreating blade stall and advancing
+      tip compressibility dictates maximum forward speed.</p>
 
-    <p><b>Careful: which physical component the letters name flips with the mode.</b> Everywhere in
-      this chapter the axes are the rotor's, so $\mu_x$ is the component of the flight velocity <em>in
-        the plane of the disk</em> and $\mu_z$ the one along the shaft. On a propeller the shaft points
-      forward, so the interface swaps which component wears each letter: the airspeed along the shaft is
-      what a propeller reader is shown as $\mu_x$ and $J_x$, while the vertical cross-flow &mdash; zero
-      in straight cruise &mdash; is shown as $\mu_z$ and $J_z$. The engine keys never flip: the airspeed
-      of a propeller is stored under <code>mu_z</code>/<code>J_z</code>/<code>Vz</code>, exactly as a
-      helicopter's climb rate is. Which field carries what, and what happens if a propeller's airspeed is
-      typed into the in-plane slot instead, is <a class="xref" href="#cap-5-1"
-        title="10.1 In-plane flow — the first row">Section 10.1</a>; the Run Case and
-      Run Batch fields relabel themselves when the project is in propeller mode.</p>
+    <p><b>Axis conventions in rotor vs. propeller mode.</b> In rotor mode, $\mu_x$ denotes in-plane advance
+      ratio and $\mu_z$ denotes axial inflow along the shaft. In propeller mode, the shaft is aligned
+      longitudinally, so displayed labels rotate: axial flight speed corresponds to $\mu_x$ (or $J_x$), while
+      vertical cross-flow corresponds to $\mu_z$ (or $J_z$). Internal solver variables maintain
+      disk-aligned coordinates (axial flow stored under <code>mu_z</code>/<code>J_z</code>/<code>Vz</code>),
+      while the user interface dynamically adjusts input labels based on operating mode (<a class="xref"
+        href="#cap-5-1" title="10.1 In-plane flow — the first row">Section 10.1</a>).</p>
 
     <p><b>Reading the number.</b> $\mu_x=0$ is hover, where the disk is axisymmetric and every field
       depends on radius alone. Up to roughly $0.1$ the asymmetry is mild and the reverse-flow circle
@@ -2730,24 +2702,17 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <h4 id="cap-14-2">5.4.2 Inflow ratios, $\lambda_z$, $\lambda_i$, $\lambda_{total}$</h4>
     <div class="eqn">$$\lambda_z=\frac{V_z}{\Omega R}\,,\qquad \lambda_i=\frac{v_i}{\Omega R}\,,\qquad
       \lambda_{total}=\lambda_z+\lambda_i$$</div>
-    <p>These three quantities non-dimensionalize the velocities <em>along the shaft</em> by the blade
-      tip speed $\Omega R$, exactly as $\mu_x$ does for the component across it. $\lambda_z$ is the
-      free-stream part: an input datum, set by the flight condition before any aerodynamic calculation.
-      It is the same number as $\mu_z$, written in the inflow vocabulary rather than the advance-ratio
-      one &mdash; in rotor axes the climb ($>0$) / descent ($&lt;0$) ratio, and the quantity a propeller
-      reader meets under the name $\lambda_x$, since on a propeller it is the shaft that points forward
-      (<a class="xref" href="#cap-prop-2" title="4.2.2 The axis rotation, and the name flips it causes">Section
-        4.2.2</a>). $\lambda_i$ is
-      the induced inflow ratio, proportional to the velocity induced by the rotor itself; unlike $\lambda_z$,
-      $\lambda_i$ is not known a priori, but rather the central unknown of the BEMT coupling, solved iteratively as
-      detailed in Sections <a class="xref" href="#sec-210-the-fixed-point-equation"
-        title="5.8 The fixed-point equation">5.8</a> and <a class="xref" href="#sec-211-formal-coupling"
-        title="5.9 Formal Coupling">5.9</a>. The sum $\lambda_{total}=\lambda_z+\lambda_i$ is the total inflow ratio,
-      and it is
-      this that directly determines the velocity component $U_P$ (<a class="xref" href="#cap-12-2"
-        title="5.2.2 Component perpendicular to the disk, $U_P$">Section 5.2.2</a>) and, through the
-      relation presented in <a class="xref" href="#cap-13-2" title="5.3.2 Inflow angle, $\phi$">Section 5.3.2</a>, the
-      inflow angle $\phi$ at each blade element.</p>
+    <p>These parameters non-dimensionalize axial velocity components by the tip speed $\Omega R$. The
+      free-stream inflow ratio $\lambda_z = V_z / (\Omega R)$ is defined by the flight condition (equivalent
+      to axial advance $\lambda_x$ in propeller coordinates; see <a class="xref" href="#cap-prop-2"
+        title="4.2.2 The axis rotation, and the name flips it causes">Section 4.2.2</a>). The induced inflow
+      ratio $\lambda_i = v_i / (\Omega R)$ is computed iteratively by the BEMT solver (<a class="xref"
+        href="#sec-210-the-fixed-point-equation" title="5.8 The fixed-point equation">Section 5.8</a> and
+      <a class="xref" href="#sec-211-formal-coupling" title="5.9 Formal Coupling">Section 5.9</a>). Their sum,
+      $\lambda_{total} = \lambda_z + \lambda_i$, governs the normal velocity component $U_P$ (<a class="xref"
+        href="#cap-12-2" title="5.2.2 Component perpendicular to the disk, $U_P$">Section 5.2.2</a>) and the
+      local inflow angle $\phi(r,\psi)$ (<a class="xref" href="#cap-13-2" title="5.3.2 Inflow angle, $\phi$">Section
+        5.3.2</a>).</p>
 
     <h4 id="cap-14-3">5.4.3 Solidity, $\sigma$</h4>
     <div class="eqn">$$\sigma(r) \;=\; \frac{N_b\,c(r)}{2\pi r} \qquad\text{(local)}\,,\qquad \sigma \;=\;
