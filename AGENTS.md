@@ -26,10 +26,12 @@ Write everything in English: code, comments, docstrings, commit messages, and
 every string the user sees in the GUI, the CLI, a report or the documentation.
 Never mix languages within one file.
 
-Follow the `writing-rules` skill (`.claude/skills/writing-rules/SKILL.md`)
-for sentence-level style. It adapts ASD-STE100 (Simplified Technical
-English) rules for this project's documentation, docstrings, comments, and
-GUI strings.
+Follow the `writing-rules` skill for sentence-level style. It adapts
+ASD-STE100 (Simplified Technical English) rules for this project's
+documentation, docstrings, comments, and GUI strings. Claude Code loads it
+from `.claude/skills/writing-rules/SKILL.md`. A mirror at
+`.agents/skills/writing-rules/SKILL.md` carries the same content for any
+other agent. `tests/test_agent_instructions.py` keeps the two identical.
 
 ## Core workflow
 
