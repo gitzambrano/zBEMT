@@ -270,30 +270,68 @@
       width: 100%;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
-      margin: 1.3rem 0;
+      margin: 1.4rem 0;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--bg);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
     }
 
     table {
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       width: 100%;
-      min-width: 480px;
-      font-size: .93rem;
+      min-width: 580px;
+      font-size: .88rem;
+      line-height: 1.45;
     }
 
     .tablewrap table {
       margin: 0;
+      border: none;
     }
 
     th,
     td {
-      border: 1px solid var(--rule);
-      padding: .55rem .75rem;
+      padding: .65rem .85rem;
       text-align: left;
       vertical-align: top;
+      border: none;
+      border-bottom: 1px solid var(--rule);
+      border-right: 1px solid var(--rule);
+    }
+
+    table th:first-child,
+    table td:first-child {
+      white-space: nowrap;
+      min-width: 130px;
+      font-weight: 500;
+    }
+
+    th:last-child,
+    td:last-child {
+      border-right: none;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
     }
 
     th {
       background: var(--panel);
+      font-weight: 600;
+      font-size: .82rem;
+      letter-spacing: .02em;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    tbody tr:nth-child(even) td {
+      background-color: rgba(128, 128, 128, 0.025);
+    }
+
+    tbody tr:hover td {
+      background-color: rgba(128, 128, 128, 0.05);
     }
 
     .eqn {
@@ -1055,22 +1093,19 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
     <div class="tablewrap">
       <table>
         <tr>
-          <th></th>
-          <th>Single case</th>
+          <th>Interface</th>
+          <th>Single Case</th>
           <th>Batch</th>
         </tr>
         <tr>
           <th><span class="gui">GUI</span></th>
-          <td>A summary table in the Run Case tab: the condition solved and the integrated results. The run
-            joins the history in the Results tab, where the distributions along the blade, the convergence
-            history and the disk maps can be inspected.</td>
-          <td>A progress bar and one status row per condition, filled in as each finishes. Every result joins
-            the Results tab, where several runs can be selected together and compared on one set of axes.</td>
+          <td>Summary metrics table in Run Case tab; detailed radial cuts, residual history, and 2D disk maps available in Results tab.</td>
+          <td>Progress bar and condition status table; batch runs saved to Results tab for comparative sweep overlays.</td>
         </tr>
         <tr>
           <th><span class="cli">CLI</span></th>
-          <td>A summary printed to the terminal.</td>
-          <td>The same, one block per condition, as each is solved.</td>
+          <td>Integrated metrics printed to terminal.</td>
+          <td>Condition-by-condition tabular progress printed to terminal.</td>
         </tr>
       </table>
     </div>
@@ -1094,43 +1129,41 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
 
         <tr>
           <td><code>results.csv</code></td>
-          <td>One row per condition, with every quantity of the summary table.</td>
-          <td>The <i>Export</i> block, or the export buttons under the summary table (CSV or TSV).</td>
-          <td>Written by default; <code>--no-csv</code> suppresses it.</td>
+          <td>Summary table metrics across all evaluated flight conditions.</td>
+          <td><i>Export</i> block or table export buttons (CSV/TSV).</td>
+          <td>Written by default; suppressed via <code>--no-csv</code>.</td>
           <td>&mdash;</td>
         </tr>
 
         <tr>
           <td><code>performance*.png</code></td>
-          <td>One aggregated curve over all the conditions of the run.</td>
+          <td>Integrated performance curves aggregated across sweep parameters.</td>
           <td><i>Export</i> &rsaquo; plots.</td>
           <td><code>--plots performance</code></td>
-          <td><code>plots</code> in the batch</td>
+          <td><code>plots</code> in batch</td>
         </tr>
 
         <tr>
           <td><code>disk_map_*.png</code></td>
-          <td>The twelve disk fields for each condition, as one grid and as one image per field.</td>
+          <td>2D spatial disk distributions (individual scalar maps and multi-field grids).</td>
           <td><i>Export</i> &rsaquo; plots.</td>
-          <td><code>--plots disk_map</code>, or a single field with <code>--plots disk_map_CT</code></td>
-          <td><code>plots</code> in the batch</td>
+          <td><code>--plots disk_map</code> (or specific field, e.g. <code>--plots disk_map_CT</code>)</td>
+          <td><code>plots</code> in batch</td>
         </tr>
 
         <tr>
           <td><code>convergence*.png</code></td>
-          <td>The iteration history of each condition.</td>
+          <td>Solver iteration residual histories per condition.</td>
           <td><i>Export</i> &rsaquo; plots.</td>
           <td><code>--plots convergence</code></td>
-          <td><code>plots</code> in the batch</td>
+          <td><code>plots</code> in batch</td>
         </tr>
 
         <tr>
           <td><code>report.html</code></td>
-          <td>One self-contained file: the summary tables, the mesh, solver, rotor and polar used, and every
-            figure embedded inside it.</td>
-          <td>The report button in the Results tab.</td>
-          <td><code>--report</code>, or <code>--report FILE</code>; <code>--report-notes TEXT</code> embeds a
-            note.</td>
+          <td>Self-contained report containing summary tables, embedded figures, and solver configuration.</td>
+          <td><i>Generate report</i> button in Results tab.</td>
+          <td><code>--report [FILE]</code> (with optional <code>--report-notes TEXT</code>)</td>
           <td>&mdash;</td>
         </tr>
       </table>
@@ -2146,37 +2179,37 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <div class="tablewrap">
       <table>
         <tr>
-          <th>Physical component</th>
-          <th>Engine key (invariant)</th>
-          <th>Rotor mode display</th>
-          <th>Propeller mode display</th>
+          <th>Flow Component</th>
+          <th>Engine Key (Invariant)</th>
+          <th>Rotor Mode Display</th>
+          <th>Propeller Mode Display</th>
         </tr>
         <tr>
-          <td>Along the shaft &mdash; climb/descent (rotor) or axial airspeed (propeller)</td>
+          <td>Along-shaft flow (axial)</td>
           <td><code>Vz</code>, <code>mu_z</code>, <code>J_z</code>, <code>lambda_z</code></td>
           <td>$V_z$, $\mu_z$, $J_z$, $\lambda_z$</td>
           <td>$V_x$, $\mu_x$, $J_x$, $\lambda_x$</td>
         </tr>
         <tr>
-          <td>In the disk plane &mdash; forward advance (rotor) or cross-flow (propeller)</td>
+          <td>In-plane flow (edgewise / cross)</td>
           <td><code>Vx</code>, <code>mu_x</code>, <code>J_x</code></td>
           <td>$V_x$, $\mu_x$, $J_x$</td>
           <td>$V_z$, $\mu_z$, $J_z$</td>
         </tr>
         <tr>
-          <td>Induced velocity &mdash; along the thrust shaft</td>
+          <td>Induced velocity</td>
           <td><code>Vi</code>, <code>lambda_i</code></td>
           <td>$v_i$, $\lambda_i$</td>
           <td>$v_i$, $\lambda_i$</td>
         </tr>
         <tr>
-          <td>Total axial flow ($V_{\text{shaft}} + v_i$)</td>
+          <td>Total axial flow</td>
           <td><code>Vz_total</code>, <code>lambda_total</code></td>
           <td>$V_{z,total}=V_z+v_i$</td>
           <td>$V_{x,total}=V_x+v_i$</td>
         </tr>
         <tr>
-          <td>Flight path angle</td>
+          <td>Freestream angle</td>
           <td><code>alpha_rotor_deg</code> / <code>alpha_disk_deg</code></td>
           <td>$\alpha_{rotor}$</td>
           <td>$\alpha_{disk}$</td>
@@ -2255,9 +2288,9 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <div class="tablewrap">
       <table>
         <tr>
-          <th></th>
-          <th>Rotor convention</th>
-          <th>Propeller convention</th>
+          <th>Property</th>
+          <th>Rotor Convention</th>
+          <th>Propeller Convention</th>
         </tr>
         <tr>
           <td>Reference scales</td>
@@ -7672,77 +7705,43 @@ zbemt --project projects/MyProject \
 
                         <p>The following limitations bound the interpretation of every result. Mesh refinement and
                           tighter
-                          solver tolerances cannot remove a limitation imposed by the physical model.</p>
-
-                        <div class="tablewrap">
+                                                 <div class="tablewrap">
                           <table>
                             <tr>
                               <th>Limitation</th>
-                              <th>Physical consequence</th>
+                              <th>Physical Consequence</th>
                             </tr>
                             <tr>
-                              <td>Rigid blades: no elastic twist, no flapping degree of freedom</td>
-                              <td>Elastic deformation and flapping-induced relief of the rolling and pitching moments
-                                are absent. The computed moments therefore describe the rigid-blade model only.</td>
+                              <td>Rigid-blade formulation</td>
+                              <td>Neglects aeroelastic blade deflection and flapping dynamics. Hub pitching/rolling moments represent rigid-structure loads.</td>
                             </tr>
                             <tr>
-                              <td>Independent radial rings: no turbulent mixing or tip-vortex induction between
-                                neighboring annuli</td>
-                              <td>Each annulus receives a local momentum balance. The finite-blade correction
-                                approximates tip and root losses, but it does not reproduce the complete
-                                three-dimensional wake or turbulent mixing between annuli.</td>
+                              <td>Annular independence</td>
+                              <td>Each radial annulus is solved via isolated 1D momentum conservation. Inter-annulus turbulent mixing and full 3D wake roll-up are approximated via empirical tip/root loss models.</td>
                             </tr>
                             <tr>
-                              <td>Vortex-ring and turbulent-wake states in moderate descent, $-2v_h\lesssim
-                                V_z\lesssim0$</td>
-                              <td>The momentum closure has no reliable unique solution throughout this regime. Results
-                                require caution regardless of mesh resolution or solver tolerance.</td>
+                              <td>Vortex ring state ($-2v_h \lesssim V_z \lesssim 0$)</td>
+                              <td>Classical momentum theory lacks unique real roots in steep axial descent; empirical momentum extensions provide approximate trends.</td>
                             </tr>
                             <tr>
-                              <td>Trim solves one degree of freedom against thrust or its coefficient</td>
-                              <td>The target must be bracketed. Because thrust need not remain monotonic with collective
-                                after stall, a target above the achievable peak has no solution and a lower target can
-                                have multiple roots. There is no simultaneous collective, cyclic, force, and moment
-                                trim.</td>
-                            </tr>
-
-                            <tr>
-                              <td>An external solver cannot be called while a case is running</td>
-                              <td>Setting the airfoil source to <code>external</code> and starting a run stops with an
-                                error. An external solver such as NeuralFoil is used to <em>produce</em> a polar, not to
-                                answer the engine mid-solve: generate the polar once from the Airfoil tab (<a
-                                  class="xref" href="#cap-3-8" title="8.8 External solver — NeuralFoil">Section
-                                  8.8</a>), which writes a tabulated polar, then run with the source set to
-                                <code>table</code>. The reason is cost &mdash; a live call per blade element per azimuth
-                                per iteration is thousands of calls per case &mdash; and reproducibility: a stored table
-                                is part of the project and gives the same answer next month
-                              </td>
+                              <td>Single-parameter thrust trim</td>
+                              <td>Trim operates via 1D root-finding on collective pitch. Multivariable trim (coupled collective, cyclic pitch, and 6-DOF moments) is not supported.</td>
                             </tr>
                             <tr>
-                              <td>Compressibility is corrected by a linearized subsonic model, capped at a Mach ceiling
-                                of $M_{\max}=0.9$. Above roughly $M=0.7$ it already misses shock formation and drag
-                                divergence; at and above the ceiling the reported coefficients are capped values, not a
-                                transonic prediction</td>
-                              <td><a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>, which
-                                states the ceiling, the resulting bound of $2.29$ on the amplification factor, and the
-                                fact that nothing below $M=0.9$ is altered by it. Static validation warns once the
-                                advancing-tip Mach number passes $0.85$. A rotor operating routinely above that needs a
-                                transonic method, not this correction</td>
+                              <td>Offline external polar generation</td>
+                              <td>External solvers (e.g., NeuralFoil) execute offline to produce polar tables; coupled on-the-fly aerodynamic calls during solver iterations are not supported (<a class="xref" href="#cap-3-8" title="8.8 External solver — NeuralFoil">Section 8.8</a>).</td>
                             </tr>
                             <tr>
-                              <td>Compressibility applied on top of a Mach-resolved tabulated polar counts the same
-                                physics twice</td>
-                              <td><a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>; static
-                                validation warns about this specific combination, but nothing in the engine prevents it
-                                &mdash; the tabulated data cannot be inspected for whether its Mach dependence is
-                                already present</td>
+                              <td>Subsonic compressibility correction</td>
+                              <td>Linearized Prandtl-Glauert scaling applies up to $M_{\max} = 0.9$ (amplification factor bound $2.29$). Transonic shock formation and drag divergence above $M \approx 0.75$ require specialized CFD polar data (<a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>).</td>
                             </tr>
                             <tr>
-                              <td>Reduced fidelity vs. a full unsteady aeroelastic / free-wake solver</td>
-                              <td>Not a code boundary but a modeling choice stated in <a class="xref"
-                                  href="#sec-01-scope" title="0.1 Scope">Section 0.1</a>: zBEMT targets preliminary
-                                design and performance diagnosis over fixed geometry, not aeroelastic response or
-                                detailed wake capture</td>
+                              <td>Tabulated polar compressibility coupling</td>
+                              <td>Enabling analytical compressibility corrections on polars that already incorporate Mach variation double-counts compressibility effects (<a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>).</td>
+                            </tr>
+                            <tr>
+                              <td>Steady / quasi-steady inflow scope</td>
+                              <td>Formulation targets preliminary aeromechanical sizing and performance diagnosis, excluding unsteady free-wake vortex dynamics and high-frequency maneuver acoustics (<a class="xref" href="#sec-01-scope" title="0.1 Scope">Section 0.1</a>).</td>
                             </tr>
                           </table>
                         </div>
