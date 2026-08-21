@@ -192,11 +192,17 @@ def migrar_config_raw(raw: dict) -> dict:
     (which distinguishes tip, root and both). Without this migration the
     field was silently discarded -- including in the repository's
     reference project, which stored ``use_prandtl_loss: true`` and had
-    been running with the default."""
+    been running with the default.
+
+    ``False`` must map to ``"off"``: that is the value the engine reads as
+    "apply no loss factor". Writing anything outside
+    ``off | tip | root | both`` makes the engine fall back to ``"both"``,
+    so a project that had the correction switched off would silently come
+    back with it switched on."""
     migrado = dict(raw)
     if "use_prandtl_loss" in migrado:
         antigo = bool(migrado.pop("use_prandtl_loss"))
-        migrado.setdefault("prandtl_loss_mode", "both" if antigo else "none")
+        migrado.setdefault("prandtl_loss_mode", "both" if antigo else "off")
     return migrado
 
 

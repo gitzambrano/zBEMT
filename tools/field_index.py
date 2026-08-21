@@ -36,6 +36,18 @@ MARCA_FIM = "<!-- /INDICE-DE-CAMPOS:{aba} -->"
 
 #: tab -> (index in the QTabWidget, id of the chapter that documents it)
 ABAS = {
+    # Two tabs are deliberately absent.
+    #
+    # Results: its controls select a view of results that already exist, not a
+    # field of the project, so there is no field list to generate.
+    #
+    # Project: it carries `is_propeller`, which resolves correctly, and `name`,
+    # which does not. Two different fields are called `name` -- the project's,
+    # in `meta.bemt`, and the airfoil section's -- and the field-to-section map
+    # is keyed on the bare name, so the project's would be listed against the
+    # airfoil's section. A generated index that sends the reader to the wrong
+    # chapter is worse than no index, so this tab is left out until the map can
+    # tell the two apart.
     "geometria": (1, "cap-2"),
     "aerofolio": (2, "cap-3"),
     "config": (3, "cap-4"),

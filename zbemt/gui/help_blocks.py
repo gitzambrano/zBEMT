@@ -65,7 +65,7 @@ BLOCK_HELP: dict[str, dict] = {
             "The three axes matter for different reasons. <b>Reynolds number</b> Re = ρ·W·c/μ governs the state of the boundary layer: below roughly 10⁵ the layer stays laminar over much of the chord, separation happens early, and minimum drag can be several times its high-Reynolds value. <b>Mach number</b> M = W/a governs compressibility: lift slope grows as 1/√(1−M²) until the critical Mach number, beyond which a shock forms and drag rises steeply. <b>Spanwise position</b> matters only when the blade has more than one defined section.",
             "Use the navigator to check that the tabulated data actually covers the conditions your case will produce. A polar tabulated only up to M = 0.4 evaluated on a rotor whose advancing tip reaches M = 0.8 will hold the edge value — silently, and wrongly.",
         ],
-        "anchor": "cap-19-2-4",
+        "anchor": "cap-3-10",
     },
     "local_corrections": {
         "title": "Compressibility and Reverse Flow — where the 2D polar stops being enough",
@@ -85,7 +85,7 @@ BLOCK_HELP: dict[str, dict] = {
             "The table may carry additional axes — one curve per Reynolds number, per Mach number, per spanwise station. The engine interpolates between them using each element's own local conditions. A table that already resolves Mach must <b>not</b> be combined with the compressibility correction: that applies the same physics twice.",
             "Two numbers are re-derived from the table because other corrections need them: the lift-curve slope, from a finite difference near the middle of the curve, and the zero-lift angle, from where lift crosses zero. The rotational-augmentation correction is written in terms of those two quantities and cannot work without them.",
         ],
-        "anchor": "cap-19-2-4",
+        "anchor": "cap-3-6",
     },
     "project_configuration": {
         "title": "Project configuration — what is stored and what is not",
@@ -201,7 +201,7 @@ BLOCK_HELP: dict[str, dict] = {
             "and zero-crossing — the rotational-augmentation correction needs those two numbers "
             "even when the polar is tabulated.",
         ],
-        "anchor": "cap-19-2",
+        "anchor": "cap-3-2",
     },
     "dynamic_stall": {
         "title": "Dynamic Stall (Øye) — separation lag",
@@ -252,11 +252,11 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Polar Generation (NeuralFoil)",
         "body": [
             "NeuralFoil is a neural network trained on a large body of XFOIL runs: given the 2D contour and (α, Re, M) it returns Cl and Cd in milliseconds, so a dense Re×M×α grid can be built without an external flow solver.",
-            "What comes out is an ordinary table of PolarSlice objects — one complete Cl(α), Cd(α) curve per (Re, M) pair. From that point on the engine treats it exactly like an imported table: linear interpolation in α, selection/interpolation of the slice by local Re, M and r/R.",
+            "What comes out is an ordinary tabulated polar — one complete Cl(α), Cd(α) curve per (Re, M) pair. From that point on the engine treats it exactly like an imported table: linear interpolation in α, selection/interpolation of the slice by local Re, M and r/R.",
             "Because it is a table, the same two limits apply: nothing outside the swept α range is known (hold-edge behaviour unless the Viterna full-range extension is on), and Cl_α and α₀ used by the rotational-augmentation correction are re-estimated numerically from the generated curve.",
             "Accuracy is best for conventional sections at −5° &lt; α &lt; 25°; it degrades at extreme α, very thin sections and unusual shapes. For production cases, validate one operating point against measured or XFOIL data.",
         ],
-        "anchor": "cap-19-2-4",
+        "anchor": "cap-3-8",
     },
     "profile_2d": {
         "title": "2D Profile Geometry",
@@ -265,7 +265,7 @@ BLOCK_HELP: dict[str, dict] = {
             "The contour never enters the blade element equations. It matters in exactly two places: drawing, and generating a polar with NeuralFoil. Once a polar exists, the engine only ever sees Cl(α, Re, M) and Cd(α, Re, M).",
             "Sources: NACA 4/5-digit codes, CST (class-shape transformation) coefficients, Bézier control points, or imported .dat coordinates (Selig/Lednicer). Import in chord-normalized units — scale first if the file is in mm or inches.",
         ],
-        "anchor": "cap-19-2",
+        "anchor": "cap-3-7",
     },
     "mesh_atmosphere": {
         "title": "Mesh & Atmosphere",

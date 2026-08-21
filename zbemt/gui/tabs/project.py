@@ -50,6 +50,16 @@ class ProjectTab(QWidget):
         mode_layout = QVBoxLayout(mode_box)
         self.radio_rotor = QRadioButton("Rotor")
         self.radio_propeller = QRadioButton("Propeller")
+        # Field-level help (PR-3): the mode is a configurable field like any
+        # other, and it decides what the flow letters mean in the run tabs,
+        # so it needs its own tooltip and its own documentation section.
+        _ajuda_modo = (
+            '"is_propeller"<br><br>How the shaft is mounted: vertical for a rotor, '
+            'horizontal for a propeller.<br><br>It changes no equation. What it '
+            'changes is which physical component of the free stream each letter '
+            'names, and therefore which field the airspeed belongs in.')
+        self.radio_rotor.setToolTip(_ajuda_modo)
+        self.radio_propeller.setToolTip(_ajuda_modo)
         self.radio_rotor.setChecked(True)
         self.mode_group = QButtonGroup(self)
         self.mode_group.addButton(self.radio_rotor)

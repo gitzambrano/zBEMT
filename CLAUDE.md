@@ -233,6 +233,22 @@ Rules:
 10. Mark each interface with its colour: GUI blue, CLI red, `.bemt` green.
     Wrap every mention in `<span class="gui">`, `<span class="cli">` or
     `<span class="bemt">`.
+11. Every reference to another section is a link, underlined, carrying the
+    target's title as its `title`. A number written as plain text is a defect:
+    it cannot be followed, and it drifts silently when sections are renumbered.
+    `tests/test_documentation.py` enforces both the link and the fact that its
+    number and its target agree.
+12. Chapters 6-12 are self-contained. A reference out of one of them is allowed
+    only as a statement of scope — "that setting lives in another tab" — never
+    as a deferral of physics, and every such exception is listed by name in
+    `TestCapitulosDeAbaSaoEstanques`.
+
+**HTML `id` attributes are exempt from the English rule.** Several are in
+Portuguese (`cap-projeto`, `cap-nomenclatura`, the `INDICE-GERAL` and
+`INDICE-DE-CAMPOS:*` markers). They are addresses, not text: no reader sees
+them, and the generators, the help registry and the field-help map all resolve
+against them. Renaming them buys nothing and risks breaking every popup. Do not
+rename them; do not add new ones in Portuguese either.
 
 Regenerate and commit:
 
