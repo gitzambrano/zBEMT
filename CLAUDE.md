@@ -26,9 +26,10 @@ Write everything in English: code, comments, docstrings, commit messages, and
 every string the user sees in the GUI, the CLI, a report or the documentation.
 Never mix languages within one file.
 
-Follow `technical-english.md` for sentence-level style. It adapts ASD-STE100
-(Simplified Technical English) rules for this project's documentation,
-docstrings, comments, and GUI strings.
+Follow the `writing-rules` skill (`.claude/skills/writing-rules/SKILL.md`)
+for sentence-level style. It adapts ASD-STE100 (Simplified Technical
+English) rules for this project's documentation, docstrings, comments, and
+GUI strings.
 
 ## Core workflow
 

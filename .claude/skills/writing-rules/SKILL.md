@@ -1,6 +1,11 @@
-# Technical English
+---
+name: writing-rules
+description: "Use when writing or reviewing any prose in this project: docstrings, comments, commit messages, helper text, tooltips, dialog and error messages, docs/*.md, or docs/documentation.html. Adapts ASD-STE100 (Simplified Technical English) into a concise rules table and a review checklist. Triggers: writing documentation, writing a docstring, writing GUI or CLI help text, reviewing text for clarity, technical writing style."
+---
 
-This file adapts ASD-STE100 (Simplified Technical English), the aerospace
+# Writing rules
+
+This skill adapts ASD-STE100 (Simplified Technical English), the aerospace
 controlled-language standard, for this project. It governs every piece of
 prose in the repository: docstrings, comments, commit messages, helper and
 tooltip text, dialog and error messages, `docs/*.md`, and
@@ -91,7 +96,7 @@ tooltips, and GUI strings, must follow this table.
 
 ## Scope
 
-This file governs prose and user-facing strings. It does not govern code
+This skill governs prose and user-facing strings. It does not govern code
 identifiers, which follow the project's existing naming conventions. It
 complements, and does not override, the structural rules for
 `docs/documentation.html` in `CLAUDE.md`.
