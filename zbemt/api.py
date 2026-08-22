@@ -23,6 +23,7 @@ import numpy as np
 from .models import (
     Project, RotorGeometryDef, AirfoilDef, FlightCondition, BatchDefinition,
     Results, PolarSlice, ProfileGeometry,
+    OptimizationDefinition, OptimizationOutcome, DesignVariable,
     save_bemt, load_bemt, save_bemt_list, load_bemt_list, default_project_paths,
 )
 from . import geometry
@@ -49,6 +50,7 @@ def new_project(path: str, name: Optional[str] = None) -> Project:
         airfoil_sections=[],
         batches=[],
         saved_cases=[],
+        optimizations=[],
     )
     save_project(project)
     return project
@@ -137,9 +139,15 @@ def open_project(path: str) -> Project:
     saved_cases = (load_bemt_list(FlightCondition, paths["saved_cases"],
                                   is_propeller)
                    if paths["saved_cases"].exists() else [])
+    # Design tools: named optimization studies (no axis quantities, so no
+    # mode rotation, same as batches' sweep_params).
+    optimizations = (load_bemt_list(OptimizationDefinition,
+                                    paths["optimizations"])
+                     if paths["optimizations"].exists() else [])
     return Project(name=name, path=str(path), config=config,
                     geometry=geom, airfoil=airfoil_def, airfoil_sections=airfoil_sections,
-                    batches=batches, saved_cases=saved_cases)
+                    batches=batches, saved_cases=saved_cases,
+                    optimizations=optimizations)
 
 
 def save_project(project: Project) -> None:
@@ -155,6 +163,10 @@ def save_project(project: Project) -> None:
     # Only these two carry flight conditions, and therefore axis letters.
     save_bemt_list(project.batches, paths["batches"], is_propeller)
     save_bemt_list(project.saved_cases, paths["saved_cases"], is_propeller)
+    # Design tools: named optimization studies (their embedded condition
+    # carries axis letters, so the same mode rotation applies).
+    save_bemt_list(project.optimizations, paths["optimizations"],
+                   is_propeller)
     # Migration cleanup: only after the (possibly migrated, see
     # `load_project`) batches are safely persisted into `batches.bemt` is
     # the old singular `batch.bemt` certainly redundant. Remove it so it
@@ -185,7 +197,7 @@ def get_saved_case(project: Project, name: str) -> FlightCondition:
         if c.name == name:
             return c
     raise KeyError(f"case '{name}' not found in project.saved_cases "
-                    f"(available: {[c.name for c in project.saved_cases]})")
+                   f"(available: {[c.name for c in project.saved_cases]})")
 
 
 def list_projects(projects_root: str = "projects") -> list[str]:
@@ -292,6 +304,54 @@ def benchmark_solvers(project: Project, condition: FlightCondition,
                        solvers: Optional[Sequence[str]] = None) -> list[Results]:
     kwargs = {} if solvers is None else {"solvers": solvers}
     return studies.benchmark_solvers(project, condition, **kwargs)
+
+
+# =============================================================================
+# Design tools: geometry comparison and design optimization
+# =============================================================================
+
+def variant_geometry(base_geometry: RotorGeometryDef,
+                     overrides: dict) -> RotorGeometryDef:
+    """Build one geometry variant from named parameter overrides."""
+    return studies.variant_geometry(base_geometry, overrides)
+
+
+def compare_geometries(project: Project, variants: dict,
+                       conditions: Optional[Sequence[FlightCondition]] = None, *,
+                       on_case_done=None,
+                       should_cancel: Optional[Callable[[], bool]] = None
+                       ) -> list[Results]:
+    """Run the same conditions over several geometry variants (AR-2:
+    results stay in memory). Each summary carries ``geometry_label``."""
+    return studies.compare_geometries(project, variants, conditions,
+                                      on_case_done=on_case_done,
+                                      should_cancel=should_cancel)
+
+
+def optimize_design(project: Project, definition: OptimizationDefinition,
+                    *, on_progress=None,
+                    should_cancel: Optional[Callable[[], bool]] = None
+                    ) -> OptimizationOutcome:
+    """Run one persisted design optimization (see ``studies.optimize_design``)."""
+    return studies.optimize_design(project, definition,
+                                   on_progress=on_progress,
+                                   should_cancel=should_cancel)
+
+
+def get_optimization(project: Project, name: Optional[str] = None
+                     ) -> OptimizationDefinition:
+    """Named lookup over ``project.optimizations`` (first when name omitted)."""
+    if name is None:
+        if not project.optimizations:
+            raise KeyError(
+                "this project defines no optimization studies; create one "
+                "in the Design tab (inputs/optimizations.bemt)")
+        return project.optimizations[0]
+    for o in project.optimizations:
+        if o.name == name:
+            return o
+    raise KeyError(f"optimization '{name}' not found in project.optimizations "
+                   f"(available: {[o.name for o in project.optimizations]})")
 
 
 # =============================================================================

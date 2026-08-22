@@ -23,14 +23,19 @@ Conventions and limitations:
 from __future__ import annotations
 
 import itertools
+import math
 import time
 from dataclasses import fields, replace
 from typing import Callable, Optional, Sequence
 
 import numpy as np
 
-from .models import Project, RotorGeometryDef, FlightCondition, BatchDefinition, Results
+from .models import (Project, RotorGeometryDef, FlightCondition,
+                     BatchDefinition, Results, OptimizationDefinition,
+                     OptimizationOutcome, DesignVariable, GEOMETRY_PARAMS,
+                     INTEGER_PARAMS)
 from . import airfoils
+from . import geometry as geometry_gen
 from . import nomenclature
 from .bemt import BEMTConfig, Rotor, solve_bemt, aggregate_results, SolveCancelled
 
@@ -785,3 +790,217 @@ def benchmark_solvers(project: Project, condition: FlightCondition,
         res.maps["benchmark_solver"] = solver_name
         results.append(res)
     return results
+
+
+# =============================================================================
+# Design tools: geometry comparison and design optimization
+# =============================================================================
+
+_DIRECT_GEOMETRY_PARAMS = ("n_blades", "radius_m", "root_cutout_norm")
+_PARAMETRIC_KINDS = ("rectangular", "tapered", "elliptic")
+_OPTIMIZATION_METHODS = ("powell", "nelder-mead")
+
+
+def variant_geometry(base_geometry: RotorGeometryDef,
+                     overrides: dict) -> RotorGeometryDef:
+    """Build one geometry variant by applying named parameter overrides.
+
+    Planform parameters (``root_chord_norm``, ``tip_chord_norm``,
+    ``twist_root_deg``, ``twist_tip_deg``, ``max_chord_norm``,
+    ``chord_norm``) are generator inputs: they regenerate the parametric
+    table from ``origin_params`` and keep the station count. The direct
+    fields ``n_blades``, ``radius_m`` and ``root_cutout_norm`` are applied
+    to any geometry, including imported tables. Unknown parameters raise
+    ``ValueError``.
+    """
+    unknown = sorted(set(overrides) - set(GEOMETRY_PARAMS))
+    if unknown:
+        raise ValueError(
+            f"Unknown geometry parameter(s): {unknown}. "
+            f"Allowed parameters: {list(GEOMETRY_PARAMS)}.")
+    planform = {k: v for k, v in overrides.items()
+                if k not in _DIRECT_GEOMETRY_PARAMS}
+    direct = {k: v for k, v in overrides.items()
+              if k in _DIRECT_GEOMETRY_PARAMS}
+    kind = str(base_geometry.origin_params.get("kind", ""))
+    if planform and kind not in _PARAMETRIC_KINDS:
+        raise ValueError(
+            f"Planform parameter(s) {sorted(planform)} need a parametric "
+            f"generator, but this geometry origin is {base_geometry.origin!r} "
+            f"(kind={kind!r}). Only n_blades/radius_m/root_cutout_norm apply.")
+    geom = replace(base_geometry)
+    if planform:
+        gen_kwargs = dict(base_geometry.origin_params)
+        gen_kwargs.update(planform)
+        gen_kwargs["n_stations"] = len(base_geometry.r_norm)
+        gen_kwargs.setdefault("root_cutout_norm", base_geometry.root_cutout_norm)
+        gen_kwargs.setdefault("radius_m", base_geometry.radius_m)
+        gen_kwargs.setdefault("n_blades", base_geometry.n_blades)
+        gen_kwargs.setdefault("airfoil_name", base_geometry.airfoil_name)
+        gen_kwargs.pop("kind")
+        builders = {
+            "rectangular": geometry_gen.generate_rectangular,
+            "tapered": geometry_gen.generate_tapered,
+            "elliptic": geometry_gen.generate_elliptic,
+        }
+        try:
+            geom = builders[kind](**gen_kwargs)
+        except TypeError as exc:
+            raise ValueError(
+                f"Parameter(s) {sorted(planform)} are not valid for the "
+                f"{kind!r} generator: {exc}") from exc
+    if direct:
+        geom = replace(geom, **direct)
+    return geom
+
+
+def compare_geometries(project: Project,
+                       variants: dict,
+                       conditions: Optional[Sequence[FlightCondition]] = None,
+                       *,
+                       on_case_done=None,
+                       should_cancel=None) -> list:
+    """Run the same flight conditions across several geometries.
+
+    ``variants`` maps a display label to a ``RotorGeometryDef``. Every
+    variant runs the same ordered conditions (``conditions`` when given,
+    otherwise the project's saved cases, otherwise one default hover-like
+    case). Returns a flat ``list[Results]`` in variant order; each summary
+    carries ``geometry_label`` so plots, tables and reports can group the
+    series. Results stay in memory (AR-2).
+    """
+    if not variants:
+        raise ValueError("compare_geometries needs at least one variant.")
+    if conditions is None:
+        conditions = list(project.saved_cases) or [FlightCondition()]
+    results = []
+    total = len(variants) * len(list(conditions))
+    done = 0
+    for label in variants:
+        variant_project = replace(project, geometry=variants[label])
+        for condition in conditions:
+            res = run_single_case(variant_project, condition,
+                                  should_cancel=should_cancel)
+            res.summary["geometry_label"] = label
+            res.condition_name = condition.name
+            results.append(res)
+            done += 1
+            if on_case_done is not None:
+                on_case_done(done, total, res)
+    return results
+
+
+def optimize_design(project: Project, definition: OptimizationDefinition,
+                    *, on_progress=None, should_cancel=None) -> OptimizationOutcome:
+    """Drive bounded geometry parameters toward the best objective value.
+
+    Each evaluation regenerates the geometry through ``variant_geometry``
+    and solves ONE flight condition (``definition.condition`` when given,
+    otherwise the first saved case). The objective reads a single summary
+    key. The search uses ``scipy.optimize.minimize`` with a derivative-free
+    method (Powell or Nelder-Mead), started from the center of the bounds;
+    it is deterministic for a fixed project and definition. Raises
+    ``ValueError`` for an invalid definition and ``SolveCancelled`` when
+    ``should_cancel`` fires between evaluations.
+    """
+    from scipy.optimize import minimize  # local import: optional at engine level
+
+    if definition.objective_kind not in ("maximize", "minimize"):
+        raise ValueError(
+            f"objective_kind must be 'maximize' or 'minimize' "
+            f"(got {definition.objective_kind!r}).")
+    if definition.method not in _OPTIMIZATION_METHODS:
+        raise ValueError(
+            f"method must be one of {_OPTIMIZATION_METHODS} "
+            f"(got {definition.method!r}).")
+    if definition.max_evals < 5:
+        raise ValueError("max_evals must be at least 5.")
+    if not definition.variables:
+        raise ValueError("The optimization needs at least one variable.")
+    names = []
+    lower = []
+    upper = []
+    for var in definition.variables:
+        if var.param not in GEOMETRY_PARAMS:
+            raise ValueError(
+                f"Unknown variable parameter {var.param!r}; "
+                f"allowed: {list(GEOMETRY_PARAMS)}.")
+        if not (math.isfinite(var.lower) and math.isfinite(var.upper)
+                and var.lower < var.upper):
+            raise ValueError(
+                f"Variable {var.param!r} needs finite bounds with "
+                f"lower < upper (got {var.lower}, {var.upper}).")
+        names.append(var.param)
+        lower.append(float(var.lower))
+        upper.append(float(var.upper))
+
+    condition = definition.condition or (
+        project.saved_cases[0] if project.saved_cases else FlightCondition())
+    rpm = _require_rpm(condition.rpm,
+                       f"optimization {definition.name!r} (set rpm on the "
+                       f"definition's condition)")
+    sign = -1.0 if definition.objective_kind == "maximize" else 1.0
+    penalty = 1e6 * abs(sign)
+
+    outcome = OptimizationOutcome(
+        objective_key=definition.objective_key,
+        objective_kind=definition.objective_kind)
+    best_finite = math.inf  # in minimized space
+    state = {"evals": 0}
+
+    def evaluate(x) -> float:
+        nonlocal best_finite
+        params = {}
+        for name, value in zip(names, x):
+            params[name] = int(round(value)) if name in INTEGER_PARAMS \
+                else float(value)
+        state["evals"] += 1
+        variant = variant_geometry(project.geometry, params)
+        sub_project = replace(project, geometry=variant)
+        try:
+            res = run_single_case(sub_project, condition,
+                                  should_cancel=should_cancel)
+            raw = float(res.summary.get(definition.objective_key, float("nan")))
+        except SolveCancelled:
+            raise
+        except Exception:
+            res = None
+            raw = float("nan")
+        if not math.isfinite(raw):
+            f_value = penalty + state["evals"]
+            res = None
+        else:
+            f_value = sign * raw
+            outcome.history.append({"eval": state["evals"], **params,
+                                    definition.objective_key: raw})
+        if f_value < best_finite:
+            best_finite = f_value
+            outcome.best_params = dict(params)
+            outcome.best_value = raw
+            outcome.best_results = res
+        if on_progress is not None:
+            on_progress(state["evals"], definition.max_evals, outcome.best_value)
+        return f_value
+
+    def check_cancel():
+        if should_cancel is not None and should_cancel():
+            raise SolveCancelled()
+
+    x0 = np.array([0.5 * (lo + hi) for lo, hi in zip(lower, upper)])
+    try:
+        minimize(evaluate, x0, method="Powell" if definition.method == "powell"
+                 else "Nelder-Mead",
+                 bounds=list(zip(lower, upper)),
+                 callback=lambda _: check_cancel(),
+                 options=({"maxfev": definition.max_evals}
+                          if definition.method == "powell"
+                          else {"maxiter": definition.max_evals}))
+        outcome.message = (f"finished after {state['evals']} evaluations")
+    except SolveCancelled:
+        outcome.message = "cancelled"
+    except ValueError as exc:
+        # Powell/Nelder-Mead can stop early on degenerate bounds; keep what
+        # was evaluated instead of losing the whole study.
+        outcome.message = f"stopped early: {exc}"
+    outcome.n_evals = state["evals"]
+    return outcome
