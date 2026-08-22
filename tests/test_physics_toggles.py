@@ -30,7 +30,7 @@ from zbemt.models import AirfoilDef, FlightCondition, Project
 # Helpers
 # =============================================================================
 
-def _rotor_para_estol(n_stations=40) -> Rotor:
+def _rotor_for_stall(n_stations=40) -> Rotor:
     """Blade with collective high enough to touch stall over part of
     the disk in forward flight (but not in hover), with no stall at mu_x=0."""
     geom = geometry.generate_tapered(
@@ -41,7 +41,7 @@ def _rotor_para_estol(n_stations=40) -> Rotor:
     return geom
 
 
-def _projeto(geom=None, cfg_overrides=None, airfoil=None) -> Project:
+def _project(geom=None, cfg_overrides=None, airfoil=None) -> Project:
     if geom is None:
         geom = geometry.generate_tapered(
             root_chord_norm=0.10, tip_chord_norm=0.05,
@@ -67,7 +67,7 @@ def _run(project, mu_x=0.0, collective_deg=8.0, rpm=300.0, Vz=0.0):
 # 1) Compressibility -- Prandtl-Glauert correction on Cl/Cd
 # =============================================================================
 
-class TestCompressibilidade(unittest.TestCase):
+class TestCompressibility(unittest.TestCase):
     """`use_compressibility` scales Cl (and Cd) by ``1/sqrt(1-M^2)``
     (bemt.py, block right after the Cl/Cd computation in `element_state`).
     Tested by calling `element_state` directly with lambda_i=0 fixed
@@ -94,7 +94,7 @@ class TestCompressibilidade(unittest.TestCase):
                               airfoil=airfoil, cfg=cfg,
                               r_root_norm_geom=0.15, r_tip_norm_geom=1.0)
 
-    def test_ligar_aumenta_cl_conforme_prandtl_glauert(self):
+    def test_enabling_increases_cl_per_prandtl_glauert(self):
         off = self._estado(False)
         on = self._estado(True)
 
@@ -103,15 +103,15 @@ class TestCompressibilidade(unittest.TestCase):
 
         beta = np.sqrt(1.0 - mach ** 2)
         cl_off = float(off["Cl"][0, 0])
-        cl_on_esperado = cl_off / beta
+        cl_on_expected = cl_off / beta
         cl_on = float(on["Cl"][0, 0])
 
-        self.assertAlmostEqual(cl_on / cl_on_esperado, 1.0, places=9,
-                               msg=f"Cl com compressibilidade={cl_on:.6f}, "
-                                   f"esperado Cl/beta={cl_on_esperado:.6f} (Mach={mach:.3f})")
-        self.assertGreater(cl_on, cl_off, "ligar compressibilidade deveria aumentar Cl (beta<1)")
+        self.assertAlmostEqual(cl_on / cl_on_expected, 1.0, places=9,
+                               msg=f"Cl with compressibility={cl_on:.6f}, "
+                                   f"expected Cl/beta={cl_on_expected:.6f} (Mach={mach:.3f})")
+        self.assertGreater(cl_on, cl_off, "enabling compressibility should increase Cl (beta<1)")
 
-    def test_mach_baixo_efeito_e_desprezivel(self):
+    def test_low_mach_effect_is_negligible(self):
         """Negative control: at low Mach, beta~1 and the correction should
         nearly vanish -- confirms that the test above is measuring the
         Mach effect, not some artifact of the call."""
@@ -129,7 +129,7 @@ class TestCompressibilidade(unittest.TestCase):
 #    pitt_peters_steady
 # =============================================================================
 
-class TestModelosDeInflow(unittest.TestCase):
+class TestInflowModels(unittest.TestCase):
     """The three models solve the SAME momentum equation; what changes is
     the harmonic correction (Kx,Ky) that distributes the inflow along the
     azimuth. In hover (mu_x=0) this correction is null by construction
@@ -151,17 +151,17 @@ class TestModelosDeInflow(unittest.TestCase):
         aft = lam[np.cos(psi) < 0].mean()
         return float(fore - aft)
 
-    def test_pairado_modelos_quase_coincidem(self):
+    def test_hover_models_nearly_coincide(self):
         cts = {}
         for model in ("coleman_local", "drees_global", "pitt_peters_steady"):
-            project = _projeto(cfg_overrides=dict(inflow_field_model=model))
+            project = _project(cfg_overrides=dict(inflow_field_model=model))
             cts[model] = _run(project, mu_x=0.0).summary["CT"]
         values = list(cts.values())
         spread = (max(values) - min(values)) / max(abs(np.mean(values)), 1e-9)
         self.assertLess(spread, 0.02,
-                        f"modelos de inflow deveriam quase coincidir em pairagem: {cts}")
+                        f"inflow models should nearly coincide in hover: {cts}")
 
-    def test_pairado_com_pitt_peters_nao_diverge(self):
+    def test_hover_with_pitt_peters_does_not_diverge(self):
         """Regression: at EXACT ``mu_x=0``, `pitt_peters_steady` used to
         silently return ``CT=nan`` -- no exception and no warning.
 
@@ -177,9 +177,9 @@ class TestModelosDeInflow(unittest.TestCase):
         looks like a number); the momentum-theory seed is what actually
         fixes it.
 
-        This class's synthetic `_projeto` does NOT reproduce the defect
+        This class's synthetic `_project` does NOT reproduce the defect
         (rpm=300, R=5m: low disk loading, the overshoot never reaches
-        lambda<0), which is why `test_pairado_modelos_quase_coincidem`
+        lambda<0), which is why `test_hover_models_nearly_coincide`
         used to pass with the bug present. Hence this test using the
         real `starter_rotor`.
 
@@ -189,30 +189,30 @@ class TestModelosDeInflow(unittest.TestCase):
         import os
         from zbemt import api
 
-        caminho = os.path.join(
+        path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "projects", "starter_rotor")
-        if not os.path.isdir(caminho):
+        if not os.path.isdir(path):
             self.skipTest("starter_rotor project is not present in this checkout")
 
         def _ct(mu_x):
-            projeto = api.open_project(caminho)
-            projeto.config.update(Ne=40, Npsi=72,
+            project = api.open_project(path)
+            project.config.update(Ne=40, Npsi=72,
                                    inflow_field_model="pitt_peters_steady")
-            return api.run_case(projeto, FlightCondition(
+            return api.run_case(project, FlightCondition(
                 name=f"mu_{mu_x:g}", mu_x=mu_x, Vz=0.0,
                 collective_deg=8.0, rpm=1200.0)).summary["CT"]
 
-        ct_pairado = _ct(0.0)
-        self.assertTrue(np.isfinite(ct_pairado),
-                        f"CT in hover is not finite: {ct_pairado}")
-        ct_quase = _ct(0.001)
+        ct_hover = _ct(0.0)
+        self.assertTrue(np.isfinite(ct_hover),
+                        f"CT in hover is not finite: {ct_hover}")
+        ct_near = _ct(0.001)
         self.assertAlmostEqual(
-            ct_pairado, ct_quase, places=3,
+            ct_hover, ct_near, places=3,
             msg=(f"CT should be continuous at mu_x->0: "
-                 f"mu_x=0 -> {ct_pairado}, mu_x=0.001 -> {ct_quase}"))
+                 f"mu_x=0 -> {ct_hover}, mu_x=0.001 -> {ct_near}"))
 
-    def test_voo_avancado_modelos_divergem_mensuravelmente(self):
+    def test_advanced_flight_models_diverge_measurably(self):
         """Measured first (not copied from theory): the coleman-drees
         difference does NOT grow monotonically over the whole mu_x range
         -- it grows from mu_x=0.05 to ~0.1, and then goes BACK down,
@@ -220,22 +220,22 @@ class TestModelosDeInflow(unittest.TestCase):
         priori; see report). What can be stated safely, and is what this
         test verifies, is more modest: in moderate forward flight the two
         models diverge MUCH more than in hover (where the difference is
-        ~0 by construction, see `test_pairado_modelos_quase_coincidem`)."""
+        ~0 by construction, see `test_hover_models_nearly_coincide`)."""
         asym = {}
         for model in ("coleman_local", "drees_global"):
-            project = _projeto(cfg_overrides=dict(inflow_field_model=model))
+            project = _project(cfg_overrides=dict(inflow_field_model=model))
             res = _run(project, mu_x=0.15)
             asym[model] = self._fore_aft_asymmetry(res)
         diff = abs(asym["coleman_local"] - asym["drees_global"])
         self.assertGreater(diff, 5e-3,
-                            f"coleman e drees deveriam divergir mensuravelmente em mu_x=0.15: {asym}")
+                            f"coleman and drees should diverge measurably at mu_x=0.15: {asym}")
 
 
 # =============================================================================
 # 3) Reverse flow -- location of the region on the disk
 # =============================================================================
 
-class TestFluxoReverso(unittest.TestCase):
+class TestReverseFlow(unittest.TestCase):
     """Where ``Ut = Omega*r + Vinf*sin(psi) < 0``. Dividing by
     Omega*R: ``r_norm < -mu_x*sin(psi)``, a condition only satisfied
     for sin(psi)<0 (psi between 180 and 360 degrees, retreating side)
@@ -245,16 +245,16 @@ class TestFluxoReverso(unittest.TestCase):
     the engine actually marks as reverse (Ut<0) respects this curve,
     for both reverse flow models."""
 
-    def _mapas(self, reverse_flow_model, mu_x=0.35):
-        geom = _rotor_para_estol()
+    def _maps(self, reverse_flow_model, mu_x=0.35):
+        geom = _rotor_for_stall()
         airfoil = AirfoilDef(source="analytical", stall_model="linear",
                               extend_full_range=(reverse_flow_model == "viterna_full_range"),
                               cd0=0.010, k=0.0)
         cfg_overrides = dict(reverse_flow_model=reverse_flow_model)
-        project = _projeto(geom=geom, airfoil=airfoil, cfg_overrides=cfg_overrides)
+        project = _project(geom=geom, airfoil=airfoil, cfg_overrides=cfg_overrides)
         return _run(project, mu_x=mu_x, collective_deg=6.0).maps
 
-    def _checa_regiao(self, maps, mu_x):
+    def _check_region(self, maps, mu_x):
         Ut = maps["Ut"]
         r_norm = maps["R_NORM"]
         psi = maps["PSI"]
@@ -271,9 +271,9 @@ class TestFluxoReverso(unittest.TestCase):
         # radial mesh step, since the grid is discrete and Ut is sampled, not
         # interpolated at the exact boundary)
         dr = 1.0 / maps["r_norm_nodes"].size
-        limite = -mu_x * np.sin(psi_reverse)
-        self.assertTrue(np.all(r_reverse <= limite + 2 * dr),
-                        "ponto de fluxo reverso fora da curva-limite r_norm<=-mu_x*sin(psi)")
+        limit = -mu_x * np.sin(psi_reverse)
+        self.assertTrue(np.all(r_reverse <= limit + 2 * dr),
+                        "reverse-flow point outside the boundary curve r_norm<=-mu_x*sin(psi)")
 
         # maximum radius of the reverse region has to approach mu_x (reached
         # near psi=270 degrees)
@@ -281,18 +281,18 @@ class TestFluxoReverso(unittest.TestCase):
         self.assertAlmostEqual(r_max, mu_x, delta=3 * dr,
                                msg=f"max reverse-flow radius={r_max:.4f}, expected ~mu_x={mu_x}")
 
-    def test_regiao_no_lugar_certo_flat_plate(self):
-        self._checa_regiao(self._mapas("flat_plate"), mu_x=0.35)
+    def test_region_in_the_right_place_flat_plate(self):
+        self._check_region(self._maps("flat_plate"), mu_x=0.35)
 
-    def test_regiao_no_lugar_certo_viterna_full_range(self):
-        self._checa_regiao(self._mapas("viterna_full_range"), mu_x=0.35)
+    def test_region_in_the_right_place_viterna_full_range(self):
+        self._check_region(self._maps("viterna_full_range"), mu_x=0.35)
 
-    def test_diametro_da_regiao_escala_com_mu(self):
+    def test_region_diameter_scales_with_mu(self):
         """The boundary curve predicts maximum radius ~mu_x -- confirms
         the scaling by varying mu_x, not just a single fixed point."""
         for mu_x in (0.2, 0.4):
             with self.subTest(mu_x=mu_x):
-                maps = self._mapas("flat_plate", mu_x=mu_x)
+                maps = self._maps("flat_plate", mu_x=mu_x)
                 r_reverse = maps["R_NORM"][maps["Ut"] < 0.0]
                 r_max = float(r_reverse.max())
                 dr = 1.0 / maps["r_norm_nodes"].size
@@ -303,45 +303,45 @@ class TestFluxoReverso(unittest.TestCase):
 # 4) Dynamic stall -- deviation grows with the AoA rate of change
 # =============================================================================
 
-class TestEstolDinamico(unittest.TestCase):
+class TestDynamicStall(unittest.TestCase):
     """The Øye model delays boundary-layer separation relative to the
     static polar; the deviation Cl_dynamic - Cl_static should grow when
     the angle of attack varies faster along the azimuth -- and more
     advance ratio (larger mu_x) produces more azimuthal variation of
     alpha (Ut oscillates with sin(psi), amplitude proportional to mu_x)."""
 
-    def _desvio_medio(self, mu_x, collective_deg=11.0):
+    def _mean_deviation(self, mu_x, collective_deg=11.0):
         """Average deviation |Cl-Cl_static|, restricted to the DIRECT flow
         side (Ut>=0): the reverse flow region (radius ~mu_x, see
-        TestFluxoReverso) produces extreme effective angles with this
+        TestReverseFlow) produces extreme effective angles with this
         'clip' stall airfoil (not extended to -180..180), which would
         contaminate the average with no relation at all to the azimuthal
         rate of change being measured here."""
-        geom = _rotor_para_estol()
+        geom = _rotor_for_stall()
         airfoil = AirfoilDef(source="analytical", stall_model="clip",
                               alpha_stall_pos_deg=10.0, alpha_stall_neg_deg=-6.0,
                               extend_full_range=False, cd0=0.010, k=0.0,
                               use_dynamic_stall=True, dynamic_stall_A=8.0)
-        project = _projeto(geom=geom, airfoil=airfoil,
+        project = _project(geom=geom, airfoil=airfoil,
                            cfg_overrides=dict(use_dynamic_stall=True))
         res = _run(project, mu_x=mu_x, collective_deg=collective_deg)
         self.assertIn("Cl_static", res.maps, "dynamic stall should have run (Cl_static missing)")
         mask = res.maps["Ut"] >= 0.0
         return float(np.mean(np.abs(res.maps["Cl"][mask] - res.maps["Cl_static"][mask])))
 
-    def test_desvio_cresce_com_mu(self):
+    def test_deviation_grows_with_mu(self):
         """Measured: 0.0045 (mu_x=0.03) -> 0.0158 (mu_x=0.06) -> 0.0640
         (mu_x=0.10), clear monotonic growth in this range (larger mu_x
         saturates/reverses because of the growing reverse flow region
         and the 'clip' saturating -- which is why the range is restricted
         to mu_x where the reverse region is still negligible,
         r_root_cutout=0.15 > mu_x)."""
-        d1 = self._desvio_medio(mu_x=0.03)
-        d2 = self._desvio_medio(mu_x=0.06)
-        d3 = self._desvio_medio(mu_x=0.10)
+        d1 = self._mean_deviation(mu_x=0.03)
+        d2 = self._mean_deviation(mu_x=0.06)
+        d3 = self._mean_deviation(mu_x=0.10)
         self.assertGreater(d1, 1e-4, "there should already be some dynamic-stall deviation at mu_x=0.03")
-        self.assertGreater(d2, d1, f"desvio deveria crescer de mu_x=0.03 pra 0.06: {d1:.6f} -> {d2:.6f}")
-        self.assertGreater(d3, d2, f"desvio deveria crescer de mu_x=0.06 pra 0.10: {d2:.6f} -> {d3:.6f}")
+        self.assertGreater(d2, d1, f"deviation should grow from mu_x=0.03 to 0.06: {d1:.6f} -> {d2:.6f}")
+        self.assertGreater(d3, d2, f"deviation should grow from mu_x=0.06 to 0.10: {d2:.6f} -> {d3:.6f}")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ widgets and orders them by position on screen. It is not a hand-written
 list, which would drift out of sync the first time a field moved.
 
     python tools/field_index.py            # shows what would change
-    python tools/field_index.py --escrever # injects into the documentation
+    python tools/field_index.py --write    # injects into the documentation
 
 `tests/test_documentation.py` checks that the published index still
 matches the on-screen order.
@@ -23,19 +23,19 @@ import re
 import sys
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(RAIZ))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 # Run with no arguments (e.g. the IDE "Run" button) uses dry-run mode (show without writing).
-# Use --escrever to actually inject into the documentation.
+# Use --write to actually inject into the documentation.
 DEFAULT_WRITE_MODE = False
 
-MARCA_INICIO = "<!-- INDICE-DE-CAMPOS:{aba} -->"
-MARCA_FIM = "<!-- /INDICE-DE-CAMPOS:{aba} -->"
+MARK_START = "<!-- INDICE-DE-CAMPOS:{tab} -->"
+MARK_END = "<!-- /INDICE-DE-CAMPOS:{tab} -->"
 
 #: tab -> (index in the QTabWidget, id of the chapter that documents it)
-ABAS = {
+TABS = {
     # Two tabs are deliberately absent.
     #
     # Results: its controls select a view of results that already exist, not a
@@ -56,7 +56,7 @@ ABAS = {
 }
 
 
-def coletar_ordem_da_tela() -> dict:
+def collect_screen_order() -> dict:
     """{tab: [(field, anchor), ...]} in visual order (top->bottom, left->right)."""
     from PyQt6.QtWidgets import QApplication, QWidget
 
@@ -66,34 +66,34 @@ def coletar_ordem_da_tela() -> dict:
     app = QApplication.instance() or QApplication([])
 
     from zbemt.gui import app as gui
-    from zbemt.gui.field_help import _NOME_NO_TOOLTIP, mapa_de_campos
+    from zbemt.gui.field_help import _NAME_IN_TOOLTIP, field_map
 
-    mapa = mapa_de_campos()
-    janela = gui.MainWindow()
-    janela.resize(1500, 1000)
-    janela.show()
+    label_map = field_map()
+    window = gui.MainWindow()
+    window.resize(1500, 1000)
+    window.show()
     for _ in range(30):
         app.processEvents()
 
-    resultado = {}
-    for nome_aba, (indice, _cap) in ABAS.items():
-        janela.tabs.setCurrentIndex(indice)
+    order = {}
+    for tab_name, (index, _chapter) in TABS.items():
+        window.tabs.setCurrentIndex(index)
         for _ in range(20):
             app.processEvents()
-        aba = janela.tabs.widget(indice)
-        posicoes = {}
-        for wd in aba.findChildren(QWidget):
-            achado = _NOME_NO_TOOLTIP.match(wd.toolTip() or "")
-            if not achado:
+        tab = window.tabs.widget(index)
+        positions = {}
+        for widget in tab.findChildren(QWidget):
+            match = _NAME_IN_TOOLTIP.match(widget.toolTip() or "")
+            if not match:
                 continue
-            campo = achado.group(1).split(".")[-1]
-            if campo not in mapa or campo in posicoes:
+            field_name = match.group(1).split(".")[-1]
+            if field_name not in label_map or field_name in positions:
                 continue
-            ponto = wd.mapTo(aba, wd.rect().topLeft())
-            posicoes[campo] = (ponto.y(), ponto.x())
-        ordenados = sorted(posicoes.items(), key=lambda kv: kv[1])
-        resultado[nome_aba] = [(campo, mapa[campo]) for campo, _ in ordenados]
-    return resultado
+            point = widget.mapTo(tab, widget.rect().topLeft())
+            positions[field_name] = (point.y(), point.x())
+        ordered = sorted(positions.items(), key=lambda kv: kv[1])
+        order[tab_name] = [(name, label_map[name]) for name, _ in ordered]
+    return order
 
 
 #: `<h2 id="x">3.1 Title</h2>` and also the form `<a id="x"></a>` on its own
@@ -101,13 +101,13 @@ def coletar_ordem_da_tela() -> dict:
 #: latter, and a regex that only looked at the heading's attribute would
 #: miss them.
 _HEADING = re.compile(
-    r'<a\s+id="(?P<ancora_solta>[^"]+)"[^>]*>\s*</a>\s*'
-    r'|<h(?P<nivel>[1-6])(?P<attrs>[^>]*)>\s*(?P<texto>[^<]*)',
+    r'<a\s+id="(?P<free_anchor>[^"]+)"[^>]*>\s*</a>\s*'
+    r'|<h(?P<level>[1-6])(?P<attrs>[^>]*)>\s*(?P<text>[^<]*)',
     re.IGNORECASE)
-_NUMERO_INICIAL = re.compile(r"^\s*(\d+(?:\.\d+)*)\.?\s")
+_LEADING_NUMBER = re.compile(r"^\s*(\d+(?:\.\d+)*)\.?\s")
 
 
-def numeros_de_secao(html: str) -> dict:
+def section_numbers(html: str) -> dict:
     """``{anchor id: "2.8.2.4"}`` -- the number the heading REALLY shows
     today.
 
@@ -121,85 +121,85 @@ def numeros_de_secao(html: str) -> dict:
 
     Resolving from the heading is what breaks that cycle: the number comes
     from where the reader reads it."""
-    numeros: dict = {}
-    soltas: list = []
+    numbers: dict = {}
+    pending: list = []
     for m in _HEADING.finditer(html):
-        if m.group("ancora_solta"):
-            soltas.append(m.group("ancora_solta"))
+        if m.group("free_anchor"):
+            pending.append(m.group("free_anchor"))
             continue
-        numero = _NUMERO_INICIAL.match(m.group("texto") or "")
+        number = _LEADING_NUMBER.match(m.group("text") or "")
         ids = re.findall(r'id="([^"]+)"', m.group("attrs") or "")
         # loose anchors immediately before belong to THIS heading
-        for ancora in soltas + ids:
-            if numero:
-                numeros[ancora] = numero.group(1)
-        soltas = []
-    return numeros
+        for anchor in pending + ids:
+            if number:
+                numbers[anchor] = number.group(1)
+        pending = []
+    return numbers
 
 
-def montar_html(nome_aba: str, campos: list, numeros: dict | None = None) -> str:
-    if not campos:
+def build_html(tab_name: str, fields: list, numbers: dict | None = None) -> str:
+    if not fields:
         return ""
-    numeros = numeros or {}
+    numbers = numbers or {}
 
-    def rotulo(ancora: str) -> str:
+    def label(anchor: str) -> str:
         # A missing heading is reported by its anchor so the inventory remains
         # inspectable instead of silently dropping the field.
-        return numeros.get(ancora, ancora)
+        return numbers.get(anchor, anchor)
 
-    itens = "".join(
-        f'<li><code>{campo}</code> &rarr; '
-        f'<a href="#{ancora}">{rotulo(ancora)}</a></li>'
-        for campo, ancora in campos)
+    items = "".join(
+        f'<li><code>{name}</code> &rarr; '
+        f'<a href="#{anchor}">{label(anchor)}</a></li>'
+        for name, anchor in fields)
     return (
         f'<div class="boxed">\n'
         f"<b>Fields in this tab, in the order they appear on screen</b> "
-        f"({len(campos)}). The sections below are self-contained and use the "
+        f"({len(fields)}). The sections below are self-contained and use the "
         f"same explanations as the field Help in the window.\n"
-        f'<ol class="indice-de-campos">{itens}</ol>\n'
+        f'<ol class="indice-de-campos">{items}</ol>\n'
         f"</div>"
     )
 
 
-def injetar(html: str, nome_aba: str, bloco: str) -> str:
-    inicio = MARCA_INICIO.format(aba=nome_aba)
-    fim = MARCA_FIM.format(aba=nome_aba)
-    novo = f"{inicio}\n{bloco}\n{fim}"
-    if inicio in html:
-        return re.sub(re.escape(inicio) + r".*?" + re.escape(fim), lambda _m: novo,
-                       html, flags=re.S)
+def inject(html: str, tab_name: str, block: str) -> str:
+    start = MARK_START.format(tab=tab_name)
+    end = MARK_END.format(tab=tab_name)
+    new_block = f"{start}\n{block}\n{end}"
+    if start in html:
+        return re.sub(re.escape(start) + r".*?" + re.escape(end),
+                      lambda _m: new_block, html, flags=re.S)
     # first time: right after the tab's chapter <h2>
-    _indice, cap = ABAS[nome_aba]
-    padrao = re.compile(rf'(<h2 id="{re.escape(cap)}">.*?</h2>\n)')
-    achado = padrao.search(html)
-    if not achado:
-        raise SystemExit(f"chapter {cap} was not found in the documentation")
-    return html[:achado.end()] + novo + "\n" + html[achado.end():]
+    _index, chapter = TABS[tab_name]
+    pattern = re.compile(rf'(<h2 id="{re.escape(chapter)}">.*?</h2>\n)')
+    found = pattern.search(html)
+    if not found:
+        raise SystemExit(f"chapter {chapter} was not found in the documentation")
+    return html[:found.end()] + new_block + "\n" + html[found.end():]
 
 
-def main(escrever: bool) -> int:
-    ordem = coletar_ordem_da_tela()
-    doc = RAIZ / "docs" / "documentation.html"
+def main(write: bool) -> int:
+    order = collect_screen_order()
+    doc = ROOT / "docs" / "documentation.html"
     html = doc.read_text(encoding="utf-8")
     # The numbers come from the documentation's HEADINGS, not from the
-    # anchor name -- see `numeros_de_secao`. Read BEFORE the loop: injecting
+    # anchor name -- see `section_numbers`. Read BEFORE the loop: injecting
     # does not change any heading, so a single read is enough and there is
     # no risk of one tab's index seeing one numbering and the next tab's
     # index seeing another.
-    numeros = numeros_de_secao(html)
-    for nome_aba, campos in ordem.items():
-        print(f"{nome_aba:<12} {len(campos)} fields")
-        if campos:
-            html = injetar(html, nome_aba, montar_html(nome_aba, campos, numeros))
-    if escrever:
+    numbers = section_numbers(html)
+    for tab_name, fields in order.items():
+        print(f"{tab_name:<12} {len(fields)} fields")
+        if fields:
+            html = inject(html, tab_name, build_html(tab_name, fields, numbers))
+    if write:
         doc.write_text(html, encoding="utf-8")
         print("documentation updated")
     else:
-        print("(use --escrever to inject the index into the documentation)")
+        print("(use --write to inject the index into the documentation)")
     return 0
 
 
 if __name__ == "__main__":
     # If no argument was given, uses DEFAULT_WRITE_MODE; CLI args still override.
-    escrever = DEFAULT_WRITE_MODE if len(sys.argv) == 1 else ("--escrever" in sys.argv)
-    raise SystemExit(main(escrever))
+    write = DEFAULT_WRITE_MODE if len(sys.argv) == 1 else ("--write" in sys.argv)
+    raise SystemExit(main(write))

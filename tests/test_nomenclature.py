@@ -1,9 +1,9 @@
 """`zbemt/nomenclature.py` -- the single source of the axis nomenclature.
 
 The rotor/propeller letter swap used to be re-implemented by hand in ten
-places (`api._SIMBOLO_DE_COLUNA_HELICE`, `plots._SUMMARY_KEY_LABELS_HELICE`,
-`studies._SIMBOLO_DE_VARIAVEL_HELICE`, `widgets.UNIDADES_DE_CONDICAO`,
-`common._ROTULOS_DE_CONDICAO`, ...), each claiming to be the single source
+places (`api._COLUMN_SYMBOL_PROPELLER`, `plots._SUMMARY_KEY_LABELS`,
+`studies.condition_name`, `widgets.CONDITION_UNITS`,
+`nomenclature._SLOT_LABELS`, ...), each claiming to be the single source
 for its own surface. These tests lock in the properties that make ONE table
 able to replace all of them.
 """
@@ -18,7 +18,10 @@ class TestAxisQuantityTable(unittest.TestCase):
     #: Keys of `Results.summary` whose letter depends on the mode, plus the
     #: ones that deliberately do NOT rotate but still belong to the flight
     #: condition (so a missing entry is a failure, not a silent fallback).
-    CHAVES_DE_EIXO = (
+    #: Keys of `Results.summary` whose letter depends on the mode, plus the
+    #: ones that deliberately do NOT rotate but still belong to the flight
+    #: condition (so a missing entry is a failure, not a silent fallback).
+    AXIS_KEYS = (
         "mu_x", "J_x", "Vx",
         "mu_z", "J_z", "Vz", "lambda_z", "Vz_total",
         "alpha_rotor_deg", "alpha_disk_deg",
@@ -28,32 +31,32 @@ class TestAxisQuantityTable(unittest.TestCase):
     #: Variable names used by the factorial sweep and the GUI unit combos.
     #: `alpha_deg`/`alpha_disk` are the input spellings of
     #: `alpha_rotor_deg`/`alpha_disk_deg`.
-    VARIAVEIS_DE_ENTRADA = (
+    INPUT_VARIABLES = (
         "mu_x", "J_x", "Vx", "alpha_disk",
         "alpha_deg", "Vz", "mu_z", "J_z",
     )
 
     def test_every_axis_key_has_an_entry(self):
-        for chave in self.CHAVES_DE_EIXO:
-            with self.subTest(chave=chave):
-                self.assertIn(chave, nm.QUANTITIES)
+        for key in self.AXIS_KEYS:
+            with self.subTest(key=key):
+                self.assertIn(key, nm.QUANTITIES)
 
     def test_every_input_variable_has_an_entry(self):
-        for variavel in self.VARIAVEIS_DE_ENTRADA:
-            with self.subTest(variavel=variavel):
-                self.assertIn(variavel, nm.QUANTITIES)
+        for variable in self.INPUT_VARIABLES:
+            with self.subTest(variable=variable):
+                self.assertIn(variable, nm.QUANTITIES)
 
     def test_every_accessor_resolves_in_both_modes(self):
-        for chave in self.CHAVES_DE_EIXO + self.VARIAVEIS_DE_ENTRADA:
+        for key in self.AXIS_KEYS + self.INPUT_VARIABLES:
             for prop in (False, True):
-                with self.subTest(chave=chave, propeller=prop):
-                    self.assertTrue(nm.symbol_latex(chave, prop))
-                    self.assertTrue(nm.symbol_mathtext(chave, prop))
-                    self.assertTrue(nm.symbol_html(chave, prop))
-                    self.assertTrue(nm.symbol_text(chave, prop))
-                    self.assertIsInstance(nm.unit(chave), str)
-                    self.assertIsInstance(nm.is_visible(chave, prop), bool)
-                    self.assertIn(nm.slot_of(chave),
+                with self.subTest(key=key, propeller=prop):
+                    self.assertTrue(nm.symbol_latex(key, prop))
+                    self.assertTrue(nm.symbol_mathtext(key, prop))
+                    self.assertTrue(nm.symbol_html(key, prop))
+                    self.assertTrue(nm.symbol_text(key, prop))
+                    self.assertIsInstance(nm.unit(key), str)
+                    self.assertIsInstance(nm.is_visible(key, prop), bool)
+                    self.assertIn(nm.slot_of(key),
                                   ("inplane", "axial", "invariant"))
 
     def test_unknown_key_never_raises(self):
@@ -82,9 +85,9 @@ class TestKeyRotation(unittest.TestCase):
     """The swap is a SIMULTANEOUS remap, and it is reversible."""
 
     def test_rotor_mode_is_the_identity(self):
-        for chave in TestAxisQuantityTable.CHAVES_DE_EIXO:
-            with self.subTest(chave=chave):
-                self.assertEqual(nm.display_key(chave, False), chave)
+        for key in TestAxisQuantityTable.AXIS_KEYS:
+            with self.subTest(key=key):
+                self.assertEqual(nm.display_key(key, False), key)
 
     def test_propeller_rotates_the_letter(self):
         self.assertEqual(nm.display_key("Vz", True), "Vx")
@@ -99,9 +102,9 @@ class TestKeyRotation(unittest.TestCase):
     def test_induced_quantities_never_rotate(self):
         """`v_i` is along the shaft in both modes -- only the letter naming
         that shaft changes, and `Vi` does not carry a letter."""
-        for chave in ("Vi", "lambda_i", "lambda_total", "CT", "FM", "cfg_rho"):
-            with self.subTest(chave=chave):
-                self.assertEqual(nm.display_key(chave, True), chave)
+        for key in ("Vi", "lambda_i", "lambda_total", "CT", "FM", "cfg_rho"):
+            with self.subTest(key=key):
+                self.assertEqual(nm.display_key(key, True), key)
 
     def test_swap_is_simultaneous_not_sequential(self):
         """The collision case: applying `mu_x -> mu_z` and then
@@ -124,16 +127,16 @@ class TestKeyRotation(unittest.TestCase):
 
     def test_rotation_does_not_mutate_its_input(self):
         engine = {"mu_x": 0.05, "Vz": 65.0}
-        copia = dict(engine)
+        snapshot = dict(engine)
         nm.to_display_keys(engine, True)
-        self.assertEqual(engine, copia)
+        self.assertEqual(engine, snapshot)
 
     def test_engine_key_of_inverts_display_key(self):
-        for chave in TestAxisQuantityTable.CHAVES_DE_EIXO:
+        for key in TestAxisQuantityTable.AXIS_KEYS:
             for prop in (False, True):
-                with self.subTest(chave=chave, propeller=prop):
+                with self.subTest(key=key, propeller=prop):
                     self.assertEqual(
-                        nm.engine_key_of(nm.display_key(chave, prop), prop), chave)
+                        nm.engine_key_of(nm.display_key(key, prop), prop), key)
 
 
 class TestRenderTargets(unittest.TestCase):
@@ -173,49 +176,49 @@ class TestRenderTargets(unittest.TestCase):
     def test_every_entry_renders_without_leftover_latex(self):
         """A stray `$` or backslash reaching a QLabel is the bug this
         conversion exists to prevent."""
-        for chave in nm.QUANTITIES:
+        for key in nm.QUANTITIES:
             for prop in (False, True):
-                with self.subTest(chave=chave, propeller=prop):
-                    self.assertNotIn("$", nm.symbol_text(chave, prop))
-                    self.assertNotIn("\\", nm.symbol_text(chave, prop))
-                    self.assertNotIn("$", nm.symbol_html(chave, prop))
-                    self.assertNotIn("\\", nm.symbol_html(chave, prop))
+                with self.subTest(key=key, propeller=prop):
+                    self.assertNotIn("$", nm.symbol_text(key, prop))
+                    self.assertNotIn("\\", nm.symbol_text(key, prop))
+                    self.assertNotIn("$", nm.symbol_html(key, prop))
+                    self.assertNotIn("\\", nm.symbol_html(key, prop))
 
 
 class TestDescriptions(unittest.TestCase):
     def test_every_quantity_has_a_description_in_both_modes(self):
-        for chave in TestAxisQuantityTable.CHAVES_DE_EIXO:
+        for key in TestAxisQuantityTable.AXIS_KEYS:
             for prop in (False, True):
-                with self.subTest(chave=chave, propeller=prop):
-                    self.assertTrue(nm.description_html(chave, prop).strip())
+                with self.subTest(key=key, propeller=prop):
+                    self.assertTrue(nm.description_html(key, prop).strip())
 
     def test_description_uses_symbols_not_raw_field_names(self):
         """The description is user-facing text: `mu_x` must reach the screen
         as a symbol, never as a snake_case field name."""
-        for chave in TestAxisQuantityTable.CHAVES_DE_EIXO:
+        for key in TestAxisQuantityTable.AXIS_KEYS:
             for prop in (False, True):
-                texto = nm.description_html(chave, prop)
-                with self.subTest(chave=chave, propeller=prop):
-                    self.assertNotIn("mu_x", texto)
-                    self.assertNotIn("alpha_rotor_deg", texto)
+                text = nm.description_html(key, prop)
+                with self.subTest(key=key, propeller=prop):
+                    self.assertNotIn("mu_x", text)
+                    self.assertNotIn("alpha_rotor_deg", text)
 
 
 class TestSlots(unittest.TestCase):
     def test_slot_membership_matches_the_engine_decomposition(self):
-        for chave in ("mu_x", "J_x", "Vx", "alpha_disk"):
-            with self.subTest(chave=chave):
-                self.assertEqual(nm.slot_of(chave), "inplane")
-        for chave in ("mu_z", "J_z", "Vz", "lambda_z", "alpha_deg", "Vz_total"):
-            with self.subTest(chave=chave):
-                self.assertEqual(nm.slot_of(chave), "axial")
+        for key in ("mu_x", "J_x", "Vx", "alpha_disk"):
+            with self.subTest(key=key):
+                self.assertEqual(nm.slot_of(key), "inplane")
+        for key in ("mu_z", "J_z", "Vz", "lambda_z", "alpha_deg", "Vz_total"):
+            with self.subTest(key=key):
+                self.assertEqual(nm.slot_of(key), "axial")
 
     def test_both_slots_are_labelled_in_both_modes(self):
         for slot in ("inplane", "axial"):
             for prop in (False, True):
                 with self.subTest(slot=slot, propeller=prop):
-                    rotulo, dica = nm.slot_label(slot, prop)
-                    self.assertTrue(rotulo.strip())
-                    self.assertTrue(dica.strip())
+                    label, tooltip = nm.slot_label(slot, prop)
+                    self.assertTrue(label.strip())
+                    self.assertTrue(tooltip.strip())
 
     def test_the_in_plane_slot_is_named_for_what_it_carries(self):
         """A propeller's in-plane slot is the CROSS flow, not the advance --
@@ -261,8 +264,8 @@ class TestConditionLabel(unittest.TestCase):
                          "α_rotor=-10°")
 
     def test_unknown_variable_falls_back_to_its_own_name(self):
-        self.assertEqual(nm.condition_label({"novo_eixo": 3}, False),
-                         "novo_eixo=3")
+        self.assertEqual(nm.condition_label({"new_axis": 3}, False),
+                         "new_axis=3")
 
     def test_order_follows_the_caller(self):
         self.assertEqual(

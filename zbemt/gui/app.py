@@ -14,7 +14,7 @@ HARD RULE: no physics, no solver computation, no file read or write
 lives in the GUI -- everything goes through ``zbemt.api``. Explicit
 exception: purely preview operations (generating a NACA geometry to draw,
 plotting Cl(alpha) from a freshly imported table) may call
-``geometry``/``airfoils`` directly, because they don't run the solver nor touch disk.
+``geometry``/``airfoils`` directly, because they do not run the solver nor touch disk.
 
 Design principles, valid across every tab:
   1. Progressive disclosure -- no field appears before it makes sense.
@@ -61,7 +61,7 @@ from .tabs import (
     ResultsTab,
 )
 from .common import AppState, open_help
-from .wheel_guard import instalar_guarda_de_roda, ajustar_politica_de_foco
+from .wheel_guard import install_wheel_guard, adjust_focus_policy
 
 # --- compatibility re-export ------------------------------------
 # `zbemt.gui.app` was, throughout the project's whole lifetime, the GUI's
@@ -83,7 +83,7 @@ from .widgets import LongitudinalInput, AxialInput  # noqa: F401
 #: Modules that define widgets and therefore have their own `QMessageBox`
 #: (or `QInputDialog`) bound at import time. A test that needs to silence
 #: modal dialogs has to patch ALL of them -- patching the name only here
-#: does not reach the tabs. See `tests/helpers.patch_em_toda_gui`.
+#: does not reach the tabs. See `tests/helpers.patch_message_box_everywhere`.
 GUI_MODULES = (
     "zbemt.gui.common", "zbemt.gui.dialogs", "zbemt.gui.widgets",
     "zbemt.gui.tabs.project", "zbemt.gui.tabs.geometry_tab",
@@ -100,31 +100,31 @@ GUI_MODULES = (
 class FlowIndicatorBar(QWidget):
     """Project/Geometry/Airfoil/Config/Run Case/Run Batch/Results
     markers, colored by state (gray/amber/green/red).
-    Click jumps straight to the tab; does not lock free navigation."""
+    Click jumps straight to the tab. It does not lock free navigation."""
 
     _STAGES = ["Project", "Geometry", "Airfoil", "Config/Engine", "Run Case", "Run Batch", "Results"]
 
     #: The seven pills have the SAME width, and the width is measured (not
-    #: fixed): "Project" and "Config/Engine" differ by ~50 px, and seven
+    #: fixed): "Project" and "Config/Engine" differ by approximately 50 px, and seven
     #: colored pills of different sizes read as seven different things,
     #: not as seven stages of the same flow. The measurement comes from the
     #: real `sizeHint`, after the QSS polish -- see `showEvent`.
-    ALTURA_DE_ETAPA = 26
-    MARGEM_VERTICAL = 6
-    ESPACO_ENTRE_ETAPAS = 6
+    STAGE_HEIGHT = 26
+    VERTICAL_MARGIN = 6
+    STAGE_SPACING = 6
 
     def __init__(self, state: AppState, tabs: QTabWidget):
         super().__init__()
         self.state = state
         self.tabs = tabs
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(6, self.MARGEM_VERTICAL, 6, self.MARGEM_VERTICAL)
-        layout.setSpacing(self.ESPACO_ENTRE_ETAPAS)
+        layout.setContentsMargins(6, self.VERTICAL_MARGIN, 6, self.VERTICAL_MARGIN)
+        layout.setSpacing(self.STAGE_SPACING)
         self._buttons: list[QPushButton] = []
         for i, name in enumerate(self._STAGES):
             btn = QPushButton(name)
             btn.setFlat(True)
-            btn.setFixedHeight(self.ALTURA_DE_ETAPA)
+            btn.setFixedHeight(self.STAGE_HEIGHT)
             # centered in the strip: without this the button stretches
             # vertically and the colored pill touches the top and bottom edges
             btn.setSizePolicy(QSizePolicy.Policy.Preferred,
@@ -158,45 +158,45 @@ class FlowIndicatorBar(QWidget):
 
         After the QSS polish, and not before: only then does a button's
         `sizeHint` include the theme's padding (same pitfall as
-        `common.uniformizar_largura_de_botoes`, and the same reason the
+        `common.equalize_button_widths`, and the same reason the
         width is not a constant in the code -- it changes with the font,
         the theme and the monitor's scale)."""
         super().showEvent(event)
-        if getattr(self, "_larguras_de_etapa_revistas", False):
+        if getattr(self, "_stage_widths_revised", False):
             return
-        self._larguras_de_etapa_revistas = True
-        self._igualar_largura_das_etapas()
+        self._stage_widths_revised = True
+        self._equalize_stage_widths()
 
-    def _igualar_largura_das_etapas(self):
-        largura = max(
+    def _equalize_stage_widths(self):
+        width = max(
             [b.sizeHint().width() for b in self._buttons]
             + [b.minimumSizeHint().width() for b in self._buttons])
         for btn in self._buttons:
-            btn.setMinimumWidth(largura)
+            btn.setMinimumWidth(width)
             # `setFixedWidth` would be overridden by any `max-width` rule
             # from the stylesheet (this is exactly what happened with the
             # Run Batch buttons); the min+max pair is not.
-            btn.setMaximumWidth(largura)
+            btn.setMaximumWidth(width)
 
     #: Why the stage is in that color. Without this, the bar painted Run
     #: Case and Results amber with nothing anywhere saying what that
     #: means -- and amber on an engineering panel reads as "warning",
     #: which is not the case: it only means the result predates the
     #: still-unsaved edit.
-    _EXPLICACAO_PADRAO = {
+    _DEFAULT_EXPLANATIONS = {
         "gray": "Nothing here yet.",
         "green": "Ready.",
         "amber": "Check the warnings on this tab.",
         "red": "This tab has an error that blocks running.",
     }
 
-    def _set_status(self, index: int, status: str, explicacao: str | None = None):
+    def _set_status(self, index: int, status: str, explanation: str | None = None):
         color = styles.STATUS_COLORS[status]
-        botao = self._buttons[index]
-        botao.setStyleSheet(
+        button = self._buttons[index]
+        button.setStyleSheet(
             f"QPushButton {{ color: white; background: {color}; border-radius: 3px; padding: 3px 8px; }}")
-        texto = explicacao or self._EXPLICACAO_PADRAO.get(status, "")
-        botao.setToolTip(f"{self._STAGES[index]} — {texto}" if texto else self._STAGES[index])
+        tip_text = explanation or self._DEFAULT_EXPLANATIONS.get(status, "")
+        button.setToolTip(f"{self._STAGES[index]} — {tip_text}" if tip_text else self._STAGES[index])
 
     def refresh(self):
         project = self.state.project
@@ -223,18 +223,19 @@ class FlowIndicatorBar(QWidget):
         stale = bool(self.state.unsaved)
         # The amber on these three stages is NOT a validation warning: it
         # means "a result exists, but the project changed after it was computed".
-        DESATUALIZADO = ("Results were computed before the current unsaved "
-                         "edits — run again to match the project as it is now.")
-        for indice, tem, vazio in ((4, has_case, "No case has been run yet."),
-                                    (5, has_batch, "No batch has been run yet."),
-                                    (6, bool(self.state.results_history),
-                                     "No results to show yet.")):
-            if not tem:
-                self._set_status(indice, "gray", vazio)
+        STALE_MESSAGE = ("Results were computed before the current unsaved "
+                         "edits. Run again to match the project as it is now.")
+        for index, exists, empty_message in (
+                (4, has_case, "No case has been run yet."),
+                (5, has_batch, "No batch has been run yet."),
+                (6, bool(self.state.results_history),
+                 "No results to show yet.")):
+            if not exists:
+                self._set_status(index, "gray", empty_message)
             elif stale:
-                self._set_status(indice, "amber", DESATUALIZADO)
+                self._set_status(index, "amber", STALE_MESSAGE)
             else:
-                self._set_status(indice, "green",
+                self._set_status(index, "green",
                                   "Results are up to date with the saved project.")
 
     @staticmethod
@@ -246,7 +247,7 @@ class FlowIndicatorBar(QWidget):
         return "green"
 
 
-def _bloco_do_titulo(blocos: dict, titulo: str) -> str | None:
+def _title_block(blocks: dict, title: str) -> str | None:
     """Help block id for a groupbox's title.
 
     Matches the whole title first and, only if that fails, the portion
@@ -255,10 +256,10 @@ def _bloco_do_titulo(blocos: dict, titulo: str) -> str | None:
     explanatory phrase that a copy revision rewrites. Matching only the
     exact string made these blocks' help vanish without warning.
     """
-    titulo = titulo.strip()
-    if titulo in blocos:
-        return blocos[titulo]
-    return blocos.get(titulo.split(" (")[0].strip())
+    title = title.strip()
+    if title in blocks:
+        return blocks[title]
+    return blocks.get(title.split(" (")[0].strip())
 
 
 # =============================================================================
@@ -273,7 +274,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1024, 680)
 
         self.state = AppState()
-        self._guarda_de_roda = instalar_guarda_de_roda(QApplication.instance())
+        self._wheel_guard = install_wheel_guard(QApplication.instance())
 
         geometry_tab = GeometryTab(self.state)
         airfoil_tab = AirfoilTab(self.state)
@@ -287,7 +288,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(RunCaseTab(self.state), "Run Case")
         self.tabs.addTab(RunBatchTab(self.state), "Run Batch")
         self.tabs.addTab(ResultsTab(self.state, geometry_tab, airfoil_tab), "Results")
-        ajustar_politica_de_foco(self)
+        adjust_focus_policy(self)
         # Bug 1: the FlowIndicatorBar already serves as navigation between
         # tabs; hiding the native tabBar() removes the visual duplication.
         self.tabs.tabBar().setVisible(False)
@@ -295,7 +296,7 @@ class MainWindow(QMainWindow):
         # "Not saved to disk" asterisk on the tab title: Geometry,
         # Airfoil and Config/Engine apply every edit live to
         # `state.project` (no "Apply" button), so the per-tab asterisk is
-        # just a visual mirror of `state.unsaved` -- `trabalho_nao_salvo`
+        # just a visual mirror of `state.unsaved` -- `unsaved_work`
         # uses `state.unsaved` as the single source, it does not add one
         # item per tab. Run Case/Run Batch have no project field to
         # apply (running already uses the form directly), so there is no
@@ -304,36 +305,36 @@ class MainWindow(QMainWindow):
         airfoil_tab.dirty_changed.connect(lambda dirty: self._set_tab_dirty(2, "Airfoil", dirty))
         config_tab.dirty_changed.connect(lambda dirty: self._set_tab_dirty(3, "Config/Engine", dirty))
         # Per-field popups: clickable labels in every tab's QFormLayout.
-        from .field_help import instalar_popups_de_campo
-        from .common import (compactar_campos_de_formulario, garantir_botoes_legiveis,
-                              arejar_formularios, alinhar_rotulos_de_formulario,
-                              mostrar_todas_as_opcoes_em)
+        from .field_help import install_field_popups
+        from .common import (compact_form_fields, ensure_button_legibility,
+                              ensure_row_spacing, align_form_labels,
+                              show_all_options_in)
         for i in range(self.tabs.count()):
-            instalar_popups_de_campo(self.tabs.widget(i))
+            install_field_popups(self.tabs.widget(i))
             # Reading width for numeric/enumeration fields: a window-level
             # policy, applied from the outside, so that the same quantity
             # has the same box in every tab (see
-            # `common.compactar_campos_de_formulario`).
-            compactar_campos_de_formulario(self.tabs.widget(i))
+            # `common.compact_form_fields`).
+            compact_form_fields(self.tabs.widget(i))
             # Minimum width per button, same reason and same place: nine
             # buttons scattered across the tabs had their label elided.
-            garantir_botoes_legiveis(self.tabs.widget(i))
+            ensure_button_legibility(self.tabs.widget(i))
             # Minimum row spacing, likewise: checkbox rows were sticking
             # to the following field row.
-            arejar_formularios(self.tabs.widget(i))
+            ensure_row_spacing(self.tabs.widget(i))
             # Left-aligned labels, likewise: right-justified (style
             # default) makes each label's initial fall in a different column.
-            alinhar_rotulos_de_formulario(self.tabs.widget(i))
+            align_form_labels(self.tabs.widget(i))
             # Every dropdown opens showing all of its options. Applied
             # here, from the outside, so that a combo added to any tab
             # gets it without having to ask.
-            mostrar_todas_as_opcoes_em(self.tabs.widget(i))
+            show_all_options_in(self.tabs.widget(i))
 
         # Per-block help: the TITLE of every relevant QGroupBox is
         # clickable (there is no more "?" button anywhere in the window).
-        from .common import tornar_titulo_de_bloco_clicavel
+        from .common import make_block_title_clickable
         from PyQt6.QtWidgets import QGroupBox as _QGB
-        _BLOCOS: dict[str, str] = {
+        _BLOCKS: dict[str, str] = {
             # Project tab
             "Operation Mode":                        "operation_mode",
             # Geometry tab
@@ -375,9 +376,9 @@ class MainWindow(QMainWindow):
         for i in range(self.tabs.count()):
             tab = self.tabs.widget(i)
             for gb in tab.findChildren(_QGB):
-                block_id = _bloco_do_titulo(_BLOCOS, gb.title())
+                block_id = _title_block(_BLOCKS, gb.title())
                 if block_id:
-                    tornar_titulo_de_bloco_clicavel(gb, block_id)
+                    make_block_title_clickable(gb, block_id)
 
         # kept for the closing prompt (Q7): these are the tabs that know
         # how to distinguish "edited in the form" from "applied to the project"
@@ -397,7 +398,7 @@ class MainWindow(QMainWindow):
 
         self.statusBar().showMessage("Ready.")
 
-    def trabalho_nao_salvo(self) -> list[str]:
+    def unsaved_work(self) -> list[str]:
         """What is lost if the window closes now. Geometry/Airfoil/
         Config apply every edit live (no separate "Apply" step), so
         `state.unsaved` is the single source -- the per-tab asterisk
@@ -412,7 +413,7 @@ class MainWindow(QMainWindow):
         everything -- nothing auto-saves. Today every edit is already in
         `state.project` live (no tab has a separate "Apply" step), so
         "Save" here writes exactly what the user saw on screen."""
-        pendencias = self.trabalho_nao_salvo()
+        pendencias = self.unsaved_work()
         if not pendencias or self.state.project is None:
             event.accept()
             return

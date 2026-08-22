@@ -42,13 +42,13 @@ from ... import api
 from ...models import FlightCondition, BatchDefinition
 
 from ..common import (AppState, show_error, require_project, confirm_run_despite_issues,
-                      describe_case_settings, symbol_to_plain_text, definir_linha_visivel,
-                      rotulo_e_dica_de_condicao, definir_rotulo_de_linha,
-                      alinhar_cabecalhos_com_conteudo, ALINHAMENTO_DE_TEXTO,
-                      LARGURA_VALOR_DE_CONDICAO, ESPACO_DE_CONDICAO,
-                      largura_de_unidade_de_condicao,
-                      aplicar_largura_de_unidade_de_condicao,
-                      resolver_par_de_condicao, aplicar_par_de_condicao)
+                      describe_case_settings, symbol_to_plain_text, set_row_visible,
+                      condition_label_and_tooltip, set_row_label,
+                      align_headers_with_content, TEXT_ALIGN,
+                      CONDITION_VALUE_WIDTH, CONDITION_ROW_SPACING,
+                      condition_unit_width,
+                      apply_condition_unit_width,
+                      resolve_condition_pair, apply_condition_pair)
 from ..instant_tooltip import install_instant_tooltip
 from ..workers import BatchRunnerWorker, launch_worker
 from ..widgets import LongitudinalInput, AxialInput
@@ -62,55 +62,55 @@ from ..widgets import LongitudinalInput, AxialInput
 
 
 #: Item role that holds the HTML symbol (`"C<sub>T</sub>"`), painted by
-#: `_DelegadoSimboloRico`. The DISPLAY role stays the plain text from
+#: `_RichSymbolDelegate`. The DISPLAY role stays the plain text from
 #: `common.symbol_to_plain_text` ("C_T"): that's what copy/paste and the
 #: tests read, and it's the fallback if the delegate isn't installed.
-PAPEL_SIMBOLO_HTML = Qt.ItemDataRole.UserRole + 1
+HTML_SYMBOL_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
-class _DelegadoSimboloRico(QStyledItemDelegate):
+class _RichSymbolDelegate(QStyledItemDelegate):
     """Paints the label column as RICH text, with real subscripts.
 
     `QTableWidgetItem` doesn't render HTML: `api.SUMMARY_SYMBOLS` holds
     `"C<sub>T</sub>"` and the table showed the flattened `"C_T"`
-    (`common.symbol_to_plain_text`). Unicode subscript doesn't solve it —
-    Unicode has no subscript for UPPERCASE letters, which is exactly the
+    (`common.symbol_to_plain_text`). Unicode subscript doesn't solve it,
+    because Unicode has no subscript for UPPERCASE letters, which is exactly the
     case for almost every coefficient here (C_T, C_Q, C_P, C_Mx...). So
     the label is drawn by a `QTextDocument`, which understands `<sub>` and
     the Greek entities (`&mu;`, `&Omega;`) from the same dictionary the
-    HTML report uses — no second list of symbols.
+    HTML report uses, so there is no second list of symbols.
 
-    Only rows with `PAPEL_SIMBOLO_HTML` filled in are painted this way;
+    Only rows with `HTML_SYMBOL_ROLE` filled in are painted this way;
     group-header rows (plain, bold text) fall back to the default
     delegate."""
 
-    def _documento(self, html: str, opcao: QStyleOptionViewItem) -> QTextDocument:
-        cor = opcao.palette.color(
-            opcao.palette.ColorRole.HighlightedText
-            if opcao.state & QStyle.StateFlag.State_Selected
-            else opcao.palette.ColorRole.Text)
+    def _doc(self, html: str, option: QStyleOptionViewItem) -> QTextDocument:
+        color = option.palette.color(
+            option.palette.ColorRole.HighlightedText
+            if option.state & QStyle.StateFlag.State_Selected
+            else option.palette.ColorRole.Text)
         doc = QTextDocument()
-        doc.setDefaultFont(opcao.font)
+        doc.setDefaultFont(option.font)
         doc.setDocumentMargin(0)
         # the color comes from the palette (not QTextDocument's default
         # black), otherwise the label disappears in a dark theme
-        doc.setHtml(f'<span style="color:{cor.name()};white-space:pre">{html}</span>')
+        doc.setHtml(f'<span style="color:{color.name()};white-space:pre">{html}</span>')
         return doc
 
     def paint(self, painter, option, index):
-        html = index.data(PAPEL_SIMBOLO_HTML)
+        html = index.data(HTML_SYMBOL_ROLE)
         if not html:
             super().paint(painter, option, index)
             return
-        opcao = QStyleOptionViewItem(option)
-        self.initStyleOption(opcao, index)
-        opcao.text = ""          # the plain text would be painted underneath
-        estilo = opcao.widget.style() if opcao.widget else QApplication.style()
-        estilo.drawControl(QStyle.ControlElement.CE_ItemViewItem, opcao, painter,
-                           opcao.widget)
-        area = estilo.subElementRect(QStyle.SubElement.SE_ItemViewItemText,
-                                     opcao, opcao.widget)
-        doc = self._documento(html, opcao)
+        option = QStyleOptionViewItem(option)
+        self.initStyleOption(option, index)
+        option.text = ""          # the plain text would be painted underneath
+        style = option.widget.style() if option.widget else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, option, painter,
+                           option.widget)
+        area = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText,
+                                     option, option.widget)
+        doc = self._doc(html, option)
         painter.save()
         painter.translate(area.left(),
                           area.top() + max(0.0, (area.height() - doc.size().height()) / 2))
@@ -118,15 +118,15 @@ class _DelegadoSimboloRico(QStyledItemDelegate):
         painter.restore()
 
     def sizeHint(self, option, index):
-        html = index.data(PAPEL_SIMBOLO_HTML)
+        html = index.data(HTML_SYMBOL_ROLE)
         if not html:
             return super().sizeHint(option, index)
-        opcao = QStyleOptionViewItem(option)
-        self.initStyleOption(opcao, index)
-        doc = self._documento(html, opcao)
-        tamanho = doc.size()
+        option = QStyleOptionViewItem(option)
+        self.initStyleOption(option, index)
+        doc = self._doc(html, option)
+        size = doc.size()
         base = super().sizeHint(option, index)
-        return QSize(int(tamanho.width()) + 8, max(base.height(), int(tamanho.height()) + 4))
+        return QSize(int(size.width()) + 8, max(base.height(), int(size.height()) + 4))
 
 class RunCaseTab(QWidget):
     #: "Run mode" dropdown label -> trim_mode of `api.run_case_trimmed`
@@ -158,7 +158,7 @@ class RunCaseTab(QWidget):
         self._run_form = form
 
         # --- run mode (Step 8): direct (collective+RPM fixed) or one of the
-        # two bisection trim loops (`api.run_case_trimmed`) -- choosing here
+        # two bisection trim loops (`api.run_case_trimmed`). Choosing here
         # decides which of the two fields below (collective/RPM) stays
         # locked as target/input and which is solved by the loop.
         self.run_mode_combo = QComboBox()
@@ -173,13 +173,13 @@ class RunCaseTab(QWidget):
         # --- advance ratio: mu_x / J_x / V [m/s] (label-dropdown) ----------
         self.advance = LongitudinalInput(default_mu=0.2)
         self.advance.set_context_provider(self._advance_context)
-        self._dimensionar_campo(self.advance)
+        self._size_field(self.advance)
         form.addRow("Advance:", self.advance)
 
         # --- axial component: alpha [deg] or Vz [m/s] (label-dropdown) ---
         self.axial = AxialInput(default_value=0.0)
         self.axial.set_context_provider(self._axial_context)
-        self._dimensionar_campo(self.axial)
+        self._size_field(self.axial)
         form.addRow("Axial flow:", self.axial)
 
         self.collective_spin = QDoubleSpinBox(); self.collective_spin.setRange(-10, 30); self.collective_spin.setValue(8.0)
@@ -194,10 +194,10 @@ class RunCaseTab(QWidget):
             '"rpm"<br><br>'
             'Rotational speed of the rotor or propeller in revolutions per minute.<br><br>'
             'It defines Ω and the velocity scale ΩR used by the dimensionless ratios.')
-        self._dimensionar_campo(self.collective_spin)
-        self._dimensionar_campo(self.rpm_spin)
-        form.addRow("Collective [deg]:", self._com_recuo_de_unidade(self.collective_spin))
-        form.addRow("RPM:", self._com_recuo_de_unidade(self.rpm_spin))
+        self._size_field(self.collective_spin)
+        self._size_field(self.rpm_spin)
+        form.addRow("Collective [deg]:", self._with_unit_indent(self.collective_spin))
+        form.addRow("RPM:", self._with_unit_indent(self.rpm_spin))
 
         self.trim_target_kind_combo = QComboBox()
         self.trim_target_kind_combo.addItems(["Thrust [N]", "CT [-]"])
@@ -244,8 +244,8 @@ class RunCaseTab(QWidget):
         saved_row.addWidget(btn_remove_case)
         # The row's slack goes at the END, not on the buttons: in a
         # `QHBoxLayout` an 80px-text "Remove" stretched up to the QSS
-        # width ceiling of 550px. `setSizePolicy(Fixed)` does NOT fix this
-        # -- with the stylesheet applied the buttons keep growing to
+        # width ceiling of 550px. `setSizePolicy(Fixed)` does NOT fix this:
+        # with the stylesheet applied the buttons keep growing to
         # `max-width` even with Fixed policy (verified in the assembled
         # window: policy=Fixed, hint=80, width=550). Removing the slack is
         # what works, and it's the same fix already used in
@@ -270,7 +270,7 @@ class RunCaseTab(QWidget):
         results_header_row = QHBoxLayout()
         # The table is ALWAYS complete (includes the `cfg_*` configuration
         # echo): the old "Show configuration echo" checkbox hid, by default,
-        # the only proof of WHICH configuration that number came from -- and
+        # the only proof of WHICH configuration that number came from, and
         # anyone who didn't know the checkbox existed never saw it. Scrolling
         # a few dozen extra lines costs less than reading a result without
         # knowing the config that produced it.
@@ -286,12 +286,12 @@ class RunCaseTab(QWidget):
         # `Stretch` the two split the tab's whole width and the value ended
         # up half a screen away from the quantity name it answers for. The
         # last column stops stretching for the same reason.
-        cabecalho_h = self.results_table.horizontalHeader()
-        cabecalho_h.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        cabecalho_h.setStretchLastSection(False)
-        # Both columns left-aligned -- header matching the content
+        header = self.results_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setStretchLastSection(False)
+        # Both columns left-aligned, header matching the content
         # (empty set of numeric columns).
-        alinhar_cabecalhos_com_conteudo(self.results_table, set())
+        align_headers_with_content(self.results_table, set())
         # Let the table grow with its content (don't cut off rows)
         self.results_table.setSizeAdjustPolicy(
             QTableWidget.SizeAdjustPolicy.AdjustToContents)
@@ -301,15 +301,15 @@ class RunCaseTab(QWidget):
         # identity is the quantity, in column 0) and eats up dozens of
         # pixels of width.
         self.results_table.verticalHeader().setVisible(False)
-        self._delegado_simbolo = _DelegadoSimboloRico(self.results_table)
-        self.results_table.setItemDelegateForColumn(0, self._delegado_simbolo)
+        self._symbol_delegate = _RichSymbolDelegate(self.results_table)
+        self.results_table.setItemDelegateForColumn(0, self._symbol_delegate)
         self._row_keys: list[str | None] = []
         # The event filter has to go on the VIEWPORT: `QTableWidget` is a
         # `QAbstractScrollArea`, and Qt delivers Enter/MouseMove to the
-        # viewport, not the outer widget -- installed on the widget, the
+        # viewport, not the outer widget: installed on the widget, the
         # tooltip never fired with a real mouse (only when a test sent the
         # event by hand). `rowAt()` also expects viewport coordinates.
-        install_instant_tooltip(self.results_table.viewport(), self._tooltip_da_linha)
+        install_instant_tooltip(self.results_table.viewport(), self._row_tooltip)
         layout.addWidget(self.results_table)
 
         # --- quick export buttons (enabled after the run) ------------------
@@ -333,51 +333,51 @@ class RunCaseTab(QWidget):
         # Order matters: the unit (mu_x/J_x, alpha/Vz) has to be decided
         # before writing the value, or the number lands on the wrong scale.
         self.state.project_changed.connect(self._refresh_mode_defaults)
-        self.state.project_changed.connect(self._adotar_condicao_do_projeto)
+        self.state.project_changed.connect(self._adopt_project_condition)
         self._refresh_mode_defaults()
         self._refresh_saved_cases_combo()
 
-    def _dimensionar_campo(self, campo) -> None:
+    def _size_field(self, field) -> None:
         """Fixes the same width for condition fields in both tabs."""
-        combo = getattr(campo, "unit_combo", None)
-        spin = getattr(campo, "spin", campo)
+        combo = getattr(field, "unit_combo", None)
+        spin = getattr(field, "spin", field)
         if combo is not None:
-            combo.setFixedWidth(largura_de_unidade_de_condicao())
-            spin.setFixedWidth(LARGURA_VALOR_DE_CONDICAO)
-            combo._largura_compactada = True
-            spin._largura_compactada = True
-            if campo.layout() is not None:
-                campo.layout().setSpacing(ESPACO_DE_CONDICAO)
+            combo.setFixedWidth(condition_unit_width())
+            spin.setFixedWidth(CONDITION_VALUE_WIDTH)
+            combo._width_capped = True
+            spin._width_capped = True
+            if field.layout() is not None:
+                field.layout().setSpacing(CONDITION_ROW_SPACING)
         else:
-            spin.setFixedWidth(LARGURA_VALOR_DE_CONDICAO)
-            spin._largura_compactada = True
+            spin.setFixedWidth(CONDITION_VALUE_WIDTH)
+            spin._width_capped = True
 
-    def _com_recuo_de_unidade(self, spin) -> QWidget:
+    def _with_unit_indent(self, spin) -> QWidget:
         """Aligns the plain number to the composite widgets' column."""
         container = QWidget()
-        caixa = QHBoxLayout(container)
-        caixa.setContentsMargins(largura_de_unidade_de_condicao() + ESPACO_DE_CONDICAO, 0, 0, 0)
-        caixa.setSpacing(0)
-        caixa.addWidget(spin)
-        caixa.addStretch(1)
+        box = QHBoxLayout(container)
+        box.setContentsMargins(condition_unit_width() + CONDITION_ROW_SPACING, 0, 0, 0)
+        box.setSpacing(0)
+        box.addWidget(spin)
+        box.addStretch(1)
         container.setToolTip(spin.toolTip())
-        spin._container_de_ajuda = container
-        #: mark read by `common.aplicar_largura_de_unidade_de_condicao`
+        spin._help_container = container
+        #: mark read by `common.apply_condition_unit_width`
         #: to re-adjust the indent along with the combo's width
-        container._recuo_de_unidade = True
+        container._unit_indent = True
         return container
 
     def showEvent(self, event):
         """Re-measures the unit combos' width on the FIRST show.
 
         Only here does their `sizeHint` already reflect the theme's font
-        and padding (the QSS polish happens on display); measured at
+        and padding (the QSS polish happens on display). Measured at
         construction, the number came out short and "alpha [deg]" got cut
         off on screens with a different font or scale."""
         super().showEvent(event)
-        if not getattr(self, "_largura_de_unidade_revista", False):
-            self._largura_de_unidade_revista = True
-            aplicar_largura_de_unidade_de_condicao(self)
+        if not getattr(self, "_unit_width_reviewed", False):
+            self._unit_width_reviewed = True
+            apply_condition_unit_width(self)
 
     def _advance_context(self):
         """Given to LongitudinalInput to convert mu_x<->V when the unit
@@ -392,21 +392,21 @@ class RunCaseTab(QWidget):
         return self.advance.mu_x(), self.rpm_spin.value(), radius_m
 
     # --- column axis convention (rotor vs. propeller) ---------------------
-    def _modo_helice(self) -> bool:
+    def _propeller_mode(self) -> bool:
         return bool(self.state.is_propeller()) if self.state is not None else False
 
-    def _simbolos(self) -> dict:
+    def _symbols(self) -> dict:
         """Column symbols/descriptions in the mode's axis convention.
 
         In propeller mode the x axis is the rotor's, so `Vz` reads as
         V_inf,x and `J_z` reads as J_x (see `api.summary_symbols`). The
-        on-screen table and the report table read from the SAME source --
-        two answers for the same column would be worse than one wrong
+        on-screen table and the report table read from the SAME source,
+        since two answers for the same column would be worse than one wrong
         one."""
         return {
-            chave: (simbolo, api._descricao_com_simbolos(descricao))
-            for chave, (simbolo, descricao)
-            in api.summary_symbols(self._modo_helice()).items()
+            key: (symbol, api._description_with_symbols(description))
+            for key, (symbol, description)
+            in api.summary_symbols(self._propeller_mode()).items()
         }
 
     def _trim_mode_key(self):
@@ -417,11 +417,11 @@ class RunCaseTab(QWidget):
         # "solve_collective" solves collective (it disappears here, it's an
         # output, not an input) while keeping RPM fixed (still editable);
         # "solve_rpm" is the mirror of that.
-        definir_linha_visivel(self._run_form, self.collective_spin, trim_mode != "solve_collective")
-        definir_linha_visivel(self._run_form, self.rpm_spin, trim_mode != "solve_rpm")
+        set_row_visible(self._run_form, self.collective_spin, trim_mode != "solve_collective")
+        set_row_visible(self._run_form, self.rpm_spin, trim_mode != "solve_rpm")
         is_trim = trim_mode is not None
-        definir_linha_visivel(self._run_form, self.trim_target_kind_combo, is_trim)
-        definir_linha_visivel(self._run_form, self.trim_target_value, is_trim)
+        set_row_visible(self._run_form, self.trim_target_kind_combo, is_trim)
+        set_row_visible(self._run_form, self.trim_target_value, is_trim)
 
     def _refresh_mode_defaults(self):
         propeller = self.state.is_propeller()
@@ -431,43 +431,43 @@ class RunCaseTab(QWidget):
         # flight speed is axial, and the longitudinal field (labeled
         # "Advance" in either mode) invited putting the aircraft's speed
         # there -- which enters as edgewise flow and produces the solution
-        # for an edgewise rotor. See `common.rotulo_e_dica_de_condicao`.
-        for campo, slot in ((self.advance, "inplane"), (self.axial, "axial")):
-            rotulo, dica = rotulo_e_dica_de_condicao(propeller, slot)
-            campo.setToolTip(dica)
-            definir_rotulo_de_linha(self._condition_form, campo, rotulo)
+        # for an edgewise rotor. See `common.condition_label_and_tooltip`.
+        for field, slot in ((self.advance, "inplane"), (self.axial, "axial")):
+            label, tip = condition_label_and_tooltip(propeller, slot)
+            field.setToolTip(tip)
+            set_row_label(self._condition_form, field, label)
 
-    def _adotar_condicao_do_projeto(self):
+    def _adopt_project_condition(self):
         """Starts from the PROJECT's condition, not a fixed number in code.
 
         This tab's defaults used to be constants (mu_x=0.2, collective=8°,
         600 RPM) independent of the open project. On an 8.18 m rotor, 600
-        RPM gives 514 m/s at the tip -- Mach 1.5, 1.8 on the advancing
-        side: opening a medium-size helicopter and pressing "Run Case"
+        RPM gives 514 m/s at the tip (Mach 1.5, 1.8 on the advancing
+        side): opening a medium-size helicopter and pressing "Run Case"
         silently computed a supersonic rotor, outside any model this
         solver covers. 600 RPM is reasonable only for a small rotor, which
         happened to be the one in the example project the number was
         chosen from.
 
         The project's first saved case is the best available definition of
-        "a sensible condition for THIS rotor" -- it's what the project's
+        "a sensible condition for THIS rotor": it's what the project's
         own author saved. Without saved cases, the fields stay as they
         are: inventing an RPM from the radius would be guessing, and
         `validation` already warns when the tip exceeds the valid regime.
         """
-        projeto = self.state.project
-        if projeto is None or not projeto.saved_cases:
+        project_state = self.state.project
+        if project_state is None or not project_state.saved_cases:
             return
-        caso = projeto.saved_cases[0]
-        if caso.rpm:
-            self.rpm_spin.setValue(float(caso.rpm))
-        self.collective_spin.setValue(caso.collective_deg)
-        aplicar_par_de_condicao(self.advance, self.axial, caso.mu_x, caso.Vz,
-                                 self.rpm_spin.value(), projeto.geometry.radius_m)
+        saved_case = project_state.saved_cases[0]
+        if saved_case.rpm:
+            self.rpm_spin.setValue(float(saved_case.rpm))
+        self.collective_spin.setValue(saved_case.collective_deg)
+        apply_condition_pair(self.advance, self.axial, saved_case.mu_x, saved_case.Vz,
+                                 self.rpm_spin.value(), project_state.geometry.radius_m)
 
     def _current_condition(self) -> FlightCondition:
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
-        mu_x, Vz = resolver_par_de_condicao(self.advance, self.axial,
+        mu_x, Vz = resolve_condition_pair(self.advance, self.axial,
                                            self.rpm_spin.value(), radius_m)
         return FlightCondition(name="case", mu_x=mu_x,
                                 collective_deg=self.collective_spin.value(),
@@ -496,7 +496,7 @@ class RunCaseTab(QWidget):
         self.axial.set_default_unit(self.state.is_propeller())
         if case.rpm is not None:
             self.rpm_spin.setValue(case.rpm)
-        aplicar_par_de_condicao(self.advance, self.axial, case.mu_x, case.Vz,
+        apply_condition_pair(self.advance, self.axial, case.mu_x, case.Vz,
                                  self.rpm_spin.value(),
                                  self.state.project.geometry.radius_m)
         self.collective_spin.setValue(case.collective_deg)
@@ -537,7 +537,7 @@ class RunCaseTab(QWidget):
         # selected saved case's name, if any; otherwise none (the final
         # label comes from `describe_case_settings` over the result, in
         # `_on_run_finished`). Compare against the combo's literal item
-        # ("(none selected)", see `_refresh_saved_cases_combo`) -- it used
+        # ("(none selected)", see `_refresh_saved_cases_combo`). It used
         # to compare against a Portuguese string the combo never held, so
         # this branch never fired and every case without a saved name
         # ended up as "(none selected)" in the history instead of the
@@ -603,8 +603,8 @@ class RunCaseTab(QWidget):
     def _outdir(self) -> str:
         """The loaded project's outputs/ folder (created if missing).
 
-        Delegates to `api.project_outputs_dir`, the canonical definition --
-        this method used to assemble `Path(project.path) / "outputs"` by
+        Delegates to `api.project_outputs_dir`, the canonical definition.
+        This method used to assemble `Path(project.path) / "outputs"` by
         hand, one of four places where the same literal was repeated."""
         return api.project_outputs_dir(self.state.project, create=True)
 
@@ -627,9 +627,9 @@ class RunCaseTab(QWidget):
         self._quick_export("\t", "tsv")
 
     #: Result-table groups. The SET of quantities and the order WITHIN each
-    #: group come from `api.SUMMARY_PRIMARY_KEYS` -- the same tuple that
+    #: group come from `api.SUMMARY_PRIMARY_KEYS`, the same tuple that
     #: orders the HTML report's matrix and the Results tab's table (see
-    #: `_montar_grupos`). Only the GROUPING and the order of groups relative
+    #: `_build_groups`). Only the GROUPING and the order of groups relative
     #: to each other, which is what changes between rotor and propeller,
     #: is decided here.
     #:
@@ -647,126 +647,126 @@ class RunCaseTab(QWidget):
     #: x first (the MAIN component in both modes), then z, then the two
     #: angles. `mu_x`/`J_x` used to appear TWICE here: they were distinct
     #: keys in the engine (`mu`+`mu_x`) that standardization merged into a
-    #: single name -- the old list listed both, and the tab showed the same
+    #: single name. The old list listed both, and the tab showed the same
     #: quantity on two consecutive rows, under the same symbol.
-    _GRUPO_CONDICAO = ("Flight condition",
+    _CONDITION_GROUP = ("Flight condition",
                        ["mu_x", "J_x", "Vx",
                         "mu_z", "J_z", "Vz", "lambda_z",
                         "alpha_rotor_deg", "alpha_disk_deg",
                         "collective_deg", "rpm"])
-    _GRUPO_INFLOW = ("Inflow (solved)", ["lambda_i", "lambda_total", "Vi", "Vz_total"])
-    _GRUPO_GEOMETRIA = ("Rotor geometry (resolved)",
+    _INFLOW_GROUP = ("Inflow (solved)", ["lambda_i", "lambda_total", "Vi", "Vz_total"])
+    _GEOMETRY_GROUP = ("Rotor geometry (resolved)",
                         ["rotor_R", "rotor_D", "rotor_Nb", "rotor_Omega",
                          "rotor_OmegaR", "rotor_rpm"])
-    _GRUPO_COEF_ROTOR = ("Rotor coefficients — thrust / torque / power",
+    _ROTOR_COEF_GROUP = ("Rotor coefficients — thrust / torque / power",
                          ["CT", "CQ", "CP", "CPi", "CPp", "FM"])
-    _GRUPO_COEF_CUBO = ("Rotor coefficients — hub forces and moments",
+    _ROTOR_HUB_GROUP = ("Rotor coefficients — hub forces and moments",
                         ["CH", "CHi", "CHp", "CY", "CMx", "CMy"])
-    _GRUPO_COEF_HELICE = ("Propeller coefficients",
+    _PROPELLER_COEF_GROUP = ("Propeller coefficients",
                           ["CT_prop", "CQ_prop", "CP_prop", "eta_prop"])
-    _GRUPO_DIM_TQP = ("Dimensional — thrust / torque / power",
+    _DIM_TQP_GROUP = ("Dimensional — thrust / torque / power",
                       ["Thrust", "Torque", "Power", "Power_i", "Power_p"])
-    _GRUPO_DIM_CUBO = ("Dimensional — hub forces and moments",
+    _DIM_HUB_GROUP = ("Dimensional — hub forces and moments",
                        ["H", "Hi", "Hp", "Y", "Mx", "My"])
-    _GRUPO_CONVERGENCIA = ("Convergence",
+    _CONVERGENCE_GROUP = ("Convergence",
                            ["convergence_pct", "mean_iter", "elapsed_s",
                             "solver", "inflow_coupling"])
 
     #: Rotor and propeller show the SAME set in the SAME order as the
     #: Results tab/report table. The propeller convention stays identified
     #: by its own header, without swapping column position between modes.
-    _GRUPOS_ROTOR = (
-        _GRUPO_CONDICAO, _GRUPO_INFLOW,
-        _GRUPO_COEF_ROTOR, _GRUPO_COEF_CUBO, _GRUPO_COEF_HELICE,
-        _GRUPO_DIM_TQP, _GRUPO_DIM_CUBO,
-        _GRUPO_GEOMETRIA, _GRUPO_CONVERGENCIA,
+    _GROUPS_ROTOR = (
+        _CONDITION_GROUP, _INFLOW_GROUP,
+        _ROTOR_COEF_GROUP, _ROTOR_HUB_GROUP, _PROPELLER_COEF_GROUP,
+        _DIM_TQP_GROUP, _DIM_HUB_GROUP,
+        _GEOMETRY_GROUP, _CONVERGENCE_GROUP,
     )
-    _GRUPOS_HELICE = (
-        _GRUPO_CONDICAO, _GRUPO_INFLOW,
-        _GRUPO_COEF_ROTOR, _GRUPO_COEF_CUBO, _GRUPO_COEF_HELICE,
-        _GRUPO_DIM_TQP, _GRUPO_DIM_CUBO,
-        _GRUPO_GEOMETRIA, _GRUPO_CONVERGENCIA,
+    _GROUPS_PROPELLER = (
+        _CONDITION_GROUP, _INFLOW_GROUP,
+        _ROTOR_COEF_GROUP, _ROTOR_HUB_GROUP, _PROPELLER_COEF_GROUP,
+        _DIM_TQP_GROUP, _DIM_HUB_GROUP,
+        _GEOMETRY_GROUP, _CONVERGENCE_GROUP,
     )
 
     @classmethod
-    def _montar_grupos(cls, propeller: bool) -> tuple:
+    def _build_groups(cls, propeller: bool) -> tuple:
         """Groups with keys REORDERED by `api.SUMMARY_PRIMARY_KEYS`.
 
         The ordering is done here, not by hand in the lists above, because
         that's what keeps the tab from developing a second opinion: moving
-        a quantity in `api._COLUNAS_PRINCIPAIS` moves it here too, with no
+        a quantity in `api._MAIN_COLUMNS` moves it here too, with no
         edit needed. A key not (yet) in the main tuple goes to the end of
-        its group, preserving the order it was written in -- it never
+        its group, preserving the order it was written in, so it never
         disappears."""
-        primaria = {k: i for i, k in enumerate(api.SUMMARY_PRIMARY_KEYS)}
-        fim = len(primaria)
-        base = cls._GRUPOS_HELICE if propeller else cls._GRUPOS_ROTOR
+        primary_order_pos = {k: i for i, k in enumerate(api.SUMMARY_PRIMARY_KEYS)}
+        end = len(primary_order_pos)
+        base = cls._GROUPS_PROPELLER if propeller else cls._GROUPS_ROTOR
         return tuple(
-            (titulo, sorted(chaves, key=lambda k: primaria.get(k, fim)))
-            for titulo, chaves in base)
+            (title, sorted(keys, key=lambda k: primary_order_pos.get(k, end)))
+            for title, keys in base)
 
     def _show_summary(self, summary: dict):
         """Shows the grouped summary, in the project's convention, with the
         SAME symbols/units/tooltips as the Results tab and the HTML report
-        (via `api.SUMMARY_SYMBOLS`/`SUMMARY_UNITS`/`format_summary_value`)
-        -- this table used to keep its own labels and formatting (`.6g`), a
+        (via `api.SUMMARY_SYMBOLS`/`SUMMARY_UNITS`/`format_summary_value`).
+        This table used to keep its own labels and formatting (`.6g`), a
         second hand-kept copy that could diverge from the report.
 
         The quantities and the order within each group come from
-        `api.SUMMARY_PRIMARY_KEYS` (see `_montar_grupos`): the set is the
+        `api.SUMMARY_PRIMARY_KEYS` (see `_build_groups`): the set is the
         same as the report's and the Results tab's, for rotor and
         propeller.
 
         The configuration echo (`cfg_*`) is ALWAYS included, at the end:
         there's no key left hidden behind a checkbox anymore (see
         `__init__`)."""
-        grupos = self._montar_grupos(self.state.is_propeller())
+        groups = self._build_groups(self.state.is_propeller())
         cfg_keys = sorted(k for k in summary if k.startswith("cfg_"))
         if cfg_keys:
-            grupos = grupos + (("Configuration echo (cfg_*)", cfg_keys),)
+            groups = groups + (("Configuration echo (cfg_*)", cfg_keys),)
 
         # (plain label, HTML label | None, value, is_header)
-        linhas: list[tuple[str, str | None, str, bool]] = []
+        rows: list[tuple[str, str | None, str, bool]] = []
         self._row_keys: list[str | None] = []      # summary key per row, for tooltip; None = header
-        for titulo, chaves in grupos:
-            presentes = [k for k in chaves if k in summary]
+        for title, keys in groups:
+            present = [k for k in keys if k in summary]
             # The output table shows only the angle belonging to the mode:
             # rotor uses alpha_rotor and propeller uses alpha_disk. The
             # other stays in the internal summary for conversion/CSV, but
             # isn't duplicated in the UI or the report (which applies the
             # same rule).
-            angulo_oculto = ("alpha_rotor_deg" if self.state.is_propeller()
+            hidden_angle = ("alpha_rotor_deg" if self.state.is_propeller()
                              else "alpha_disk_deg")
-            presentes = [k for k in presentes if k != angulo_oculto]
-            if "rotor_rpm" in presentes:
+            present = [k for k in present if k != hidden_angle]
+            if "rotor_rpm" in present:
                 rpm = summary.get("rpm")
                 rotor_rpm = summary.get("rotor_rpm")
                 try:
-                    eco_redundante = (
+                    echo_redundant = (
                         rpm is not None and rotor_rpm is not None
                         and abs(float(rpm) - float(rotor_rpm))
                         <= 1e-9 * max(1.0, abs(float(rotor_rpm))))
                 except (TypeError, ValueError):
-                    eco_redundante = False
-                if eco_redundante:
-                    presentes.remove("rotor_rpm")
-            if not presentes:
+                    echo_redundant = False
+                if echo_redundant:
+                    present.remove("rotor_rpm")
+            if not present:
                 continue
-            linhas.append((titulo, None, "", True))
+            rows.append((title, None, "", True))
             self._row_keys.append(None)
-            for k in presentes:
-                simbolo, _ = self._simbolos().get(k, (k, k))
-                unidade = api.SUMMARY_UNITS.get(k, "")
-                sufixo = f" [{unidade}]" if unidade and unidade != "-" else ""
-                linhas.append((symbol_to_plain_text(simbolo) + symbol_to_plain_text(sufixo),
-                               simbolo + sufixo,
+            for k in present:
+                symbol, _ = self._symbols().get(k, (k, k))
+                unit = api.SUMMARY_UNITS.get(k, "")
+                suffix = f" [{unit}]" if unit and unit != "-" else ""
+                rows.append((symbol_to_plain_text(symbol) + symbol_to_plain_text(suffix),
+                               symbol + suffix,
                                api.format_summary_value(summary[k]), False))
                 self._row_keys.append(k)
 
-        self.results_table.setRowCount(len(linhas))
-        for i, (rotulo, rotulo_html, valor, cabecalho) in enumerate(linhas):
-            item_rotulo = QTableWidgetItem(rotulo)
-            item_valor = QTableWidgetItem(valor)
+        self.results_table.setRowCount(len(rows))
+        for i, (label, label_html, value, is_header) in enumerate(rows):
+            item_label = QTableWidgetItem(label)
+            item_value = QTableWidgetItem(value)
             # Value on the LEFT, next to the label. It used to go on the
             # right (decimals aligned), but with both columns stretched to
             # the edge the "quantity ... value" pair ended up separated by
@@ -774,37 +774,37 @@ class RunCaseTab(QWidget):
             # sweeping the screen. With the columns sized by content
             # (below), the numbers are short and close, and reading the
             # pair goes back to being a single eye movement.
-            item_valor.setTextAlignment(ALINHAMENTO_DE_TEXTO)
-            if rotulo_html is not None:
+            item_value.setTextAlignment(TEXT_ALIGN)
+            if label_html is not None:
                 # the plain text stays as the display role (copy, tests);
                 # the delegate paints the rich version over it
-                item_rotulo.setData(PAPEL_SIMBOLO_HTML, rotulo_html)
-            if cabecalho:
-                fonte = item_rotulo.font()
-                fonte.setBold(True)
-                item_rotulo.setFont(fonte)
-                item_rotulo.setFlags(Qt.ItemFlag.NoItemFlags)
-                item_valor.setFlags(Qt.ItemFlag.NoItemFlags)
-            self.results_table.setItem(i, 0, item_rotulo)
-            self.results_table.setItem(i, 1, item_valor)
+                item_label.setData(HTML_SYMBOL_ROLE, label_html)
+            if is_header:
+                font = item_label.font()
+                font.setBold(True)
+                item_label.setFont(font)
+                item_label.setFlags(Qt.ItemFlag.NoItemFlags)
+                item_value.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.results_table.setItem(i, 0, item_label)
+            self.results_table.setItem(i, 1, item_value)
 
-    def _tooltip_da_linha(self, pos):
+    def _row_tooltip(self, pos):
         """Text of the instant tooltip for the row under `pos` (table
         VIEWPORT coordinates): symbol, unit, full name/description, and
         the raw `Results.summary` key -- the same name that appears in the
         exported CSV and the report, so the user can connect the on-screen
         row to the file's column. Everything comes from
-        `api.SUMMARY_SYMBOLS`/`SUMMARY_UNITS` (the HTML report's tables);
-        no description is written here."""
+        `api.SUMMARY_SYMBOLS`/`SUMMARY_UNITS` (the HTML report's tables).
+        No description is written here."""
         row = self.results_table.rowAt(pos.y())
         if row < 0 or row >= len(self._row_keys):
             return None
-        chave = self._row_keys[row]
-        if chave is None:
+        key = self._row_keys[row]
+        if key is None:
             return None
-        simbolo, descricao = self._simbolos().get(chave, (chave, chave))
-        unidade = api.SUMMARY_UNITS.get(chave, "")
-        return (f"<b>{simbolo}</b>{f' [{unidade}]' if unidade and unidade != '-' else ''}"
-                f"<br>{descricao}<br><i>summary key: {chave}</i>")
+        symbol, description = self._symbols().get(key, (key, key))
+        unit = api.SUMMARY_UNITS.get(key, "")
+        return (f"<b>{symbol}</b>{f' [{unit}]' if unit and unit != '-' else ''}"
+                f"<br>{description}<br><i>summary key: {key}</i>")
 
 

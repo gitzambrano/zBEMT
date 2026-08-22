@@ -24,9 +24,9 @@ SUPPORTED_ENGINES = ("neuralfoil",)
 def is_available(engine: str) -> bool:
     """Used by the GUI ('f) External engine' block) and by the CLI
     (``--gen-neuralfoil``) to decide whether the corresponding
-    button/flag is enabled. Only ``True`` when ``engine == 'neuralfoil'``
+    button or flag is enabled. Only ``True`` when ``engine == 'neuralfoil'``
     **and** the ``neuralfoil`` package is installed in the current
-    environment (real check via ``importlib.util.find_spec`` — nothing
+    environment (real check via ``importlib.util.find_spec``, with nothing
     hardcoded)."""
     if engine not in SUPPORTED_ENGINES:
         return False
@@ -34,15 +34,15 @@ def is_available(engine: str) -> bool:
 
 
 def _coordinates_from_geometry(geometry: ProfileGeometry) -> np.ndarray:
-    """NeuralFoil expects an Nx2 (x,y) mesh in Selig format -- upper
-    trailing edge -> leading edge -> lower trailing edge -- which is
+    """NeuralFoil expects an Nx2 (x,y) mesh in Selig format: upper
+    trailing edge -> leading edge -> lower trailing edge. That is
     exactly the convention already used by
     ``airfoils.generate_naca4/generate_naca5/generate_cst/generate_bezier/
     load_profile_dat`` (``ProfileGeometry.x``/``.y``)."""
     if not geometry.x or not geometry.y:
         raise ValueError(
             f"ProfileGeometry (source={geometry.source!r}) has no generated coordinates "
-            f"(.x/.y empty) -- generate the geometry first, e.g.: "
+            f"(.x/.y empty). Generate the geometry first, for example: "
             f"airfoils.generate_naca4('2412') or airfoils.resolve_geometry_spec('naca2412')."
         )
     return np.column_stack([
@@ -59,20 +59,20 @@ def run_polar(engine: str, geometry: ProfileGeometry,
     combination in ``reynolds_list`` x ``mach_list``, over the requested
     alpha range, and return a list of ``PolarSlice`` ready to be
     appended to ``AirfoilDef.table_slices`` (same structure used by
-    tables imported from CSV/experimental data — the import pipeline
-    doesn't distinguish the origin once generated).
+    tables imported from CSV/experimental data, because the import pipeline
+    does not distinguish the origin once generated).
 
-    Robustness (same pattern as ``bemt.py`` for points that don't
+    Robustness (same pattern as ``bemt.py`` for points that do not
     converge in the inflow solver): a specific alpha point that
-    NeuralFoil can't resolve with confidence (low ``analysis_confidence``
-    or NaN in Cl/Cd) is silently dropped from that slice -- an aggregate
-    warning is emitted at the end, but the whole sweep isn't brought down
+    NeuralFoil cannot resolve with confidence (low ``analysis_confidence``
+    or NaN in Cl/Cd) is silently dropped from that slice. An aggregate
+    warning is emitted at the end, but the whole sweep is not brought down
     because of a few outlier points.
     """
     if engine not in SUPPORTED_ENGINES:
         raise ValueError(
             f"Unknown external engine: {engine!r} (expected one of {SUPPORTED_ENGINES}). "
-            f"XFOIL is not supported in this version -- only NeuralFoil."
+            f"XFOIL is not supported in this version. Only NeuralFoil is supported."
         )
     if not reynolds_list or not mach_list:
         raise ValueError(
@@ -101,7 +101,7 @@ def run_polar(engine: str, geometry: ProfileGeometry,
     n_dropped = 0
 
     for reynolds in reynolds_list:
-        # NeuralFoil >=0.3.x no longer accepts the 'mach' argument — run
+        # NeuralFoil >=0.3.x no longer accepts the 'mach' argument. Run
         # incompressible and apply Prandtl-Glauert manually per Mach.
         try:
             aero = nf.get_aero_from_coordinates(
@@ -130,12 +130,12 @@ def run_polar(engine: str, geometry: ProfileGeometry,
         for mach in mach_list:
             # Prandtl-Glauert correction: Cl_c = Cl / β, Cd_c = Cd / β
             # where β = sqrt(1 - M²), same as bemt.py does in element_state.
-            # For Mach = 0 or very low, β ≈ 1 and the correction is a no-op.
+            # For Mach 0 or very low, β ≈ 1 and the correction is a no-op.
             beta = float(np.sqrt(max(0.0, 1.0 - mach ** 2)))
             if beta < 1e-3:
                 warnings.warn(
-                    f"NeuralFoil: Mach={mach:.2f} sonic/supersonic — Prandtl-Glauert "
-                    f"diverges, slice ignored."
+                    f"NeuralFoil: Mach={mach:.2f} is sonic or supersonic. "
+                    f"Prandtl-Glauert diverges, so the slice is ignored."
                 )
                 continue
             cl = cl_inc[valid_base] / beta

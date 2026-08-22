@@ -34,9 +34,9 @@ from .. import nomenclature
 from ..viz import style as plot_style
 plot_style.apply()
 
-# Light-grey color used to "fill" (never leave empty/white) the regions
+# Light-gray color used to "fill" (never leave empty or white) the regions
 # masked by reverse flow, both in the disk contour plots and in the line
-# plots (vs. span / vs. azimuth) -- see `_shade_reverse_regions` and the
+# plots against span or azimuth. See `_shade_reverse_regions` and the
 # masking block in `plot_disk_map`.
 _REVERSE_MASK_COLOR = "0.85"
 
@@ -51,18 +51,19 @@ def set_export_dpi(dpi: int) -> None:
     _EXPORT_DPI = max(48, int(dpi))
 
 
-def _nova_figura(figsize, nrows: int = 1, ncols: int = 1):
+def _new_figure(figsize, nrows: int = 1, ncols: int = 1):
     """Creates a ``Figure`` OUTSIDE pyplot's global registry.
 
     `plt.subplots` keeps the figure in pyplot's manager, and it only
     leaves it via `plt.close`. The functions in this module that RETURN
-    the figure (for the GUI to embed in a canvas) could never close it --
-    so every redraw of the Results tab leaked an 11/16-panel figure, which
-    pyplot kept alive forever ("More than 20 figures have been opened"
-    after ~20 plot changes, with memory/time growing with session use). A
-    `Figure` built directly does not enter any registry: Python's garbage
-    collector reclaims it once nothing references it anymore, and
-    `fig.savefig` still works the same way.
+    the figure (for the GUI to embed in a canvas) could never close it.
+    Therefore every redraw of the Results tab leaked an 11- or 16-panel
+    figure, which pyplot kept alive forever ("More than 20 figures have
+    been opened" after approximately 20 plot changes, with memory and
+    time growing with session use). A `Figure` built directly does not
+    enter any registry: Python's garbage collector reclaims it once
+    nothing references it anymore, and `fig.savefig` still works the
+    same way.
     """
     fig = Figure(figsize=figsize)
     axes = fig.subplots(nrows, ncols) if (nrows, ncols) != (1, 1) else fig.add_subplot(111)
@@ -72,7 +73,7 @@ def _nova_figura(figsize, nrows: int = 1, ncols: int = 1):
 def _resolve_ax(ax, fname, figsize=(6, 4)):
     if ax is not None:
         return ax, None
-    fig, ax = _nova_figura(figsize)
+    fig, ax = _new_figure(figsize)
     return ax, fig
 
 
@@ -103,18 +104,19 @@ def plot_planform(geom, ax=None, fname=None, show_hub=True, show_tip_circle=True
     """geom: models.RotorGeometryDef
 
     Planform outline (top view) of ALL ``geom.n_blades`` blades of the
-    rotor — leading edge + trailing edge + closure at the root and at the
-    tip of each blade — in the same azimuth convention as the rest of the
-    platform (psi=0 along +X, blades equally spaced at
-    ``360/n_blades`` degrees; see ``bemt.element_state``/``visualization.py``).
+    rotor, with leading edge and trailing edge plus closure at the root
+    and at the tip of each blade. It uses the same azimuth convention as
+    the rest of the platform (psi=0 along +X, blades equally spaced at
+    ``360/n_blades`` degrees; see ``bemt.element_state``/
+    ``visualization.py``).
 
     Unlike ``plot_geometry`` (which only shows the chord MAGNITUDE as a
     function of r/R, a single curve regardless of how many blades exist),
-    this plot draws the actual outline of each blade — so
-    ``geom.n_blades`` visibly changes the drawing (2 blades -> 2 opposite
-    outlines; 4 blades -> 4 outlines at 90°; etc.), useful for checking
-    interference/overlap between neighboring blades in rotors with large
-    chord or few blades."""
+    this plot draws the actual outline of each blade. Therefore,
+    ``geom.n_blades`` visibly changes the drawing (2 blades give 2
+    opposite outlines, 4 blades give 4 outlines at 90°, and so on), which
+    is useful for checking interference or overlap between neighboring
+    blades in rotors with large chord or few blades."""
     ax, fig = _resolve_ax(ax, fname, figsize=(5, 5))
     r = np.asarray(geom.r_norm, dtype=float)
     chord = np.asarray(geom.chord_norm, dtype=float)
@@ -141,7 +143,7 @@ def plot_planform(geom, ax=None, fname=None, show_hub=True, show_tip_circle=True
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlabel("x/R")
     ax.set_ylabel("y/R")
-    ax.set_title(f"Planform — {n_blades} blade(s)")
+    ax.set_title(f"Planform. {n_blades} blade(s)")
     return _finish(ax, fig, fname)
 
 
@@ -149,13 +151,13 @@ def plot_chord_twist_distribution(geom, ax=None, fname=None):
     """geom: models.RotorGeometryDef
 
     Normalized chord (left) and twist in degrees (right), two Y axes
-    sharing the X axis (r/R) -- read directly from
+    sharing the X axis (r/R), read directly from
     ``geom.r_norm``/``chord_norm``/``twist_deg``, without recomputing
     anything (docs/plano_v3.md Part 6.1). Used by the "Chord/Twist" tab of
-    the embedded Geometry canvas; equivalent in content to
-    ``plot_geometry``, but with a name/use dedicated to the live canvas
-    (``plot_geometry`` still exists, used by the exportable report and by
-    legacy calls)."""
+    the embedded Geometry canvas. It is equivalent in content to
+    ``plot_geometry``, but with a name and use dedicated to the live
+    canvas (``plot_geometry`` still exists, used by the exportable report
+    and by legacy calls)."""
     ax, fig = _resolve_ax(ax, fname)
     ax.plot(geom.r_norm, geom.chord_norm, "o-", color="tab:blue", label="chord (c/R)")
     ax2 = ax.twinx()
@@ -179,15 +181,15 @@ def plot_rotor_3d(geom, ax=None, fname=None):
         fig = None
     from mpl_toolkits.mplot3d.art3d import Poly3DCollection
     from . import visualization
-    for pontos, faces in visualization.build_rotor_disk(geom, n_span=32):
-        vertices = np.asarray(pontos)[np.asarray(faces).reshape(-1, 5)[:, 1:]]
+    for points, faces in visualization.build_rotor_disk(geom, n_span=32):
+        vertices = np.asarray(points)[np.asarray(faces).reshape(-1, 5)[:, 1:]]
         ax.add_collection3d(Poly3DCollection(vertices, alpha=0.85,
                                                facecolor="steelblue",
                                                edgecolor="none"))
-    raio = float(geom.radius_m)
-    ax.set_xlim(-raio, raio); ax.set_ylim(-raio, raio); ax.set_zlim(-raio * .25, raio * .25)
+    radius = float(geom.radius_m)
+    ax.set_xlim(-radius, radius); ax.set_ylim(-radius, radius); ax.set_zlim(-radius * .25, radius * .25)
     ax.set_xlabel("x [m]"); ax.set_ylabel("y [m]"); ax.set_zlabel("z [m]", labelpad=-8)
-    ax.set_title("Rotor blade geometry — 3D")
+    ax.set_title("Rotor blade geometry in 3D")
     return _finish(ax, fig, fname)
 
 
@@ -205,7 +207,7 @@ def plot_profile(profile_geometry, ax=None, fname=None):
 def plot_polar(alpha_deg, cl, cd, ax=None, fname=None, label=None,
                reynolds=None, mach=None):
     """Cl(alpha) (solid line) and Cd(alpha) (dashed, same color) on a
-    single polar -- used by the embedded canvas of the Airfoil tab
+    single polar, used by the embedded canvas of the Airfoil tab
     (docs/plano_v3.md Part 5) for the currently browsed condition."""
     ax, fig = _resolve_ax(ax, fname)
     # NeuralFoil exports one curve per (Re, Mach) pair. Accepting this
@@ -218,13 +220,13 @@ def plot_polar(alpha_deg, cl, cd, ax=None, fname=None, label=None,
     elif isinstance(label, tuple) and len(label) == 3:
         label, reynolds, mach = label
     if reynolds is not None or mach is not None:
-        partes = []
+        parts = []
         if reynolds is not None:
-            partes.append(f"Re={float(reynolds):.3g}")
+            parts.append(f"Re={float(reynolds):.3g}")
         if mach is not None:
-            partes.append(f"M={float(mach):.3g}")
-        condicao = ", ".join(partes)
-        label = f"{label} ({condicao})" if label else condicao
+            parts.append(f"M={float(mach):.3g}")
+        condition = ", ".join(parts)
+        label = f"{label} ({condition})" if label else condition
     line, = ax.plot(alpha_deg, cl, "-", label=f"Cl · {label}" if label else r"$C_L$")
     ax.plot(alpha_deg, cd, "--", color=line.get_color(), alpha=0.6,
             label=f"Cd · {label}" if label else r"$C_D$")
@@ -236,7 +238,7 @@ def plot_polar(alpha_deg, cl, cd, ax=None, fname=None, label=None,
 
 
 def plot_cl_alpha(alpha_deg, cl, ax=None, fname=None, label=None):
-    """C_L(alpha) alone -- one of the 3 mini plot tabs of the Airfoil tab
+    """C_L(alpha) alone, one of the 3 mini plot tabs of the Airfoil tab
     (docs/plano_v3.md Part 7, item 4: Cl x alpha / Cd x alpha / Cd x Cl
     in separate plots, with zoom via NavigationToolbar2QT)."""
     ax, fig = _resolve_ax(ax, fname)
@@ -251,7 +253,7 @@ def plot_cl_alpha(alpha_deg, cl, ax=None, fname=None, label=None):
 
 
 def plot_cd_alpha(alpha_deg, cd, ax=None, fname=None, label=None):
-    """C_D(alpha) alone -- see `plot_cl_alpha`."""
+    """C_D(alpha) alone, see `plot_cl_alpha`."""
     ax, fig = _resolve_ax(ax, fname)
     ax.plot(alpha_deg, cd, "-", label=label)
     ax.set_xlabel(r"$\alpha$ [deg]")
@@ -263,7 +265,7 @@ def plot_cd_alpha(alpha_deg, cd, ax=None, fname=None, label=None):
 
 
 def plot_cd_cl(cl, cd, ax=None, fname=None, label=None):
-    """Drag polar C_D x C_L alone -- see `plot_cl_alpha`."""
+    """Drag polar C_D x C_L alone, see `plot_cl_alpha`."""
     ax, fig = _resolve_ax(ax, fname)
     ax.plot(cl, cd, "-", label=label)
     ax.set_xlabel(r"$C_L$")
@@ -286,8 +288,8 @@ def plot_performance(results_list, ax=None, fname=None):
 
 
 _DISK_FIELD_META = {
-    # field in maps -> (label in mathtext/LaTeX -- MATLAB style, with
-    # superscript/subscript and Greek letters --, unit, is_angle?)
+    # field in maps -> (label in mathtext/LaTeX, MATLAB style, with
+    # superscript and subscript and Greek letters, unit, is_angle?)
     "Fn":          (r"$F_n$", "N/m", False),
     "Ft":          (r"$F_t$", "N/m", False),
     "Cl":          (r"$C_L$", "-", False),
@@ -307,9 +309,9 @@ _DISK_FIELD_META = {
 }
 
 
-#: Same symbol as `_DISK_FIELD_META`, in HTML instead of mathtext -- for
+#: Same symbol as `_DISK_FIELD_META`, in HTML instead of mathtext, for
 #: whoever does NOT draw with matplotlib (the "Field" combo of the Results
-#: tab, which paints the item with a `QTextDocument`; see
+#: tab, which paints the item with a `QTextDocument`, see
 #: `gui/tabs/results.py`). It exists separately because converting
 #: mathtext back to HTML is a source of silent bugs; the source of truth
 #: for the SET of fields is still `_DISK_FIELD_META` (a new key with no
@@ -336,7 +338,7 @@ def disk_field_label(field: str) -> str:
     for ``"lambda_i"``); the field's own name when not cataloged.
 
     Companion to `disk_field_symbol_html` for whoever DRAWS with
-    matplotlib -- the 2D maps already read `_DISK_FIELD_META` directly,
+    matplotlib. The 2D maps already read `_DISK_FIELD_META` directly,
     the 3D view did not, and so it showed `snake_case` where the rest of
     the tab shows the symbol."""
     return _DISK_FIELD_META.get(field, (field, "-", False))[0]
@@ -356,44 +358,44 @@ def describe_condition(maps: dict) -> str:
     individual disk map now only identifies its variable in the color
     bar; the condition becomes the figure's overall title.
     """
-    def _num(chave):
-        valor = maps.get(chave)
-        if not isinstance(valor, (int, float)) or isinstance(valor, bool):
+    def _num(key):
+        value = maps.get(key)
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
             return None
-        valor = float(valor)
-        return None if np.isnan(valor) else valor
+        value = float(value)
+        return None if np.isnan(value) else value
 
-    partes = []
+    parts = []
     mu_x = _num("mu_x")
     if mu_x is not None:
-        partes.append(rf"$\mu_x$={mu_x:.3f}")
-    # Vz and alpha describe the SAME axial component via two paths; they
+        parts.append(rf"$\mu_x$={mu_x:.3f}")
+    # Vz and alpha describe the SAME axial component via two paths. They
     # only enter when nonzero, otherwise they clutter every hover title.
     vv = _num("Vz")
     if vv is not None and abs(vv) > 1e-9:
-        partes.append(rf"$V_v$={vv:.3g} m/s")
+        parts.append(rf"$V_v$={vv:.3g} m/s")
     alpha = _num("alpha_rotor_deg")
     if alpha is not None and abs(alpha) > 1e-9:
-        partes.append(rf"$\alpha$={alpha:.2f}°")
+        parts.append(rf"$\alpha$={alpha:.2f}°")
     # Collective and RPM enter WHENEVER they exist: they are the two
     # controls the user actually moved, and without them the title of a
-    # hover case was just "mu_x=0.000" -- identical for every hover in
+    # hover case was just "mu_x=0.000", identical for every hover in
     # the project, which made it impossible to say which sweep the
     # figure came from.
-    coletivo = _num("collective_deg")
-    if coletivo is not None:
-        partes.append(rf"$\theta_0$={coletivo:.2f}°")
+    collective = _num("collective_deg")
+    if collective is not None:
+        parts.append(rf"$\theta_0$={collective:.2f}°")
     rpm = _num("rpm")
     if rpm is not None:
-        partes.append(rf"{rpm:.0f} rpm")
+        parts.append(rf"{rpm:.0f} rpm")
     # In a trimmed case, the target is what defines the condition (the
-    # collective/RPM above is a RESULT of the trim, not an input) -- saying
+    # collective/RPM above is a RESULT of the trim, not an input). Saying
     # what the target was prevents reading a resolved collective as if it
     # had been chosen.
     ct = _num("CT")
     if ct is not None and maps.get("trim_mode"):
-        partes.append(rf"$C_T$={ct:.5f}")
-    return ", ".join(partes)
+        parts.append(rf"$C_T$={ct:.5f}")
+    return ", ".join(parts)
 
 
 def _disk_field_array(maps: dict, field: str) -> np.ndarray:
@@ -419,11 +421,11 @@ def _disk_field_array(maps: dict, field: str) -> np.ndarray:
 
 
 #: `zorder` of the field drawing (`tricontourf`) in a disk map. The
-#: radius guide circles need to stay ABOVE it -- drawn below, they existed
-#: in the figure and did not appear on any disk: the filled contour paints
-#: over anything at a lower zorder.
-_ZORDER_CAMPO = 2
-_ZORDER_GUIAS = _ZORDER_CAMPO + 1
+#: radius guide circles need to stay ABOVE it: drawn below, they existed
+#: in the figure and did not appear on any disk, because the filled
+#: contour paints over anything at a lower zorder.
+_ZORDER_FIELD = 2
+_ZORDER_GUIDES = _ZORDER_FIELD + 1
 
 
 def _add_r_guides(ax, r_max, fractions=(0.25, 0.5, 0.75)):
@@ -431,9 +433,9 @@ def _add_r_guides(ax, r_max, fractions=(0.25, 0.5, 0.75)):
     (visual orientation only: they say at what radius a field feature is,
     with no legend or annotation).
 
-    They live at `_ZORDER_GUIAS`, i.e. ABOVE the field's `tricontourf` --
-    previously they were drawn at zorder 1, below the contour, and the
-    fill covered them completely on EVERY disk (the `show_r_guides`
+    They live at `_ZORDER_GUIDES`, that is, ABOVE the field's
+    `tricontourf`. Previously they were drawn at zorder 1, below the
+    contour, and the fill covered them completely on EVERY disk (the `show_r_guides`
     parameter existed but had no visible effect). They are artists of the
     disk's axis: they do not enter the color bar nor touch the data
     range."""
@@ -442,19 +444,19 @@ def _add_r_guides(ax, r_max, fractions=(0.25, 0.5, 0.75)):
         rr = frac * r_max
         ax.plot(rr * np.cos(theta), rr * np.sin(theta),
                 linestyle=(0, (4, 3)), linewidth=0.6, color="0.30", alpha=0.40,
-                zorder=_ZORDER_GUIAS)
+                zorder=_ZORDER_GUIDES)
 
 
 def _shade_reverse_regions(ax, x: np.ndarray, reverse_mask: np.ndarray,
                             color: str = _REVERSE_MASK_COLOR, alpha: float = 0.6,
                             zorder: float = 0.0):
-    """Shades in light grey the stretches of ``x`` (assumed sorted, not
-    necessarily uniform) where ``reverse_mask`` is True -- used to mark
-    reverse flow (``Ut<0``) in LINE plots (vs. span / vs. azimuth), in the
-    same spirit as the masking of the disk contour plots (see
-    ``plot_disk_map``): the "masked" region is filled with light grey,
-    never left empty/white. Detects the contiguous stretches of
-    ``reverse_mask`` and draws a grey ``axvspan`` for each one (low
+    """Shades in light gray the stretches of ``x`` (assumed sorted, not
+    necessarily uniform) where ``reverse_mask`` is True. It is used to
+    mark reverse flow (``Ut<0``) in LINE plots against span or azimuth,
+    in the same spirit as the masking of the disk contour plots (see
+    ``plot_disk_map``): the "masked" region is filled with light gray,
+    never left empty or white. Detects the contiguous stretches of
+    ``reverse_mask`` and draws a gray ``axvspan`` for each one (low
     zorder, so it stays behind the data curve)."""
     idx = np.where(reverse_mask)[0]
     if idx.size == 0:
@@ -471,10 +473,10 @@ def _close_azimuth_2d(PSI: np.ndarray, *fields_2d: np.ndarray):
     """Closes the azimuth periodicity by duplicating the psi=0 column at
     psi=2*pi (see the full rationale in visualization._close_azimuth).
     Without this, tricontourf triangulates through the [psi_last, 2*pi)
-    slice with no data point there -- producing the "white gap"/incorrect
-    interpolation artifact that can appear in that slice or spread to
-    neighboring slices depending on the local aspect ratio of the mesh
-    triangulated by Delaunay."""
+    slice with no data point there, producing the "white gap" and
+    incorrect interpolation artifact that can appear in that slice or
+    spread to neighboring slices depending on the local aspect ratio of
+    the mesh triangulated by Delaunay."""
     psi0 = PSI[:, :1]
     PSI_closed = np.concatenate([PSI, psi0 + 2.0 * np.pi], axis=1)
     closed = tuple(np.concatenate([f, f[:, :1]], axis=1) for f in fields_2d)
@@ -486,13 +488,13 @@ def _close_azimuth_2d(PSI: np.ndarray, *fields_2d: np.ndarray):
 #: strong but continuous gradient (Ut, W) passes through untouched; only
 #: the pathological case triggers it, where half a dozen singular
 #: elements push the maximum to another order of magnitude.
-_FATOR_DE_CAUDA_EXTREMA = 5.0
+_EXTREME_TAIL_FACTOR = 5.0
 
 #: Percentiles that define the "body" of the data.
-_PERCENTIL_BAIXO, _PERCENTIL_ALTO = 0.5, 99.5
+_PERCENTILE_LOW, _PERCENTILE_HIGH = 0.5, 99.5
 
 
-def _faixa_de_cor_robusta(z_finite, lo: float, hi: float):
+def _robust_color_range(z_finite, lo: float, hi: float):
     """Clips the color scale when a few singular elements dominate it.
     Returns ``(lo, hi, extend)``.
 
@@ -502,7 +504,7 @@ def _faixa_de_cor_robusta(z_finite, lo: float, hi: float):
     from 2.5 (99th percentile) to 599, and the color scale stretched by
     these two points painted the ENTIRE disk in the same color: four of
     the sixteen grid panels turned into a uniform purple rectangle with
-    one yellow pixel. The data was not wrong in the file -- it was
+    one yellow pixel. The data was not wrong in the file. It was
     illegible on screen.
 
     Clipping here is a DRAWING decision, not a data one: ``maps`` is not
@@ -512,22 +514,22 @@ def _faixa_de_cor_robusta(z_finite, lo: float, hi: float):
     """
     if z_finite.size < 20:
         return lo, hi, ""
-    p_lo, p_alto = np.percentile(z_finite, [_PERCENTIL_BAIXO, _PERCENTIL_ALTO])
-    corpo = p_alto - p_lo
-    if not np.isfinite(corpo) or corpo <= 0:
+    p_lo, p_high = np.percentile(z_finite, [_PERCENTILE_LOW, _PERCENTILE_HIGH])
+    body = p_high - p_lo
+    if not np.isfinite(body) or body <= 0:
         return lo, hi, ""
-    corta_alto = (hi - p_alto) > _FATOR_DE_CAUDA_EXTREMA * corpo
-    corta_baixo = (p_lo - lo) > _FATOR_DE_CAUDA_EXTREMA * corpo
-    if not (corta_alto or corta_baixo):
+    clip_high = (hi - p_high) > _EXTREME_TAIL_FACTOR * body
+    clip_low = (p_lo - lo) > _EXTREME_TAIL_FACTOR * body
+    if not (clip_high or clip_low):
         return lo, hi, ""
-    novo_lo = float(p_lo) if corta_baixo else lo
-    novo_hi = float(p_alto) if corta_alto else hi
-    extend = ("both" if (corta_alto and corta_baixo)
-              else ("max" if corta_alto else "min"))
-    return novo_lo, novo_hi, extend
+    new_lo = float(p_lo) if clip_low else lo
+    new_hi = float(p_high) if clip_high else hi
+    extend = ("both" if (clip_high and clip_low)
+              else ("max" if clip_high else "min"))
+    return new_lo, new_hi, extend
 
 
-def _eixo_de_barra_de_cor(ax, r_max: float, compact: bool):
+def _colorbar_axis(ax, r_max: float, compact: bool):
     """Creates the color bar's axis (``cax``) WITHIN the right margin of
     the disk's own axis, with the SAME HEIGHT as the disk.
 
@@ -536,7 +538,7 @@ def _eixo_de_barra_de_cor(ax, r_max: float, compact: bool):
     already adjusted by `set_aspect("equal", adjustable="box")`. The disk
     occupies only part of that box (the x range is larger than the y one,
     to fit the azimuth label and the bar), so the bar came out visibly
-    taller than the disk drawing -- the reported defect: "the color bar
+    taller than the disk drawing. The reported defect: "the color bar
     is much taller than the disk and wastes height".
 
     `Axes.inset_axes` solves this because it positions the child via a
@@ -547,7 +549,7 @@ def _eixo_de_barra_de_cor(ax, r_max: float, compact: bool):
 
     The bar lives in the gap between the right azimuth label and the
     axis limit, and the bar's numbers grow to the right within that same
-    gap (see `margem_direita` in `plot_disk_map`).
+    gap (see `right_margin` in `plot_disk_map`).
     """
     x0, x1 = ax.get_xlim()
     y0, y1 = ax.get_ylim()
@@ -557,10 +559,10 @@ def _eixo_de_barra_de_cor(ax, r_max: float, compact: bool):
         return (y - y0) / (y1 - y0)
     # In the grid, the "Adv." legend ends near 1.35R. The bar used to
     # start at 1.40R and the two texts overlapped on the resized canvas.
-    esquerda = (1.55 if compact else 1.50) * r_max
-    largura = (0.10 if compact else 0.09) * r_max
-    return ax.inset_axes([fx(esquerda), fy(-r_max),
-                          fx(x0 + largura) - fx(x0), fy(r_max) - fy(-r_max)])
+    left = (1.55 if compact else 1.50) * r_max
+    width = (0.10 if compact else 0.09) * r_max
+    return ax.inset_axes([fx(left), fy(-r_max),
+                          fx(x0 + width) - fx(x0), fy(r_max) - fy(-r_max)])
 
 
 def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
@@ -573,12 +575,12 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
     (v30): psi=0 (Ut=Omega*r, no advance contribution) plotted DOWN
     ("Back"/aft), psi=90 (max Ut, advancing blade) to the RIGHT
     ("Adv"), psi=180 UP ("Front"/nose) and psi=270 (retreating)
-    to the LEFT -- equivalent to rotating the polar angle by -90
+    to the LEFT, equivalent to rotating the polar angle by -90
     degrees before converting to Cartesian (same
     `theta_for_pol2cart = PSI - pi/2` as MATLAB).
 
     Closes the azimuthal periodicity (see `_close_azimuth_2d`) before
-    triangulating -- without this, `tricontourf` produced a "white slice"
+    triangulating: without this, `tricontourf` produced a "white slice"
     artifact from missing data coverage in the last sampled slice of the
     (Ne,Npsi) grid, which does not repeat the node at psi=2*pi.
 
@@ -590,11 +592,11 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
     TRIANGLES of the triangulation that touch any node in reverse flow
     (via `matplotlib.tri`), instead of simply throwing NaN into the Z
     array (which matplotlib's `tricontourf` does not accept directly).
-    The masked region is filled with a light grey (`_REVERSE_MASK_COLOR`)
-    instead of being left empty/white, so it is not confused with
+    The masked region is filled with a light gray (`_REVERSE_MASK_COLOR`)
+    instead of being left empty or white, so it is not confused with
     "no data".
 
-    `log_color`/`vmin`/`vmax`: the COLOR scale (not the x/y axes -- those
+    `log_color`/`vmin`/`vmax`: the COLOR scale (not the x/y axes; those
     are already zoomable via `NavigationToolbar2QT`, see `gui.CanvasHost`).
     `NavigationToolbar2QT` does not know how to edit the range/scale of the
     color of a `tricontourf` (it only handles `AxesImage`, not
@@ -605,18 +607,18 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
 
     `show_r_guides` (default True): three thin dashed circles at
     r/R=0.25/0.5/0.75, with no label or legend, to say at a glance at
-    what radius a field feature is -- see `_add_r_guides`. They are
+    what radius a field feature is, see `_add_r_guides`. They are
     artists of the axis: they do not appear in the color bar nor change
     the data range.
 
     `cbar_label`: bar label text, for when the default ("symbol
-    [unit]" from `_DISK_FIELD_META`) does not fit -- this is the case for
+    [unit]" from `_DISK_FIELD_META`) does not fit. This is the case for
     DIAGNOSTIC fields, which are not physical quantities cataloged there
     (the iteration count of `plot_convergence`). `levels`: explicit
     contour levels, for discrete fields (same origin).
 
     The color bar has the HEIGHT OF THE DISK and lives in the right
-    margin of the axis itself -- see `_eixo_de_barra_de_cor`.
+    margin of the axis itself, see `_colorbar_axis`.
     """
     ax, fig = _resolve_ax(ax, fname, figsize=(5.5, 5.5))
     R_NORM, PSI = np.asarray(maps["R_NORM"], dtype=float), np.asarray(maps["PSI"], dtype=float)
@@ -645,11 +647,11 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
     hi = float(vmax) if vmax is not None else (float(np.max(z_finite)) if z_finite.size else 1.0)
     auto_extend = ""
     if vmin is None and vmax is None:
-        lo, hi, auto_extend = _faixa_de_cor_robusta(z_finite, lo, hi)
+        lo, hi, auto_extend = _robust_color_range(z_finite, lo, hi)
     if hi <= lo:
         hi = lo + 1e-9
     norm = None
-    niveis_pedidos = levels
+    requested_levels = levels
     levels = 20
     extend = "neither"
     if log_color and lo <= 0.0:
@@ -667,11 +669,11 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
     elif auto_extend:
         levels = np.linspace(lo, hi, 21)
         extend = auto_extend
-    if niveis_pedidos is not None:
+    if requested_levels is not None:
         # Explicit levels from the caller override everything: they exist
         # for DISCRETE fields (iteration count in the convergence figure),
         # where 21 linear levels produce bands of "3.45 iterations".
-        levels = niveis_pedidos
+        levels = requested_levels
         extend = "neither"
 
     contour_kwargs = dict(levels=levels, cmap=cmap, norm=norm, extend=extend)
@@ -679,33 +681,33 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
         triang = mtri.Triangulation(X.ravel(), Y.ravel())
         node_reverse = reverse_c.ravel()
         # Masks the triangle if ANY of its 3 vertices are in reverse
-        # flow -- leaves a clean "hole" in the region, like MATLAB's
+        # flow. This leaves a clean "hole" in the region, like MATLAB's
         # NaN, without requiring NaN in the Z array itself (which
         # matplotlib's tricontourf rejects).
         tri_mask = np.any(node_reverse[triang.triangles], axis=1)
 
         # Before drawing the data field, fills the SAME masked region
-        # (triangles in reverse flow) with light grey -- via the
-        # COMPLEMENTARY mask on the same triangulation -- so the "hole"
-        # in the main contour is never left empty/white.
+        # (triangles in reverse flow) with light gray via the
+        # COMPLEMENTARY mask on the same triangulation, so the "hole"
+        # in the main contour is never left empty or white.
         if np.any(tri_mask):
             triang_reverse = mtri.Triangulation(X.ravel(), Y.ravel(), triangles=triang.triangles)
             triang_reverse.set_mask(~tri_mask)
             ax.tripcolor(triang_reverse, facecolors=np.zeros(triang.triangles.shape[0]),
                          cmap=ListedColormap([_REVERSE_MASK_COLOR]),
-                         zorder=_ZORDER_CAMPO - 1)
+                         zorder=_ZORDER_FIELD - 1)
 
         triang.set_mask(tri_mask)
-        cf = ax.tricontourf(triang, Z_c.ravel(), zorder=_ZORDER_CAMPO, **contour_kwargs)
+        cf = ax.tricontourf(triang, Z_c.ravel(), zorder=_ZORDER_FIELD, **contour_kwargs)
     else:
         cf = ax.tricontourf(X.ravel(), Y.ravel(), Z_c.ravel(),
-                            zorder=_ZORDER_CAMPO, **contour_kwargs)
+                            zorder=_ZORDER_FIELD, **contour_kwargs)
     ax.set_aspect("equal", adjustable="box")
     label, unit, _ = _DISK_FIELD_META.get(field, (field, "-", False))
     # NO title per disk (see `describe_condition`): with many disks on the
-    # same page, one title would touch the disk above it. What the
-    # variable is moved to the top LEFT corner of the color bar and the
-    # unit to the top RIGHT corner (below, alongside the bar); the
+    # same page, one title would touch the disk above it. The name of the
+    # variable moves to the top LEFT corner of the color bar and the
+    # unit to the top RIGHT corner (below, alongside the bar). The
     # condition becomes the figure's single title.
 
     r_max = float(np.nanmax(R_NORM))
@@ -719,44 +721,44 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
     # no reason.
     # `compact`: in a grid panel the text occupies a much larger fraction
     # of the width, and "90° (Adv)" invaded the color bar. There, only the
-    # sector name is worth it -- the angle is already implicit in the
-    # position.
+    # sector name is worth it, because the angle is already implicit in
+    # the position.
     if compact:
         label_kwargs = dict(fontsize=7, color="0.35")
-        direita, cima, esquerda, baixo = "Adv.", "Front", "Ret.", "Back"
+        right, top, left, bottom = "Adv.", "Front", "Ret.", "Back"
     else:
         label_kwargs = dict(fontsize=8, color="0.15")
-        direita, cima = r"90° (Adv.)", r"180° (Front)"
-        esquerda, baixo = r"270° (Ret.)", r"0° (Back)"
-    ax.text(r_max * 1.06, 0, direita, ha="left", va="center", **label_kwargs)
-    ax.text(0, r_max * 1.06, cima, ha="center", va="bottom", **label_kwargs)
-    ax.text(-r_max * 1.06, 0, esquerda, ha="right", va="center", **label_kwargs)
-    ax.text(0, -r_max * 1.06, baixo, ha="center", va="top", **label_kwargs)
+        right, top = r"90° (Adv.)", r"180° (Front)"
+        left, bottom = r"270° (Ret.)", r"0° (Back)"
+    ax.text(r_max * 1.06, 0, right, ha="left", va="center", **label_kwargs)
+    ax.text(0, r_max * 1.06, top, ha="center", va="bottom", **label_kwargs)
+    ax.text(-r_max * 1.06, 0, left, ha="right", va="center", **label_kwargs)
+    ax.text(0, -r_max * 1.06, bottom, ha="center", va="top", **label_kwargs)
     # Reference cross limited to the disk (+10%): with `axhline`/`axvline`
     # it crossed the ENTIRE axis width, and the right margin now
-    # hosts the color bar -- the line would go right under it.
-    cruz = 1.10 * r_max
-    ax.plot([-cruz, cruz], [0, 0], color="0.6", linestyle=":", linewidth=0.6,
-            zorder=_ZORDER_GUIAS)
-    ax.plot([0, 0], [-cruz, cruz], color="0.6", linestyle=":", linewidth=0.6,
-            zorder=_ZORDER_GUIAS)
+    # hosts the color bar, so the line would go right under it.
+    cross_len = 1.10 * r_max
+    ax.plot([-cross_len, cross_len], [0, 0], color="0.6", linestyle=":", linewidth=0.6,
+            zorder=_ZORDER_GUIDES)
+    ax.plot([0, 0], [-cross_len, cross_len], color="0.6", linestyle=":", linewidth=0.6,
+            zorder=_ZORDER_GUIDES)
     # The right margin now hosts the ENTIRE color bar (see
-    # `_eixo_de_barra_de_cor`), not just the azimuth label: it needs to
+    # `_colorbar_axis`), not just the azimuth label: it needs to
     # fit the label ("90° (Adv.)"), the bar and its numbers. With the old
-    # margin the bar's numbers spilled out of the axis -- and, in a grid,
+    # margin the bar's numbers spilled out of the axis and, in a grid,
     # invaded the neighboring cell. Widening in x does not shrink the disk
     # while the cell is limited by HEIGHT (which is the case both in the
-    # grid and in the individual figure); what is gained is the bar no
-    # longer stealing width.
-    margem_direita = 2.25 if compact else 1.95
+    # grid and in the individual figure). What is gained is that the bar
+    # no longer steals width.
+    right_margin = 2.25 if compact else 1.95
     # The vertical margin has to fit the TEXT, not just the point where it
     # starts: "Front" begins at 1.06 with `va="bottom"`, so it rises
     # above that. With the old 1.22 it left the axis and ended up inside
-    # the cell above -- in the 16-disk grid the "Front" of one row
+    # the cell above. In the 16-disk grid the "Front" of one row
     # appeared stuck to the "Back" of the previous row, both cut in half.
-    margem_vertical = 1.34 if compact else 1.28
-    ax.set_xlim(-r_max * 1.25, r_max * margem_direita)
-    ax.set_ylim(-r_max * margem_vertical, r_max * margem_vertical)
+    vertical_margin = 1.34 if compact else 1.28
+    ax.set_xlim(-r_max * 1.25, r_max * right_margin)
+    ax.set_ylim(-r_max * vertical_margin, r_max * vertical_margin)
     ax.set_aspect("equal", adjustable="box")
     ax.set_xticks([]); ax.set_yticks([])
     for spine in ax.spines.values():
@@ -765,42 +767,42 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
     fig_to_use = fig if fig is not None else ax.figure
     if fig_to_use is not None:
         # The bar has the HEIGHT OF THE DISK and lives in the right margin
-        # of the axis itself -- see `_eixo_de_barra_de_cor` for why it is
+        # of the axis itself, see `_colorbar_axis` for why it is
         # not `colorbar(ax=..., shrink=...)`.
-        cax = _eixo_de_barra_de_cor(ax, r_max, compact)
+        cax = _colorbar_axis(ax, r_max, compact)
         cb = fig_to_use.colorbar(cf, cax=cax)
         cb.ax.tick_params(labelsize=7 if compact else 8)
         # Bar label: ALWAYS "symbol [unit]" in a single piece.
-        rotulo = cbar_label if cbar_label is not None else (
+        bar_label = cbar_label if cbar_label is not None else (
             f"{label} [{unit}]" if unit and unit != "-" else label)
         if compact:
             # The label used to sit to the left of the bar and fall ON
             # the disk on compact screens. Above the bar itself there is
             # space between the grid rows, reserved by the figure layout.
-            cb.ax.text(0.0, 1.02, rotulo, transform=cb.ax.transAxes,
+            cb.ax.text(0.0, 1.02, bar_label, transform=cb.ax.transAxes,
                         ha="left", va="bottom", fontsize=7)
         else:
             # Single disk: there is no cell above to collide with, and
             # the top of the bar is the natural place for the label.
-            cb.ax.text(0.0, 1.04, rotulo, transform=cb.ax.transAxes,
+            cb.ax.text(0.0, 1.04, bar_label, transform=cb.ax.transAxes,
                         ha="left", va="bottom", fontsize=11)
 
     # Figure with a SINGLE disk (individual export or GUI canvas): the
-    # condition is the figure's title -- in a grid panel (`compact`) the
+    # condition is the figure's title. In a grid panel (`compact`) the
     # one setting the title is `plot_disk_map_grid`, once for all disks.
     if not compact and fig_to_use is not None:
-        condicao = describe_condition(maps)
-        if condicao:
-            fig_to_use.suptitle(condicao, fontsize=11, fontweight="bold")
+        condition = describe_condition(maps)
+        if condition:
+            fig_to_use.suptitle(condition, fontsize=11, fontweight="bold")
     return _finish(ax, fig, fname)
 
 
 # Fixed order/grouping of the fields requested for the full disk grid:
 # forces, section aerodynamics, flow kinematics, angles, and the
-# tangential-force decomposition + Mach/dynamic pressure -- always in
+# tangential-force decomposition + Mach/dynamic pressure, always in
 # this order for visual comparability between runs. The last 4 (Ft_i,
 # Ft_p, Mach, q) were added after the original 12 so as not to disturb
-# the order/position for whoever was already comparing the first 12
+# the order or position for whoever was already comparing the first 12
 # panels between runs.
 _DISK_GRID_FIELDS = ["Fn", "Ft", "Cl", "Cd", "Vi", "Up",
                      "Ut", "W", "alpha_eff", "phi", "lambda_z_field", "lambda_i",
@@ -812,7 +814,7 @@ def plot_disk_map_grid(maps: dict, fields=None, fname=None, ncols: int = 4,
                         mask_reverse: bool = True):
     """Grid with ALL the important disk variables in a single panel:
     Fn, Ft, Cl, Cd, Vi, Up, Ut, W, alpha (deg), phi (deg), lambda (total),
-    lambda_i (induced) -- see `_DISK_GRID_FIELDS`. Angles are always in
+    lambda_i (induced), see `_DISK_GRID_FIELDS`. Angles are always in
     degrees. Each subplot gets thin, unlabeled dotted guide circles
     at r/R=0.25/0.5/0.75 (visual orientation only).
 
@@ -820,7 +822,7 @@ def plot_disk_map_grid(maps: dict, fields=None, fname=None, ncols: int = 4,
     `_DISK_GRID_FIELDS`). `fname`: if supplied, saves the figure and
     closes it; otherwise returns the `Figure` for interactive/embedded use.
     `mask_reverse`: passed through to each panel's `plot_disk_map` (see
-    its docstring) -- default True, same default as `BEMTConfig.
+    its docstring). Default True, the same default as `BEMTConfig.
     mask_reverse_flow_plots`.
     """
     fields = list(fields) if fields is not None else list(_DISK_GRID_FIELDS)
@@ -830,15 +832,15 @@ def plot_disk_map_grid(maps: dict, fields=None, fname=None, ncols: int = 4,
     # Cell wider than tall: the disk's axis has equal aspect and the x
     # range is larger than the y one (extra room on the right for label
     # and bar), so a square cell left empty bands between the rows.
-    fig, axes = _nova_figura((figsize_per_panel * ncols,
+    fig, axes = _new_figure((figsize_per_panel * ncols,
                                figsize_per_panel * 0.86 * nrows), nrows, ncols)
     axes = np.atleast_1d(axes).ravel()
 
     # ONE condition title for the whole figure (not one per disk): each
-    # disk identifies its variable in its own color bar -- see
+    # disk identifies its variable in its own color bar, see
     # `plot_disk_map`/`describe_condition`.
-    condicao = describe_condition(maps)
-    title = f"Disk maps — {condicao}" if condicao else "Disk maps"
+    condition = describe_condition(maps)
+    title = f"Disk maps — {condition}" if condition else "Disk maps"
     if mask_reverse:
         title += "  (reverse flow masked in plots)"
     fig.suptitle(title, fontsize=12, fontweight="bold")
@@ -860,18 +862,18 @@ def plot_disk_map_grid(maps: dict, fields=None, fname=None, ncols: int = 4,
     #
     # `tight_layout` computes the margins once, for the size in INCHES the
     # figure has at that instant (here, 12.8x11). The report saves
-    # exactly at that size and comes out as planned -- that is why the
+    # exactly at that size and comes out as planned. That is why the
     # same plot looked good in the report and broken in the GUI. In the
     # Results tab the figure goes into a `FigureCanvasQTAgg`, which
     # stretches it to the widget's size (~8x4.6 in, a different aspect
     # ratio); the margins stay the ones computed for 12.8x11, but the
-    # fonts stay in POINTS and do not shrink along with it -- result: the
+    # fonts stay in POINTS and do not shrink along with it. Result: the
     # field label falling inside the disk and "Ret."/"Adv." colliding
     # with the color bar.
     #
     # The "constrained" engine reruns the calculation on every `draw`, so
     # the figure recomposes itself on every canvas resize.
-    # The GUI canvas is shorter/narrower than the report's PNG. A minimal
+    # The GUI canvas is shorter and narrower than the report's PNG. A minimal
     # gap made the suptitle invade the first row and the side labels
     # touch the color bar when the window was resized.
     fig.set_layout_engine("constrained")
@@ -901,90 +903,90 @@ def plot_solver_comparison(results_list, ax=None, fname=None):
 #: and deliberately distinct from the `viridis` of the field maps: the
 #: convergence disk is a solver DIAGNOSTIC, not a physical result, and the
 #: reading "the hotter, the more it cost" is immediate.
-_CMAP_ITERACOES = "YlOrRd"
+_CMAP_ITERATIONS = "YlOrRd"
 
 #: Color of the elements that did NOT converge, marked on top of the map.
-_COR_NAO_CONVERGIDO = "#1f4ed8"
+_COLOR_NOT_CONVERGED = "#1f4ed8"
 
 
-def _resumo_de_convergencia(results: "Results") -> dict:
+def _convergence_summary(results: "Results") -> dict:
     """Header numbers of the convergence figure, taken from `summary`
     when they exist and recomputed from the maps when they do not (old
     exports and hand-built `Results` have one or the other, it never
     fails for lack of a key)."""
     maps = results.maps or {}
     summary = results.summary or {}
-    convergido = np.asarray(maps["converged"], dtype=bool) if "converged" in maps else None
+    converged = np.asarray(maps["converged"], dtype=bool) if "converged" in maps else None
     n_iter = np.asarray(maps["n_iter"], dtype=float) if "n_iter" in maps else None
 
     pct = summary.get("convergence_pct")
-    if pct is None and convergido is not None and convergido.size:
-        pct = 100.0 * float(np.mean(convergido))
-    media = summary.get("mean_iter")
-    if media is None and n_iter is not None and n_iter.size:
-        media = float(np.mean(n_iter))
+    if pct is None and converged is not None and converged.size:
+        pct = 100.0 * float(np.mean(converged))
+    mean = summary.get("mean_iter")
+    if mean is None and n_iter is not None and n_iter.size:
+        mean = float(np.mean(n_iter))
     return dict(
         pct=None if pct is None else float(pct),
-        media=None if media is None else float(media),
-        maximo=None if n_iter is None or not n_iter.size else int(np.max(n_iter)),
-        n_elementos=None if convergido is None else int(convergido.size),
-        n_falhos=None if convergido is None else int(np.count_nonzero(~convergido)),
+        mean=None if mean is None else float(mean),
+        max=None if n_iter is None or not n_iter.size else int(np.max(n_iter)),
+        n_elements=None if converged is None else int(converged.size),
+        n_failed=None if converged is None else int(np.count_nonzero(~converged)),
         solver=summary.get("solver") or maps.get("solver"),
-        varreduras=maps.get("total_iterations"),
+        sweeps=maps.get("total_iterations"),
         elapsed=summary.get("elapsed_s", maps.get("elapsed")),
     )
 
 
-def _formatar_tempo(segundos) -> str:
+def _format_time(seconds) -> str:
     """Time in ms/s according to the order of magnitude (a solver that
     runs in 5 ms should not appear as "0.005 s")."""
     try:
-        s = float(segundos)
+        s = float(seconds)
     except (TypeError, ValueError):
         return "—"
     return f"{s * 1e3:.0f} ms" if s < 1.0 else f"{s:.2f} s"
 
 
-def _cartoes_de_numero(ax, cartoes):
+def _number_cards(ax, cards):
     """Row of "cards" (large value on top, small label below) on a
     frameless axis -- where the convergence figure's header numbers live.
 
     Replaces the two percentage BARS that used to take up the whole
     figure: a "98.5%" bar next to a "7 iterations" one compares
-    nothing (different quantities, different scales), spends the whole
-    figure and says less than the number itself written out."""
+    nothing (different quantities, different scales). It spends the
+    whole figure and says less than the number itself written out."""
     from matplotlib.patches import FancyBboxPatch
 
     ax.set_axis_off()
     ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-    n = max(len(cartoes), 1)
-    largura = 1.0 / n
+    n = max(len(cards), 1)
+    card_width = 1.0 / n
     # Font proportional to the REAL width of each card: the same figure
     # is generated at 11 inches (report) and at 6 (GUI canvas), and at a
     # fixed size the labels of neighboring cards overlapped in the GUI.
-    pol_por_cartao = ax.figure.get_figwidth() * ax.get_position().width / n
-    fonte_valor = float(np.clip(13.0 * pol_por_cartao / 1.6, 8.0, 13.0))
-    fonte_rotulo = float(np.clip(7.5 * pol_por_cartao / 1.6, 5.5, 7.5))
-    for i, (valor, rotulo, cor) in enumerate(cartoes):
-        x0 = i * largura
+    inch_per_card = ax.figure.get_figwidth() * ax.get_position().width / n
+    font_value = float(np.clip(13.0 * inch_per_card / 1.6, 8.0, 13.0))
+    font_label = float(np.clip(7.5 * inch_per_card / 1.6, 5.5, 7.5))
+    for i, (value, label_text, color) in enumerate(cards):
+        x0 = i * card_width
         ax.add_patch(FancyBboxPatch(
-            (x0 + 0.012, 0.10), largura - 0.024, 0.80,
+            (x0 + 0.012, 0.10), card_width - 0.024, 0.80,
             boxstyle="round,pad=0,rounding_size=0.04",
             transform=ax.transAxes, facecolor="0.965", edgecolor="0.86",
             linewidth=0.8, clip_on=False, zorder=0))
-        centro = x0 + largura / 2
-        ax.text(centro, 0.56, valor, ha="center", va="center",
-                fontsize=fonte_valor, fontweight="bold", color=cor, zorder=1)
-        ax.text(centro, 0.26, rotulo, ha="center", va="center",
-                fontsize=fonte_rotulo, color="0.35", zorder=1)
+        center = x0 + card_width / 2
+        ax.text(center, 0.56, value, ha="center", va="center",
+                fontsize=font_value, fontweight="bold", color=color, zorder=1)
+        ax.text(center, 0.26, label_text, ha="center", va="center",
+                fontsize=font_label, color="0.35", zorder=1)
 
 
-def _layout_de_convergencia(ax, fname, com_disco: bool, com_historico: bool):
+def _convergence_layout(ax, fname, with_disk: bool, with_history: bool):
     """Assembles the convergence figure (disk | history / numbers) from
     the `ax` the caller supplied, or from a new figure.
 
-    The GUI and the report call `plot_convergence` the usual way --
-    `ax=fig.add_subplot(111)` or `fname=...` --, and this signature does
+    The GUI and the report call `plot_convergence` the usual way
+    (`ax=fig.add_subplot(111)` or `fname=...`), and this signature does
     not change. Since the figure now has more than one panel, the
     received `ax` is replaced by panels created in the SAME grid spot
     (`get_subplotspec().subgridspec`), instead of requiring every caller
@@ -994,11 +996,11 @@ def _layout_de_convergencia(ax, fname, com_disco: bool, com_historico: bool):
     whole-figure path.
     """
     if ax is None:
-        largura = 11.0 if com_disco else 7.0
+        fig_width = 11.0 if with_disk else 7.0
         # Without a disk and without history, all that is left is the
         # card row: a tall figure would be almost all empty space.
-        altura = 4.4 if (com_disco or com_historico) else 2.2
-        fig = Figure(figsize=(largura, altura))
+        fig_height = 4.4 if (with_disk or with_history) else 2.2
+        fig = Figure(figsize=(fig_width, fig_height))
         spec = fig.add_gridspec(1, 1)[0, 0]
     else:
         fig = ax.figure
@@ -1007,34 +1009,34 @@ def _layout_de_convergencia(ax, fname, com_disco: bool, com_historico: bool):
         if spec is None:
             spec = fig.add_gridspec(1, 1)[0, 0]
 
-    if com_disco:
-        externo = spec.subgridspec(1, 2, width_ratios=[1.0, 1.25], wspace=0.30)
-        ax_disco = fig.add_subplot(externo[0, 0])
-        coluna = externo[0, 1]
+    if with_disk:
+        outer = spec.subgridspec(1, 2, width_ratios=[1.0, 1.25], wspace=0.30)
+        ax_disk = fig.add_subplot(outer[0, 0])
+        column = outer[0, 1]
     else:
-        ax_disco = None
-        coluna = spec
+        ax_disk = None
+        column = spec
 
-    if com_historico:
-        interno = coluna.subgridspec(2, 1, height_ratios=[3.2, 1.0], hspace=0.55)
-        ax_hist = fig.add_subplot(interno[0, 0])
-        ax_num = fig.add_subplot(interno[1, 0])
+    if with_history:
+        inner = column.subgridspec(2, 1, height_ratios=[3.2, 1.0], hspace=0.55)
+        ax_hist = fig.add_subplot(inner[0, 0])
+        ax_num = fig.add_subplot(inner[1, 0])
     else:
         # Without history, the card row remains a ROW: if it occupied
         # the whole column, four giant rectangles with one number each
         # would take up half the figure.
-        interno = coluna.subgridspec(3, 1, height_ratios=[1.0, 1.1, 1.0])
+        inner = column.subgridspec(3, 1, height_ratios=[1.0, 1.1, 1.0])
         ax_hist = None
-        ax_num = fig.add_subplot(interno[1, 0])
-    return fig, ax_disco, ax_hist, ax_num
+        ax_num = fig.add_subplot(inner[1, 0])
+    return fig, ax_disk, ax_hist, ax_num
 
 
-def _desenhar_disco_de_convergencia(ax, maps: dict):
+def _draw_convergence_disk(ax, maps: dict):
     """Disk map of the NUMBER OF ITERATIONS per element, with the
     non-converged elements marked on top.
 
     This is the actionable diagnostic: the difficult elements are not
-    scattered at random -- they concentrate at the root, at the tip and
+    scattered at random. They concentrate at the root, at the tip and
     at the reverse-flow boundary, and that is what tells you where to act
     (mesh, relaxation, model). A global percentage does not localize
     anything.
@@ -1045,30 +1047,30 @@ def _desenhar_disco_de_convergencia(ax, maps: dict):
     """
     n_iter = np.asarray(maps["n_iter"], dtype=float)
     # Iteration count is DISCRETE: one color band per integer value,
-    # and bar ticks on the integers themselves -- with the default's 21
+    # and bar ticks on the integers themselves. With the default's 21
     # linear levels the bar announced "3.45 iterations".
     n_lo = int(np.floor(np.nanmin(n_iter))) if n_iter.size else 0
     n_hi = int(np.ceil(np.nanmax(n_iter))) if n_iter.size else 1
-    niveis = np.arange(n_lo - 0.5, n_hi + 1.0, 1.0)
-    plot_disk_map(maps, field="n_iter", ax=ax, cmap=_CMAP_ITERACOES,
+    level_grid = np.arange(n_lo - 0.5, n_hi + 1.0, 1.0)
+    plot_disk_map(maps, field="n_iter", ax=ax, cmap=_CMAP_ITERATIONS,
                   mask_reverse=False, compact=True,
                   cbar_label="iterations",
-                  levels=niveis if niveis.size >= 2 else None)
+                  levels=level_grid if level_grid.size >= 2 else None)
     ax.set_title("Iterations per element", fontsize=9, color="0.25")
     if ax.child_axes:
         ax.child_axes[0].set_yticks(np.arange(n_lo, n_hi + 1, max(1, (n_hi - n_lo) // 8 + 1)))
 
-    convergido = np.asarray(maps["converged"], dtype=bool) if "converged" in maps else None
-    if convergido is None or convergido.all():
+    converged = np.asarray(maps["converged"], dtype=bool) if "converged" in maps else None
+    if converged is None or converged.all():
         return
     R_NORM = np.asarray(maps["R_NORM"], dtype=float)
     PSI = np.asarray(maps["PSI"], dtype=float)
     theta = PSI - np.pi / 2
-    falhos = ~convergido
-    ax.plot(R_NORM[falhos] * np.cos(theta[falhos]),
-            R_NORM[falhos] * np.sin(theta[falhos]),
+    failed = ~converged
+    ax.plot(R_NORM[failed] * np.cos(theta[failed]),
+            R_NORM[failed] * np.sin(theta[failed]),
             linestyle="none", marker="o", markersize=2.6,
-            color=_COR_NAO_CONVERGIDO, zorder=_ZORDER_GUIAS + 1,
+            color=_COLOR_NOT_CONVERGED, zorder=_ZORDER_GUIDES + 1,
             label="not converged")
     ax.legend(loc="upper left", fontsize=7, frameon=True, framealpha=0.85,
               borderpad=0.3, handletextpad=0.3)
@@ -1077,18 +1079,18 @@ def _desenhar_disco_de_convergencia(ax, maps: dict):
 def plot_convergence(results: "Results", ax=None, fname=None):
     """Convergence diagnostic of the inflow solver, in three pieces:
 
-    1. WHERE the solver struggled -- disk map of the number of iterations
+    1. WHERE the solver struggled: disk map of the number of iterations
        per element, with the non-converged elements marked
-       (`_desenhar_disco_de_convergencia`). Only appears when the result
+       (`_draw_convergence_disk`). Only appears when the result
        carries the maps (`n_iter`/`R_NORM`/`PSI`).
-    2. HOW it progressed -- converged-mesh fraction and true maximum
+    2. HOW it progressed: converged-mesh fraction and true maximum
        residual per sweep. Needs `BEMTConfig.collect_history=
-       True` (default); with it off, `maps["frac_converged_history"]`
-       comes back EMPTY and the panel is replaced by a warning saying so
-       -- previously the figure came out blank, which reads as "did not
+       True` (default). With it off, `maps["frac_converged_history"]`
+       comes back EMPTY and the panel is replaced by a warning saying so.
+       Previously the figure came out blank, which reads as "did not
        converge" instead of "did not record the history".
-    3. HOW MUCH it cost -- the header numbers in cards
-       (`_cartoes_de_numero`).
+    3. HOW MUCH it cost: the header numbers in cards
+       (`_number_cards`).
 
     Each piece appears if and only if the data exists: a `Results` that
     only has `summary` (old export, no maps or history) still produces
@@ -1097,15 +1099,15 @@ def plot_convergence(results: "Results", ax=None, fname=None):
     maps = results.maps or {}
     hist = list(maps.get("frac_converged_history") or [])
     resid = list(maps.get("residual_history") or [])
-    com_disco = all(k in maps for k in ("R_NORM", "PSI", "n_iter"))
-    com_historico = bool(hist or resid)
-    resumo = _resumo_de_convergencia(results)
+    has_disk = all(k in maps for k in ("R_NORM", "PSI", "n_iter"))
+    has_history = bool(hist or resid)
+    conv_summary = _convergence_summary(results)
 
-    fig, ax_disco, ax_hist, ax_num = _layout_de_convergencia(
-        ax, fname, com_disco, com_historico)
+    fig, ax_disk, ax_hist, ax_num = _convergence_layout(
+        ax, fname, has_disk, has_history)
 
-    if ax_disco is not None:
-        _desenhar_disco_de_convergencia(ax_disco, maps)
+    if ax_disk is not None:
+        _draw_convergence_disk(ax_disk, maps)
 
     if ax_hist is not None:
         if hist:
@@ -1124,32 +1126,32 @@ def plot_convergence(results: "Results", ax=None, fname=None):
                             linewidth=1.4, label=r"max $|g(\lambda)-\lambda|$")
             ax_res.set_ylabel(r"max $|g(\lambda_i)-\lambda_i|$", color="tab:red", fontsize=8)
             ax_res.tick_params(axis="y", labelcolor="tab:red", labelsize=8)
-            linhas = (ax_hist.get_lines() if hist else []) + ax_res.get_lines()
-            ax_hist.legend(linhas, [l.get_label() for l in linhas],
+            lines = (ax_hist.get_lines() if hist else []) + ax_res.get_lines()
+            ax_hist.legend(lines, [l.get_label() for l in lines],
                            loc="center right", fontsize=7.5)
         ax_hist.set_xlabel("solver sweep", fontsize=8)
         ax_hist.tick_params(axis="x", labelsize=8)
         ax_hist.grid(True, alpha=0.3)
 
-    pct = resumo["pct"]
-    cartoes = []
+    pct = conv_summary["pct"]
+    cards = []
     if pct is not None:
-        cor = "#1a7f37" if pct >= 99.999 else ("#b45309" if pct >= 95.0 else "#b91c1c")
-        cartoes.append((f"{pct:.1f}%", "converged", cor))
-    if resumo["n_falhos"]:
-        cartoes.append((f"{resumo['n_falhos']}/{resumo['n_elementos']}", "elements left",
-                        _COR_NAO_CONVERGIDO))
-    if resumo["media"] is not None:
-        cartoes.append((f"{resumo['media']:.1f}", "mean iters", "0.15"))
-    if resumo["maximo"] is not None:
-        cartoes.append((f"{resumo['maximo']}", "max iters", "0.15"))
-    if resumo["elapsed"] is not None:
-        cartoes.append((_formatar_tempo(resumo["elapsed"]), "solver time", "0.15"))
-    if not cartoes:
+        color = "#1a7f37" if pct >= 99.999 else ("#b45309" if pct >= 95.0 else "#b91c1c")
+        cards.append((f"{pct:.1f}%", "converged", color))
+    if conv_summary["n_failed"]:
+        cards.append((f"{conv_summary['n_failed']}/{conv_summary['n_elements']}", "elements left",
+                      _COLOR_NOT_CONVERGED))
+    if conv_summary["mean"] is not None:
+        cards.append((f"{conv_summary['mean']:.1f}", "mean iters", "0.15"))
+    if conv_summary["max"] is not None:
+        cards.append((f"{conv_summary['max']}", "max iters", "0.15"))
+    if conv_summary["elapsed"] is not None:
+        cards.append((_format_time(conv_summary["elapsed"]), "solver time", "0.15"))
+    if not cards:
         ax_num.set_axis_off()
         ax_num.text(0.5, 0.5, "No convergence data available", ha="center",
                     va="center", fontsize=11, color="0.35", transform=ax_num.transAxes)
-    if not com_historico and cartoes:
+    if not has_history and cards:
         # Without history the right panel would be an empty rectangle: the
         # cards rise to its middle and the reason for the emptiness gets written.
         ax_num.text(0.5, -0.04,
@@ -1157,21 +1159,21 @@ def plot_convergence(results: "Results", ax=None, fname=None):
                     ha="center", va="top", fontsize=7.5, color="0.45",
                     transform=ax_num.transAxes)
 
-    partes = ["Solver convergence"]
-    if resumo["solver"]:
-        partes.append(str(resumo["solver"]))
-    if resumo["n_elementos"]:
-        partes.append(f"{resumo['n_elementos']} elements")
-    if resumo["varreduras"]:
-        partes.append(f"{int(resumo['varreduras'])} sweeps")
-    fig.suptitle(partes[0] + (f"  ({', '.join(partes[1:])})" if len(partes) > 1 else ""),
+    parts = ["Solver convergence"]
+    if conv_summary["solver"]:
+        parts.append(str(conv_summary["solver"]))
+    if conv_summary["n_elements"]:
+        parts.append(f"{conv_summary['n_elements']} elements")
+    if conv_summary["sweeps"]:
+        parts.append(f"{int(conv_summary['sweeps'])} sweeps")
+    fig.suptitle(parts[0] + (f"  ({', '.join(parts[1:])})" if len(parts) > 1 else ""),
                  fontsize=11, fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, 0.94])
     # The cards are drawn AFTER the layout: their font size depends on
-    # the panel's final width (see `_cartoes_de_numero`), and before
+    # the panel's final width (see `_number_cards`), and before
     # `tight_layout` that width will still change.
-    if cartoes:
-        _cartoes_de_numero(ax_num, cartoes)
+    if cards:
+        _number_cards(ax_num, cards)
     if fname is not None:
         fig.savefig(fname, dpi=_EXPORT_DPI)
         return None
@@ -1197,8 +1199,8 @@ _MU_SWEEP_PANELS = [
 ]
 
 #: Panels for PROPELLER mode. Not the same set as the rotor with
-#: different names -- it is a different nondimensionalization (rho*n^2*D^4
-#: instead of rho*A*(Omega*R)^2, see `bemt.aggregate_results` Sec.6c) and a
+#: different names: it is a different nondimensionalization (rho*n^2*D^4
+#: instead of rho*A*(Omega*R)^2, see `bemt.aggregate_results` Section 6c) and a
 #: different figure of merit (eta_prop instead of FM). Showing the rotor
 #: panels for a propeller filled the figure with physically meaningless
 #: plots there (FM outside of hover, CMx/CMy/CY, which for a propeller in
@@ -1218,24 +1220,24 @@ _PROP_SWEEP_PANELS = [
 ]
 
 
-def _paineis_de_varredura(results_list) -> list:
+def _sweep_panels(results_list) -> list:
     """Chooses the panel set by the result's CONVENTION.
 
     `aggregate_results` records `cfg_is_propeller` in each `Results`'s
-    `summary`, so the choice comes from what was actually run -- not
+    `summary`, so the choice comes from what was actually run, not
     from an extra parameter the caller would have to remember to pass
     (and that the GUI, the CLI, and the report would forget in
     different places)."""
     if results_list:
-        primeiro = results_list[0].summary
-        if primeiro.get("cfg_is_propeller") or primeiro.get("is_propeller"):
+        first = results_list[0].summary
+        if first.get("cfg_is_propeller") or first.get("is_propeller"):
             return _PROP_SWEEP_PANELS
     return _MU_SWEEP_PANELS
 
 
 # Maps each factorial variable (`studies._FACTORIAL_VARIABLES`) to the
 # `Results.summary` key that carries its resolved value, and to a
-# friendly axis/title label -- Part 4.2 ("Coefficients vs axis"
+# friendly axis/title label. Part 4.2 ("Coefficients vs axis"
 # generalizes the old "Polar (batch)", which only knew how to plot vs
 # mu_x). "mu_x" and "alpha_deg" already had native columns from
 # `bemt.aggregate_results` (`mu_x`, `alpha_rotor_deg`); "collective_deg"/
@@ -1247,7 +1249,7 @@ _AXIS_TO_SUMMARY_KEY = {
     "collective_deg": "collective_deg",
     "rpm": "rpm",
 }
-def _chave_de_agrupamento(valor):
+def _grouping_key(value):
     """Rounds a value before using it as a grouping KEY for series
     (``plot_coefficients_vs_axis``/``plot_xy``).
 
@@ -1255,61 +1257,61 @@ def _chave_de_agrupamento(valor):
     particular ``alpha_rotor_deg``, which an ``alpha_deg`` sweep
     resolves via ``Vz=tan(alpha)*V`` and then reconstructs via
     ``atan2(Vz, V)``) are the result of a floating-point calculation,
-    not a typed-in value -- comparing by EXACT EQUALITY sliced a single
-    nominal sweep (e.g. alpha = -3, -2, ..., 3) into several
+    not a typed-in value. Comparing by EXACT EQUALITY sliced a single
+    nominal sweep (for example alpha = -3, -2, ..., 3) into several
     near-duplicate series because of ~1e-4 noise, one per combination
     with the other axis (seen on screen: ~20 alpha curves where the
     user asked for 7). Rounding to 3 decimal places preserves any
     sweep with an actual step larger than 0.001 (the vast majority)
     and merges the floating-point noise into the same series."""
-    if isinstance(valor, float):
-        arredondado = round(valor, 3)
+    if isinstance(value, float):
+        rounded = round(value, 3)
         # round(-0.0002, 3) == -0.0: numerically equal to 0.0, but
-        # formats as "-0" instead of "0" (`f"{-0.0:g}"`) -- two
+        # formats as "-0" instead of "0" (`f"{-0.0:g}"`). Two
         # combinations of the same nominal value near zero, one coming
         # from positive noise and the other from negative noise, kept
         # turning into DIFFERENT labels (and therefore series) after
         # the very rounding that was supposed to unite them.
-        return arredondado + 0.0
-    return valor
+        return rounded + 0.0
+    return value
 
 
 #: DEFAULT tolerance (in the quantity's own units) for deciding whether two
 #: grouping values are "the same value". Adjustable by the user via the
 #: "Group tolerance" control on the Results tab.
-TOLERANCIA_DE_AGRUPAMENTO_PADRAO = 0.01
+DEFAULT_GROUP_TOLERANCE = 0.01
 
 
-def _ordem_de_grupo(chave):
+def _group_order(key):
     """Orders the series by grouping key: numeric in ascending order,
     non-numeric afterwards, in alphabetical order. The legend used to
     come out in the results' APPEARANCE order, which for a factorial is
-    the order of the cartesian product -- ``alpha = 0, -10, -5, 5, 10``
+    the order of the cartesian product: ``alpha = 0, -10, -5, 5, 10``
     on screen, with the reader having to hunt for the right curve
     instead of reading it off."""
-    if isinstance(chave, (int, float)) and not isinstance(chave, bool):
-        return (0, float(chave), "")
-    return (1, 0.0, str(chave))
+    if isinstance(key, (int, float)) and not isinstance(key, bool):
+        return (0, float(key), "")
+    return (1, 0.0, str(key))
 
 
-def mapa_de_agrupamento(valores, tol: float = TOLERANCIA_DE_AGRUPAMENTO_PADRAO) -> dict:
+def grouping_map(values, tol: float = DEFAULT_GROUP_TOLERANCE) -> dict:
     """Map ``raw value -> canonical series key``, merging values that
     are less than ``tol`` apart from each other.
 
     Why a TOLERANCE and not just the rounding from
-    `_chave_de_agrupamento`: rounding is a fixed grid, and two values
+    `_grouping_key`: rounding is a fixed grid, and two values
     of the SAME nominal value can fall into neighboring cells of it.
-    That is what was seen on screen -- a sweep of alpha = -10, -5, 0,
+    That is what was seen on screen: a sweep of alpha = -10, -5, 0,
     5, 10 (whose alpha is reconstructed via ``atan2(Vz, V)``, with
     error of ~1e-3 depending on the mu_x of each combination) produced
     the series ``-10.002``, ``-10.001``, ``-10``, ``-9.999``,
     ``-9.997``: five curves of one or two points where the user asked
     for ONE. Rounding does not fix this because the noise crosses the
-    grid boundary; grouping by PROXIMITY does.
+    grid boundary. Grouping by PROXIMITY does.
 
     Gap-based grouping (1D single-linkage): sorted values, cut where
     the next neighbor is more than ``tol`` away. A legitimate sweep
-    with a step larger than ``tol`` remains separate -- that is
+    with a step larger than ``tol`` remains separate. That is
     exactly what the tolerance means, and why it belongs to the user,
     not fixed.
 
@@ -1318,57 +1320,57 @@ def mapa_de_agrupamento(valores, tol: float = TOLERANCIA_DE_AGRUPAMENTO_PADRAO) 
     a ``-9.9995`` that would give away in the legend the noise that
     was just merged). Non-numeric values (and NaN) are their own key.
     """
-    numericos: list[float] = []
-    mapa: dict = {}
-    for v in valores:
+    numeric_values: list[float] = []
+    mapping: dict = {}
+    for v in values:
         if isinstance(v, (int, float)) and not isinstance(v, bool):
             fv = float(v)
             if np.isnan(fv):
-                mapa[v] = v
+                mapping[v] = v
                 continue
-            numericos.append(fv)
+            numeric_values.append(fv)
         else:
-            mapa[v] = v
+            mapping[v] = v
 
-    if not numericos:
-        return mapa
+    if not numeric_values:
+        return mapping
 
     try:
         tol = float(tol)
     except (TypeError, ValueError):
-        tol = TOLERANCIA_DE_AGRUPAMENTO_PADRAO
+        tol = DEFAULT_GROUP_TOLERANCE
     if not np.isfinite(tol) or tol <= 0.0:
         # Null/invalid tolerance = previous behavior (3-decimal grid),
         # never an exception in the middle of a plot refresh.
-        for v in numericos:
-            mapa[v] = _chave_de_agrupamento(v)
-        return mapa
+        for v in numeric_values:
+            mapping[v] = _grouping_key(v)
+        return mapping
 
-    ordenados = sorted(set(numericos))
-    grupo = [ordenados[0]]
-    grupos = [grupo]
-    for anterior, atual in zip(ordenados, ordenados[1:]):
-        if atual - anterior <= tol:
-            grupo.append(atual)
+    sorted_values = sorted(set(numeric_values))
+    current_group = [sorted_values[0]]
+    groups_list = [current_group]
+    for previous, current in zip(sorted_values, sorted_values[1:]):
+        if current - previous <= tol:
+            current_group.append(current)
         else:
-            grupo = [atual]
-            grupos.append(grupo)
+            current_group = [current]
+            groups_list.append(current_group)
 
-    for g in grupos:
-        canonica = round(float(np.mean(g)) / tol) * tol
-        # +0.0 kills the "-0" (same trap as `_chave_de_agrupamento`);
-        # the second rounding removes the binary residue from
+    for g in groups_list:
+        canonical = round(float(np.mean(g)) / tol) * tol
+        # +0.0 kills the "-0" (same trap as `_grouping_key`).
+        # The second rounding removes the binary residue from
         # `x/tol*tol` (0.1*3 = 0.30000000000000004 would render as
         # label "0.3" but a distinct key from a 0.3 arriving another way).
-        canonica = round(canonica, 12) + 0.0
+        canonical = round(canonical, 12) + 0.0
         for v in g:
-            mapa[v] = canonica
-    return mapa
+            mapping[v] = canonical
+    return mapping
 
 
 #: The PROSE half of a sweep-panel axis: what the quantity is called in a
-#: sentence. The symbol half is not here -- it comes from `nomenclature`, per
-#: mode, via `_rotulo_de_eixo_de_varredura`. A propeller batch swept over the
+#: sentence. The symbol half is not here, it comes from `nomenclature`, per
+#: mode, via `_sweep_axis_label`. A propeller batch swept over the
 #: cross-flow used to be titled "advance ratio (mu_x)" in BOTH modes, which
 #: names the cross-flow as if it were the advance ratio.
 _AXIS_TITLES = {
@@ -1380,7 +1382,7 @@ _AXIS_TITLES = {
 }
 
 
-def modo_helice_dos_resultados(results_list) -> bool:
+def results_propeller_mode(results_list) -> bool:
     """Whether these results were run in propeller mode, from the
     `cfg_is_propeller` echo `bemt.aggregate_results` writes into every
     `Results.summary`.
@@ -1388,32 +1390,32 @@ def modo_helice_dos_resultados(results_list) -> bool:
     Read here instead of being passed in: every plotting entry point already
     receives the results, and a figure whose axis letters disagree with the
     table beside it is exactly what this refactor removes.
-    `api.modo_helice` is the same criterion, for callers that also hold the
+    `api.propeller_mode` is the same criterion, for callers that also hold the
     project."""
     for r in results_list or ():
-        valor = r.summary.get("cfg_is_propeller")
-        if valor is not None:
-            return bool(valor)
+        value = r.summary.get("cfg_is_propeller")
+        if value is not None:
+            return bool(value)
     return False
 
 
-def _rotulo_de_eixo_de_varredura(axis: str, is_propeller: bool = False) -> tuple:
+def _sweep_axis_label(axis: str, is_propeller: bool = False) -> tuple:
     """``(axis label, prose title)`` for a sweep panel, in the mode's own
     axis letters."""
-    titulos = _AXIS_TITLES.get(axis)
-    if titulos is None:
+    titles = _AXIS_TITLES.get(axis)
+    if titles is None:
         return axis, axis
-    titulo = titulos[1] if is_propeller else titulos[0]
-    rotulo = _summary_axis_label(_AXIS_TO_SUMMARY_KEY.get(axis, axis), is_propeller)
-    return rotulo, f"{titulo} ({nomenclature.symbol_text(axis, is_propeller)})"
+    prose = titles[1] if is_propeller else titles[0]
+    label = _summary_axis_label(_AXIS_TO_SUMMARY_KEY.get(axis, axis), is_propeller)
+    return label, f"{prose} ({nomenclature.symbol_text(axis, is_propeller)})"
 
 # =============================================================================
-# Axis/mathtext labels shared by ANY `Results.summary` key -- used by
+# Axis/mathtext labels shared by ANY `Results.summary` key, used by
 # `plot_xy` (the "Custom X-Y" part, requested by the user: plot any
 # quantity vs any other, in a single panel, grouped by a third one).
 # Builds on `_AXIS_TITLES`/`_MU_SWEEP_PANELS`/
 # `_PROP_SWEEP_PANELS` (which already covered the 4 factorial axes and
-# the 11+9 panel coefficients) instead of duplicating -- see CLAUDE.md
+# the 11+9 panel coefficients) instead of duplicating, see CLAUDE.md
 # "a new field needs to be wired into the right surfaces": here the
 # surface is only labeling, not .bemt/CLI, so a local table is enough.
 # Each entry: summary key -> mathtext label READY for the axis
@@ -1422,7 +1424,7 @@ _SUMMARY_KEY_LABELS = {
     # --- flight condition / input ---------------------------------------
     # NOT HERE. Every key whose symbol depends on the axis convention comes
     # from `zbemt.nomenclature`, which `_summary_axis_label` consults first.
-    # This used to be a second copy of `api._SIMBOLO_DE_COLUNA`, and the two
+    # This used to be a second copy of `api._COLUMN_SYMBOL`, and the two
     # had already drifted: the report's table said theta_0 in [rev/min]
     # where the chart printed beside it, in the SAME report, said theta_col
     # in [-].
@@ -1452,11 +1454,11 @@ _SUMMARY_KEY_LABELS = {
 def _summary_axis_label(key: str, is_propeller: bool = False) -> str:
     """Mathtext axis label for any ``Results.summary`` key (see
     `_SUMMARY_KEY_LABELS`); falls back to the key's own name (unformatted)
-    when unknown -- never fails, even for a new key or a
+    when unknown. It never fails, even for a new key or a
     ``cfg_*``/``rotor_*`` with no dedicated entry.
 
     ``is_propeller`` swaps the axis letters without touching the value or the
-    key -- the swap itself lives in `zbemt.nomenclature`, shared with the
+    key. The swap itself lives in `zbemt.nomenclature`, shared with the
     report's table headers and the GUI's combos, so a chart and the table
     beside it cannot name the same column differently."""
     if nomenclature.quantity(key) is not None:
@@ -1469,33 +1471,33 @@ def _summary_axis_label(key: str, is_propeller: bool = False) -> str:
 # =============================================================================
 # The conversions themselves live in `zbemt.nomenclature`, next to the LaTeX
 # they convert: whatever DRAWS renders `$\mu_x$` as mu; whatever just
-# DISPLAYS TEXT -- a QComboBox on the Results tab, a table header -- would
+# DISPLAYS TEXT (a QComboBox on the Results tab, a table header) would
 # show the raw source ("mu_x  ($\mu_x$ [-])" was on screen). Re-exported
 # under the names this module has always used, so the GUI keeps calling
-# `plots.rotulo_em_texto`, and no second label list has to exist.
-rotulo_em_texto = nomenclature.to_unicode
-rotulo_em_html = nomenclature.to_html
+# `plots.label_to_text`, and no second label list has to exist.
+label_to_text = nomenclature.to_unicode
+label_to_html = nomenclature.to_html
 
 
-def rotulo_de_summary_em_texto(key: str, is_propeller: bool = False) -> str:
-    """`_summary_axis_label` already in plain text -- what the GUI shows."""
-    return rotulo_em_texto(_summary_axis_label(key, is_propeller))
+def summary_label_text(key: str, is_propeller: bool = False) -> str:
+    """`_summary_axis_label` already in plain text, what the GUI shows."""
+    return label_to_text(_summary_axis_label(key, is_propeller))
 
 
-def rotulo_de_summary_em_html(key: str, is_propeller: bool = False) -> str:
-    """`_summary_axis_label` already in HTML -- what the Results tab's
+def summary_label_html(key: str, is_propeller: bool = False) -> str:
+    """`_summary_axis_label` already in HTML, what the Results tab's
     combos paint."""
-    return rotulo_em_html(_summary_axis_label(key, is_propeller))
+    return label_to_html(_summary_axis_label(key, is_propeller))
 
 
 
-#: PROSE description of each disk map field -- what the field MEANS,
+#: PROSE description of each disk map field: what the field MEANS,
 #: without a code variable name. It is the text shown on hovering over
 #: an item in the Results tab's combos (user request: "the extended
 #: name, in prose, not the internal representation").
 #: `_DISK_FIELD_META` remains the source of the field SET: a key with
 #: no entry here simply gets no description.
-_DISK_FIELD_DESCRICAO = {
+_DISK_FIELD_DESCRIPTIONS = {
     "Fn": "Thrust per unit span: the force each metre of blade pushes along the rotor axis.",
     "Ft": "In-plane force per unit span: what resists the rotation, and therefore what sets the torque.",
     "Ft_i": "Induced part of the in-plane force: the share that comes from tilting the lift vector back, the unavoidable cost of making thrust.",
@@ -1518,7 +1520,7 @@ _DISK_FIELD_DESCRICAO = {
 def disk_field_description(field: str) -> str:
     """Prose description of a disk map field; empty string when not
     cataloged (the combo simply shows no tooltip)."""
-    return _DISK_FIELD_DESCRICAO.get(field, "")
+    return _DISK_FIELD_DESCRIPTIONS.get(field, "")
 
 
 def flatten_selection(entries) -> list:
@@ -1526,7 +1528,7 @@ def flatten_selection(entries) -> list:
     (single cases + batches, docs/plano_v3.md Part 4.2) into a flat
     list of ``Results``, in the order they appear in ``entries``. A
     ``kind="case"`` entry contributes 1 element (``entry.results`` is
-    the ``Results`` itself); a ``kind="batch"`` entry contributes all
+    the ``Results`` itself). A ``kind="batch"`` entry contributes all
     of its ``Results`` (``entry.results`` is already the list), in
     saved order."""
     flat = []
@@ -1540,12 +1542,12 @@ def flatten_selection(entries) -> list:
 
 def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncols: int = 4,
                                 series_labels=None,
-                                group_tol: float = TOLERANCIA_DE_AGRUPAMENTO_PADRAO):
+                                group_tol: float = DEFAULT_GROUP_TOLERANCE):
     """Grid with the 11 global coefficients (CT, CQ, FM, CY, CMx, CMy, CH,
-    CHp, CHi, CPp, CPi) as a function of ``axis`` -- generalizes the old
+    CHp, CHi, CPp, CPi) as a function of ``axis``. It generalizes the old
     `plot_coefficients_vs_mu` (kept below as a shortcut) to any of the 4
     factorial variables in `studies._FACTORIAL_VARIABLES` ("mu_x",
-    "alpha_deg", "collective_deg", "rpm") -- Part 4.2, "Coefficients vs
+    "alpha_deg", "collective_deg", "rpm"), per Part 4.2, "Coefficients vs
     axis".
 
     ``series_labels``: optional, parallel to ``results_list`` (same
@@ -1553,15 +1555,15 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
     SINGLE curve per panel, sorted by increasing ``axis`` ("combine"
     mode). When provided with 2+ distinct labels, draws one curve PER
     label, overlaid on the same panel ("overlay" mode, useful for
-    comparing 2+ selections from the Results history side by side) --
+    comparing 2+ selections from the Results history side by side),
     see `ResultsTab._refresh_batch` in gui.py.
 
     ``group_tol``: tolerance for series auto-detection (values closer
-    than this are the same nominal value -- `mapa_de_agrupamento`).
+    than this are the same nominal value, see `grouping_map`).
     """
     key = _AXIS_TO_SUMMARY_KEY.get(axis, axis)
-    axis_label, axis_title = _rotulo_de_eixo_de_varredura(
-        axis, modo_helice_dos_resultados(results_list))
+    axis_label, axis_title = _sweep_axis_label(
+        axis, results_propeller_mode(results_list))
     x_all = np.array([r.summary.get(key, np.nan) for r in results_list], dtype=float)
 
     # Identifies the other factorial variables that also varied across the results
@@ -1575,17 +1577,17 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
         # `alpha_rotor_deg` is DERIVED from `atan2(Vz, mu_x*OmegaR)`: it
         # is only DEGENERATE (discontinuous, jumps from 0 to 90 at a
         # single point) in the specific case of a PURELY axial
-        # propeller sweep -- `mu_x` locked at ~0 (atan2 denominator ~0)
-        # while `Vz` sweeps through zero. Treating it as a "second axis
-        # varying" in this specific case split the sweep into TWO
-        # spurious series -- the V=0 point alone in one curve, the rest
-        # in another.
+        # propeller sweep, with `mu_x` locked at ~0 (atan2
+        # denominator ~0) while `Vz` sweeps through zero. Treating it
+        # as a "second axis varying" in this specific case split the
+        # sweep into TWO spurious series: the V=0 point alone in one
+        # curve, the rest in another.
         #
         # The PREVIOUS condition ("exclude alpha_deg whenever mu_x OR Vz
         # have more than one value across the whole list") was too
         # broad: `mu_x` varies in practically ANY mu_x sweep (it is the
         # X axis!), so it suppressed grouping by alpha even in a
-        # legitimate 2-axis factorial (mu_x x alpha_deg) -- the entire
+        # legitimate 2-axis factorial (mu_x x alpha_deg). The entire
         # batch collapsed into a single curve, hiding the alphas the
         # user asked to compare. The real degenerate case requires
         # `mu_x` CONSTANT and near zero (not "varying"); with `mu_x`
@@ -1596,57 +1598,57 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
                    if v is not None and not (isinstance(v, float) and np.isnan(v))}
         vv_vals = {v for v in (r.summary.get("Vz") for r in results_list)
                    if v is not None and not (isinstance(v, float) and np.isnan(v))}
-        avanco_axial_degenerado = (
+        axial_advance_degenerate = (
             len(mu_vals) <= 1 and (not mu_vals or abs(next(iter(mu_vals))) < 1e-9)
             and len(vv_vals) > 1)
-        if avanco_axial_degenerado:
+        if axial_advance_degenerate:
             other_keys = [(sk, ax) for sk, ax in other_keys if ax != "alpha_deg"]
 
         # One tolerance per quantity: two values closer than
         # `group_tol` are THE SAME nominal value, both for deciding
         # whether the quantity VARIED and for labeling the series (see
-        # `mapa_de_agrupamento`).
+        # `grouping_map`).
         swept_other_vars = []
-        chaves_por_grandeza: dict = {}
+        keys_by_quantity: dict = {}
         for skey, ax_name in other_keys:
             vals = [r.summary.get(skey, None) for r in results_list]
-            chave_de = mapa_de_agrupamento(
+            key_of = grouping_map(
                 [v for v in vals
                  if v is not None and not (isinstance(v, float) and np.isnan(v))], group_tol)
-            chaves_por_grandeza[skey] = chave_de
-            if len(set(chave_de.values())) > 1:
+            keys_by_quantity[skey] = key_of
+            if len(set(key_of.values())) > 1:
                 swept_other_vars.append((skey, ax_name))
 
 
-        ordem_por_label: dict = {}
+        order_by_label: dict = {}
         for i, r in enumerate(results_list):
             label_parts = []
-            ordem = []
+            order_keys = []
             for skey, ax_name in swept_other_vars:
-                bruto = r.summary.get(skey)
-                val = chaves_por_grandeza[skey].get(bruto, _chave_de_agrupamento(bruto))
+                raw_value = r.summary.get(skey)
+                val = keys_by_quantity[skey].get(raw_value, _grouping_key(raw_value))
                 if val is not None and not (isinstance(val, float) and np.isnan(val)):
                     symbol = nomenclature.symbol_name(
-                        ax_name, modo_helice_dos_resultados(results_list))
+                        ax_name, results_propeller_mode(results_list))
                     label_parts.append(f"{symbol}={val:g}" if isinstance(val, (int, float)) else f"{symbol}={val}")
-                    ordem.append(_ordem_de_grupo(val))
+                    order_keys.append(_group_order(val))
 
             lbl = ", ".join(label_parts)
-            ordem_por_label.setdefault(lbl, tuple(ordem))
+            order_by_label.setdefault(lbl, tuple(order_keys))
             groups.setdefault(lbl, []).append(i)
-        # Legend in value order, not appearance order (see `_ordem_de_grupo`).
-        groups = {k: groups[k] for k in sorted(groups, key=lambda k: ordem_por_label.get(k, ()))}
+        # Legend in value order, not appearance order (see `_group_order`).
+        groups = {k: groups[k] for k in sorted(groups, key=lambda k: order_by_label.get(k, ()))}
 
     overlay = len(groups) > 1 or (series_labels is not None and len(set(series_labels)) > 1)
 
-    paineis = _paineis_de_varredura(results_list)
-    n = len(paineis)
+    panels = _sweep_panels(results_list)
+    n = len(panels)
     ncols = min(ncols, n)
     nrows = int(np.ceil(n / ncols))
-    fig, axes = _nova_figura((4.0 * ncols, 3.0 * nrows), nrows, ncols)
+    fig, axes = _new_figure((4.0 * ncols, 3.0 * nrows), nrows, ncols)
     axes = np.atleast_1d(axes).ravel()
 
-    for i, (ax, (field_key, ylabel, title)) in enumerate(zip(axes, paineis)):
+    for i, (ax, (field_key, ylabel, title)) in enumerate(zip(axes, panels)):
         for lbl, idxs in groups.items():
             xs = x_all[idxs]
             order = np.argsort(xs)
@@ -1660,19 +1662,19 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
         ax.set_ylabel(ylabel)
         ax.set_title(title, fontsize=9)
         ax.grid(True, alpha=0.3)
-        limite_y = max(abs(float(v)) for v in ax.get_ylim())
-        if 0.0 < limite_y < 1e-3:
-            # The global offset (e.g. ``1e-5``) sits above the axis and
+        y_limit = max(abs(float(v)) for v in ax.get_ylim())
+        if 0.0 < y_limit < 1e-3:
+            # The global offset (for example ``1e-5``) sits above the axis and
             # can collide with the title of the panel on the next row.
             ax.yaxis.set_major_formatter(
-                FuncFormatter(lambda valor, _pos: f"{valor:.1e}"))
+                FuncFormatter(lambda value, _pos: f"{value:.1e}"))
     if overlay:
         axes[0].legend(fontsize=7)
     for j in range(n, len(axes)):
         axes[j].axis("off")
 
-    modo = "Propeller" if paineis is _PROP_SWEEP_PANELS else "Rotor"
-    fig.suptitle(rf"{modo} performance vs {axis_title}", fontsize=12, fontweight="bold")
+    mode_label = "Propeller" if panels is _PROP_SWEEP_PANELS else "Rotor"
+    fig.suptitle(rf"{mode_label} performance vs {axis_title}", fontsize=12, fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, 0.95], h_pad=3.0, w_pad=1.5)
     return _finish_fig(fig, fname)
 
@@ -1680,18 +1682,19 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
 def plot_coefficients_vs_mu(results_list, fname=None, ncols: int = 4):
     """Backward-compatible: shortcut for
     ``plot_coefficients_vs_axis(results_list, axis="mu_x", ...)``, same
-    signature/behavior as always."""
+    signature and behavior as always."""
     return plot_coefficients_vs_axis(results_list, axis="mu_x", fname=fname, ncols=ncols)
 
 
 def plot_xy(results_list, x_key: str, y_key: str, group_by: str | None = None,
             ax=None, fname=None,
-            group_tol: float = TOLERANCIA_DE_AGRUPAMENTO_PADRAO,
+            group_tol: float = DEFAULT_GROUP_TOLERANCE,
             is_propeller: bool = False):
     """Free plot: ANY ``Results.summary`` key on the X axis, ANY other
     on the Y axis, optionally grouped into one curve per distinct value
-    of ``group_by`` (also a summary key, e.g. "collective_deg" for a
-    curve per collective/alpha/etc.) -- user request: "plot anything
+    of ``group_by`` (also a summary key, for example "collective_deg",
+    which gives a curve per collective, per angle of attack, and so
+    on). User request: "plot anything
     against anything from the whole batch, several curves, one per
     grouping variable". Complements (does not replace)
     `plot_coefficients_vs_axis`, which remains the fixed 11/9-panel
@@ -1699,11 +1702,11 @@ def plot_xy(results_list, x_key: str, y_key: str, group_by: str | None = None,
 
     Points with missing or NaN ``x_key``/``y_key`` are simply ignored
     (never brings down the whole plot for 1 incomplete result). Within
-    each curve, points are sorted by increasing X -- same convention as
+    each curve, points are sorted by increasing X, the same convention as
     `plot_coefficients_vs_axis`.
 
     ``group_tol``: ``group_by`` values closer than this fall into the
-    SAME curve (see `mapa_de_agrupamento`).
+    SAME curve (see `grouping_map`).
     """
     ax, fig = _resolve_ax(ax, fname)
 
@@ -1717,15 +1720,15 @@ def plot_xy(results_list, x_key: str, y_key: str, group_by: str | None = None,
 
     groups: dict = {}
     if group_by:
-        brutos = [r.summary.get(group_by, None) for r in results_list]
-        chave_de = mapa_de_agrupamento(
-            [v for v in brutos if v is not None
+        raw_values = [r.summary.get(group_by, None) for r in results_list]
+        key_of = grouping_map(
+            [v for v in raw_values if v is not None
              and not (isinstance(v, float) and np.isnan(v))], group_tol)
-        for r, gv in zip(results_list, brutos):
+        for r, gv in zip(results_list, raw_values):
             if gv is None or (isinstance(gv, float) and np.isnan(gv)):
                 continue
-            groups.setdefault(chave_de.get(gv, gv), []).append(r)
-        groups = {k: groups[k] for k in sorted(groups, key=_ordem_de_grupo)}
+            groups.setdefault(key_of.get(gv, gv), []).append(r)
+        groups = {k: groups[k] for k in sorted(groups, key=_group_order)}
     else:
         groups[None] = list(results_list)
 
@@ -1752,9 +1755,9 @@ def plot_xy(results_list, x_key: str, y_key: str, group_by: str | None = None,
     ax.set_ylabel(_summary_axis_label(y_key, is_propeller))
     ax.axhline(0, color="0.6", linestyle=":", linewidth=0.6)
     ax.grid(True, alpha=0.3)
-    titulo_y = _summary_axis_label(y_key, is_propeller).split(" [")[0]
-    titulo_x = _summary_axis_label(x_key, is_propeller).split(" [")[0]
-    ax.set_title(f"{titulo_y} vs {titulo_x}")
+    title_y = _summary_axis_label(y_key, is_propeller).split(" [")[0]
+    title_x = _summary_axis_label(x_key, is_propeller).split(" [")[0]
+    ax.set_title(f"{title_y} vs {title_x}")
     if overlay:
         ax.legend(fontsize=8)
     if not any_point:
@@ -1793,15 +1796,15 @@ _BLADE_LOAD_FIELDS = [
 def plot_blade_loads_vs_span(maps: dict, psi_targets_deg=(0, 90, 180, 270),
                               fname=None, ncols: int = 4, mask_reverse: bool = True):
     """Blade aerodynamic loads/state as a function of r/R, for a set of
-    fixed azimuths (one curve per azimuth) -- equivalent to
+    fixed azimuths (one curve per azimuth), equivalent to
     `plot_blade_loads` from zBEMT MATLAB. Angles always in degrees.
 
     `mask_reverse` (default True, same as `mask_reverse_flow_plots` in
     `plot_disk_map`): for each curve (one fixed azimuth), the r/R
     stretches where `Ut<0` (reverse flow) are shaded in light gray
     (`_REVERSE_MASK_COLOR`, via `_shade_reverse_regions`) and the curve
-    itself is interrupted (NaN) over that stretch -- it never ends up
-    empty/white, and never draws the field's (possibly nonsensical)
+    itself is interrupted (NaN) over that stretch. It never ends up
+    empty or white, and never draws the field's (possibly nonsensical)
     value there.
     """
     r_norm = np.asarray(maps["r_norm_nodes"], dtype=float)
@@ -1811,7 +1814,7 @@ def plot_blade_loads_vs_span(maps: dict, psi_targets_deg=(0, 90, 180, 270),
     n = len(_BLADE_LOAD_FIELDS)
     ncols = min(ncols, n)
     nrows = int(np.ceil(n / ncols))
-    fig, axes = _nova_figura((3.6 * ncols, 2.6 * nrows), nrows, ncols)
+    fig, axes = _new_figure((3.6 * ncols, 2.6 * nrows), nrows, ncols)
     axes = np.atleast_1d(axes).ravel()
     colors = plt.get_cmap("tab10")
 
@@ -1848,15 +1851,15 @@ def plot_blade_loads_vs_span(maps: dict, psi_targets_deg=(0, 90, 180, 270),
 def plot_loads_vs_azimuth(maps: dict, r_norm_targets=(0.25, 0.5, 0.75, 0.95),
                            fname=None, ncols: int = 4, mask_reverse: bool = True):
     """Blade aerodynamic loads/state as a function of azimuth (psi), for
-    a set of fixed radial stations (one curve per r/R) -- equivalent to
+    a set of fixed radial stations (one curve per r/R), equivalent to
     `plot_loads_vs_azimuth` from zBEMT MATLAB. Angles always in degrees.
 
     `mask_reverse` (default True, same as `mask_reverse_flow_plots` in
     `plot_disk_map`): for each curve (one fixed radial station), the
     azimuth stretches where `Ut<0` (reverse flow) are shaded in light
     gray (`_REVERSE_MASK_COLOR`, via `_shade_reverse_regions`) and the
-    curve itself is interrupted (NaN) over that stretch -- it never
-    ends up empty/white, and never draws the field's (possibly
+    curve itself is interrupted (NaN) over that stretch. It never
+    ends up empty or white, and never draws the field's (possibly
     nonsensical) value there.
     """
     r_norm = np.asarray(maps["r_norm_nodes"], dtype=float)
@@ -1866,7 +1869,7 @@ def plot_loads_vs_azimuth(maps: dict, r_norm_targets=(0.25, 0.5, 0.75, 0.95),
     n = len(_BLADE_LOAD_FIELDS)
     ncols = min(ncols, n)
     nrows = int(np.ceil(n / ncols))
-    fig, axes = _nova_figura((3.6 * ncols, 2.6 * nrows), nrows, ncols)
+    fig, axes = _new_figure((3.6 * ncols, 2.6 * nrows), nrows, ncols)
     axes = np.atleast_1d(axes).ravel()
     colors = plt.get_cmap("tab10")
 

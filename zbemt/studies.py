@@ -2,7 +2,7 @@
 
 Purpose and objectives:
     Convert project data into engine inputs, execute one or more flight
-    conditions, apply cancellation/progress callbacks, and return results.
+    conditions, apply cancellation and progress callbacks, and return results.
 
 Inputs and outputs:
     Inputs are ``Project``, ``FlightCondition``, ``BatchDefinition``, and
@@ -34,33 +34,33 @@ from . import airfoils
 from . import nomenclature
 from .bemt import BEMTConfig, Rotor, solve_bemt, aggregate_results, SolveCancelled
 
-# Fixed-point solvers available in bemt.py (see bemt._SOLVERS) — used
+# Fixed-point solvers available in bemt.py (see bemt._SOLVERS), used
 # as the default for benchmark_solvers().
 _KNOWN_SOLVERS = ("fixed_point", "newton", "bisection", "aitken")
 
 
 # =============================================================================
-# Model -> engine conversions (unique to this file — api.py does not duplicate)
+# Model -> engine conversions (unique to this file, api.py does not duplicate them)
 # =============================================================================
 
-def _require_rpm(rpm, contexto: str = "the flight condition") -> float:
+def _require_rpm(rpm, context: str = "the flight condition") -> float:
     """RPM is REQUIRED for every flight condition.
 
     There is no reasonable default: BEMT nondimensionalizes everything by
-    ``Omega*R``, so rotation speed sets the entire scale of the problem --
+    ``Omega*R``, so rotation speed sets the entire scale of the problem:
     thrust, torque, Reynolds, and tip Mach. There used to be a 1000 RPM
     placeholder here for conditions without rpm, and it produced
     plausible-looking results from a made-up rotation speed, with nothing
     to give it away. Failing loudly is the only honest option."""
     if rpm is None:
         raise ValueError(
-            f"RPM not provided in {contexto}. BEMT adimensionalizes by "
-            "Omega*R, so rotation is required -- there is no physically defensible default. "
-            "Fill in `FlightCondition.rpm`.")
+            f"RPM not provided in {context}. BEMT adimensionalizes by "
+            "Omega*R, so rotation is required. There is no physically "
+            "defensible default. Fill in `FlightCondition.rpm`.")
     rpm_value = float(rpm)
     if not np.isfinite(rpm_value) or rpm_value <= 0.0:
         raise ValueError(
-            f"Invalid RPM in {contexto}: {rpm_value!r}. Must be a "
+            f"Invalid RPM in {context}: {rpm_value!r}. Must be a "
             "finite number greater than zero.")
     return rpm_value
 
@@ -71,14 +71,14 @@ def _to_rotor(geom: RotorGeometryDef, collective_deg: float = 0.0,
 
     ``collective_deg`` is added as a RIGID offset (uniform across the
     whole radius) on top of the geometric twist (`geom.twist_deg`, which
-    already carries the built-in root->tip washout) — exactly what a
-    collective command does physically. Without this, a
+    already carries the built-in root->tip washout). This is exactly what
+    a collective command does physically. Without this, a
     ``FlightCondition.collective_deg`` change has no effect at all on the
     result, which is the bug fixed here.
 
     ``rpm`` is required (see ``_require_rpm``); it is only optional in
-    the signature so that callers who need just the geometry -- unit
-    conversions that use ``R`` and nothing else -- can omit it."""
+    the signature so that callers who need just the geometry (unit
+    conversions that use ``R`` and nothing else) can omit it."""
     theta = np.asarray(geom.twist_deg, dtype=float) + collective_deg
     return Rotor(
         R=geom.radius_m,
@@ -106,7 +106,7 @@ def _migrate_config_dict(config_dict: dict) -> dict:
     ``inflow_model``/``inflow_coupling`` fields and/or ``use_compressibility``
     inside ``AirfoilDef``, and/or a ``use_prandtl_loss`` bool) to the current
     ``BEMTConfig`` schema (single ``inflow_field_model`` field, and
-    ``prandtl_loss_mode`` str — see docs/plano.md GUI v3, Phase B).
+    ``prandtl_loss_mode`` str, see docs/plano.md GUI v3 Phase B).
     Idempotent: a dict already in the current schema passes through unchanged."""
     migrated = dict(config_dict)
 
@@ -152,13 +152,14 @@ def run_single_case(project: Project, condition: FlightCondition,
     geometry/airfoil/config. Applies ``condition.collective_deg`` (see
     ``_to_rotor``).
 
-    ``condition.rpm`` is REQUIRED -- see ``_require_rpm`` for why there
+    ``condition.rpm`` is REQUIRED. See ``_require_rpm`` for why there
     is no default."""
     cfg = _build_config(project.config, airfoil_def=project.airfoil)
     rpm = _require_rpm(condition.rpm, f"condition {condition.name!r}")
     rotor = _to_rotor(project.geometry, collective_deg=condition.collective_deg, rpm=rpm)
 
-    # RADIAL profile of Reynolds/Mach for the flight condition. Each blade
+    # RADIAL profile of Reynolds and Mach numbers for the flight condition.
+    # Each blade
     # station picks its own polar: Re grows nearly linearly with radius, so
     # root and tip fall into different slices when the table has that axis.
     # Without this, the whole table collapsed onto the FIRST slice, silently
@@ -173,7 +174,7 @@ def run_single_case(project: Project, condition: FlightCondition,
 
     # Convenience aliases for the 2 factorial variables (Part 4.2) that
     # `aggregate_results` does not natively expose ("mu_x"/"alpha_rotor_deg"
-    # already come from there) -- `plots.plot_coefficients_vs_axis` (Results
+    # already come from there). `plots.plot_coefficients_vs_axis` (Results
     # hub, "Coefficients vs axis") reads `summary["collective_deg"]`/
     # `summary["rpm"]` directly. `setdefault` avoids colliding with any
     # future key of the same name coming from `aggregate_results`.
@@ -182,8 +183,8 @@ def run_single_case(project: Project, condition: FlightCondition,
 
     # The CONDITION also goes into `maps`, not just `summary`: `viz.plots`
     # functions receive only `maps` and it is their job to build the figure
-    # title. Without this, a disk map's title could only say "mu_x=0.000"
-    # -- and in hover, where mu_x=0, that identifies no case at all: two
+    # title. Without this, a disk map's title could only say "mu_x=0.000",
+    # and in hover, where mu_x=0, that identifies no case at all: two
     # different collectives produced figures with the same title.
     maps.setdefault("collective_deg", condition.collective_deg)
     maps.setdefault("rpm", summary.get("rotor_rpm", condition.rpm))
@@ -194,8 +195,9 @@ def run_single_case(project: Project, condition: FlightCondition,
 
 
 # =============================================================================
-# "Trimmed" case (fixes RPM+collective by default; here one of them is
-# fixed and the other is solved by bisection until a thrust/CT target is hit)
+# "Trimmed" case (fixes RPM and collective by default. Here one of them
+# is fixed and the other is solved by bisection until a thrust or CT
+# target is hit)
 # =============================================================================
 
 _TRIM_MODES = ("solve_collective", "solve_rpm")
@@ -209,24 +211,24 @@ def run_case_trimmed(project: Project, condition: FlightCondition, *,
                       tol: float = 1e-4, max_iter: int = 40,
                       should_cancel: Optional[Callable[[], bool]] = None) -> Results:
     """Runs ``condition`` but OVERRIDES one of the two trim DOFs
-    (collective or RPM -- the other stays fixed at the value already
-    present in ``condition``) by bisection until ``Results.summary[<Thrust|CT>]``
-    matches ``target_value``.
+    (collective or RPM) by bisection until ``Results.summary[<Thrust|CT>]``
+    matches ``target_value``. The other DOF stays fixed at the value
+    already present in ``condition``.
 
     ``trim_mode``: "solve_collective" (RPM fixed at ``condition.rpm``,
     solves ``collective_deg``) or "solve_rpm" (collective fixed at
     ``condition.collective_deg``, solves ``rpm``). Bisection, not
     Newton/secant: robust even if CT(collective)/CT(rpm) is not perfectly
-    smooth near stall -- the same `bisection` solver already exists in
+    smooth near stall. The same `bisection` solver already exists in
     `bemt.py` for each element's inner loop, for an analogous reason.
     Requires ``target_value`` to lie BETWEEN the two extremes of
-    ``bracket`` (opposite signs of ``summary[key] - target_value``);
-    otherwise raises ``ValueError`` explaining how to widen the bracket,
+    ``bracket`` (opposite signs of ``summary[key] - target_value``).
+    Otherwise it raises ``ValueError`` explaining how to widen the bracket,
     instead of converging outside the physically plausible interval.
 
     ``should_cancel`` is checked between iterations of the trim loop AND,
     inside each `run_single_case`, once per engine solver iteration (same
-    convention as `_run_conditions`) -- raises ``SolveCancelled``, which
+    convention as `_run_conditions`). It raises ``SolveCancelled``, which
     propagates to the caller (there is no list of partial cases here, it
     is a single case)."""
     if trim_mode not in _TRIM_MODES:
@@ -276,8 +278,8 @@ def run_case_trimmed(project: Project, condition: FlightCondition, *,
 
 
 # =============================================================================
-# Running a list of conditions with optional progress/cancellation
-# (docs/plano_v3.md Part 2 — worker thread). Knows nothing about Qt: it
+# Running a list of conditions with optional progress and cancellation
+# (docs/plano_v3.md Part 2, worker thread). Knows nothing about Qt: it
 # receives only plain callables, so gui.py can feed them from a
 # QThread/worker without studies.py needing to import PyQt6. Non-invasive
 # change: ``on_case_done``/``should_cancel`` defaulting to ``None``
@@ -293,9 +295,9 @@ def _run_conditions(project: Project, conditions: Sequence[FlightCondition], *,
     """Runs ``conditions`` in order, returning the successful ``Results``.
 
     - Without ``on_case_done``: behavior identical to
-      ``[run_single_case(project, c) for c in conditions]`` — any case's
+      ``[run_single_case(project, c) for c in conditions]``. Any case's
       exception propagates immediately (backward compatibility).
-    - With ``on_case_done``: each case is isolated in a ``try/except`` — a
+    - With ``on_case_done``: each case is isolated in a ``try/except``, so a
       failure does not bring down the whole batch. ``on_case_done(index,
       total, result_or_exception)`` is called after EVERY case (success or
       error), in order, so the GUI can emit incremental progress
@@ -304,7 +306,7 @@ def _run_conditions(project: Project, conditions: Sequence[FlightCondition], *,
       once per solver iteration. If it returns ``True``, the sweep stops
       right there: the cases already completed are returned, with no
       error, and the case in progress is discarded (an interrupted solve
-      does not converge -- returning it would hand over half a solution
+      does not converge, and returning it would hand over half a solution
       dressed up as a result). Without the internal check, a single case
       inside a production mesh ignored the "Cancel" button until it
       finished on its own, which is exactly when it gets cancelled."""
@@ -328,7 +330,7 @@ def _run_conditions(project: Project, conditions: Sequence[FlightCondition], *,
             # `on_case_done` as an error, does not enter the problem log,
             # it just stops the sweep
             break
-        except Exception as exc:  # noqa: BLE001 — isolate error per case, see docstring
+        except Exception as exc:  # noqa: BLE001: isolates each error per case, see docstring
             on_case_done(i, total, exc)
             continue
         results.append(res)
@@ -360,7 +362,7 @@ def run_alpha_sweep(project: Project, alpha_deg_values: Sequence[float], *,
                      on_case_done: Optional[Callable[[int, int, object], None]] = None,
                      should_cancel: Optional[Callable[[], bool]] = None) -> list[Results]:
     """Sweeps the disk angle of attack (``alpha_rotor_deg``) at fixed
-    ``mu_x``, deriving ``Vz = tan(alpha) * Vx`` — same
+    ``mu_x``, deriving ``Vz = tan(alpha) * Vx``, with the same
     convention as ``bemt.resolve_advance_velocity``."""
     # (no BEMTConfig is built here: `run_single_case` builds its own for
     # each condition, from `project.config`)
@@ -395,8 +397,8 @@ def run_collective_sweep(project: Project, collective_deg_values: Sequence[float
 
 
 # =============================================================================
-# Factorial analysis (docs/plano.md Section 7 / 9 item 7, Phase C; Phase 8 —
-# see docs/CHANGELOG.md — extended to accept the interchangeable
+# Factorial analysis (docs/plano.md Section 7 / 9 item 7, Phase C, Phase 8,
+# see docs/CHANGELOG.md, extended to accept the interchangeable
 # conventions mu_x/J_x and alpha_deg/Vz): 1 to 3 axes chosen among
 # {mu_x, J_x, alpha_deg, Vz, collective_deg, rpm}, Cartesian product of
 # each axis's values. Generalizes run_mu_sweep/run_alpha_sweep/
@@ -404,16 +406,16 @@ def run_collective_sweep(project: Project, collective_deg_values: Sequence[float
 # =============================================================================
 
 # `mu_x`/`J_x`/`V` are THREE REPRESENTATIONS of the same physical quantity
-# (longitudinal advance ratio — mu_x dimensionless, J_x=pi*mu_x propeller
-# convention, V = mu_x*OmegaR dimensional velocity [m/s]); `alpha_deg`/`Vz`
-# likewise for the axial component. Each pair/trio occupies a single "slot".
+# (longitudinal advance ratio: mu_x dimensionless, J_x=pi*mu_x propeller
+# convention, V = mu_x*OmegaR dimensional velocity [m/s]). `alpha_deg`/`Vz`
+# are likewise for the axial component. Each pair/trio occupies a single "slot".
 #
 # Each slot ALSO accepts the representation that is natural in the other
 # mode: in a PROPELLER the main component is the axial one, and it is
-# written as an advance ratio (`mu_z`/`J_z`, shown on screen as mu_x/J_x --
-# see `api._SIMBOLO_DE_COLUNA_HELICE`); the cross component is the one
+# written as an advance ratio (`mu_z`/`J_z`, shown on screen as mu_x/J_x,
+# see `api.summary_symbols`). The cross component is the one
 # written as an angle, but measured from the SHAFT (`alpha_disk`), not
-# from the plane. The names here are the ENGINE's (disk axes); the
+# from the plane. The names here are the ENGINE's (disk axes). The
 # translation to propeller letters is the interface's job.
 _INPLANE_VARIABLES = ("mu_x", "J_x", "Vx", "alpha_disk")
 _AXIAL_VARIABLES = ("alpha_deg", "Vz", "mu_z", "J_z")
@@ -421,7 +423,7 @@ _OTHER_FACTORIAL_VARIABLES = ("collective_deg", "rpm")
 _FACTORIAL_VARIABLES = _INPLANE_VARIABLES + _AXIAL_VARIABLES + _OTHER_FACTORIAL_VARIABLES
 
 # WHICH representations a factorial axis accepts is this module's business
-# (above); WHICH physical component each one describes is not -- that is
+# (above). WHICH physical component each one describes is not, because that is
 # `nomenclature.slot_of`, shared with the GUI and the report. The two lists
 # above are checked against it, so a variable added to one and forgotten in
 # the other fails here instead of grouping silently wrong.
@@ -436,19 +438,19 @@ assert all(nomenclature.slot_of(v) == "axial" for v in _AXIAL_VARIABLES)
 #: it has to be in the mode's letters: a propeller case named "μ_x=0.4" for
 #: its CROSS flow would name the cross-flow as if it were the advance ratio.
 #:
-#: `FlightCondition.name` is still free text; `api.sanitize_filename`
+#: `FlightCondition.name` is still free text. `api.sanitize_filename`
 #: transcribes these symbols back to ASCII when the name becomes a file name.
-nome_de_condicao = nomenclature.condition_label
+condition_name = nomenclature.condition_label
 
 
 def _factorial_slot(variable: str) -> str:
-    """The logical slot a factorial variable belongs to -- `mu_x`/`J_x`/`Vx`
-    and `alpha_disk` are all the same in-plane component, `alpha_deg`/`Vz`/
-    `mu_z`/`J_z` the same axial one. Used to detect a conflict between two
+    """The logical slot a factorial variable belongs to: `mu_x`/`J_x`/`Vx`
+    and `alpha_disk` are all the same in-plane component, and `alpha_deg`/`Vz`/
+    `mu_z`/`J_z` are the same axial one. Used to detect a conflict between two
     axes, and between an axis and a fixed value of the same quantity.
 
     The membership comes from `nomenclature`, which is also what names the
-    slot's row in the GUI -- a variable cannot be grouped one way here and
+    slot's row in the GUI. A variable cannot be grouped one way here and
     labeled another way on screen."""
     if variable in _FACTORIAL_VARIABLES and variable not in _OTHER_FACTORIAL_VARIABLES:
         return nomenclature.slot_of(variable)
@@ -467,8 +469,8 @@ def run_factorial_batch(project: Project, axes: list[dict], fixed: Optional[dict
 
 def build_factorial_conditions(project: Project, axes: list[dict],
                                 fixed: Optional[dict] = None) -> list[FlightCondition]:
-    """Builds -- WITHOUT RUNNING -- all combinations (Cartesian product) of
-    the ``values`` of each axis in ``axes``.
+    """Builds all combinations (Cartesian product) of the ``values`` of
+    each axis in ``axes``, WITHOUT RUNNING them.
 
     Kept separate from ``run_factorial_batch`` so the GUI can SHOW the
     cases that will be run before running them: a 3x4x2 factorial is 24
@@ -478,20 +480,20 @@ def build_factorial_conditions(project: Project, axes: list[dict],
     ``axes``: list of 1 to 3 dicts ``{"variable": <name>, "values": [...]}``,
     with ``variable`` in ``_FACTORIAL_VARIABLES`` and no two axes in the
     same slot (``mu_x``+``J_x`` together, or ``alpha_deg``+``Vz`` together,
-    are both an error -- see ``_factorial_slot``).
+    are both an error). See ``_factorial_slot``.
 
     ``fixed``: values for the variables NOT chosen as an axis. Accepts
     both the native ``FlightCondition`` fields (``mu_x``, ``Vz``,
     ``collective_deg``, ``rpm``) and the alternative representations of
-    the same slot -- ``J_x``/``V``/``alpha_disk`` in place of ``mu_x``,
-    and ``mu_z``/``J_z``/``alpha_deg`` in place of ``Vz`` --, at most one
+    the same slot: ``J_x``/``V``/``alpha_disk`` in place of ``mu_x``,
+    and ``mu_z``/``J_z``/``alpha_deg`` in place of ``Vz``, at most one
     per slot.
 
     ANGLES ARE DERIVED, THE OTHER REPRESENTATIONS ARE CONVERTED. If
     ``alpha_deg`` (measured from the disk PLANE) is the axis or the axial
     fixed value, ``Vz`` is derived in each combination from the ``mu_x``
     already resolved for that combination (same formula as
-    ``run_alpha_sweep``). If ``alpha_disk`` (measured from the SHAFT --
+    ``run_alpha_sweep``). If ``alpha_disk`` (measured from the SHAFT,
     the propeller convention) is the axis or the longitudinal fixed value,
     the dependency INVERTS: the axial component is resolved first and
     ``mu_x`` comes from it. Both angles at once are an error: no component
@@ -510,8 +512,8 @@ def build_factorial_conditions(project: Project, axes: list[dict],
     axis_slots = [_factorial_slot(v) for v in variables]
     if len(set(axis_slots)) != len(axis_slots):
         raise ValueError(
-            f"run_factorial_batch: mu_x/J_x (or alpha_deg/Vz) are the same quantity -- "
-            f"cannot be two axes at the same time: {variables}")
+            f"run_factorial_batch: mu_x/J_x (or alpha_deg/Vz) are the same quantity. "
+            f"They cannot be two axes at the same time: {variables}")
 
     fixed = dict(fixed or {})
     inplane_fixed = {k: fixed[k] for k in _INPLANE_VARIABLES if k in fixed}
@@ -537,14 +539,15 @@ def build_factorial_conditions(project: Project, axes: list[dict],
     # alpha_deg->Vz conversions. Created BEFORE any use (the `base_mu`
     # block below already needs it when "Vx" is the longitudinal fixed
     # value). Only this auxiliary rotor's radius is used (see `_omega_R`),
-    # never its OmegaR -- that is why it does not need rpm.
+    # never its OmegaR. That is why it does not need rpm.
     rotor_for_omega = _to_rotor(project.geometry)
     is_propeller = bool((project.config or {}).get("is_propeller", False))
 
     def _omega_R(rpm_value) -> float:
         """OmegaR corresponding to a specific rpm. Each combination
-        resolves ITS OWN rpm before converting -- no mutating a shared
-        rotor inside the loop, or a combo's conversion would end up using
+        resolves ITS OWN rpm before converting, with no mutation of a
+        shared rotor inside the loop. Otherwise a combo's conversion would
+        end up using
         the previous combo's rpm and the result would depend on the order
         of the values on the axis (same formula as `Rotor.OmegaR`)."""
         rpm_value = _require_rpm(rpm_value, "run_factorial_batch (rpm axis or fixed value)")
@@ -553,16 +556,16 @@ def build_factorial_conditions(project: Project, axes: list[dict],
     # The TWO angles together do not close the condition: `alpha_deg`/
     # `alpha_rotor` (from the disk PLANE) derives the axial from the
     # in-plane component, and `alpha_disk` (from the SHAFT) does the
-    # opposite -- so neither one sets the scale of the velocity. Same
+    # opposite. So neither one sets the scale of the velocity. Same
     # rule as `bemt.resolve_advance_velocity`, checked here because this
     # path builds the conditions without going through there.
-    usa_do_eixo = ("alpha_disk" in inplane_fixed) or ("alpha_disk" in variables)
-    usa_do_plano = ("alpha_deg" in axial_fixed) or ("alpha_deg" in variables)
-    if usa_do_eixo and usa_do_plano:
+    uses_disk_angle = ("alpha_disk" in inplane_fixed) or ("alpha_disk" in variables)
+    uses_plane_angle = ("alpha_deg" in axial_fixed) or ("alpha_deg" in variables)
+    if uses_disk_angle and uses_plane_angle:
         raise ValueError(
             "run_factorial_batch: alpha_disk (from the shaft, the propeller-mode "
             "angle) and alpha_rotor (from the disk plane, the rotor-mode one) are "
-            "the same angle written two ways -- with both, neither velocity "
+            "the same angle written two ways. With both, neither velocity "
             "component sets the scale. Use one angle plus a dimensional or "
             "non-dimensional component.")
 
@@ -603,29 +606,29 @@ def build_factorial_conditions(project: Project, axes: list[dict],
             """Axial component of this combination. ``Vinf_long`` is only
             used by the disk-angle branch (the only one that DERIVES from
             the in-plane component)."""
-            kind, valor = base_axial_kind, base_axial_value
+            kind, value = base_axial_kind, base_axial_value
             for k in _AXIAL_VARIABLES:
                 if k in overrides:
-                    kind, valor = k, float(overrides[k])
+                    kind, value = k, float(overrides[k])
                     break
             if kind == "Vz":
-                return float(valor)
+                return float(value)
             if kind == "mu_z":
-                return float(valor) * omega_R
+                return float(value) * omega_R
             if kind == "J_z":
-                return (float(valor) / np.pi) * omega_R
+                return (float(value) / np.pi) * omega_R
             if kind == "alpha_deg":
-                return float(np.tan(np.deg2rad(valor)) * Vinf_long)
+                return float(np.tan(np.deg2rad(value)) * Vinf_long)
             return 0.0
 
-        # ORDER: with `alpha_disk` the dependency inverts -- it is the
-        # in-plane component that derives from the axial one --, so the
-        # axial component has to come out first. See
+        # ORDER: with `alpha_disk` the dependency inverts, because it is
+        # the in-plane component that derives from the axial one. The
+        # axial component therefore has to come out first. See
         # `bemt.resolve_advance_velocity`, which resolves the same inversion.
         if "alpha_disk" in overrides or "alpha_disk" in inplane_fixed:
             alpha_disk = float(overrides.get("alpha_disk", inplane_fixed.get("alpha_disk", 0.0)))
             Vz = _axial(0.0)
-            # |Vz|: see `bemt.resolve_advance_velocity` -- with Vz<0 the
+            # |Vz|: see `bemt.resolve_advance_velocity`. With Vz<0 the
             # raw sign would flip the side of the cross flow and the
             # reported angle would stop matching the geometry.
             mu_x = ((float(np.tan(np.deg2rad(alpha_disk))) * abs(Vz)) / omega_R
@@ -647,7 +650,7 @@ def build_factorial_conditions(project: Project, axes: list[dict],
                 mu_x = base_mu
             Vz = _axial(mu_x * omega_R)
 
-        name = nome_de_condicao(overrides, is_propeller)
+        name = condition_name(overrides, is_propeller)
         conditions.append(FlightCondition(name=name, mu_x=mu_x, collective_deg=collective_deg, Vz=Vz, rpm=rpm))
 
     return conditions
@@ -663,8 +666,8 @@ def run_batch(project: Project, batch: BatchDefinition, *,
               trim_mode: Optional[str] = None,
               target_kind: Optional[str] = None,
               target_value: Optional[float] = None) -> list[Results]:
-    """If ``batch.conditions`` already comes populated (explicit list --
-    the common case coming from the GUI or from a saved ``batch.bemt``),
+    """If ``batch.conditions`` already comes populated (explicit list, the
+    common case coming from the GUI or from a saved ``batch.bemt``),
     runs it directly, IGNORING ``sweep_kind``. Only uses ``sweep_kind`` +
     ``sweep_params`` to generate the conditions when ``conditions`` is
     empty (programmatic use: a script builds a ``BatchDefinition`` with
@@ -762,12 +765,13 @@ def run_batch(project: Project, batch: BatchDefinition, *,
 def benchmark_solvers(project: Project, condition: FlightCondition,
                        solvers: Sequence[str] = _KNOWN_SOLVERS) -> list[Results]:
     """Runs the SAME flight condition with different fixed-point solvers
-    (``BEMTConfig.solver`` — see ``bemt._SOLVERS``), keeping geometry,
+    (``BEMTConfig.solver``, see ``bemt._SOLVERS``), keeping geometry,
     airfoil, and the rest of the config identical. Used by the "between
     methods" comparison from plan Section 7 (``plots.plot_solver_comparison``).
     Each ``Results`` comes out with ``condition_name`` suffixed by the
-    solver name and ``maps['benchmark_solver']``/``maps['benchmark_elapsed']``
-    filled in, to distinguish them in export/plot."""
+    solver name and ``maps['benchmark_solver']``,
+    ``maps['benchmark_elapsed']``
+    filled in, to distinguish them in export and plot."""
     results = []
     for solver_name in solvers:
         cfg_dict = dict(project.config)

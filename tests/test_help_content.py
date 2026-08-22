@@ -28,39 +28,39 @@ class TestFieldHelpCoverage(unittest.TestCase):
         from zbemt.gui import help_content
         from zbemt import paths
         self.FIELD_HELP = help_content.FIELD_HELP
-        caminho = paths.documentation_path()
-        self.html = caminho.read_text(encoding="utf-8") if caminho else ""
+        path = paths.documentation_path()
+        self.html = path.read_text(encoding="utf-8") if path else ""
 
     def test_required_keys_in_every_entry(self):
         """Each entry in FIELD_HELP has the required keys filled in."""
         # "anchor" is no longer among them: the destination is DERIVED from
-        # the document by `field_help.ancora_do_campo`, which finds the
+        # the document by `field_help.field_anchor`, which finds the
         # section that declares the field. A hand-kept anchor was a second
         # source of truth that went stale the moment a section moved.
-        obrigatorios = {"title", "definition", "unit", "equation", "effect", "range", "options"}
-        for campo, dados in self.FIELD_HELP.items():
-            with self.subTest(campo=campo):
-                faltando = obrigatorios - set(dados)
-                self.assertFalse(faltando, f"Chaves ausentes em '{campo}': {faltando}")
-                self.assertTrue(dados["title"], f"'{campo}': title vazio")
-                self.assertTrue(dados["definition"], f"'{campo}': definition vazio")
+        required = {"title", "definition", "unit", "equation", "effect", "range", "options"}
+        for field, entry in self.FIELD_HELP.items():
+            with self.subTest(field=field):
+                missing = required - set(entry)
+                self.assertFalse(missing, f"Missing keys in '{field}': {missing}")
+                self.assertTrue(entry["title"], f"'{field}': empty title")
+                self.assertTrue(entry["definition"], f"'{field}': empty definition")
 
     def test_html_fields_covered(self):
         """Each ajuda-* field in the HTML has a corresponding entry in FIELD_HELP."""
         if not self.html:
             self.skipTest("documentation.html not found")
-        campos_html = re.findall(r'id="ajuda-([\w.]+)"', self.html)
+        html_fields = re.findall(r'id="ajuda-([\w.]+)"', self.html)
         # excludes header sections (geometry, airfoil, config, execution)
-        _CABECALHOS = {"geometria", "aerofolio", "config", "execucao"}
-        campos_html = [c for c in campos_html if c not in _CABECALHOS]
-        for campo in campos_html:
-            with self.subTest(campo=campo):
-                self.assertIn(campo, self.FIELD_HELP,
-                              f"Field '{campo}' exists in the HTML but not in FIELD_HELP")
+        _HEADERS = {"geometria", "aerofolio", "config", "execucao"}
+        html_fields = [c for c in html_fields if c not in _HEADERS]
+        for field in html_fields:
+            with self.subTest(field=field):
+                self.assertIn(field, self.FIELD_HELP,
+                              f"Field '{field}' exists in the HTML but not in FIELD_HELP")
 
     def test_enum_options_present(self):
         """Enum fields have non-empty options, and all keys are strings."""
-        enum_esperados = {
+        expected_enums = {
             "source": {"analytical", "table", "neuralfoil"},
             "stall_model": {"linear", "clip", "enhanced", "viterna"},
             "solver": {"newton", "fixed_point", "bisection", "aitken"},
@@ -74,14 +74,14 @@ class TestFieldHelpCoverage(unittest.TestCase):
             # The list comes from the ENGINE (see `test_ajuda_cobre_os_modelos_do_motor`).
             "reverse_flow_model": set(_REVERSE_FLOW_MODELS),
         }
-        for campo, opcoes_esperadas in enum_esperados.items():
-            with self.subTest(campo=campo):
-                dados = self.FIELD_HELP.get(campo)
-                self.assertIsNotNone(dados, f"'{campo}' ausente em FIELD_HELP")
-                opts = dados.get("options")
-                self.assertIsNotNone(opts, f"'{campo}' deveria ter options")
-                for opt in opcoes_esperadas:
-                    self.assertIn(opt, opts, f"Option '{opt}' missing from '{campo}.options'")
+        for field, expected_options in expected_enums.items():
+            with self.subTest(field=field):
+                entry = self.FIELD_HELP.get(field)
+                self.assertIsNotNone(entry, f"'{field}' missing from FIELD_HELP")
+                opts = entry.get("options")
+                self.assertIsNotNone(opts, f"'{field}' should have options")
+                for opt in expected_options:
+                    self.assertIn(opt, opts, f"Option '{opt}' missing from '{field}.options'")
 
     def test_ajuda_cobre_os_modelos_do_motor(self):
         """The field's help explains EXACTLY the reverse flow models
@@ -96,21 +96,21 @@ class TestFieldHelpCoverage(unittest.TestCase):
 
     def test_config_visible_fields_have_action_physics_and_boundary(self):
         """Every visible Config control has actionable help and physics documentation."""
-        bloco = self.html.split("<!-- INDICE-DE-CAMPOS:config -->", 1)[1]
-        bloco = bloco.split("<!-- /INDICE-DE-CAMPOS:config -->", 1)[0]
-        campos = re.findall(r"<code>([^<]+)</code>", bloco)
-        self.assertEqual(len(campos), 27)
-        for campo in campos:
-            with self.subTest(campo=campo):
-                dados = self.FIELD_HELP[campo]
-                for chave in ("definition", "equation", "effect", "range"):
-                    self.assertTrue(dados[chave], f"{campo} sem {chave} no popup")
+        block = self.html.split("<!-- INDICE-DE-CAMPOS:config -->", 1)[1]
+        block = block.split("<!-- /INDICE-DE-CAMPOS:config -->", 1)[0]
+        fields = re.findall(r"<code>([^<]+)</code>", block)
+        self.assertEqual(len(fields), 27)
+        for field in fields:
+            with self.subTest(field=field):
+                entry = self.FIELD_HELP[field]
+                for key in ("definition", "equation", "effect", "range"):
+                    self.assertTrue(entry[key], f"{field} without {key} in the popup")
 
     def test_config_destinations_cover_physics_and_implementation_boundary(self):
         """The critical destinations state what to do, the physics, and the code boundary."""
-        from zbemt.gui.field_help import ancora_do_campo
+        from zbemt.gui.field_help import field_anchor
 
-        exigencias = {
+        requirements = {
             "inflow_field_model": ("harmonic", "Pitt-Peters", "does not change the airfoil polar"),
             "prandtl_loss_mode": ("finite", "f_{tip}", "elemental thrust"),
             "use_rotational_augmentation": ("centrifugal", "C_l", "empirical"),
@@ -122,8 +122,8 @@ class TestFieldHelpCoverage(unittest.TestCase):
             "max_iter": ("safety", "residual", "convergence"),
             "tol": ("residual", "tol", "element"),
         }
-        for campo, termos in exigencias.items():
-            ancora = ancora_do_campo(campo)
+        for field, terms in requirements.items():
+            anchor = field_anchor(field)
             # The physics destination and the operational subsection live in
             # the same CHAPTER, but can be separated by long figures and
             # derivations -- so the scope is the whole chapter, delimited by
@@ -132,35 +132,35 @@ class TestFieldHelpCoverage(unittest.TestCase):
             # next chapter, sometimes cut off its own: adding a paragraph to
             # a section pushed a term outside the window and broke a test
             # that had nothing to do with the edit.
-            trecho = self._capitulo_da_ancora(ancora).lower()
-            self.assertTrue(trecho, campo)
-            for termo in termos:
-                self.assertIn(termo.lower(), trecho, f"{campo}: termo ausente: {termo}")
+            excerpt = self._chapter_of_anchor(anchor).lower()
+            self.assertTrue(excerpt, field)
+            for term in terms:
+                self.assertIn(term.lower(), excerpt, f"{field}: missing term: {term}")
 
-    def _capitulo_da_ancora(self, ancora: str) -> str:
-        """Text of the chapter (`<h2>` to `<h2>`) that contains ``ancora``."""
-        inicio = self.html.find(f'id="{ancora}"')
-        if inicio < 0:
+    def _chapter_of_anchor(self, anchor: str) -> str:
+        """Text of the chapter (`<h2>` to `<h2>`) that contains ``anchor``."""
+        start = self.html.find(f'id="{anchor}"')
+        if start < 0:
             return ""
-        limites = [m.start() for m in re.finditer(r"<h2[ >]", self.html)]
-        antes = [x for x in limites if x <= inicio]
-        depois = [x for x in limites if x > inicio]
-        return self.html[antes[-1] if antes else 0:
-                         depois[0] if depois else len(self.html)]
+        bounds = [m.start() for m in re.finditer(r"<h2[ >]", self.html)]
+        before = [x for x in bounds if x <= start]
+        after = [x for x in bounds if x > start]
+        return self.html[before[-1] if before else 0:
+                         after[0] if after else len(self.html)]
 
     def test_anchors_exist_in_html(self):
         """Every anchor referenced in FIELD_HELP exists in the HTML."""
         if not self.html:
             self.skipTest("documentation.html not found")
-        for campo, dados in self.FIELD_HELP.items():
-            ancora = dados.get("anchor")
-            if not ancora:
+        for field, dados in self.FIELD_HELP.items():
+            anchor = dados.get("anchor")
+            if not anchor:
                 continue
-            with self.subTest(campo=campo, ancora=ancora):
-                self.assertIn(f'id="{ancora}"', self.html,
-                              f"Anchor '{ancora}' (from '{campo}') not found in the HTML")
+            with self.subTest(field=field, anchor=anchor):
+                self.assertIn(f'id="{anchor}"', self.html,
+                              f"Anchor '{anchor}' (from '{field}') not found in the HTML")
 
-    def test_help_abre_a_secao_do_proprio_campo(self):
+    def test_help_opens_the_fields_own_section(self):
         """The help must open the field's OWN section.
 
         The documentation is one chapter per GUI tab, and a field's section
@@ -175,26 +175,26 @@ class TestFieldHelpCoverage(unittest.TestCase):
         field's section, and jumping onward would take the reader away
         from the explanation.
         """
-        from zbemt.gui.field_help import (ancora_do_campo, secoes_da_documentacao,
-                                          _cita, _MARCA_BEMT)
+        from zbemt.gui.field_help import (field_anchor, documentation_sections,
+                                          _cites_field, _BEMT_MARK)
 
-        por_ancora = {}
-        for s in secoes_da_documentacao():
-            for a in set(s.apelidos) | {s.ancora}:
-                por_ancora[a] = s
+        by_anchor = {}
+        for s in documentation_sections():
+            for a in set(s.aliases) | {s.anchor}:
+                by_anchor[a] = s
 
-        for campo in self.FIELD_HELP:
-            with self.subTest(campo=campo):
-                ancora = ancora_do_campo(campo)
-                self.assertIsNotNone(ancora, f"{campo} has no destination")
-                self.assertFalse(ancora.startswith("ajuda-"),
-                                 f"{campo} falls back to the index table")
-                secao = por_ancora.get(ancora)
-                self.assertIsNotNone(secao, f"{campo} points at an unknown anchor")
-                self.assertTrue(_cita(secao, campo),
-                                f"{campo} opens a section that does not mention it")
-                self.assertIn(_MARCA_BEMT, secao.corpo,
-                              f"{campo} opens a section that does not say how to set it")
+        for field in self.FIELD_HELP:
+            with self.subTest(field=field):
+                anchor = field_anchor(field)
+                self.assertIsNotNone(anchor, f"{field} has no destination")
+                self.assertFalse(anchor.startswith("ajuda-"),
+                                 f"{field} falls back to the index table")
+                section = by_anchor.get(anchor)
+                self.assertIsNotNone(section, f"{field} points at an unknown anchor")
+                self.assertTrue(_cites_field(section, field),
+                                f"{field} opens a section that does not mention it")
+                self.assertIn(_BEMT_MARK, section.body,
+                              f"{field} opens a section that does not say how to set it")
 
         # A loose `<a id=...>` sitting just above a heading starts marking a
         # different section as soon as anything is inserted between them, and
@@ -202,7 +202,7 @@ class TestFieldHelpCoverage(unittest.TestCase):
         # `cap-11`, the mesh, was captured by a section inserted in front of
         # it, and `Ne`/`Npsi` began opening the chord distribution.) This is
         # the lock against that.
-        esperados = {
+        expected = {
             "extend_full_range": "cap-3-2-4",
             "use_dynamic_stall": "cap-3-3-1",
             "dynamic_stall_method": "cap-3-3-2",
@@ -223,11 +223,11 @@ class TestFieldHelpCoverage(unittest.TestCase):
             "Npsi": "cap-4-1-1",
             "integration_offset": "cap-4-1-4",
         }
-        for campo, ancora_esperada in esperados.items():
-            with self.subTest(campo=campo):
-                self.assertEqual(ancora_do_campo(campo), ancora_esperada)
+        for field, expected_anchor in expected.items():
+            with self.subTest(field=field):
+                self.assertEqual(field_anchor(field), expected_anchor)
 
-    def test_nenhum_campo_cai_numa_secao_talo(self):
+    def test_no_field_lands_in_a_stub_section(self):
         """Every field must open in a section that ACTUALLY explains it.
 
         The owner's request is literal -- "each variable" needs physical
@@ -242,32 +242,32 @@ class TestFieldHelpCoverage(unittest.TestCase):
         say what the quantity is, what the model does with it, what changes
         in the result, and where it stops being valid.
         """
-        from zbemt.gui.field_help import mapa_de_campos, secoes_da_documentacao
+        from zbemt.gui.field_help import field_map, documentation_sections
 
-        PISO = 900
-        tamanho = {}
-        for secao in secoes_da_documentacao():
-            for ancora in set(secao.apelidos) | {secao.ancora}:
-                tamanho[ancora] = len(secao.corpo)
+        FLOOR = 900
+        length_by_anchor = {}
+        for section in documentation_sections():
+            for anchor in set(section.aliases) | {section.anchor}:
+                length_by_anchor[anchor] = len(section.body)
 
-        talos = []
-        for campo, ancora in sorted(mapa_de_campos().items()):
-            n = tamanho.get(ancora, 0)
-            if n < PISO:
-                talos.append(f"{campo} -> {ancora} ({n} B)")
-        self.assertEqual(talos, [],
-                          "field whose help target is a stub: " + str(talos))
+        stubs = []
+        for field, anchor in sorted(field_map().items()):
+            n = length_by_anchor.get(anchor, 0)
+            if n < FLOOR:
+                stubs.append(f"{field} -> {anchor} ({n} B)")
+        self.assertEqual(stubs, [],
+                          "field whose help target is a stub: " + str(stubs))
 
-    def test_todos_os_links_internos_do_html_tem_destino(self):
+    def test_every_internal_link_of_the_html_has_a_destination(self):
         """Audits internal links, including the ones used by the help pages."""
-        destinos = set(re.findall(r'id="([\w.\-]+)"', self.html))
+        destinations = set(re.findall(r'id="([\w.\-]+)"', self.html))
         links = re.findall(r'href="#([\w.\-]+)"', self.html)
-        faltantes = sorted(set(links) - destinos)
-        self.assertEqual(faltantes, [], f"internal links without an anchor: {faltantes}")
+        missing = sorted(set(links) - destinations)
+        self.assertEqual(missing, [], f"internal links without an anchor: {missing}")
 
     def test_geometry_airfoil_have_field_level_physics_destinations(self):
         """Geometry/Airfoil must not land in a generic physics chapter."""
-        from zbemt.gui.field_help import ancora_do_campo, secoes_da_documentacao
+        from zbemt.gui.field_help import field_anchor, documentation_sections
 
         geometry = {"n_blades", "radius_m"}
         airfoil = {
@@ -283,31 +283,31 @@ class TestFieldHelpCoverage(unittest.TestCase):
             "thin_plate_blend_width_deg", "mask_reverse_flow_plots",
             "use_compressibility",
         }
-        for campo in geometry | airfoil:
-            with self.subTest(campo=campo):
-                dados = self.FIELD_HELP[campo]
-                self.assertTrue(dados["equation"])
-                self.assertTrue(dados["range"])
-                destino = ancora_do_campo(campo)
-                self.assertIsNotNone(destino)
+        for field in geometry | airfoil:
+            with self.subTest(field=field):
+                entry = self.FIELD_HELP[field]
+                self.assertTrue(entry["equation"])
+                self.assertTrue(entry["range"])
+                destination = field_anchor(field)
+                self.assertIsNotNone(destination)
                 # It must be a SECTION, not a whole chapter: landing on an
                 # `<h2>` drops the reader at the top of a tab's chapter and
                 # leaves them to find the field themselves.
-                nivel = next((x.nivel for x in secoes_da_documentacao()
-                              if destino in set(x.apelidos) | {x.ancora}), None)
-                self.assertIsNotNone(nivel, f"{campo}: unknown anchor {destino}")
-                self.assertGreaterEqual(nivel, 3, f"{campo} opens a whole chapter")
+                level = next((x.level for x in documentation_sections()
+                              if destination in set(x.aliases) | {x.anchor}), None)
+                self.assertIsNotNone(level, f"{field}: unknown anchor {destination}")
+                self.assertGreaterEqual(level, 3, f"{field} opens a whole chapter")
 
         # SELECTOR fields: the right destination is the section that
         # compares the options, not the first of them.
-        self.assertEqual(ancora_do_campo("reverse_flow_model"), "cap-3-4-1")
-        self.assertEqual(ancora_do_campo("stall_model"), "cap-3-2-2")
+        self.assertEqual(field_anchor("reverse_flow_model"), "cap-3-4-1")
+        self.assertEqual(field_anchor("stall_model"), "cap-3-2-2")
 
-        self.assertEqual(ancora_do_campo("n_blades"), "cap-2-1")
-        self.assertEqual(ancora_do_campo("radius_m"), "cap-2-1")
-        for campo in {"source", "cl_alpha", "alpha0_deg", "cd0", "k", "name"}:
-            with self.subTest(campo=campo):
-                self.assertEqual(ancora_do_campo(campo), "cap-3-2-1")
+        self.assertEqual(field_anchor("n_blades"), "cap-2-1")
+        self.assertEqual(field_anchor("radius_m"), "cap-2-1")
+        for field in {"source", "cl_alpha", "alpha0_deg", "cd0", "k", "name"}:
+            with self.subTest(field=field):
+                self.assertEqual(field_anchor(field), "cap-3-2-1")
 
     def test_visible_geometry_airfoil_fields_have_tooltip_tokens(self):
         """Every audited visible field has a tooltip that identifies its parameter."""
@@ -338,17 +338,17 @@ class TestFieldHelpCoverage(unittest.TestCase):
         # it changes.
         self.assertNotIn("mask_reverse_flow_plots", airfoil_text,
                           "the mask control should live only in the Results tab")
-        for campo in geometry_fields:
-            with self.subTest(campo=campo):
-                self.assertRegex(geometry_text, rf'setToolTip\([^\n]*"{campo}"')
-        for campo in airfoil_fields:
-            with self.subTest(campo=campo):
+        for field in geometry_fields:
+            with self.subTest(field=field):
+                self.assertRegex(geometry_text, rf'setToolTip\([^\n]*"{field}"')
+        for field in airfoil_fields:
+            with self.subTest(field=field):
                 self.assertTrue(
-                    f'"{campo}"' in airfoil_text
-                    or f'"airfoil.{campo}"' in airfoil_text)
+                    f'"{field}"' in airfoil_text
+                    or f'"airfoil.{field}"' in airfoil_text)
                 self.assertRegex(
                     airfoil_text,
-                    rf'setToolTip\([\s\S]{{0,300}}"(?:airfoil\.)?{campo}"')
+                    rf'setToolTip\([\s\S]{{0,300}}"(?:airfoil\.)?{field}"')
 
 
 class TestBlockHelpCoverage(unittest.TestCase):
@@ -358,49 +358,49 @@ class TestBlockHelpCoverage(unittest.TestCase):
         from zbemt.gui import help_blocks
         from zbemt import paths
         self.BLOCK_HELP = help_blocks.BLOCK_HELP
-        caminho = paths.documentation_path()
-        self.html = caminho.read_text(encoding="utf-8") if caminho else ""
+        path = paths.documentation_path()
+        self.html = path.read_text(encoding="utf-8") if path else ""
 
     def test_required_keys(self):
-        for bloco, dados in self.BLOCK_HELP.items():
-            with self.subTest(bloco=bloco):
-                self.assertIn("title", dados)
-                self.assertIn("body", dados)
-                self.assertIn("anchor", dados)
-                self.assertTrue(dados["title"])
-                self.assertIsInstance(dados["body"], list)
-                self.assertGreater(len(dados["body"]), 0)
+        for block, entry in self.BLOCK_HELP.items():
+            with self.subTest(block=block):
+                self.assertIn("title", entry)
+                self.assertIn("body", entry)
+                self.assertIn("anchor", entry)
+                self.assertTrue(entry["title"])
+                self.assertIsInstance(entry["body"], list)
+                self.assertGreater(len(entry["body"]), 0)
 
     def test_anchors_exist_in_html(self):
         if not self.html:
             self.skipTest("documentation.html not found")
-        for bloco, dados in self.BLOCK_HELP.items():
-            ancora = dados.get("anchor")
-            if not ancora:
+        for block, entry in self.BLOCK_HELP.items():
+            anchor = entry.get("anchor")
+            if not anchor:
                 continue
-            with self.subTest(bloco=bloco):
-                self.assertIn(f'id="{ancora}"', self.html,
-                              f"Anchor '{ancora}' (block '{bloco}') not found in the HTML")
+            with self.subTest(block=block):
+                self.assertIn(f'id="{anchor}"', self.html,
+                              f"Anchor '{anchor}' (block '{block}') not found in the HTML")
 
 
     def test_workflow_blocks_cover_results_and_user_actions(self):
         """Execution blocks explain the action and how to read the result."""
-        for bloco in ("run_case", "run_batch", "results"):
-            with self.subTest(bloco=bloco):
-                dados = self.BLOCK_HELP.get(bloco)
-                self.assertIsNotNone(dados)
-                texto = " ".join(dados["body"]).lower()
-                self.assertRegex(texto, r"(choose|select|use|interpret)")
-                self.assertRegex(texto, r"(result|case|batch)")
+        for block in ("run_case", "run_batch", "results"):
+            with self.subTest(block=block):
+                entry = self.BLOCK_HELP.get(block)
+                self.assertIsNotNone(entry)
+                text = " ".join(entry["body"]).lower()
+                self.assertRegex(text, r"(choose|select|use|interpret)")
+                self.assertRegex(text, r"(result|case|batch)")
 
     def test_run_tabs_have_dedicated_operating_sections(self):
         """The documentation does not reduce the controls to a generic table."""
-        for ancora in ("run-case-controls", "run-batch-controls", "results-controls"):
-            with self.subTest(ancora=ancora):
-                self.assertIn(f'id="{ancora}"', self.html)
-        for termo in ("replace queue", "fixed-thrust", "Batch condition", "overlay", "convergence"):
-            with self.subTest(termo=termo):
-                self.assertIn(termo.lower(), self.html.lower())
+        for anchor in ("run-case-controls", "run-batch-controls", "results-controls"):
+            with self.subTest(anchor=anchor):
+                self.assertIn(f'id="{anchor}"', self.html)
+        for term in ("replace queue", "fixed-thrust", "Batch condition", "overlay", "convergence"):
+            with self.subTest(term=term):
+                self.assertIn(term.lower(), self.html.lower())
 
 
 class TestHelpPopupWidget(unittest.TestCase):
@@ -417,75 +417,75 @@ class TestHelpPopupWidget(unittest.TestCase):
         # plugin if no QApplication is running yet.
         self.app = QApplication.instance() or QApplication(sys.argv)
         from zbemt.gui.help_popup import HelpPopup
-        self.janela = QWidget()
-        self.janela.resize(800, 600)
-        self.janela.show()
+        self.window = QWidget()
+        self.window.resize(800, 600)
+        self.window.show()
         # Clears the singleton from previous tests to avoid dangling pointers
-        HelpPopup._instancias.clear()
+        HelpPopup._instances.clear()
 
     def tearDown(self):
         from zbemt.gui.help_popup import HelpPopup
-        HelpPopup._instancias.clear()
+        HelpPopup._instances.clear()
 
-    def test_popup_abre_para_campo_existente(self):
+    def test_popup_opens_for_an_existing_field(self):
         from zbemt.gui.help_popup import HelpPopup
-        popup = HelpPopup.instancia(self.janela)
-        popup.mostrar_campo("n_blades", self.janela)
+        popup = HelpPopup.instance(self.window)
+        popup.show_field("n_blades", self.window)
         self.assertTrue(popup.isVisible())
 
-    def test_popup_fecha_ao_chamar_fechar(self):
+    def test_popup_closes_when_close_is_called(self):
         from zbemt.gui.help_popup import HelpPopup
-        popup = HelpPopup.instancia(self.janela)
-        popup.mostrar_campo("n_blades", self.janela)
-        popup.fechar()
+        popup = HelpPopup.instance(self.window)
+        popup.show_field("n_blades", self.window)
+        popup.close_popup()
         self.assertFalse(popup.isVisible())
 
-    def test_popup_campo_inexistente_nao_abre(self):
+    def test_popup_for_nonexistent_field_does_not_open(self):
         from zbemt.gui.help_popup import HelpPopup
-        popup = HelpPopup.instancia(self.janela)
-        popup.fechar()  # ensures it was closed before
-        self.assertFalse(popup.isVisible(), "popup deveria estar fechado antes do teste")
-        popup.mostrar_campo("campo_que_nao_existe_nunca_xyz", self.janela)
+        popup = HelpPopup.instance(self.window)
+        popup.close_popup()  # ensures it was closed before
+        self.assertFalse(popup.isVisible(), "popup should be closed before the test")
+        popup.show_field("field_that_never_exists_xyz", self.window)
         self.assertFalse(popup.isVisible())
 
-    def test_popup_bloco_existente(self):
+    def test_popup_existing_block(self):
         from zbemt.gui.help_popup import HelpPopup
-        popup = HelpPopup.instancia(self.janela)
-        popup.mostrar_bloco("inflow", self.janela)
+        popup = HelpPopup.instance(self.window)
+        popup.show_block("inflow", self.window)
         self.assertTrue(popup.isVisible())
-        popup.fechar()
+        popup.close_popup()
 
-    def test_singleton_por_janela(self):
+    def test_singleton_per_window(self):
         from zbemt.gui.help_popup import HelpPopup
-        p1 = HelpPopup.instancia(self.janela)
-        p2 = HelpPopup.instancia(self.janela)
+        p1 = HelpPopup.instance(self.window)
+        p2 = HelpPopup.instance(self.window)
         self.assertIs(p1, p2)
 
-    def test_popup_fecha_com_tecla_escape(self):
+    def test_popup_closes_with_the_escape_key(self):
         """doc-plan.md Section 7, `test_popup_closes_on_escape` -- the
-        `keyPressEvent` calls `fechar()` only for Key_Escape; without
+        `keyPressEvent` calls `close_popup()` only for Key_Escape; without
         this test, a refactor that swapped the key or removed the
-        handler would not be caught (`test_popup_fecha_ao_chamar_fechar`
-        calls `fechar()` directly, never exercising `keyPressEvent`)."""
+        handler would not be caught (`test_popup_closes_when_close_is_called`
+        calls `close_popup()` directly, never exercising `keyPressEvent`)."""
         from PyQt6.QtCore import Qt
         from PyQt6.QtGui import QKeyEvent
         from PyQt6.QtCore import QEvent
         from zbemt.gui.help_popup import HelpPopup
-        popup = HelpPopup.instancia(self.janela)
-        popup.mostrar_campo("n_blades", self.janela)
+        popup = HelpPopup.instance(self.window)
+        popup.show_field("n_blades", self.window)
         self.assertTrue(popup.isVisible())
-        evento = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
-        popup.keyPressEvent(evento)
+        event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
+        popup.keyPressEvent(event)
         self.assertFalse(popup.isVisible())
 
-    def test_popup_nao_reserva_faixa_vazia_no_titulo(self):
+    def test_popup_does_not_reserve_empty_space_in_the_title(self):
         """Switching field must recompute the height without ghost space."""
         from zbemt.gui.help_popup import HelpPopup
-        popup = HelpPopup.instancia(self.janela)
-        popup.mostrar_campo("n_blades", self.janela)
-        popup.mostrar_campo("dynamic_stall_method", self.janela)
-        self.assertLessEqual(popup._lbl_titulo.sizeHint().height(), 32)
-        self.assertLess(popup._lbl_titulo.height(), popup.height())
+        popup = HelpPopup.instance(self.window)
+        popup.show_field("n_blades", self.window)
+        popup.show_field("dynamic_stall_method", self.window)
+        self.assertLessEqual(popup._title_label.sizeHint().height(), 32)
+        self.assertLess(popup._title_label.height(), popup.height())
         # The popup's height must be EXPLAINED by the content, not fixed
         # to a number. The absolute limit that used to be here (`< 180`)
         # went stale the day the equations started being drawn as math
@@ -494,18 +494,18 @@ class TestHelpPopupWidget(unittest.TestCase):
         # an improvement. What it exists to catch -- leftover empty
         # space from the previous entry -- is the SLACK between the
         # popup and what is inside it, and that is what is measured now.
-        conteudo = (popup._lbl_titulo.height()
-                    + sum(popup._corpo.itemAt(i).widget().height()
-                          for i in range(popup._corpo.count())
-                          if popup._corpo.itemAt(i).widget() is not None)
-                    + popup._btn_doc.height())
-        self.assertLess(popup.height() - conteudo, 120,
-                         "popup reservando faixa vazia: "
-                         f"altura={popup.height()} conteudo={conteudo}")
+        content = (popup._title_label.height()
+                   + sum(popup._body_layout.itemAt(i).widget().height()
+                         for i in range(popup._body_layout.count())
+                         if popup._body_layout.itemAt(i).widget() is not None)
+                   + popup._btn_doc.height())
+        self.assertLess(popup.height() - content, 120,
+                         "popup reserving empty space: "
+                         f"height={popup.height()} content={content}")
 
 
-class TestInstalarPopupsDeCampo(unittest.TestCase):
-    """instalar_popups_de_campo does not break existing layouts."""
+class TestInstallFieldPopups(unittest.TestCase):
+    """install_field_popups does not break existing layouts."""
 
     def setUp(self):
         import os
@@ -514,10 +514,10 @@ class TestInstalarPopupsDeCampo(unittest.TestCase):
         import sys
         self.app = QApplication.instance() or QApplication(sys.argv)
 
-    def test_spanning_rows_permanecem_spanning(self):
-        """Spanning rows remain spanning after instalar_popups_de_campo."""
+    def test_spanning_rows_stay_spanning(self):
+        """Spanning rows remain spanning after install_field_popups."""
         from PyQt6.QtWidgets import QWidget, QFormLayout, QCheckBox
-        from zbemt.gui.field_help import instalar_popups_de_campo
+        from zbemt.gui.field_help import install_field_popups
 
         w = QWidget()
         form = QFormLayout(w)
@@ -525,15 +525,15 @@ class TestInstalarPopupsDeCampo(unittest.TestCase):
         cb.setToolTip('"use_dynamic_stall" — enables dynamic stall model')
         form.addRow(cb)  # spanning row
 
-        instalar_popups_de_campo(w)
+        install_field_popups(w)
 
         # row 0 must remain without LabelRole (it is spanning)
         self.assertIsNone(form.itemAt(0, QFormLayout.ItemRole.LabelRole))
 
-    def test_campo_documentado_recebe_label_clicavel(self):
+    def test_documented_field_gets_a_clickable_label(self):
         """Field with an entry in FIELD_HELP has its QLabel replaced by a QToolButton."""
         from PyQt6.QtWidgets import QWidget, QFormLayout, QLabel, QSpinBox, QToolButton
-        from zbemt.gui.field_help import instalar_popups_de_campo
+        from zbemt.gui.field_help import install_field_popups
 
         w = QWidget()
         form = QFormLayout(w)
@@ -542,7 +542,7 @@ class TestInstalarPopupsDeCampo(unittest.TestCase):
         spin.setToolTip('"n_blades" — number of rotor blades')
         form.addRow(lbl, spin)
 
-        instalar_popups_de_campo(w)
+        install_field_popups(w)
 
         item = form.itemAt(0, QFormLayout.ItemRole.LabelRole)
         self.assertIsNotNone(item)
@@ -551,7 +551,7 @@ class TestInstalarPopupsDeCampo(unittest.TestCase):
     def test_campo_nao_documentado_sem_alteracao(self):
         """Field without an entry in FIELD_HELP does not get a clickable label."""
         from PyQt6.QtWidgets import QWidget, QFormLayout, QLabel, QLineEdit
-        from zbemt.gui.field_help import instalar_popups_de_campo
+        from zbemt.gui.field_help import install_field_popups
 
         w = QWidget()
         form = QFormLayout(w)
@@ -560,7 +560,7 @@ class TestInstalarPopupsDeCampo(unittest.TestCase):
         # no tooltip → unknown field
         form.addRow(lbl, le)
 
-        instalar_popups_de_campo(w)
+        install_field_popups(w)
 
         item = form.itemAt(0, QFormLayout.ItemRole.LabelRole)
         self.assertIsNotNone(item)
@@ -571,7 +571,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class TestTooltipDeEstolDinamicoSobrevive(unittest.TestCase):
+class TestDynamicStallTooltipSurvives(unittest.TestCase):
     """Owner's item 2: "Enable dynamic stall checkbox has no popup help
     (and no tooltip also)".
 
@@ -595,126 +595,126 @@ class TestTooltipDeEstolDinamicoSobrevive(unittest.TestCase):
         import sys
         cls.app = QApplication.instance() or QApplication(sys.argv)
 
-    def _aba(self):
+    def _tab(self):
         from tests import helpers
         from zbemt.gui.common import AppState
         from zbemt.gui.tabs.airfoil import AirfoilTab
         state = AppState()
         state.project = helpers.make_studies_project()
-        aba = AirfoilTab(state)
-        self.addCleanup(aba.deleteLater)
-        return aba
+        tab = AirfoilTab(state)
+        self.addCleanup(tab.deleteLater)
+        return tab
 
-    def test_tooltip_identifica_o_campo_nos_dois_estados(self):
-        from zbemt.gui.field_help import _campo_do_widget
+    def test_tooltip_identifies_the_field_in_both_states(self):
+        from zbemt.gui.field_help import _widget_field
 
-        aba = self._aba()
-        caixa = aba.use_dynamic_stall
-        for bloqueado in (False, True):
+        tab = self._tab()
+        checkbox = tab.use_dynamic_stall
+        for blocked in (False, True):
             # 'analytical' + 'linear' is the combination that locks the option
-            aba.source_combo.setCurrentText("analytical")
-            aba.stall_model_combo.setCurrentText("linear" if bloqueado else "clip")
-            aba._update_dynamic_stall_enabled()
-            with self.subTest(bloqueado=bloqueado):
-                self.assertTrue(caixa.toolTip(), "tooltip apagado")
-                self.assertEqual(_campo_do_widget(caixa), "use_dynamic_stall")
+            tab.source_combo.setCurrentText("analytical")
+            tab.stall_model_combo.setCurrentText("linear" if blocked else "clip")
+            tab._update_dynamic_stall_enabled()
+            with self.subTest(blocked=blocked):
+                self.assertTrue(checkbox.toolTip(), "tooltip erased")
+                self.assertEqual(_widget_field(checkbox), "use_dynamic_stall")
 
-    def test_estado_bloqueado_explica_o_motivo_sem_perder_o_nome(self):
-        aba = self._aba()
-        aba.source_combo.setCurrentText("analytical")
-        aba.stall_model_combo.setCurrentText("linear")
-        aba._update_dynamic_stall_enabled()
-        dica = aba.use_dynamic_stall.toolTip()
-        self.assertIn("use_dynamic_stall", dica)
-        self.assertIn("static stall", dica)
+    def test_blocked_state_explains_the_reason_without_losing_the_name(self):
+        tab = self._tab()
+        tab.source_combo.setCurrentText("analytical")
+        tab.stall_model_combo.setCurrentText("linear")
+        tab._update_dynamic_stall_enabled()
+        tooltip = tab.use_dynamic_stall.toolTip()
+        self.assertIn("use_dynamic_stall", tooltip)
+        self.assertIn("static stall", tooltip)
 
 
-class TestParagrafosNaAjudaDeCampo(unittest.TestCase):
+class TestParagraphsInFieldHelp(unittest.TestCase):
     """Field help explains the SAME quantity in both modes, and the two
     texts used to come out stuck together in one running block.
 
     The popup's `QLabel`s are RichText, and RichText collapses
     whitespace: the `\n\n` that separates "in the rotor..." from "in
-    the propeller..." separated nothing on screen. `help_popup.em_paragrafos`
+    the propeller..." separated nothing on screen. `help_popup.in_paragraphs`
     turns the double break into a real `<p>`; without it, the hardest
     text in the help (two conventions, one spliced onto the other)
     stayed illegible."""
 
-    def test_quebra_dupla_vira_paragrafo(self):
-        from zbemt.gui.help_popup import em_paragrafos
-        html = em_paragrafos("Rotor: climbs and descends.\n\nPropeller: flight speed.")
+    def test_double_break_becomes_a_paragraph(self):
+        from zbemt.gui.help_popup import in_paragraphs
+        html = in_paragraphs("Rotor: climbs and descends.\n\nPropeller: flight speed.")
         self.assertEqual(html.count("<p"), 2)
         self.assertIn("Rotor: climbs and descends.", html)
         self.assertIn("Propeller: flight speed.", html)
 
-    def test_texto_de_um_paragrafo_nao_ganha_p(self):
+    def test_single_paragraph_text_gains_no_p(self):
         """`<p>` adds margin: on a text of a single line, it would only
         push the neighboring fields further apart."""
-        from zbemt.gui.help_popup import em_paragrafos
-        self.assertEqual(em_paragrafos("Just one line."), "Just one line.")
-        self.assertEqual(em_paragrafos(""), "")
+        from zbemt.gui.help_popup import in_paragraphs
+        self.assertEqual(in_paragraphs("Just one line."), "Just one line.")
+        self.assertEqual(in_paragraphs(""), "")
 
-    def test_quebra_simples_continua_sendo_espaco(self):
+    def test_single_break_stays_a_space(self):
         """As in any HTML: only the BLANK line marks a paragraph."""
-        from zbemt.gui.help_popup import em_paragrafos
-        self.assertNotIn("<p", em_paragrafos("uma\nquebra simples"))
+        from zbemt.gui.help_popup import in_paragraphs
+        self.assertNotIn("<p", in_paragraphs("one\nsimple break"))
 
-    def test_o_popup_e_largo_o_bastante_para_paragrafos(self):
+    def test_the_popup_is_wide_enough_for_paragraphs(self):
         """At 360px each paragraph turned into a narrow, tall column --
         more scrolling than text. The threshold used to be 1200, but the
         popup NEVER actually rendered at that width -- a bug in
         `_posicionar` let the internal QScrollArea lock its width to its
-        own small, fixed sizeHint, ignoring `_LARGURA` entirely (fixed
+        own small, fixed sizeHint, ignoring `_WIDTH` entirely (fixed
         in this session). With the bug fixed, 1200+ became too wide on
         the real screen; the user asked for a moderate increase over the
         previous width, not the original design width."""
-        from zbemt.gui.help_popup import _LARGURA
-        self.assertGreaterEqual(_LARGURA, 500)
+        from zbemt.gui.help_popup import _WIDTH
+        self.assertGreaterEqual(_WIDTH, 500)
 
-    def test_a_ajuda_que_cobre_os_dois_modos_esta_em_paragrafos(self):
+    def test_help_covering_both_modes_is_in_paragraphs(self):
         """These fields change meaning with the mode, so their help MUST
         carry both texts separately."""
         from zbemt.gui.help_content import FIELD_HELP
-        for campo in ("mu_x", "Vz", "is_propeller"):
-            with self.subTest(campo=campo):
-                dados = FIELD_HELP[campo]
-                texto = str(dados.get("definition", "")) + str(dados.get("effect", ""))
-                texto += "".join(str(v) for v in (dados.get("options") or {}).values())
-                self.assertIn("\n\n", texto,
-                               f"the help for {campo} explains both modes in a single block")
+        for field in ("mu_x", "Vz", "is_propeller"):
+            with self.subTest(field=field):
+                entry = FIELD_HELP[field]
+                text = str(entry.get("definition", "")) + str(entry.get("effect", ""))
+                text += "".join(str(v) for v in (entry.get("options") or {}).values())
+                self.assertIn("\n\n", text,
+                               f"the help for {field} explains both modes in a single block")
 
     def test_dynamic_stall_equations_render_pixmap(self):
         """The dynamic stall equations in FIELD_HELP render as QPixmap."""
         from zbemt.gui.help_content import FIELD_HELP
-        from zbemt.gui.help_popup import renderizar_equacao
-        campos_ds = [
+        from zbemt.gui.help_popup import render_equation
+        ds_fields = [
             "use_dynamic_stall",
             "dynamic_stall_method",
             "dynamic_stall_A",
             "dynamic_stall_fade_start_deg",
             "dynamic_stall_fade_end_deg",
         ]
-        for c in campos_ds:
+        for c in ds_fields:
             eq = FIELD_HELP[c].get("equation", "")
-            with self.subTest(campo=c, eq=eq):
-                pixmap = renderizar_equacao(eq)
+            with self.subTest(field=c, eq=eq):
+                pixmap = render_equation(eq)
                 self.assertIsNotNone(pixmap, f"Failed to render equation for {c}")
                 self.assertFalse(pixmap.isNull())
 
     def test_all_block_help_equations_render(self):
         """All $$...$$ equations in BLOCK_HELP render successfully as QPixmap."""
         from zbemt.gui.help_blocks import BLOCK_HELP
-        from zbemt.gui.help_popup import renderizar_equacao
-        for bloco, dados in BLOCK_HELP.items():
-            for p in dados.get("body", []):
+        from zbemt.gui.help_popup import render_equation
+        for block, entry in BLOCK_HELP.items():
+            for p in entry.get("body", []):
                 if "$$" in p:
-                    partes = p.split("$$")
-                    for i, parte in enumerate(partes):
-                        if i % 2 == 1 and parte.strip():
-                            eq = parte.strip()
-                            with self.subTest(bloco=bloco, eq=eq):
-                                pixmap = renderizar_equacao(eq, dpr=1.0)
-                                self.assertIsNotNone(pixmap, f"Failed to render equation in block '{bloco}': {eq}")
+                    parts = p.split("$$")
+                    for i, part in enumerate(parts):
+                        if i % 2 == 1 and part.strip():
+                            eq = part.strip()
+                            with self.subTest(block=block, eq=eq):
+                                pixmap = render_equation(eq, dpr=1.0)
+                                self.assertIsNotNone(pixmap, f"Failed to render equation in block '{block}': {eq}")
                                 self.assertFalse(pixmap.isNull())
 
 

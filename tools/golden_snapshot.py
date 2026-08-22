@@ -37,22 +37,22 @@ import json
 import sys
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(RAIZ))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from zbemt import api                                        # noqa: E402
 from zbemt.models import Project                             # noqa: E402
 
-DEFAULT_PROJECTS_DIR = None          # None means RAIZ / "projects"
+DEFAULT_PROJECTS_DIR = None          # None means ROOT / "projects"
 
-DESTINO = RAIZ / "tests" / "data" / "golden_results.json"
+OUTPUT = ROOT / "tests" / "data" / "golden_results.json"
 
 #: The summary keys recorded. Deliberately the OUTPUTS a reader of the
 #: results table looks at first, not every one of the ninety-odd columns:
 #: the `cfg_*` echo repeats the input, and the timings are machine
 #: dependent. A key absent from a given run (propeller coefficients on a
 #: rotor project) is simply not recorded for it.
-CHAVES = (
+KEYS = (
     "Thrust", "Torque", "Power", "Power_i", "Power_p",
     "CT", "CQ", "CP", "CPi", "CPp", "CH", "CY", "CMx", "CMy", "FM",
     "CT_prop", "CQ_prop", "CP_prop", "eta_prop",
@@ -63,55 +63,55 @@ CHAVES = (
 #: in the last bit of a `numpy` reduction into a test failure; six is far
 #: tighter than any physically meaningful change and survives a different
 #: BLAS.
-DIGITOS = 6
+DIGITS = 6
 
 
-def _arredondar(valor):
-    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
-        return valor
-    if valor != valor:                                    # NaN
+def _round(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return value
+    if value != value:                                    # NaN
         return "nan"
-    return round(float(valor), DIGITOS)
+    return round(float(value), DIGITS)
 
 
-def coletar_projeto(pasta: Path) -> dict:
+def collect_project(project_dir: Path) -> dict:
     """``{case name: {summary key: value}}`` for one project."""
-    projeto: Project = api.open_project(str(pasta))
-    registro = {}
-    for condicao in projeto.saved_cases:
-        resultado = api.run_case(projeto, condicao)
-        registro[condicao.name] = {
-            chave: _arredondar(resultado.summary[chave])
-            for chave in CHAVES if chave in resultado.summary
+    project: Project = api.open_project(str(project_dir))
+    record = {}
+    for condition in project.saved_cases:
+        result = api.run_case(project, condition)
+        record[condition.name] = {
+            key: _round(result.summary[key])
+            for key in KEYS if key in result.summary
         }
-    return registro
+    return record
 
 
-def coletar(pasta_de_projetos: Path | None = None, apenas: str | None = None) -> dict:
-    raiz = pasta_de_projetos or DEFAULT_PROJECTS_DIR or (RAIZ / "projects")
-    tudo = {}
-    for pasta in sorted(Path(raiz).iterdir()):
-        if not pasta.is_dir() or (apenas and pasta.name != apenas):
+def collect(projects_dir: Path | None = None, only: str | None = None) -> dict:
+    root = projects_dir or DEFAULT_PROJECTS_DIR or (ROOT / "projects")
+    everything = {}
+    for project_dir in sorted(Path(root).iterdir()):
+        if not project_dir.is_dir() or (only and project_dir.name != only):
             continue
-        tudo[pasta.name] = coletar_projeto(pasta)
-    return tudo
+        everything[project_dir.name] = collect_project(project_dir)
+    return everything
 
 
 def main() -> int:
-    apenas = sys.argv[1] if len(sys.argv) > 1 else None
-    if apenas:
-        apenas = Path(apenas).name
-    tudo = coletar(apenas=apenas)
-    if apenas and DESTINO.exists():
-        completo = json.loads(DESTINO.read_text(encoding="utf-8"))
-        completo.update(tudo)
-        tudo = completo
-    DESTINO.parent.mkdir(parents=True, exist_ok=True)
-    DESTINO.write_text(json.dumps(tudo, indent=2, sort_keys=True) + "\n",
-                       encoding="utf-8")
-    casos = sum(len(v) for v in tudo.values())
-    print(f"golden results written to {DESTINO}")
-    print(f"  {len(tudo)} project(s), {casos} case(s)")
+    only = sys.argv[1] if len(sys.argv) > 1 else None
+    if only:
+        only = Path(only).name
+    everything = collect(only=only)
+    if only and OUTPUT.exists():
+        complete = json.loads(OUTPUT.read_text(encoding="utf-8"))
+        complete.update(everything)
+        everything = complete
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT.write_text(json.dumps(everything, indent=2, sort_keys=True) + "\n",
+                      encoding="utf-8")
+    cases = sum(len(v) for v in everything.values())
+    print(f"golden results written to {OUTPUT}")
+    print(f"  {len(everything)} project(s), {cases} case(s)")
     return 0
 
 

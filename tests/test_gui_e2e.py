@@ -98,7 +98,7 @@ class GuiE2ETestCase(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self._tmpdir, ignore_errors=True)
         # S1: each GUI module has its OWN QMessageBox; a patch only in
         # `zbemt.gui.app` would not reach the tabs.
-        cm = helpers.patch_em_toda_gui("QMessageBox")
+        cm = helpers.patch_message_box_everywhere("QMessageBox")
         self.mock_msgbox = cm.__enter__()
         self.addCleanup(cm.__exit__, None, None, None)
         # QMessageBox.question should return "Yes" when someone checks
@@ -133,7 +133,7 @@ class GuiE2ETestCase(unittest.TestCase):
 class TestStep1Project(GuiE2ETestCase):
     def test_new_project_via_real_button_repopulates_tabs_and_flow_bar(self):
         state = self._make_state()
-        with helpers.patch_em_toda_gui("PROJECTS_ROOT", self._tmpdir):
+        with helpers.patch_message_box_everywhere("PROJECTS_ROOT", self._tmpdir):
             project_tab = self.gui.ProjectTab(state)
             geometry_tab = self.gui.GeometryTab(state)
             airfoil_tab = self.gui.AirfoilTab(state)
@@ -559,9 +559,9 @@ class TestStep5RunCase(GuiE2ETestCase):
         self.assertEqual(len(state.results_history), 2)
 
     def test_results_table_uses_report_symbols_units_and_tooltips(self):
-        """Bug: `_GRUPOS_ROTOR`/`_GRUPOS_HELICE` + `_formatar_valor` were
+        """Bug: `_GROUPS_ROTOR`/`_GROUPS_PROPELLER` + `_formatar_valor` were
         a SECOND manual copy, misaligned, of the same labels/units/formatting
-        that `api.py`'s `_SIMBOLO_DE_COLUNA` already maintained for the HTML
+        that `api.py`'s `_COLUMN_SYMBOL` already maintained for the HTML
         report -- Run Case, Results tab and the report could diverge in how
         they displayed the same quantity."""
         from PyQt6.QtCore import QPoint
@@ -587,7 +587,7 @@ class TestStep5RunCase(GuiE2ETestCase):
 
         # instant tooltip returns symbol+unit+description for that row
         y = tab.results_table.rowViewportPosition(ct_row) + 2
-        tip = tab._tooltip_da_linha(QPoint(5, y))
+        tip = tab._row_tooltip(QPoint(5, y))
         self.assertIn("Thrust coefficient", tip)
 
         # group header row (no associated key) does not generate tooltip.
@@ -597,7 +597,7 @@ class TestStep5RunCase(GuiE2ETestCase):
         # they are the FLIGHT CONDITION, not just any condition.
         header_row = labels.index("Flight condition")
         y_header = tab.results_table.rowViewportPosition(header_row) + 2
-        self.assertIsNone(tab._tooltip_da_linha(QPoint(5, y_header)))
+        self.assertIsNone(tab._row_tooltip(QPoint(5, y_header)))
 
         # rotor geometry (radius/number of blades) is INPUT, but without it
         # here there was no way to know, from the result, which radius
@@ -768,7 +768,7 @@ class TestStep6RunBatch(GuiE2ETestCase):
         self.assertIn("2 × 2", tab.total_cases_label.text())
 
         # stage 1: generate -- cases go to the QUEUE, not yet running
-        tab._gerar_casos()
+        tab._generate_cases()
         self.assertEqual(tab.batch_table.rowCount(), 4,
                           "o fatorial deveria materializar 4 casos na fila")
         self.assertIsNone(state.last_results, "generate must not run anything")
@@ -826,7 +826,7 @@ class TestStep6RunBatch(GuiE2ETestCase):
                     raise AssertionError("cancelamento nunca chegou -- handshake quebrado")
             return Results(summary={"mu_x": cond.mu_x, "CT": 0.01}, maps={}, condition_name=cond.name)
 
-        tab._preencher_fila(conditions, substituir=True)
+        tab._fill_queue(conditions, replace=True)
         worker = self.gui.BatchRunnerWorker(state.project, batch=batch)
         tab._start_run(worker, total=len(conditions), label="teste de cancelamento")
 
@@ -1011,9 +1011,9 @@ class TestStep7Results(GuiE2ETestCase):
         disk_item = [tab.mode_list.item(i) for i in range(tab.mode_list.count())
                      if tab.mode_list.item(i).text() == "Disk map"][0]
         self.assertTrue(bool(disk_item.flags() & Qt.ItemFlag.ItemIsEnabled),
-                        "com 2 marcados o mapa de disco tem de continuar disponivel")
+                        "with 2 checked the disk map must remain available")
         self.assertGreaterEqual(tab.condition_combo.count(), 2,
-                                "o seletor de condicao oferece as condicoes marcadas")
+                                "the condition selector offers the checked conditions")
 
         tab._clear_history_selection()
         tab.history_list.item(0).setCheckState(Qt.CheckState.Checked)
@@ -1152,7 +1152,7 @@ class TestStep7Results(GuiE2ETestCase):
             # Renamed in `results.py`: the button exports maps of EVERY marked
             # condition, whether from a batch or standalone cases (item 27),
             # so the name no longer talks only about 'batch'.
-            tab._export_disk_maps_da_selecao()
+            tab._export_selected_disk_maps()
 
         mock_progress.assert_called_once()
         mock_progress.return_value.show.assert_called_once()
@@ -1191,7 +1191,7 @@ class TestStep8Persistence(GuiE2ETestCase):
         run_case_tab.collective_spin.setValue(9.0)
         run_case_tab.rpm_spin.setValue(650.0)
         run_case_tab._save_current_as_case_direct = None  # no-op placeholder
-        with helpers.patch_em_toda_gui("QInputDialog") as mock_input:
+        with helpers.patch_message_box_everywhere("QInputDialog") as mock_input:
             mock_input.getText.return_value = ("caso_teste", True)
             run_case_tab._save_current_as_case()
 
@@ -1210,12 +1210,12 @@ class TestStep8Persistence(GuiE2ETestCase):
         # "closes" the project (discards GUI state) and reopens from scratch,
         # via the same path as the "Open from another folder..." button
         reopened_state = self._make_state()
-        with helpers.patch_em_toda_gui("PROJECTS_ROOT", self._tmpdir):
+        with helpers.patch_message_box_everywhere("PROJECTS_ROOT", self._tmpdir):
             reopened_project_tab = self.gui.ProjectTab(reopened_state)
             reopened_project_tab._open_path(project.path)
 
         self.assertEqual(reopened_state.project.name, before_name,
-                          "Project.name deveria sobreviver ao ciclo salvar/reabrir")
+                         "Project.name must survive the save-and-reopen cycle")
         self.assertEqual(asdict(reopened_state.project.geometry), before_geom)
         self.assertEqual(asdict(reopened_state.project.airfoil), before_airfoil)
         self.assertEqual(dict(reopened_state.project.config), before_config)
@@ -1232,107 +1232,107 @@ class TestQ7PromptDeFechamento(GuiE2ETestCase):
     """Before, closing the window discarded everything silently: nothing
     auto-saves and 'Apply to project' only writes to memory."""
 
-    def _janela(self):
-        with helpers.patch_em_toda_gui("PROJECTS_ROOT", self._tmpdir):
+    def _window(self):
+        with helpers.patch_message_box_everywhere("PROJECTS_ROOT", self._tmpdir):
             win = self.gui.MainWindow()
         self.addCleanup(win.deleteLater)
         return win
 
-    def test_sem_pendencia_fecha_sem_perguntar(self):
-        win = self._janela()
+    def test_without_pending_work_closes_without_asking(self):
+        win = self._window()
         self._new_project(win.state)
         win.state.mark_saved()
         win.close()
         self.mock_msgbox.question.assert_not_called()
 
-    def test_alteracao_aplicada_mas_nao_salva_dispara_o_prompt(self):
-        win = self._janela()
+    def test_change_applied_but_not_saved_triggers_the_prompt(self):
+        win = self._window()
         self._new_project(win.state)
         win.state.notify_config()          # what a tab calls when applying
-        pendencias = win.trabalho_nao_salvo()
-        self.assertEqual(len(pendencias), 1)
-        self.assertIn("project", pendencias[0])
+        pending = win.unsaved_work()
+        self.assertEqual(len(pending), 1)
+        self.assertIn("project", pending[0])
         self.mock_msgbox.question.return_value = self.mock_msgbox.StandardButton.Discard
         win.close()
         self.mock_msgbox.question.assert_called_once()
 
-    def test_asterisco_por_aba_e_so_espelho_de_state_unsaved(self):
+    def test_asterisk_per_tab_is_only_a_mirror_of_state_unsaved(self):
         """Geometry/Airfoil/Config apply all edits live -- there is no longer
         a second layer of "edited, never applied" separate from `state.unsaved`;
         `_mark_dirty()` alone (without touching `state.unsaved`) should not
-        happen through normal GUI usage, but `trabalho_nao_salvo()` only looks
+        happen through normal GUI usage, but `unsaved_work()` only looks
         at `state.unsaved`, so nothing appears here until a tab actually
         notifies the project."""
-        win = self._janela()
+        win = self._window()
         self._new_project(win.state)
         win.state.mark_saved()
         win.tabs.widget(1)._mark_dirty()
-        pendencias = win.trabalho_nao_salvo()
-        self.assertEqual(len(pendencias), 0)
+        pending = win.unsaved_work()
+        self.assertEqual(len(pending), 0)
 
-    def test_editar_campo_de_config_marca_asterisco_e_aplica_ao_vivo(self):
+    def test_editing_a_config_field_marks_the_asterisk_and_applies_live(self):
         """Editing a Config field applies directly to `state.project.config`
         (no "Apply to project" button) and marks the asterisk for "not saved
         to disk" -- only `Save project` clears that asterisk."""
-        win = self._janela()
+        win = self._window()
         self._new_project(win.state)
         win.state.mark_saved()
         config_tab = win.tabs.widget(3)
         self.assertFalse(config_tab._dirty)
         self.assertEqual(win.tabs.tabText(3), "Config/Engine")
 
-        novo_valor = config_tab.cfg_Ne.value() + 1
-        config_tab.cfg_Ne.setValue(novo_valor)
+        new_value = config_tab.cfg_Ne.value() + 1
+        config_tab.cfg_Ne.setValue(new_value)
 
         self.assertTrue(config_tab._dirty)
         self.assertEqual(win.tabs.tabText(3), "Config/Engine *")
-        self.assertEqual(win.state.project.config["Ne"], novo_valor)
-        pendencias = win.trabalho_nao_salvo()
-        self.assertEqual(len(pendencias), 1)
-        self.assertIn("project", pendencias[0])
+        self.assertEqual(win.state.project.config["Ne"], new_value)
+        pending = win.unsaved_work()
+        self.assertEqual(len(pending), 1)
+        self.assertIn("project", pending[0])
 
         config_tab._save_project()
 
         self.assertFalse(config_tab._dirty)
         self.assertEqual(win.tabs.tabText(3), "Config/Engine")
 
-    def test_abrir_projeto_nao_marca_config_como_editado(self):
+    def test_opening_a_project_does_not_mark_config_as_edited(self):
         """Populating widgets from the project (setValue/setChecked/
         setCurrentText) fires the same signals as manual editing -- without
         the guard `_refreshing_from_project`, opening a project would already
         leave the tab with a false-positive asterisk."""
-        win = self._janela()
+        win = self._window()
         self._new_project(win.state)
         config_tab = win.tabs.widget(3)
         self.assertFalse(config_tab._dirty)
         self.assertEqual(win.tabs.tabText(3), "Config/Engine")
 
-    def test_cancelar_mantem_a_janela_aberta(self):
-        win = self._janela()
+    def test_cancel_keeps_the_window_open(self):
+        win = self._window()
         self._new_project(win.state)
         win.state.notify_config()
         self.mock_msgbox.question.return_value = self.mock_msgbox.StandardButton.Cancel
-        evento = QCloseEvent()
-        win.closeEvent(evento)
-        self.assertFalse(evento.isAccepted())
+        event = QCloseEvent()
+        win.closeEvent(event)
+        self.assertFalse(event.isAccepted())
 
-    def test_salvar_grava_no_disco_e_limpa_a_pendencia(self):
-        win = self._janela()
+    def test_save_writes_to_disk_and_clears_the_pending_work(self):
+        win = self._window()
         project = self._new_project(win.state)
-        win.state.project.name = "renomeado_antes_de_fechar"
+        win.state.project.name = "renamed_before_closing"
         win.state.notify_config()
         self.mock_msgbox.question.return_value = self.mock_msgbox.StandardButton.Save
         win.close()
         self.assertEqual(api.open_project(project.path).name,
-                         "renomeado_antes_de_fechar")
-        self.assertEqual(win.trabalho_nao_salvo(), [])
+                         "renamed_before_closing")
+        self.assertEqual(win.unsaved_work(), [])
 
-    def test_abrir_projeto_zera_a_marca(self):
-        win = self._janela()
+    def test_opening_a_project_resets_the_mark(self):
+        win = self._window()
         self._new_project(win.state)
         win.state.notify_config()
-        self._new_project(win.state, name="outro")
-        self.assertEqual(win.trabalho_nao_salvo(), [])
+        self._new_project(win.state, name="other")
+        self.assertEqual(win.unsaved_work(), [])
 
 
 class TestShortcutsMatchDocumentation(GuiE2ETestCase):
@@ -1340,34 +1340,34 @@ class TestShortcutsMatchDocumentation(GuiE2ETestCase):
     Ctrl+1..7, which did not exist, and omitted Ctrl+R and Ctrl+Enter, which
     did. A documented but missing shortcut is worse than a missing one."""
 
-    def _atalhos(self):
+    def _shortcuts(self):
         from PyQt6.QtGui import QShortcut
-        with helpers.patch_em_toda_gui("PROJECTS_ROOT", self._tmpdir):
+        with helpers.patch_message_box_everywhere("PROJECTS_ROOT", self._tmpdir):
             win = self.gui.MainWindow()
         self.addCleanup(win.deleteLater)
         return {s.key().toString() for s in win.findChildren(QShortcut)}, win
 
-    def test_todos_os_atalhos_documentados_existem(self):
-        atalhos, _ = self._atalhos()
-        documentados = {"F1", "Ctrl+S", "Ctrl+O", "Ctrl+N", "Ctrl+R", "Ctrl+Enter"}
-        documentados |= {f"Ctrl+{i}" for i in range(1, 8)}
-        faltando = documentados - atalhos
-        self.assertEqual(faltando, set(), f"documentados mas inexistentes: {sorted(faltando)}")
+    def test_all_documented_shortcuts_exist(self):
+        shortcuts, _ = self._shortcuts()
+        documented = {"F1", "Ctrl+S", "Ctrl+O", "Ctrl+N", "Ctrl+R", "Ctrl+Enter"}
+        documented |= {f"Ctrl+{i}" for i in range(1, 8)}
+        missing = documented - shortcuts
+        self.assertEqual(missing, set(), f"documented but nonexistent: {sorted(missing)}")
 
-    def test_ctrl_numero_salta_para_a_aba_correspondente(self):
-        _, win = self._atalhos()
-        for indice in range(win.tabs.count()):
+    def test_ctrl_number_jumps_to_the_corresponding_tab(self):
+        _, win = self._shortcuts()
+        for index in range(win.tabs.count()):
             win.tabs.setCurrentIndex(0)
-            win.tabs.setCurrentIndex(indice)
-            self.assertEqual(win.tabs.currentIndex(), indice)
+            win.tabs.setCurrentIndex(index)
+            self.assertEqual(win.tabs.currentIndex(), index)
 
-    def test_ctrl_n_cria_projeto_e_vai_para_a_aba_projeto(self):
-        _, win = self._atalhos()
+    def test_ctrl_n_creates_a_project_and_goes_to_the_project_tab(self):
+        _, win = self._shortcuts()
         win.tabs.setCurrentIndex(4)
-        with helpers.patch_em_toda_gui("PROJECTS_ROOT", self._tmpdir):
-            with mock.patch.object(type(win._project_tab), "_new_project") as criar:
+        with helpers.patch_message_box_everywhere("PROJECTS_ROOT", self._tmpdir):
+            with mock.patch.object(type(win._project_tab), "_new_project") as create:
                 win._shortcut_new_project()
-        criar.assert_called_once()
+        create.assert_called_once()
         self.assertEqual(win.tabs.currentIndex(), 0)
 
 
@@ -1398,106 +1398,106 @@ class TestFilaDoRunBatch(GuiE2ETestCase):
         state.notify_config()
         return project
 
-    def _aba(self):
+    def _tab(self):
         state = self._make_state()
         self._small_heli_project(state)
-        aba = self.gui.RunBatchTab(state)
-        return state, aba
+        tab = self.gui.RunBatchTab(state)
+        return state, tab
 
-    def _montar_fatorial(self, aba, valores_mu="0.0, 0.1, 0.2"):
-        sc1, uc1, ve1 = aba.axis_rows[0]
-        i_long = [i for i, (_l, s) in enumerate(aba._AXIS_SLOTS) if s == "inplane"][0]
+    def _build_factorial(self, tab, mu_values="0.0, 0.1, 0.2"):
+        sc1, uc1, ve1 = tab.axis_rows[0]
+        i_long = [i for i, (_l, s) in enumerate(tab._AXIS_SLOTS) if s == "inplane"][0]
         sc1.setCurrentIndex(i_long)
         uc1.setCurrentText("mu_x")
-        ve1.setText(valores_mu)
-        aba.fixed_rpm.setValue(600.0)
+        ve1.setText(mu_values)
+        tab.fixed_rpm.setValue(600.0)
 
-    def test_gerar_nao_roda(self):
+    def test_generate_does_not_run(self):
         """Seeing the cases before firing N solves is the whole point of the queue."""
-        state, aba = self._aba()
-        self._montar_fatorial(aba)
-        aba._gerar_casos()
-        self.assertEqual(aba.batch_table.rowCount(), 3)
+        state, tab = self._tab()
+        self._build_factorial(tab)
+        tab._generate_cases()
+        self.assertEqual(tab.batch_table.rowCount(), 3)
         self.assertIsNone(state.last_results)
 
-    def test_um_unico_botao_de_rodar_e_ele_segue_a_fila(self):
-        _state, aba = self._aba()
-        self.assertFalse(aba.btn_run.isEnabled(), "fila vazia deveria desabilitar o rodar")
-        self._montar_fatorial(aba)
-        aba._gerar_casos()
-        self.assertTrue(aba.btn_run.isEnabled())
-        self.assertIn("3", aba.btn_run.text())
+    def test_a_single_run_button_and_it_follows_the_queue(self):
+        _state, tab = self._tab()
+        self.assertFalse(tab.btn_run.isEnabled(), "empty queue should disable run")
+        self._build_factorial(tab)
+        tab._generate_cases()
+        self.assertTrue(tab.btn_run.isEnabled())
+        self.assertIn("3", tab.btn_run.text())
 
-    def test_os_dois_modos_alimentam_a_mesma_fila(self):
+    def test_the_two_modes_feed_the_same_queue(self):
         """It is what allows mixing: one factorial plus one standalone case."""
-        _state, aba = self._aba()
-        self._montar_fatorial(aba)
-        aba._gerar_casos()
-        self.assertEqual(aba.batch_table.rowCount(), 3)
+        _state, tab = self._tab()
+        self._build_factorial(tab)
+        tab._generate_cases()
+        self.assertEqual(tab.batch_table.rowCount(), 3)
 
-        aba.radio_lista.setChecked(True)
-        aba.add_row_advance.set_mu(0.35)
-        aba.collective_spin.setValue(5.0)
-        aba.rpm_spin.setValue(600.0)
-        aba._gerar_casos()
-        self.assertEqual(aba.batch_table.rowCount(), 4,
+        tab.radio_list.setChecked(True)
+        tab.add_row_advance.set_mu(0.35)
+        tab.collective_spin.setValue(5.0)
+        tab.rpm_spin.setValue(600.0)
+        tab._generate_cases()
+        self.assertEqual(tab.batch_table.rowCount(), 4,
                           "the single case should ADD, not replace")
-        condicoes = aba._condicoes_da_fila()
-        self.assertAlmostEqual(condicoes[-1].mu_x, 0.35, places=4)
-        self.assertAlmostEqual(condicoes[-1].collective_deg, 5.0, places=4)
+        conditions = tab._queue_conditions()
+        self.assertAlmostEqual(conditions[-1].mu_x, 0.35, places=4)
+        self.assertAlmostEqual(conditions[-1].collective_deg, 5.0, places=4)
 
-    def test_substituir_desmarcado_acumula_fatoriais(self):
-        _state, aba = self._aba()
-        self._montar_fatorial(aba)
-        aba._gerar_casos()
-        aba.check_substituir.setChecked(False)
-        aba._gerar_casos()
-        self.assertEqual(aba.batch_table.rowCount(), 6)
+    def test_replace_unchecked_accumulates_factorials(self):
+        _state, tab = self._tab()
+        self._build_factorial(tab)
+        tab._generate_cases()
+        tab.check_replace_queue.setChecked(False)
+        tab._generate_cases()
+        self.assertEqual(tab.batch_table.rowCount(), 6)
 
-    def test_remover_e_limpar_renumeram(self):
-        _state, aba = self._aba()
-        self._montar_fatorial(aba)
-        aba._gerar_casos()
-        aba.batch_table.setCurrentCell(0, 0)
-        aba._remove_batch_row()
-        self.assertEqual(aba.batch_table.rowCount(), 2)
-        self.assertEqual([aba.batch_table.item(i, 0).text() for i in range(2)], ["1", "2"])
-        aba._limpar_fila()
-        self.assertEqual(aba.batch_table.rowCount(), 0)
-        self.assertFalse(aba.btn_run.isEnabled())
+    def test_remove_and_clear_renumber(self):
+        _state, tab = self._tab()
+        self._build_factorial(tab)
+        tab._generate_cases()
+        tab.batch_table.setCurrentCell(0, 0)
+        tab._remove_batch_row()
+        self.assertEqual(tab.batch_table.rowCount(), 2)
+        self.assertEqual([tab.batch_table.item(i, 0).text() for i in range(2)], ["1", "2"])
+        tab._clear_queue()
+        self.assertEqual(tab.batch_table.rowCount(), 0)
+        self.assertFalse(tab.btn_run.isEnabled())
 
-    def test_fatorial_agora_pode_ser_salvo_como_batch(self):
+    def test_factorial_can_now_be_saved_as_batch(self):
         """Before, only the explicit list was saveable: a carefully
         constructed factorial was lost when closing the project."""
-        state, aba = self._aba()
-        self._montar_fatorial(aba)
-        aba._gerar_casos()
-        with helpers.patch_em_toda_gui("QInputDialog") as dialogo:
-            dialogo.getText.return_value = ("meu_fatorial", True)
-            aba._save_current_as_batch()
-        nomes = [b.name for b in state.project.batches]
-        self.assertIn("meu_fatorial", nomes)
-        salvo = next(b for b in state.project.batches if b.name == "meu_fatorial")
-        self.assertEqual(len(salvo.conditions), 3)
+        state, tab = self._tab()
+        self._build_factorial(tab)
+        tab._generate_cases()
+        with helpers.patch_message_box_everywhere("QInputDialog") as dialog:
+            dialog.getText.return_value = ("my_factorial", True)
+            tab._save_current_as_batch()
+        names = [b.name for b in state.project.batches]
+        self.assertIn("my_factorial", names)
+        saved = next(b for b in state.project.batches if b.name == "my_factorial")
+        self.assertEqual(len(saved.conditions), 3)
 
-    def test_batch_de_varredura_salvo_e_expandido_na_fila(self):
+    def test_saved_sweep_batch_is_expanded_into_the_queue(self):
         """A batch with `sweep_params` and no conditions needs to appear
         expanded -- otherwise the queue would show zero cases for something
         that runs eight."""
-        state, aba = self._aba()
+        state, tab = self._tab()
         state.project.batches.append(BatchDefinition(
-            name="varredura", sweep_kind="mu_sweep",
+            name="sweep", sweep_kind="mu_sweep",
             sweep_params={"mu_values": [0.0, 0.1, 0.2, 0.3], "rpm": 600.0}))
-        aba._refresh_saved_batches_combo()
-        aba.batches_combo.setCurrentText("varredura")
-        self.assertEqual(aba.batch_table.rowCount(), 4)
+        tab._refresh_saved_batches_combo()
+        tab.batches_combo.setCurrentText("sweep")
+        self.assertEqual(tab.batch_table.rowCount(), 4)
 
 
 if __name__ == "__main__":
     unittest.main()
 
 
-class TestNeuralFoilAplicaAoProjeto(GuiE2ETestCase):
+class TestNeuralFoilReachesTheProject(GuiE2ETestCase):
     """Regression of item 18: the polars generated by NeuralFoil (and the 2D
     geometry) must reach `state.project.airfoil`.
 
@@ -1517,7 +1517,7 @@ class TestNeuralFoilAplicaAoProjeto(GuiE2ETestCase):
                            cd=(0.01 + 0 * al).tolist(), reynolds=re, mach=m)
                 for re in (1e5, 2e5) for m in (0.0, 0.3)]
 
-    def test_polares_do_neuralfoil_chegam_ao_projeto_sem_trocar_de_modo(self):
+    def test_neuralfoil_polars_reach_the_project_without_switching_modes(self):
         from zbemt.gui.tabs.airfoil import AirfoilTab
         from zbemt import airfoils
 
@@ -1531,14 +1531,14 @@ class TestNeuralFoilAplicaAoProjeto(GuiE2ETestCase):
         tab._profile = airfoils.generate_naca4("2412")
         tab._on_external_finished(self._slices())
 
-        aplicado = state.project.airfoil
-        self.assertEqual(len(aplicado.table_slices), 4)
-        self.assertIsNotNone(aplicado.geometry)
+        applied = state.project.airfoil
+        self.assertEqual(len(applied.table_slices), 4)
+        self.assertIsNotNone(applied.geometry)
 
-        erros = [i for i in api.validate_project(state.project) if i.level == "error"]
-        self.assertEqual(erros, [], f"run blocked by: {[str(e) for e in erros]}")
+        errors = [i for i in api.validate_project(state.project) if i.level == "error"]
+        self.assertEqual(errors, [], f"run blocked by: {[str(e) for e in errors]}")
 
-    def test_geometria_2d_gerada_chega_ao_projeto(self):
+    def test_generated_2d_geometry_reaches_the_project(self):
         from zbemt.gui.tabs.airfoil import AirfoilTab
 
         state = self._make_state()
@@ -1552,11 +1552,11 @@ class TestNeuralFoilAplicaAoProjeto(GuiE2ETestCase):
         self.assertIsNotNone(state.project.airfoil.geometry)
 
 
-class TestIndicadorLimpaAoCorrigirOProblema(GuiE2ETestCase):
+class TestIndicatorClearsWhenTheProblemIsFixed(GuiE2ETestCase):
     """Regression of item 17: once the error is fixed, the tab must turn
     green.
 
-    Same root as item 18 (see `TestNeuralFoilAplicaAoProjeto`): the
+    Same root as item 18 (see `TestNeuralFoilReachesTheProject`): the
     `FlowIndicatorBar` validates `state.project`, so a fix made in the tab
     that does NOT reach the project leaves the indicator red forever.
     `_import_csv` was one such path -- it imported the polar into
@@ -1568,22 +1568,22 @@ class TestIndicadorLimpaAoCorrigirOProblema(GuiE2ETestCase):
         def setCurrentIndex(self, i):
             pass
 
-    def _cor_da_aba(self, bar, indice):
+    def _tab_color(self, bar, index):
         import re as _re
         from zbemt.gui import styles
-        inverso = {v: k for k, v in styles.STATUS_COLORS.items()}
-        achado = _re.search(r"background: (#\w+)", bar._buttons[indice].styleSheet())
-        return inverso.get(achado.group(1), achado.group(1)) if achado else None
+        inverse = {v: k for k, v in styles.STATUS_COLORS.items()}
+        found = _re.search(r"background: (#\w+)", bar._buttons[index].styleSheet())
+        return inverse.get(found.group(1), found.group(1)) if found else None
 
-    def test_importar_a_polar_faltante_tira_a_aba_do_vermelho(self):
+    def test_importing_the_missing_polar_takes_the_tab_out_of_red(self):
         import unittest.mock as _mock
         from zbemt.gui.tabs.airfoil import AirfoilTab
 
-        caminho_csv = f"{self._tmpdir}/polar.csv"
-        with open(caminho_csv, "w") as arquivo:
-            arquivo.write("alpha_deg,cl,cd\n")
+        csv_path = f"{self._tmpdir}/polar.csv"
+        with open(csv_path, "w") as f:
+            f.write("alpha_deg,cl,cd\n")
             for alpha in range(-20, 21):
-                arquivo.write(f"{alpha},{0.1 * alpha},0.01\n")
+                f.write(f"{alpha},{0.1 * alpha},0.01\n")
 
         state = self._make_state()
         self._new_project(state)
@@ -1591,11 +1591,11 @@ class TestIndicadorLimpaAoCorrigirOProblema(GuiE2ETestCase):
         bar = self.gui.FlowIndicatorBar(state, self._FakeTabs())
 
         tab.source_combo.setCurrentText("table")
-        self.assertEqual(self._cor_da_aba(bar, 2), "red")
+        self.assertEqual(self._tab_color(bar, 2), "red")
 
-        with _mock.patch("zbemt.gui.tabs.airfoil.QFileDialog") as dialogo:
-            dialogo.getOpenFileName.return_value = (caminho_csv, "")
+        with _mock.patch("zbemt.gui.tabs.airfoil.QFileDialog") as dialog:
+            dialog.getOpenFileName.return_value = (csv_path, "")
             tab._import_csv()
 
-        self.assertEqual(self._cor_da_aba(bar, 2), "green")
+        self.assertEqual(self._tab_color(bar, 2), "green")
         self.assertTrue(state.project.airfoil.table_slices)

@@ -48,8 +48,8 @@ import traceback
 from dataclasses import replace
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(RAIZ))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from zbemt import api                                       # noqa: E402
 from zbemt.bemt import BEMTConfig                            # noqa: E402
@@ -59,7 +59,7 @@ from zbemt.models import FlightCondition, Project, default_project_paths  # noqa
 # project folder under this directory. Point it elsewhere to check a
 # different tree of projects (e.g. a folder of user-authored projects that
 # isn't named "projects").
-DEFAULT_PROJECTS_DIR = None  # None means RAIZ / "projects"
+DEFAULT_PROJECTS_DIR = None  # None means ROOT / "projects"
 
 # The mesh used for the "does it actually solve" smoke test. Deliberately
 # tiny -- this script checks CORRECTNESS of the config, not performance of
@@ -233,7 +233,7 @@ def main(target: Path | None = None) -> int:
     if target is not None:
         project_dirs = [target]
     else:
-        base = Path(DEFAULT_PROJECTS_DIR) if DEFAULT_PROJECTS_DIR else RAIZ / "projects"
+        base = Path(DEFAULT_PROJECTS_DIR) if DEFAULT_PROJECTS_DIR else ROOT / "projects"
         project_dirs = sorted(
             p for p in base.iterdir()
             if p.is_dir() and (p / "inputs").exists()

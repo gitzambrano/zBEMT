@@ -10,13 +10,13 @@ percent wrong in every case.
 Two things happen here, both driven by one solve of every saved case of
 every project under `projects/`:
 
-  * `TestValoresConferem` compares the run against
+  * `TestValuesMatch` compares the run against
     `tests/data/golden_results.json`, written by
     `tools/golden_snapshot.py`. A deliberate change to the physics is made
     visible by regenerating that file and reading its diff; an accidental
     one fails here, naming the project, the case and the quantity that
     moved.
-  * `TestResultadosSaoFisicamentePlausiveis` asks the questions the golden
+  * `TestResultsArePhysicallyPlausible` asks the questions the golden
     file cannot: a recorded number is "correct" by construction, even if it
     is a NaN or a figure of merit of 4. These checks are independent of the
     record and would have caught a bad snapshot at the moment it was taken.
@@ -33,115 +33,115 @@ import sys
 import unittest
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
-if str(RAIZ) not in sys.path:
-    sys.path.insert(0, str(RAIZ))
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from tools import golden_snapshot
 
-GOLDEN_PATH = RAIZ / "tests" / "data" / "golden_results.json"
+GOLDEN_PATH = ROOT / "tests" / "data" / "golden_results.json"
 
 #: Relative tolerance of the comparison. The snapshot keeps six decimals, so
 #: this is loose enough to absorb a different BLAS or a different platform's
 #: last-bit reduction order, and far tighter than any change to a model, a
 #: mesh rule or an integration scheme.
-TOLERANCIA_RELATIVA = 1e-6
+RELATIVE_TOLERANCE = 1e-6
 
 #: Below this the relative comparison is meaningless -- a coefficient that is
 #: zero by symmetry oscillates in the last digits around zero -- so an
 #: absolute floor takes over.
-PISO_ABSOLUTO = 1e-9
+ABSOLUTE_FLOOR = 1e-9
 
 
-class _RodadaUnica(unittest.TestCase):
+class _SingleRun(unittest.TestCase):
     """Both suites need the same solve of every project, and that solve is
     the expensive part. Running it once in the `setUpClass` of a shared base
     keeps the file at about twenty seconds instead of forty."""
 
     @classmethod
     def setUpClass(cls):
-        cls.atual = golden_snapshot.coletar()
-        cls.esperado = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
+        cls.current = golden_snapshot.collect()
+        cls.expected = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
 
 
-class TestValoresConferem(_RodadaUnica):
+class TestValuesMatch(_SingleRun):
 
-    def test_o_arquivo_de_referencia_existe(self):
+    def test_the_reference_file_exists(self):
         self.assertTrue(
             GOLDEN_PATH.is_file(),
             f"{GOLDEN_PATH} is missing -- run `python tools/golden_snapshot.py`")
 
-    def test_todo_projeto_e_todo_caso_esta_registrado(self):
+    def test_every_project_and_every_case_is_registered(self):
         """A new example project, or a new saved case inside one, has to
         enter the record. Otherwise it is exercised by the run and checked
         by nothing -- the one failure mode a snapshot cannot detect on its
         own."""
-        faltando = []
-        for projeto, casos in self.atual.items():
-            if projeto not in self.esperado:
-                faltando.append(projeto)
+        missing = []
+        for project, cases in self.current.items():
+            if project not in self.expected:
+                missing.append(project)
                 continue
-            for caso in casos:
-                if caso not in self.esperado[projeto]:
-                    faltando.append(f"{projeto}/{caso}")
+            for case in cases:
+                if case not in self.expected[project]:
+                    missing.append(f"{project}/{case}")
         self.assertEqual(
-            faltando, [],
+            missing, [],
             "not in the golden record (run `python tools/golden_snapshot.py`): "
-            + str(faltando))
+            + str(missing))
 
-    def test_nenhum_projeto_saiu_do_registro(self):
+    def test_no_project_left_the_record(self):
         """The converse: a project deleted from `projects/` but left in the
         record would keep passing forever without ever running."""
-        sobrando = [p for p in self.esperado if p not in self.atual]
+        extra = [p for p in self.expected if p not in self.current]
         self.assertEqual(
-            sobrando, [],
-            "in the golden record but no longer on disk: " + str(sobrando))
+            extra, [],
+            "in the golden record but no longer on disk: " + str(extra))
 
-    def test_os_numeros_nao_mudaram(self):
-        divergencias = []
-        for projeto, casos in sorted(self.esperado.items()):
-            if projeto not in self.atual:
+    def test_the_numbers_did_not_change(self):
+        deviations = []
+        for project, cases in sorted(self.expected.items()):
+            if project not in self.current:
                 continue
-            for caso, valores in sorted(casos.items()):
-                if caso not in self.atual[projeto]:
+            for case, values in sorted(cases.items()):
+                if case not in self.current[project]:
                     continue
-                obtido = self.atual[projeto][caso]
-                for chave, referencia in sorted(valores.items()):
-                    with self.subTest(projeto=projeto, caso=caso, chave=chave):
+                got = self.current[project][case]
+                for key, reference in sorted(values.items()):
+                    with self.subTest(project=project, case=case, key=key):
                         self.assertIn(
-                            chave, obtido,
-                            f"{projeto}/{caso}: '{chave}' is no longer produced")
-                        agora = obtido[chave]
-                        if isinstance(referencia, str) or isinstance(agora, str):
-                            self.assertEqual(referencia, agora)
+                            key, got,
+                            f"{project}/{case}: '{key}' is no longer produced")
+                        now = got[key]
+                        if isinstance(reference, str) or isinstance(now, str):
+                            self.assertEqual(reference, now)
                             continue
-                        escala = max(abs(referencia), PISO_ABSOLUTO)
-                        if abs(agora - referencia) > TOLERANCIA_RELATIVA * escala:
-                            divergencias.append(
-                                f"{projeto}/{caso}/{chave}: {referencia} -> {agora}")
+                        scale = max(abs(reference), ABSOLUTE_FLOOR)
+                        if abs(now - reference) > RELATIVE_TOLERANCE * scale:
+                            deviations.append(
+                                f"{project}/{case}/{key}: {reference} -> {now}")
         self.assertEqual(
-            divergencias, [],
+            deviations, [],
             "the engine's numbers changed. If deliberate, regenerate with "
             "`python tools/golden_snapshot.py` and review the diff:\n  "
-            + "\n  ".join(divergencias))
+            + "\n  ".join(deviations))
 
 
-class TestResultadosSaoFisicamentePlausiveis(_RodadaUnica):
+class TestResultsArePhysicallyPlausible(_SingleRun):
     """Checks that hold whatever the numbers happen to be. Each one
     corresponds to a way a solve can fail while still returning a result."""
 
-    def test_nenhum_valor_e_nan_ou_infinito(self):
+    def test_no_value_is_nan_or_infinite(self):
         """A NaN in the summary reaches the results table, the report and
         the CSV as an empty cell, and reads as "this column does not apply
         here" rather than as a failure."""
-        ruins = []
-        for projeto, casos in sorted(self.atual.items()):
-            for caso, valores in sorted(casos.items()):
-                for chave, valor in sorted(valores.items()):
-                    if valor == "nan" or (isinstance(valor, float)
-                                          and not math.isfinite(valor)):
-                        ruins.append(f"{projeto}/{caso}/{chave}")
-        self.assertEqual(ruins, [], "non-finite value in the summary: " + str(ruins))
+        bad = []
+        for project, cases in sorted(self.current.items()):
+            for case, values in sorted(cases.items()):
+                for key, value in sorted(values.items()):
+                    if value == "nan" or (isinstance(value, float)
+                                          and not math.isfinite(value)):
+                        bad.append(f"{project}/{case}/{key}")
+        self.assertEqual(bad, [], "non-finite value in the summary: " + str(bad))
 
     #: Convergence floor. Hover reaches 100%; forward flight does not, and
     #: is not expected to: a few elements per solve sit in the reverse-flow
@@ -150,75 +150,75 @@ class TestResultadosSaoFisicamentePlausiveis(_RodadaUnica):
     #: carry almost no area weight. Measured worst case across the example
     #: projects today is 99.91%, so the floor is set well below that and
     #: still catches a solve that has genuinely fallen apart.
-    CONVERGENCIA_MINIMA_PCT = 99.0
+    MIN_CONVERGENCE_PCT = 99.0
 
-    def test_toda_solucao_converge_quase_por_completo(self):
+    def test_every_solution_converges_almost_completely(self):
         """`convergence_pct` is the fraction of mesh elements that reached
         their fixed point. A case well below the floor means the leftover
         error is spread over enough of the disk to contaminate every
         integrated quantity, and an example project is a reference: it must
         not ship in that state."""
-        ruins = []
-        for projeto, casos in sorted(self.atual.items()):
-            for caso, valores in sorted(casos.items()):
-                pct = valores.get("convergence_pct")
-                if pct is not None and pct < self.CONVERGENCIA_MINIMA_PCT:
-                    ruins.append(f"{projeto}/{caso}: {pct}%")
+        bad = []
+        for project, cases in sorted(self.current.items()):
+            for case, values in sorted(cases.items()):
+                pct = values.get("convergence_pct")
+                if pct is not None and pct < self.MIN_CONVERGENCE_PCT:
+                    bad.append(f"{project}/{case}: {pct}%")
         self.assertEqual(
-            ruins, [],
-            f"case converged below {self.CONVERGENCIA_MINIMA_PCT}%: " + str(ruins))
+            bad, [],
+            f"case converged below {self.MIN_CONVERGENCE_PCT}%: " + str(bad))
 
-    def test_potencia_total_e_a_soma_das_suas_partes(self):
+    def test_total_power_is_the_sum_of_its_parts(self):
         """Induced plus profile is the whole of the shaft power. If the
         identity breaks, one of the two integrations is being done over a
         different mesh, or with a different weighting, than the total."""
-        for projeto, casos in sorted(self.atual.items()):
-            for caso, v in sorted(casos.items()):
+        for project, cases in sorted(self.current.items()):
+            for case, v in sorted(cases.items()):
                 if not {"Power", "Power_i", "Power_p"} <= set(v):
                     continue
-                with self.subTest(projeto=projeto, caso=caso):
+                with self.subTest(project=project, case=case):
                     self.assertAlmostEqual(
                         v["Power"], v["Power_i"] + v["Power_p"],
                         delta=1e-6 * max(abs(v["Power"]), 1.0),
-                        msg=f"{projeto}/{caso}: P is not P_i + P_p")
+                        msg=f"{project}/{case}: P is not P_i + P_p")
 
-    def test_as_partes_da_potencia_nao_sao_negativas(self):
+    def test_power_parts_are_not_negative(self):
         """Induced and profile power are both dissipative. Negative means
         either that the sign of a force was flipped somewhere, or that a
         section is driving the shaft -- which a BEMT solve of a powered
         rotor must not produce."""
-        ruins = []
-        for projeto, casos in sorted(self.atual.items()):
-            for caso, v in sorted(casos.items()):
-                for chave in ("Power_i", "Power_p"):
-                    if v.get(chave, 0.0) < 0.0:
-                        ruins.append(f"{projeto}/{caso}/{chave} = {v[chave]}")
-        self.assertEqual(ruins, [], "negative power component: " + str(ruins))
+        bad = []
+        for project, cases in sorted(self.current.items()):
+            for case, v in sorted(cases.items()):
+                for key in ("Power_i", "Power_p"):
+                    if v.get(key, 0.0) < 0.0:
+                        bad.append(f"{project}/{case}/{key} = {v[key]}")
+        self.assertEqual(bad, [], "negative power component: " + str(bad))
 
-    def test_a_eficiencia_propulsiva_fica_abaixo_de_um(self):
+    def test_propulsive_efficiency_stays_below_one(self):
         """The propulsive efficiency is thrust power over shaft power. Above
         1 the propeller would be returning more than it is given."""
-        ruins = []
-        for projeto, casos in sorted(self.atual.items()):
-            for caso, v in sorted(casos.items()):
+        bad = []
+        for project, cases in sorted(self.current.items()):
+            for case, v in sorted(cases.items()):
                 eta = v.get("eta_prop")
                 if eta is not None and eta > 1.0:
-                    ruins.append(f"{projeto}/{caso}: eta = {eta}")
-        self.assertEqual(ruins, [], "propulsive efficiency above 1: " + str(ruins))
+                    bad.append(f"{project}/{case}: eta = {eta}")
+        self.assertEqual(bad, [], "propulsive efficiency above 1: " + str(bad))
 
-    def test_o_torque_acompanha_o_sinal_da_potencia(self):
+    def test_torque_follows_the_sign_of_power(self):
         """Shaft power is torque times angular speed, and the angular speed
         is positive by convention. The two must therefore carry the same
         sign; opposite signs mean one of them was integrated with a flipped
         moment arm."""
-        ruins = []
-        for projeto, casos in sorted(self.atual.items()):
-            for caso, v in sorted(casos.items()):
+        bad = []
+        for project, cases in sorted(self.current.items()):
+            for case, v in sorted(cases.items()):
                 if "Torque" not in v or "Power" not in v:
                     continue
                 if v["Torque"] * v["Power"] < 0.0:
-                    ruins.append(f"{projeto}/{caso}: Q={v['Torque']}, P={v['Power']}")
-        self.assertEqual(ruins, [], "torque and power disagree in sign: " + str(ruins))
+                    bad.append(f"{project}/{case}: Q={v['Torque']}, P={v['Power']}")
+        self.assertEqual(bad, [], "torque and power disagree in sign: " + str(bad))
 
 
 if __name__ == "__main__":

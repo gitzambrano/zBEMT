@@ -82,9 +82,9 @@ def _q(*args, **kwargs) -> AxisQuantity:
 #: Every quantity whose name depends on the axis convention, keyed by the
 #: ENGINE's name for it.
 #:
-#: Reading the table: a row says "the engine calls this X; the rotor user
-#: reads it as Y; the propeller user reads it as Z". The `_x`/`_z` in the two
-#: display columns are vehicle axes and swap between the two; the key on the
+#: Reading the table: a row says "the engine calls this X. The rotor user
+#: reads it as Y. The propeller user reads it as Z". The `_x`/`_z` in the two
+#: display columns are vehicle axes and swap between the two. The key on the
 #: left never does.
 _QUANTITIES: tuple = (
     # --- in-plane component (engine x) -------------------------------------
@@ -178,9 +178,9 @@ _QUANTITIES: tuple = (
            "the manual (Section 2.4.2)")),
 
     # --- the two angles: one per mode, each measured from its own reference -
-    # They are the SAME angle (alpha_rotor + alpha_disk = 90); showing both
-    # would invite reading one as if it were the other, so each mode shows
-    # only the one that is zero at its vehicle's normal condition.
+     # They are the SAME angle (alpha_rotor + alpha_disk = 90). Showing both
+     # would invite reading one as if it were the other, so each mode shows
+     # only the one that is zero at its vehicle's normal condition.
     _q("alpha_rotor_deg", "axial", r"\alpha_{rotor}", unit="deg", name_unit="°",
        propeller_visible=False,
        rotor_description=(
@@ -240,7 +240,7 @@ _QUANTITIES: tuple = (
 
     # --- input spellings of the two angles ---------------------------------
     # `studies` and the GUI name the angles `alpha_deg`/`alpha_disk` when they
-    # are an INPUT; `aggregate_results` emits them as `alpha_rotor_deg`/
+    # are an INPUT. `aggregate_results` emits them as `alpha_rotor_deg`/
     # `alpha_disk_deg`. Same quantity, same symbol, two spellings.
     _q("alpha_deg", "axial", r"\alpha_{rotor}", unit="deg", name_unit="°",
        propeller_visible=False, alias_of="alpha_rotor_deg"),
@@ -251,20 +251,20 @@ _QUANTITIES: tuple = (
 #: `engine_key -> AxisQuantity`, the table every surface reads.
 QUANTITIES: dict = {q.engine_key: q for q in _QUANTITIES}
 
-for _quantidade in _QUANTITIES:
-    if _quantidade.alias_of:
-        _fonte = QUANTITIES[_quantidade.alias_of]
-        QUANTITIES[_quantidade.engine_key] = AxisQuantity(
-            **{**_quantidade.__dict__,
-               "rotor_description": _fonte.rotor_description,
-               "propeller_description": _fonte.propeller_description})
-del _quantidade
+for _quantity in _QUANTITIES:
+    if _quantity.alias_of:
+        _source = QUANTITIES[_quantity.alias_of]
+        QUANTITIES[_quantity.engine_key] = AxisQuantity(
+            **{**_quantity.__dict__,
+               "rotor_description": _source.rotor_description,
+               "propeller_description": _source.propeller_description})
+del _quantity
 
 
 # =============================================================================
 # One LaTeX source -> three renderings
 # =============================================================================
-# Moved here from `viz/plots.py` (`rotulo_em_texto`/`rotulo_em_html`), which
+# Moved here from `viz/plots.py` (`label_to_text`/`label_to_html`), which
 # is where they were written and where they are still used: `plots` draws
 # mathtext directly, the Results-tab combos need Unicode, and the report needs
 # HTML. Keeping the converters next to the table is what lets ONE symbol
@@ -294,7 +294,7 @@ _GREEK_HTML = {
 }
 
 #: Only the characters that EXIST as a Unicode subscript. "T" (from C_T) does
-#: not, so it stays on the line -- "CT" reads well, while a half-lowered
+#: not, so it stays on the line. "CT" reads well, while a half-lowered
 #: "Cᵢnf" reads worse than "Cinf".
 _SUBSCRIPT_UNICODE = {
     "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅",
@@ -311,7 +311,7 @@ _SUBSCRIPT_UNICODE = {
 _SUBSCRIPT = re.compile(r"_\{([^}]*)\}|_(\w)")
 
 
-def _subscript_unicode(texto: str, lower: str = "all") -> str:
+def _subscript_unicode(text: str, lower: str = "all") -> str:
     """Lowers a subscript only when EVERY character has a subscript form.
 
     A half-lowered subscript reads worse than none at all ("Cᵢnf" vs "Cinf"),
@@ -329,36 +329,36 @@ def _subscript_unicode(texto: str, lower: str = "all") -> str:
       zip as mojibake.
     - ``"none"``  -- keep every subscript on the line.
     """
-    if not texto:
-        return texto
+    if not text:
+        return text
     if lower == "none":
-        return f"_{texto}"
+        return f"_{text}"
     if lower == "digits":
         # A NAME keeps the `_` it could not lower: "mu_x" is an identifier as
         # much as a symbol, and "mux" would not read back as one.
-        return ("".join(_SUBSCRIPT_UNICODE[c] for c in texto) if texto.isdigit()
-                else f"_{texto}")
-    if all(c in _SUBSCRIPT_UNICODE for c in texto):
-        return "".join(_SUBSCRIPT_UNICODE[c] for c in texto)
+        return ("".join(_SUBSCRIPT_UNICODE[c] for c in text) if text.isdigit()
+                else f"_{text}")
+    if all(c in _SUBSCRIPT_UNICODE for c in text):
+        return "".join(_SUBSCRIPT_UNICODE[c] for c in text)
     # A LABEL drops it: "CT" and "CT,prop" read as the coefficients they are,
     # and are what the reader of a chart expects to see on the axis.
-    return texto
+    return text
 
 
-def _is_mathtext(texto: str) -> bool:
+def _is_mathtext(text: str) -> bool:
     """Whether a string is mathtext at all.
 
     Deliberately narrow: a plain name (`"RPM"`, `"cfg_solver"`) must pass
     through untouched, and `cfg_solver` is exactly the case where treating a
     lone underscore as a subscript would produce "cfgₛₒₗᵥₑᵣ"."""
-    return "$" in texto or "\\" in texto
+    return "$" in text or "\\" in text
 
 
-def _needs_math(corpo: str) -> bool:
+def _needs_math(body: str) -> bool:
     """Whether a symbol BODY from `QUANTITIES` carries real notation (a Greek
     macro or a subscript) and must be wrapped in `$...$` before rendering.
     `"RPM"` does not; `"J_x"` does."""
-    return "\\" in corpo or "_" in corpo or "^" in corpo
+    return "\\" in body or "_" in body or "^" in body
 
 
 def to_unicode(mathtext: str, lower_subscripts: str = "all") -> str:
@@ -374,20 +374,20 @@ def to_unicode(mathtext: str, lower_subscripts: str = "all") -> str:
         return ""
     if not _is_mathtext(mathtext):
         return mathtext
-    texto = mathtext
-    for macro, simbolo in _GREEK_UNICODE.items():
-        texto = texto.replace(macro + " ", simbolo).replace(macro, simbolo)
-    texto = texto.replace(r"\,", " ").replace(r"\ ", " ")
+    text = mathtext
+    for macro, symbol in _GREEK_UNICODE.items():
+        text = text.replace(macro + " ", symbol).replace(macro, symbol)
+    text = text.replace(r"\,", " ").replace(r"\ ", " ")
     # ONE pass over both subscript forms. Two passes would re-read the `_`
     # that the braced form leaves behind when it cannot be lowered:
     # `_{x,total}` -> `_x,total` -> `ₓ,total`, which lowers half of a group
     # that was rejected as a whole.
-    texto = re.sub(_SUBSCRIPT,
+    text = re.sub(_SUBSCRIPT,
                    lambda m: _subscript_unicode(m.group(1) or m.group(2),
                                                  lower_subscripts),
-                   texto)
-    texto = texto.replace("$", "").replace("{", "").replace("}", "")
-    return texto.strip()
+                   text)
+    text = text.replace("$", "").replace("{", "").replace("}", "")
+    return text.strip()
 
 
 def to_html(mathtext: str) -> str:
@@ -401,26 +401,26 @@ def to_html(mathtext: str) -> str:
         return ""
     if not _is_mathtext(mathtext):
         return mathtext
-    texto = mathtext
-    for macro, entidade in _GREEK_HTML.items():
-        texto = texto.replace(macro + " ", entidade).replace(macro, entidade)
-    texto = texto.replace(r"\,", " ").replace(r"\ ", " ")
-    texto = re.sub(_SUBSCRIPT,
+    text = mathtext
+    for macro, entity in _GREEK_HTML.items():
+        text = text.replace(macro + " ", entity).replace(macro, entity)
+    text = text.replace(r"\,", " ").replace(r"\ ", " ")
+    text = re.sub(_SUBSCRIPT,
                    lambda m: f"<sub>{m.group(1) if m.group(1) is not None else m.group(2)}</sub>",
-                   texto)
-    texto = texto.replace("$", "").replace("{", "").replace("}", "")
-    return texto.strip()
+                   text)
+    text = text.replace("$", "").replace("{", "").replace("}", "")
+    return text.strip()
 
 
-def to_mathtext(latex: str, unidade: str = "") -> str:
+def to_mathtext(latex: str, unit: str = "") -> str:
     """A mathtext body plus its bracketed unit, the form matplotlib draws:
     ``(r"\\mu_x", "-")`` -> ``r"$\\mu_x$ [-]"``.
 
     The unit is explicit even when dimensionless: an empty bracket reads as
     "forgot to fill in", while "[-]" states that the quantity has none.
     """
-    corpo = f"${latex}$" if _needs_math(latex) else latex
-    return f"{corpo} [{unidade}]" if unidade else corpo
+    body = f"${latex}$" if _needs_math(latex) else latex
+    return f"{body} [{unit}]" if unit else body
 
 
 # =============================================================================
@@ -454,13 +454,13 @@ def symbol_html(engine_key: str, is_propeller: bool = False) -> str:
     A key with no entry comes back verbatim: it is a coefficient or a
     `cfg_*` echo, whose underscore is part of its NAME, not a subscript."""
     q = QUANTITIES.get(engine_key)
-    return to_html(_como_mathtext(q.latex(is_propeller))) if q else engine_key
+    return to_html(_as_mathtext(q.latex(is_propeller))) if q else engine_key
 
 
 def symbol_text(engine_key: str, is_propeller: bool = False) -> str:
     """Plain-Unicode symbol, for a widget without rich text."""
     q = QUANTITIES.get(engine_key)
-    return to_unicode(_como_mathtext(q.latex(is_propeller))) if q else engine_key
+    return to_unicode(_as_mathtext(q.latex(is_propeller))) if q else engine_key
 
 
 def symbol_name(engine_key: str, is_propeller: bool = False) -> str:
@@ -474,15 +474,15 @@ def symbol_name(engine_key: str, is_propeller: bool = False) -> str:
     q = QUANTITIES.get(engine_key)
     if q is None:
         return engine_key
-    return to_unicode(_como_mathtext(q.latex(is_propeller)),
+    return to_unicode(_as_mathtext(q.latex(is_propeller)),
                       lower_subscripts="digits")
 
 
-def _como_mathtext(corpo: str) -> str:
+def _as_mathtext(body: str) -> str:
     """Wraps a symbol body so the converters recognize it as mathtext. A body
     with no notation (`"RPM"`) is left alone, so it never gets treated as a
     name with a subscript."""
-    return f"${corpo}$" if _needs_math(corpo) else corpo
+    return f"${body}$" if _needs_math(body) else body
 
 
 def unit(engine_key: str) -> str:
@@ -556,7 +556,7 @@ def to_display_keys(mapping: dict, is_propeller: bool = False) -> dict:
     happens."""
     if not is_propeller:
         return dict(mapping)
-    return {display_key(chave, True): valor for chave, valor in mapping.items()}
+    return {display_key(key, True): value for key, value in mapping.items()}
 
 
 def from_display_keys(mapping: dict, is_propeller: bool = False) -> dict:
@@ -564,13 +564,13 @@ def from_display_keys(mapping: dict, is_propeller: bool = False) -> dict:
     `.bemt` file) wrote."""
     if not is_propeller:
         return dict(mapping)
-    return {engine_key_of(chave, True): valor for chave, valor in mapping.items()}
+    return {engine_key_of(key, True): value for key, value in mapping.items()}
 
 
 # =============================================================================
 # The two input slots, as the user meets them
 # =============================================================================
-# One row of the Run Case / Run Batch form per slot. The engine's slot names
+# One row of the Run Case and Run Batch forms per slot. The engine's slot names
 # are `inplane` (its `mu_x`) and `axial` (its `Vz`); which of the two carries
 # the letter x, and which one carries the vehicle's flight speed, is what the
 # mode decides.
@@ -656,8 +656,8 @@ def slot_label(slot: str, is_propeller: bool = False) -> tuple:
 # =============================================================================
 # Reading order of the operating point
 # =============================================================================
-#: First the component that carries the letter x -- the mode's PRIMARY one, a
-#: helicopter's advance or a propeller's airspeed -- then the secondary one,
+#: First the component that carries the letter x, the mode's PRIMARY one (a
+#: helicopter's advance or a propeller's airspeed), then the secondary one,
 #: then the angle. The keys are the ENGINE's; what changes between modes is
 #: which one is the primary.
 _PRIMARY_ROTOR = (
@@ -678,15 +678,15 @@ _PRIMARY_PROPELLER = (
 def primary_order(is_propeller: bool = False) -> tuple:
     """The flight-condition columns, in reading order, without the angle the
     mode does not use."""
-    ordem = _PRIMARY_PROPELLER if is_propeller else _PRIMARY_ROTOR
-    return tuple(c for c in ordem if is_visible(c, is_propeller))
+    order = _PRIMARY_PROPELLER if is_propeller else _PRIMARY_ROTOR
+    return tuple(c for c in order if is_visible(c, is_propeller))
 
 
 # =============================================================================
 # Naming a condition
 # =============================================================================
 
-def condition_label(valores: dict, is_propeller: bool = False) -> str:
+def condition_label(values: dict, is_propeller: bool = False) -> str:
     """Readable name for a condition, from its `{variable: value}` dict.
 
     ``{"mu_x": 0.1, "alpha_deg": -10}`` -> ``"μ_x=0.1, α_rotor=-10°"``. This
@@ -697,17 +697,17 @@ def condition_label(valores: dict, is_propeller: bool = False) -> str:
     The letters are the MODE's: a propeller case named "μ_x=0.4" for its
     cross-flow would name the cross-flow as if it were the advance ratio.
 
-    Order follows `valores`, which is the order of the axes the user chose.
+    Order follows `values`, which is the order of the axes the user chose.
     An unknown variable falls back to its own name, so a new axis never
     leaves a condition unnamed."""
-    partes = []
-    for chave, valor in valores.items():
-        q = QUANTITIES.get(chave)
-        simbolo = symbol_name(chave, is_propeller) if q else chave
-        sufixo = q.name_unit if q else ""
+    parts = []
+    for key, value in values.items():
+        q = QUANTITIES.get(key)
+        symbol = symbol_name(key, is_propeller) if q else key
+        suffix = q.name_unit if q else ""
         try:
-            texto = f"{float(valor):g}"
+            text = f"{float(value):g}"
         except (TypeError, ValueError):
-            texto = str(valor)
-        partes.append(f"{simbolo}={texto}{sufixo}")
-    return ", ".join(partes)
+            text = str(value)
+        parts.append(f"{symbol}={text}{suffix}")
+    return ", ".join(parts)

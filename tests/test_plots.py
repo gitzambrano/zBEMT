@@ -101,7 +101,7 @@ class TestPlotPolar(unittest.TestCase):
     def test_draws_cl_and_cd_lines(self):
         fig, ax = plt.subplots()
         try:
-            plots.plot_polar([-5, 0, 5], [0.0, 0.5, 1.0], [0.02, 0.015, 0.02], ax=ax, label="teste")
+            plots.plot_polar([-5, 0, 5], [0.0, 0.5, 1.0], [0.02, 0.015, 0.02], ax=ax, label="test")
             lines = ax.get_lines()
             self.assertEqual(len(lines), 2)
             import numpy as np
@@ -135,7 +135,7 @@ class TestPlotConvergence(unittest.TestCase):
     that is what the two percentage bars did not do (drew
     "98.5%" and "7 iterations" as if they were comparable)."""
 
-    def _resultado_completo(self):
+    def _complete_result(self):
         from zbemt.models import Results
         import numpy as np
         Ne, Npsi = 5, 8
@@ -154,11 +154,11 @@ class TestPlotConvergence(unittest.TestCase):
                        frac_converged_history=[0.2, 0.8, 0.975],
                        residual_history=[1e-1, 1e-3, 1e-6], mu_x=0.3))
 
-    def _textos(self, fig):
-        eixos = list(fig.axes)
-        for ax in list(eixos):
-            eixos.extend(ax.child_axes)
-        return [t.get_text() for ax in eixos for t in ax.texts]
+    def _texts(self, fig):
+        axes_list = list(fig.axes)
+        for ax in list(axes_list):
+            axes_list.extend(ax.child_axes)
+        return [t.get_text() for ax in axes_list for t in ax.texts]
 
     def test_summary_without_iteration_history_is_plotable(self):
         """Without history AND without maps, only the summary remains: a
@@ -168,34 +168,34 @@ class TestPlotConvergence(unittest.TestCase):
         result = Results(summary={"convergence_pct": 98.5, "mean_iter": 7.0}, maps={})
         fig, ax = plt.subplots()
         try:
-            fig_saida = plots.plot_convergence(result, ax=ax)
-            textos = self._textos(fig_saida)
-            self.assertIn("98.5%", textos)
-            self.assertIn("7.0", textos)
-            self.assertTrue(any("collect_history" in t for t in textos),
-                            f"does not explain the absence of the history: {textos}")
+            out_fig = plots.plot_convergence(result, ax=ax)
+            texts = self._texts(out_fig)
+            self.assertIn("98.5%", texts)
+            self.assertIn("7.0", texts)
+            self.assertTrue(any("collect_history" in t for t in texts),
+                            f"does not explain the absence of the history: {texts}")
             # no bars: `ax.bar` produces Rectangle in `ax.patches`
-            barras = [p for eixo in fig_saida.axes for p in eixo.patches
-                      if type(p).__name__ == "Rectangle"]
-            self.assertEqual(barras, [])
+            bars = [p for axis in out_fig.axes for p in axis.patches
+                    if type(p).__name__ == "Rectangle"]
+            self.assertEqual(bars, [])
         finally:
             plt.close(fig)
 
-    def test_disco_de_iteracoes_marca_elementos_nao_convergidos(self):
-        result = self._resultado_completo()
+    def test_iteration_disk_marks_non_converged_elements(self):
+        result = self._complete_result()
         fig = plots.plot_convergence(result)
-        eixos = [a for a in fig.axes if a.get_title().startswith("Iterations")]
-        self.assertEqual(len(eixos), 1, "missing the per-element iteration map")
-        rotulos = [l.get_label() for l in eixos[0].get_lines()]
-        self.assertIn("not converged", rotulos)
+        iteration_axes = [a for a in fig.axes if a.get_title().startswith("Iterations")]
+        self.assertEqual(len(iteration_axes), 1, "missing the per-element iteration map")
+        labels = [l.get_label() for l in iteration_axes[0].get_lines()]
+        self.assertIn("not converged", labels)
 
-    def test_numeros_de_cabecalho_aparecem_como_cartoes(self):
-        fig = plots.plot_convergence(self._resultado_completo())
-        textos = self._textos(fig)
-        self.assertIn("97.5%", textos)          # convergence fraction
-        self.assertIn("1/40", textos)           # elements that failed
-        self.assertIn("9", textos)              # iterations in worst element
-        self.assertIn("420 ms", textos)         # solver time
+    def test_header_numbers_appear_as_cards(self):
+        fig = plots.plot_convergence(self._complete_result())
+        texts = self._texts(fig)
+        self.assertIn("97.5%", texts)          # convergence fraction
+        self.assertIn("1/40", texts)           # elements that failed
+        self.assertIn("9", texts)              # iterations in worst element
+        self.assertIn("420 ms", texts)         # solver time
 
     def test_disk_map_does_not_repeat_panel_title(self):
         import numpy as np
@@ -211,7 +211,7 @@ class TestPlotConvergence(unittest.TestCase):
             plt.close(fig)
 
 
-class TestDiskMapLeituraVisual(unittest.TestCase):
+class TestDiskMapVisualReading(unittest.TestCase):
     """Three invariants of READING the disk map, all seen on the screen
     before they became tests:
 
@@ -227,31 +227,31 @@ class TestDiskMapLeituraVisual(unittest.TestCase):
     radius, and the color used.
     """
 
-    def _maps(self, com_reverso=True):
+    def _maps(self, with_reverse=True):
         import numpy as np
         Ne, Npsi = 8, 16
         r_norm = np.linspace(0.2, 1.0, Ne)
         psi = np.linspace(0, 2 * np.pi * (1 - 1 / Npsi), Npsi)
         R_NORM, PSI = np.meshgrid(r_norm, psi, indexing="ij")
-        Ut = (np.cos(PSI) if com_reverso else np.abs(np.cos(PSI)) + 0.5)
+        Ut = (np.cos(PSI) if with_reverse else np.abs(np.cos(PSI)) + 0.5)
         return dict(R_NORM=R_NORM, PSI=PSI, Ut=Ut,
                     Fn=1000.0 * R_NORM * (1 + 0.3 * np.sin(PSI)), mu_x=0.3)
 
-    def _raios_dos_guias(self, ax):
+    def _guide_radii(self, ax):
         """Radius of each CLOSED and dashed axis line (the guides) --
         identified by geometry, not by creation order."""
         import numpy as np
-        raios = []
-        for linha in ax.get_lines():
-            x, y = np.asarray(linha.get_xdata()), np.asarray(linha.get_ydata())
+        radii = []
+        for line in ax.get_lines():
+            x, y = np.asarray(line.get_xdata()), np.asarray(line.get_ydata())
             if x.size < 50:            # reference cross has 2 points
                 continue
             r = np.hypot(x, y)
             if np.ptp(r) < 1e-6:       # circle: constant radius
-                raios.append(round(float(r[0]), 3))
-        return sorted(raios)
+                radii.append(round(float(r[0]), 3))
+        return sorted(radii)
 
-    def test_barra_de_cor_tem_a_altura_do_disco(self):
+    def test_colorbar_has_the_height_of_the_disk(self):
         import numpy as np
         from matplotlib.figure import Figure
         for compact in (False, True):
@@ -261,45 +261,45 @@ class TestDiskMapLeituraVisual(unittest.TestCase):
                 plots.plot_disk_map(self._maps(), field="Fn", ax=ax, compact=compact)
                 fig.canvas.draw()
                 self.assertTrue(ax.child_axes, "colorbar was not created")
-                altura_barra = ax.child_axes[0].get_window_extent().height
-                (_, y_baixo), (_, y_alto) = ax.transData.transform([(0, -1.0), (0, 1.0)])
-                altura_disco = y_alto - y_baixo
-                self.assertAlmostEqual(altura_barra / altura_disco, 1.0, delta=0.03)
+                bar_height = ax.child_axes[0].get_window_extent().height
+                (_, y_bottom), (_, y_top) = ax.transData.transform([(0, -1.0), (0, 1.0)])
+                disk_height = y_top - y_bottom
+                self.assertAlmostEqual(bar_height / disk_height, 1.0, delta=0.03)
 
-    def test_guias_de_raio_em_todo_disco_e_acima_do_campo(self):
+    def test_radius_guides_on_every_disk_and_above_the_field(self):
         import numpy as np
         from matplotlib.figure import Figure
         fig = Figure(figsize=(5.5, 5.5))
         ax = fig.add_subplot(111)
         plots.plot_disk_map(self._maps(), field="Fn", ax=ax)
-        self.assertEqual(self._raios_dos_guias(ax), [0.25, 0.5, 0.75])
-        guias = [l for l in ax.get_lines() if len(l.get_xdata()) >= 50]
-        z_campo = max(c.get_zorder() for c in ax.collections)
-        for guia in guias:
-            self.assertGreater(guia.get_zorder(), z_campo,
+        self.assertEqual(self._guide_radii(ax), [0.25, 0.5, 0.75])
+        guides = [l for l in ax.get_lines() if len(l.get_xdata()) >= 50]
+        field_z = max(c.get_zorder() for c in ax.collections)
+        for guide in guides:
+            self.assertGreater(guide.get_zorder(), field_z,
                                "guide drawn BELOW the contour -- it becomes invisible")
-            self.assertNotEqual(guia.get_linestyle(), "-", "guia deve ser tracejado")
+            self.assertNotEqual(guide.get_linestyle(), "-", "guide must be dashed")
 
-    def test_guias_de_raio_tambem_em_cada_painel_do_grid(self):
+    def test_radius_guides_also_in_each_grid_panel(self):
         fig = plots.plot_disk_map_grid(self._maps(), fields=["Fn", "Fn"])
-        paineis = [a for a in fig.axes if a.collections]
-        self.assertEqual(len(paineis), 2)
-        for painel in paineis:
-            self.assertEqual(self._raios_dos_guias(painel), [0.25, 0.5, 0.75])
+        panels = [a for a in fig.axes if a.collections]
+        self.assertEqual(len(panels), 2)
+        for panel in panels:
+            self.assertEqual(self._guide_radii(panel), [0.25, 0.5, 0.75])
 
-    def test_fluxo_reverso_pintado_de_cinza_claro(self):
+    def test_reverse_flow_painted_light_gray(self):
         from matplotlib.colors import to_rgb
         from matplotlib.figure import Figure
         r, g, b = to_rgb(plots._REVERSE_MASK_COLOR)
-        self.assertEqual((r, g), (g, b))                    # cinza puro
+        self.assertEqual((r, g), (g, b))                    # pure gray
         self.assertTrue(0.70 <= r <= 0.93,
                         "the mask needs to be a LIGHT gray, distinct from white")
         fig = Figure(figsize=(5, 5))
         ax = fig.add_subplot(111)
-        plots.plot_disk_map(self._maps(com_reverso=True), field="Fn", ax=ax,
+        plots.plot_disk_map(self._maps(with_reverse=True), field="Fn", ax=ax,
                              mask_reverse=True)
-        cores = [tuple(colecao.get_cmap()(0.0)[:3]) for colecao in ax.collections]
-        self.assertIn((r, g, b), cores,
+        colors = [tuple(collection.get_cmap()(0.0)[:3]) for collection in ax.collections]
+        self.assertIn((r, g, b), colors,
                       "no collection paints the masked region with the mask gray")
 
 
@@ -519,13 +519,13 @@ class TestPlotCoefficientsVsAxis(unittest.TestCase):
                 plots.plot_coefficients_vs_axis(results, axis=axis, fname=fname)
                 self.assertTrue(Path(fname).exists(), f"axis={axis} did not generate a file")
 
-    def test_painel_de_forca_pequena_nao_deixa_offset_invadir_titulo(self):
+    def test_small_force_panel_does_not_let_offset_invade_title(self):
         fig = plots.plot_coefficients_vs_axis(self._results(), axis="mu_x")
-        painel = next(ax for ax in fig.axes
-                       if ax.get_title() == "H-Force, profile component")
-        self.assertEqual(painel.yaxis.get_offset_text().get_text(), "")
+        panel = next(ax for ax in fig.axes
+                      if ax.get_title() == "H-Force, profile component")
+        self.assertEqual(panel.yaxis.get_offset_text().get_text(), "")
 
-    def test_alpha_derivado_nao_parte_varredura_axial_em_series(self):
+    def test_derived_alpha_does_not_split_axial_sweep_into_series(self):
         """`alpha_rotor_deg` is DERIVED from the pair (mu_x, Vz), not an
         independent axis: in an axial sweep (propeller) it jumps from 0 at
         Vz=0 to 90 at axial flight, and automatic grouping was splitting the
@@ -542,21 +542,21 @@ class TestPlotCoefficientsVsAxis(unittest.TestCase):
             res.append(Results(summary=s, maps={}, condition_name=f"V={vv:g}"))
         fig = plots.plot_coefficients_vs_axis(res, axis="Vz")
         # one curve only, with the THREE points
-        linhas = [l for l in fig.axes[0].get_lines() if len(l.get_xdata()) == 3]
-        self.assertEqual(len(linhas), 1,
+        lines = [l for l in fig.axes[0].get_lines() if len(l.get_xdata()) == 3]
+        self.assertEqual(len(lines), 1,
                           "axial sweep split into spurious series by derived alpha")
 
-    def test_dois_eixos_de_verdade_ainda_viram_series_separadas(self):
+    def test_two_real_axes_still_become_separate_series(self):
         """Counterweight to the test above: when a SECOND truly
         independent axis varies (rpm), grouping must continue
         to happen -- the fix cannot have killed the overlay."""
         res = [_fake_result(mu_x=m, alpha_rotor_deg=0.0, collective_deg=8.0, rpm=n, CT=0.01)
                for n in (500.0, 700.0) for m in (0.0, 0.1, 0.2)]
         fig = plots.plot_coefficients_vs_axis(res, axis="mu_x")
-        linhas = [l for l in fig.axes[0].get_lines() if len(l.get_xdata()) == 3]
-        self.assertEqual(len(linhas), 2, "esperava uma curva por valor de rpm")
+        lines = [l for l in fig.axes[0].get_lines() if len(l.get_xdata()) == 3]
+        self.assertEqual(len(lines), 2, "expected one curve per rpm value")
 
-    def test_fatorial_mu_x_alpha_ainda_agrupa_por_alpha(self):
+    def test_mu_x_alpha_factorial_still_groups_by_alpha(self):
         """Real bug reported: the exclusion of `alpha_deg` (designed for the
         degenerate case of a PURELY axial sweep, mu_x=0 fixed) was
         too broad -- `mu_x` varies in ANY mu_x sweep (it's the X axis!),
@@ -568,10 +568,10 @@ class TestPlotCoefficientsVsAxis(unittest.TestCase):
         res = [_fake_result(mu_x=m, alpha_rotor_deg=a, collective_deg=8.0, rpm=600.0, CT=0.01)
                for a in (-2.0, 0.0, 2.0) for m in (0.1, 0.2, 0.3, 0.4)]
         fig = plots.plot_coefficients_vs_axis(res, axis="mu_x")
-        linhas = [l for l in fig.axes[0].get_lines() if len(l.get_xdata()) == 4]
-        self.assertEqual(len(linhas), 3, "esperava uma curva por valor de alpha")
+        lines = [l for l in fig.axes[0].get_lines() if len(l.get_xdata()) == 4]
+        self.assertEqual(len(lines), 3, "expected one curve per alpha value")
 
-    def test_modo_helice_usa_os_paineis_de_helice(self):
+    def test_propeller_mode_uses_the_propeller_panels(self):
         """A propeller is not a rotor with other names: the
         non-dimensionalization is different (rho*n^2*D^4) and the merit metric is
         eta_prop, not FM. Showing rotor panels filled the figure with
@@ -583,9 +583,9 @@ class TestPlotCoefficientsVsAxis(unittest.TestCase):
                  CT_prop=0.2, CQ_prop=0.02, CP_prop=0.13, eta_prop=0.6, J_z=0.5,
                  cfg_is_propeller=True)
         res = [Results(summary=s, maps={}, condition_name="c")]
-        self.assertIs(plots._paineis_de_varredura(res), plots._PROP_SWEEP_PANELS)
+        self.assertIs(plots._sweep_panels(res), plots._PROP_SWEEP_PANELS)
         # and the rotor stays in the rotor set
-        self.assertIs(plots._paineis_de_varredura(self._results()),
+        self.assertIs(plots._sweep_panels(self._results()),
                        plots._MU_SWEEP_PANELS)
 
     def test_combine_mode_sorts_by_axis_without_series_labels(self):
@@ -604,15 +604,15 @@ class TestPlotCoefficientsVsAxis(unittest.TestCase):
         self.assertEqual(len(xs), 3)
         plt.close(fig)
 
-    def test_ruido_de_ponto_flutuante_no_grupo_secundario_nao_parte_a_serie(self):
-        """`_chave_de_agrupamento` rounds before comparing: a
+    def test_floating_point_noise_in_the_secondary_group_does_not_split_the_series(self):
+        """`_grouping_key` rounds before comparing: a
         secondary variable derived from floating point math can
         carry noise of ~1e-4 (e.g. 8.00003 instead of exactly 8.0) --
         exact equality comparison was slicing EACH nominal value into
         a series per main axis point. Uses `collective_deg` (not
         `alpha_deg`, which has its own deliberate exclusion when
         `mu_x`/`Vz` vary -- see
-        `test_alpha_derivado_nao_parte_varredura_axial_em_series`) with
+        `test_derived_alpha_does_not_split_axial_sweep_into_series`) with
         deliberately SMALL magnitude: at large magnitude (hundreds),
         the `:g` label format (6 significant digits) already absorbs
         1e-4 noise by itself -- would not exercise the real bug."""
@@ -623,22 +623,22 @@ class TestPlotCoefficientsVsAxis(unittest.TestCase):
             # -- identical noise repeated across all mu_x would not exercise the
             # bug, since exact equality would suffice for grouping.
             for nominal in (6.0, 8.0, 10.0):
-                ruidoso = nominal + (1e-4 if i % 2 == 0 else -1e-4) * (i + 1)
-                res.append(_fake_result(mu_x=mu_x, alpha_rotor_deg=0.0, collective_deg=ruidoso,
+                noisy = nominal + (1e-4 if i % 2 == 0 else -1e-4) * (i + 1)
+                res.append(_fake_result(mu_x=mu_x, alpha_rotor_deg=0.0, collective_deg=noisy,
                                           rpm=600.0, CT=0.01))
         fig = plots.plot_coefficients_vs_axis(res, axis="mu_x")
-        linhas = [l for l in fig.axes[0].get_lines() if len(l.get_xdata()) == 4]
-        self.assertEqual(len(linhas), 3,
+        lines = [l for l in fig.axes[0].get_lines() if len(l.get_xdata()) == 4]
+        self.assertEqual(len(lines), 3,
                           "floating-point noise in the secondary variable split the series "
-                          f"em {len(linhas)} curvas em vez de 3")
+                          f"into {len(lines)} curves instead of 3")
         plt.close(fig)
 
     def test_overlay_mode_draws_one_line_per_label(self):
         results = self._results()
-        labels = ["seleção A", "seleção A", "seleção B"]
+        labels = ["selection A", "selection A", "selection B"]
         fig = plots.plot_coefficients_vs_axis(results, axis="mu_x", series_labels=labels)
         ax0 = fig.axes[0]
-        self.assertEqual(len(ax0.get_lines()) - 1, 2)  # -1: linha do axhline(0)
+        self.assertEqual(len(ax0.get_lines()) - 1, 2)  # -1: axhline(0)
         plt.close(fig)
 
 
@@ -715,7 +715,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class TestFaixaDeCorRobusta(unittest.TestCase):
+class TestRobustColorRange(unittest.TestCase):
     """Few singular elements cannot erase the entire map.
 
     Reproduced with real data: in a case with tip Mach > 1 on the
@@ -726,30 +726,30 @@ class TestFaixaDeCorRobusta(unittest.TestCase):
     uniform purple rectangle.
     """
 
-    def test_cauda_extrema_recorta_a_escala_e_marca_a_barra(self):
+    def test_extreme_tail_clips_the_scale_and_marks_the_bar(self):
         import numpy as np
-        from zbemt.viz.plots import _faixa_de_cor_robusta
+        from zbemt.viz.plots import _robust_color_range
 
         z = np.concatenate([np.linspace(0.0, 2.5, 5000), np.array([599.0, 86.0])])
-        lo, hi, extend = _faixa_de_cor_robusta(z, float(z.min()), float(z.max()))
-        self.assertLess(hi, 10.0, "escala continua dominada pela cauda")
+        lo, hi, extend = _robust_color_range(z, float(z.min()), float(z.max()))
+        self.assertLess(hi, 10.0, "scale still dominated by the tail")
         self.assertEqual(extend, "max",
-                          "recorte sem seta na barra de cor seria silencioso")
+                          "clipping without an arrow on the color bar would be silent")
 
-    def test_campo_bem_comportado_passa_intacto(self):
+    def test_well_behaved_field_passes_untouched(self):
         """Strong but continuous gradient (Ut, W) CANNOT be clipped --
         clipping is for the pathological case, not for all fields."""
         import numpy as np
-        from zbemt.viz.plots import _faixa_de_cor_robusta
+        from zbemt.viz.plots import _robust_color_range
 
         z = np.linspace(0.0, 600.0, 5000)
-        lo, hi, extend = _faixa_de_cor_robusta(z, float(z.min()), float(z.max()))
+        lo, hi, extend = _robust_color_range(z, float(z.min()), float(z.max()))
         self.assertEqual(extend, "")
         self.assertAlmostEqual(hi, 600.0)
         self.assertAlmostEqual(lo, 0.0)
 
 
-class TestRotuloDaBarraDeCorDoDisco(unittest.TestCase):
+class TestDiskColorBarLabel(unittest.TestCase):
     """In the disk grid, the color bar label cannot be ABOVE
     it: any text there rises into the cell above and glues the
     variable name to the previous disk. In the grid it goes to the LEFT of the
@@ -776,53 +776,53 @@ class TestRotuloDaBarraDeCorDoDisco(unittest.TestCase):
         return dict(R_NORM=R_NORM, PSI=PSI, Ut=np.abs(np.cos(PSI)) + 0.1,
                     Fn=1000.0 * R_NORM, Cl=0.5 * base, mu_x=0.0)
 
-    def _textos_da_barra(self, fig):
+    def _colorbar_texts(self, fig):
         """(text, x, y, ha) of each label drawn on color bar axes.
 
         The color bar became an INSET axis of the disk axis itself (to
-        have exactly the disk's height, see `plots._eixo_de_barra_de_cor`),
+        have exactly the disk's height, see `plots._colorbar_axis`),
         and an inset does not appear in `fig.axes` -- it is in
         `ax.child_axes`. Scanning both is what keeps this test measuring
         label position, not layout implementation."""
-        saida = []
-        eixos = list(fig.axes)
-        for ax in list(eixos):
-            eixos.extend(ax.child_axes)
-        for ax in eixos:
+        found = []
+        axes_list = list(fig.axes)
+        for ax in list(axes_list):
+            axes_list.extend(ax.child_axes)
+        for ax in axes_list:
             # colorbar axes have no data drawn by us, only texts
             for t in ax.texts:
-                saida.append((t.get_text(), t.get_position()[0],
+                found.append((t.get_text(), t.get_position()[0],
                               t.get_position()[1], t.get_ha()))
-        return saida
+        return found
 
-    def test_no_grid_o_rotulo_fica_acima_da_barra_sem_invadir_o_disco(self):
+    def test_in_the_grid_the_label_stays_above_the_bar_without_invading_the_disk(self):
         from zbemt.viz import plots
         fig = plots.plot_disk_map_grid(self._maps(), fields=["Fn", "Cl"])
-        rotulos = [t for t in self._textos_da_barra(fig)
-                   if t[0].startswith("$F_n$") or t[0].startswith("$C_L$")
-                   or "F_n" in t[0] or "C_L" in t[0]]
-        self.assertTrue(rotulos, "no colorbar label found")
-        for texto, x, y, ha in rotulos:
+        labels = [t for t in self._colorbar_texts(fig)
+                  if t[0].startswith("$F_n$") or t[0].startswith("$C_L$")
+                  or "F_n" in t[0] or "C_L" in t[0]]
+        self.assertTrue(labels, "no colorbar label found")
+        for text, x, y, ha in labels:
             self.assertGreaterEqual(x, 0.0,
-                                    f"label {texto!r} at x={x} -- invades the disk area")
-            self.assertGreater(y, 1.0, f"label {texto!r} is not above the bar")
+                                    f"label {text!r} at x={x} -- invades the disk area")
+            self.assertGreater(y, 1.0, f"label {text!r} is not above the bar")
             self.assertEqual(ha, "left")
 
-    def test_rotulo_traz_simbolo_e_unidade_juntos(self):
+    def test_label_carries_symbol_and_unit_together(self):
         from zbemt.viz import plots
         fig = plots.plot_disk_map_grid(self._maps(), fields=["Fn"])
-        textos = [t[0] for t in self._textos_da_barra(fig)]
-        com_unidade = [t for t in textos if "[N/m]" in t]
+        texts = [t[0] for t in self._colorbar_texts(fig)]
+        with_unit = [t for t in texts if "[N/m]" in t]
         self.assertTrue(
-            com_unidade,
-            f"no label in the 'symbol [unit]' format; textos={textos}")
+            with_unit,
+            f"no label in the 'symbol [unit]' format; texts={texts}")
         # and the unit does NOT appear alone in a second text
-        self.assertNotIn("N/m", [t.strip() for t in textos],
-                          "unidade ainda desenhada como texto separado")
+        self.assertNotIn("N/m", [t.strip() for t in texts],
+                          "unit still drawn as a separate text")
 
-    def test_campo_adimensional_nao_ganha_colchete_vazio(self):
+    def test_dimensionless_field_gets_no_empty_bracket(self):
         from zbemt.viz import plots
         fig = plots.plot_disk_map_grid(self._maps(), fields=["Cl"])
-        textos = [t[0] for t in self._textos_da_barra(fig)]
-        self.assertFalse([t for t in textos if "[]" in t or "[-]" in t],
-                          f"empty bracket/dash in a dimensionless field: {textos}")
+        texts = [t[0] for t in self._colorbar_texts(fig)]
+        self.assertFalse([t for t in texts if "[]" in t or "[-]" in t],
+                          f"empty bracket/dash in a dimensionless field: {texts}")

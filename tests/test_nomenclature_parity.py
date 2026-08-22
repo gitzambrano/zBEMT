@@ -1,8 +1,8 @@
 """The axis nomenclature the user reads must not change by accident.
 
 Rotor/propeller axis names are produced today by several independent
-tables (`api._SIMBOLO_DE_COLUNA`, `viz/plots._SUMMARY_KEY_LABELS`,
-`studies._SIMBOLO_DE_VARIAVEL`, `gui/widgets.UNIDADES_DE_CONDICAO`) that are
+tables (`api._COLUMN_SYMBOL`, `viz/plots._SUMMARY_KEY_LABELS`,
+`studies._SIMBOLO_DE_VARIAVEL`, `gui/widgets.CONDITION_UNITS`) that are
 being unified into `zbemt/nomenclature.py`. A unification is only a
 unification if the strings come out the same afterwards -- and "the same" is
 only checkable against a record of what they are.
@@ -47,7 +47,7 @@ class TestSnapshotIsPresent(unittest.TestCase):
 
         gravadas = set(_snapshot())
         produzidas = set(nomenclature_snapshot.collect())
-        if not nomenclature_snapshot.tem_qt():
+        if not nomenclature_snapshot.has_qt():
             # No Qt on this machine (the engine and CLI run without it on
             # purpose): the GUI surfaces are not produced, so they are not
             # checked either. The file still records them, for the machines

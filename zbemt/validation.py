@@ -31,7 +31,7 @@ class Issue:
 
 
 # =============================================================================
-# AirfoilDef -- checks internal to the 2D object itself
+# AirfoilDef: checks internal to the 2D object itself
 # =============================================================================
 
 def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
@@ -39,20 +39,20 @@ def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
 
     # --- dynamic stall requires a base polar that actually has stall -----
     # Øye interpolates between the attached (potential) Cl and the Cl
-    # separated from the STATIC polar; without stall in the base polar
+    # separated from the STATIC polar. Without stall in the base polar
     # ('linear' = pure line, no saturation), there is no "separation" at
-    # all for the dynamic model to model -- the result degenerates back to
+    # all for the dynamic model to model. The result degenerates back to
     # the potential Cl, making the toggle deceptively harmless instead of
     # simply blocked. This is the ONLY dynamic stall rule derivable purely
-    # from the `stall_model` enum (without inspecting any data) -- which
-    # is why the GUI disables the dynamic stall checkbox in this case by
-    # construction (docs/plano_v2.md Section 2.2/2.5); the check here is
-    # the safety net for the script/API path.
+    # from the `stall_model` enum (without inspecting any data). That is
+    # why the GUI disables the dynamic stall checkbox in this case by
+    # construction (docs/plano_v2.md Sections 2.2 and 2.5). The check here
+    # is the safety net for the script/API path.
     if a.use_dynamic_stall and a.source == "analytical" and a.stall_model == "linear":
         issues.append(Issue("error",
             "Dynamic stall (Øye) enabled with analytical model 'linear' (no "
             "static stall): Øye interpolates between the potential Cl and the Cl "
-            "separated from the static polar -- without stall in the base polar there is "
+            "separated from the static polar. Without stall in the base polar there is "
             "no separation to model, and the result degenerates silently "
             "back to linear model. Change 'Stall model' to "
             "'clip' or 'enhanced', or disable dynamic stall."))
@@ -70,24 +70,24 @@ def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
             "source='table' with table_slices."))
     elif a.source not in ("analytical", "table"):
         issues.append(Issue("error",
-            f"unknown source: {a.source!r} -- use 'analytical' or 'table'."))
+            f"unknown source: {a.source!r}. Use 'analytical' or 'table'."))
 
     # --- stall_model unknown ------------------------------------------------
     if a.stall_model not in ("linear", "clip", "enhanced", "viterna"):
         issues.append(Issue("error",
-            f"unknown stall_model: {a.stall_model!r} -- use 'linear', "
+            f"unknown stall_model: {a.stall_model!r}. Use 'linear', "
             "'clip', 'enhanced' or 'viterna'."))
 
     # --- extend_full_range only applies to analytical/table -----------------
     if a.extend_full_range and a.source not in ("analytical", "table"):
         issues.append(Issue("info",
             f"'extend_full_range' only has effect with source='analytical' or "
-            f"'table' (current: '{a.source}') -- this field is being ignored."))
+            f"'table' (current: '{a.source}'). This field is being ignored."))
 
     # --- extend_full_range is ignored for analytical source -------------------
     # Since Viterna became the 4th stall_model option (instead of an
-    # orthogonal toggle), this field only has an effect for source='table'
-    # -- see models.uses_full_range_extension.
+    # orthogonal toggle), this field only has an effect for source='table'.
+    # See models.uses_full_range_extension.
     if a.source == "analytical" and a.extend_full_range and a.stall_model != "viterna":
         issues.append(Issue("info",
             "'extend_full_range' is marked, but is ignored with "
@@ -98,15 +98,15 @@ def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
     if a.source == "table" and not a.table_slices:
         issues.append(Issue("error",
             "source='table' selected, but no polar was imported "
-            "(table_slices empty) -- import a CSV/DAT in block 'd'."))
+            "(table_slices empty). Import a CSV/DAT in block 'd'."))
 
     # --- extend_full_range + MULTI-SECTION table -----------------------------
     # Supported since the fix in bemt.ViternaExtendedAirfoil: when the
     # base airfoil is a MultiSectionTableAirfoil, the class now builds a
     # Viterna-Corrigan extrapolation PER radial section (each anchored on
     # its own Cl_stall/Cd_stall, rather than a single scalar alpha_stall
-    # calling base.cl_cd() without r_norm, which was the real bug here --
-    # MultiSectionTableAirfoil.cl_cd requires r_norm). The per-section
+    # calling base.cl_cd() without r_norm, which was the real bug here,
+    # because MultiSectionTableAirfoil.cl_cd requires r_norm). The per-section
     # result is then interpolated in r_norm, same as the pasted region. No
     # additional validation is required for this combination.
 
@@ -123,7 +123,7 @@ def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
         issues.append(Issue("info",
             "'time_march' parameters (revolutions / average of last N) "
             "were changed, but the active dynamic stall method is "
-            "'frequency' -- they have no effect in this mode."))
+            "'frequency'. They have no effect in this mode."))
 
     if a.use_dynamic_stall and a.dynamic_stall_fade_start_deg >= a.dynamic_stall_fade_end_deg:
         issues.append(Issue("error",
@@ -133,13 +133,13 @@ def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
     # --- stall angles with reversed sign ------------------------------------
     if a.stall_model != "linear" and (a.alpha_stall_neg_deg >= 0 or a.alpha_stall_pos_deg <= 0):
         issues.append(Issue("warning",
-            "alpha_stall_pos_deg should be > 0 and alpha_stall_neg_deg < 0 "
-            "-- current values suggest positive/negative stall swapped."))
+            "alpha_stall_pos_deg should be > 0 and alpha_stall_neg_deg < 0. "
+            "The current values suggest that positive and negative stall are swapped."))
 
     # --- dynamic stall + table with no apparent sign of stall (heuristic) ---
-    # Best-effort check (not structural, plano_v2 Section 2.2/4.2): only
-    # answerable by looking at the CONTENT of table_slices, not an enum --
-    # which is why the GUI cannot disable anything here at the moment the
+    # Best-effort check (not structural, plano_v2 Section 2.2/4.2): it is only
+    # answerable by looking at the CONTENT of table_slices, not an enum.
+    # That is why the GUI cannot disable anything here at the moment the
     # user switches tabs, and this remains a warning, not an error.
     if a.use_dynamic_stall and a.source == "table" and a.table_slices:
         for s in a.table_slices:
@@ -156,7 +156,7 @@ def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
                     f"'{s.label or 'unlabeled'}'): the peak of |Cl| is at the "
                     "edge of the imported alpha range, suggesting that the "
                     "table may not contain real stall (was cut before "
-                    "saturation) -- Øye may degenerate back to "
+                    "saturation). Øye may degenerate back to "
                     "potential in this range. Confirm that the table covers "
                     "saturation, or disable dynamic stall."))
                 break
@@ -165,7 +165,7 @@ def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
 
 
 # =============================================================================
-# BEMTConfig <-> AirfoilDef -- checks cross-referencing the two objects
+# BEMTConfig <-> AirfoilDef: checks cross-referencing the two objects
 # =============================================================================
 
 def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
@@ -175,7 +175,7 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
 
     # --- reverse_flow_model='viterna_full_range' requires extended airfoil
     # The GUI ADDS the option to the dropdown when the full-range extension
-    # is active (`airfoil._refresh_reverse_flow_options`) -- it does NOT
+    # is active (`airfoil._refresh_reverse_flow_options`). It does NOT
     # reduce the list to this single option, as this note used to claim.
     # The other four remain selectable on purpose: they are the comparison
     # that Section 8.2 of the manual offers. This check still applies to
@@ -184,7 +184,7 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
     if reverse_flow_model == "viterna_full_range" and not uses_full_range_extension(airfoil_def):
         issues.append(Issue("error",
             "reverse_flow_model='viterna_full_range' requires active "
-            "Viterna-Corrigan full-range extension -- without it the engine "
+            "Viterna-Corrigan full-range extension. Without it the engine "
             "receives a non-extended polar and the result in the reverse "
             "flow region has no physical meaning. In the Airfoil tab, choose "
             "stall_model='viterna' (source 'analytical') or enable "
@@ -193,9 +193,9 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
 
     # --- the reverse path is a WARNING, not an error -------------------------------
     # With the polar extended to ±180 there is real (extrapolated) data in
-    # the reverse region; any of the other four models THROWS THAT DATA
-    # AWAY and puts a flat plate in its place. It is almost always not
-    # what is wanted -- hence the warning -- but it is a legitimate choice
+    # the reverse region. Any of the other four models THROWS THAT DATA
+    # AWAY and puts a flat plate in its place. That is almost always not
+    # what is wanted, hence the warning. Still, it is a legitimate choice
     # (comparing models, reproducing an old result), so forbidding it
     # would remove exactly the comparison that Section 8.2 of the manual
     # exists to offer.
@@ -211,8 +211,8 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
     # --- pitt_peters_unsteady does not run per isolated case ----------------
     # `bemt.solve_bemt` raises ValueError for the unsteady variant:
     # it requires a TEMPORAL SEQUENCE (time_mu_Vv), which only
-    # `run_sweep_unsteady_pitt_peters` assembles -- neither the GUI nor main_batch.py
-    # construct this sequence. Without this check, choosing the option was a
+    # `run_sweep_unsteady_pitt_peters` assembles. Neither the GUI nor main_batch.py
+    # constructs this sequence. Without this check, choosing the option was a
     # raw traceback in the middle of the solve.
     if inflow_field_model == "pitt_peters_unsteady":
         issues.append(Issue("error",
@@ -228,14 +228,14 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
     elif pp_states == 5:
         issues.append(Issue("error",
             "pitt_peters_states=5 (Peters-He, 2nd harmonic) is not yet "
-            "implemented in the engine -- use 3."))
+            "implemented in the engine. Use 3."))
 
     # --- double counting of compressibility (Finding #4, plan_v2 Section 2.1)
     # `use_compressibility` applies Prandtl-Glauert on top of the selected
     # polar; if the imported table already varies with Mach (one polar per
     # slice, `PolarSlice.mach` filled in more than one slice), the
     # "true" compressibility is already embedded in the polar chosen by
-    # `_select_slice_for_condition` -- applying the empirical correction on top
+    # `_select_slice_for_condition`. Applying the empirical correction on top
     # is double counting compressibility. It is not structural (depends on
     # the CONTENT of table_slices, not just an enum), so it is a warning, not
     # something the GUI can disable by switching tabs.
@@ -246,22 +246,22 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
                 "use_compressibility=True with a table that already varies with "
                 "Mach (table_slices has more than one polar labeled by "
                 "Mach): the polar selected in each condition is already "
-                "compressible; applying Prandtl-Glauert on top is "
-                "'double counting', unless it is intentional (e.g., "
-                "sensitivity study)."))
+                "compressible. Applying Prandtl-Glauert on top is "
+                "'double counting', unless it is intentional (for example, "
+                "a sensitivity study)."))
 
     # --- dynamic stall does not exist in UNSTEADY Pitt-Peters ----------
     # Finding #5 (plano_v2 Section 2.2/5.3): `run_sweep_unsteady_pitt_peters`
-    # marches only 3 scalar degrees of freedom (nu0,nu_s,nu_c); Øye would
+    # marches only 3 scalar degrees of freedom (nu0,nu_s,nu_c). Øye would
     # need a state per blade element (Ne*Npsi), a real structural
     # incompatibility with the current implementation. The GUI does not
-    # prevent this today (they are different screens/objects -- see
+    # prevent this today (they are different screens and objects, see
     # Section 5.3), so this check is the only guarantee.
     if inflow_field_model == "pitt_peters_unsteady" and airfoil_def.use_dynamic_stall:
         issues.append(Issue("error",
             "Dynamic stall (Øye) is not implemented in UNSTEADY Pitt-Peters mode "
             "('pitt_peters_unsteady'): this solver marches only 3 scalar DOF "
-            "(nu0,nu_s,nu_c); Øye would need state per blade element (Ne*Npsi). "
+            "(nu0,nu_s,nu_c). Øye would need state per blade element (Ne*Npsi). "
             "Disable dynamic stall, or use 'pitt_peters_steady'."))
 
     # --- is_propeller changes the default of advance_kind, it is not exclusive
@@ -270,15 +270,15 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
     if config.get("is_propeller", False) and airfoil_def.external_engine != "none":
         issues.append(Issue("info",
             "is_propeller=True does not affect external polar generation "
-            "(NeuralFoil) -- only the BEMT non-dimensionalization."))
+            "(NeuralFoil). Its only effect is on the BEMT non-dimensionalization."))
 
     return issues
 
 
 def validate_airfoil_sections(sections: list[AirfoilDef]) -> list[Issue]:
     """Checks specific to multi-section airfoils (Phase D, docs/plano.md
-    Section 4) -- only relevant when ``Project.airfoil_sections`` has 2+
-    elements; an empty list (single airfoil) does not go through here
+    Section 4). Only relevant when ``Project.airfoil_sections`` has 2+
+    elements. An empty list (single airfoil) does not go through here
     (see ``validate_project``)."""
     issues: list[Issue] = []
     if len(sections) == 1:
@@ -294,7 +294,7 @@ def validate_airfoil_sections(sections: list[AirfoilDef]) -> list[Issue]:
         label = s.name or "(unlabeled)"
         if s.r_norm is None:
             issues.append(Issue("error",
-                f"Section {label!r}: r_norm not defined -- required with 2+ sections."))
+                f"Section {label!r}: r_norm not defined. It is required with 2+ sections."))
             continue
         if not (0.0 <= s.r_norm <= 1.0):
             issues.append(Issue("warning",
@@ -302,29 +302,29 @@ def validate_airfoil_sections(sections: list[AirfoilDef]) -> list[Issue]:
         if s.r_norm in seen_r:
             issues.append(Issue("error",
                 f"Sections {seen_r[s.r_norm]!r} and {label!r} have the same "
-                f"r_norm={s.r_norm:g} -- each section needs a distinct radial position."))
+                f"r_norm={s.r_norm:g}. Each section needs a distinct radial position."))
         else:
             seen_r[s.r_norm] = label
         for issue in validate_airfoil_def(s):
             issues.append(Issue(issue.level, f"Section {label!r}: {issue.message}"))
 
     # Q4: dynamic stall's method and time march are properties of the
-    # BLADE, not the section -- the engine marches once per solve.
+    # BLADE, not the section, because the engine marches once per solve.
     # Sections that disagree are not an illegal state (each still
     # turns its own stall on/off and has its own A), but the user needs
-    # to know which value will prevail; until now this passed silently.
-    ligadas = [s for s in sections if s.use_dynamic_stall]
-    if len(ligadas) >= 2:
-        for campo, rotulo in (("dynamic_stall_method", "method"),
-                              ("dynamic_stall_time_march_revolutions", "march revolutions"),
-                              ("dynamic_stall_time_march_avg_last", "revolutions in average")):
-            valores = {getattr(s, campo) for s in ligadas}
-            if len(valores) > 1:
-                vence = getattr(ligadas[0], campo)
+    # to know which value will prevail. Until now this passed silently.
+    stall_sections = [s for s in sections if s.use_dynamic_stall]
+    if len(stall_sections) >= 2:
+        for field, label in (("dynamic_stall_method", "method"),
+                             ("dynamic_stall_time_march_revolutions", "march revolutions"),
+                             ("dynamic_stall_time_march_avg_last", "revolutions in average")):
+            values = {getattr(s, field) for s in stall_sections}
+            if len(values) > 1:
+                winner = getattr(stall_sections[0], field)
                 issues.append(Issue("warning",
-                    f"Dynamic stall: sections disagree on {rotulo} "
-                    f"({sorted(map(str, valores))}). This parameter applies to the entire blade "
-                    f"-- will use {vence!r}, from the innermost section with dynamic stall enabled."))
+                    f"Dynamic stall: sections disagree on {label} "
+                    f"({sorted(map(str, values))}). This parameter applies to the entire blade. "
+                    f"zBEMT will use {winner!r}, from the innermost section with dynamic stall enabled."))
     return issues
 
 
@@ -338,9 +338,9 @@ def validate_flight_condition(condition) -> list[Issue]:
     in the middle of the solve). A missing RPM was even worse: it fell
     back to a 1000 RPM placeholder and produced a perfectly plausible-
     looking thrust from a made-up rotation, with nothing to give it away.
-    The placeholder was removed; both cases are now an error.
+    The placeholder was removed. Both cases are now an error.
 
-    This check is the *early* warning -- `studies._require_rpm` is the
+    This check is the *early* warning. `studies._require_rpm` is the
     hard guarantee, which raises at run time."""
     issues: list[Issue] = []
     rpm = getattr(condition, "rpm", None)
@@ -372,24 +372,24 @@ def validate_flight_condition(condition) -> list[Issue]:
 #: Above this Mach the Prandtl-Glauert correction stops being an
 #: approximation and turns into an amplifier: the factor 1/sqrt(1-M^2) is
 #: 1.4 at M=0.7, 2.3 at M=0.9 and diverges at M=1. The theory is
-#: linearized and SUBSONIC -- there is no shock in it, so nothing in the
+#: linearized and SUBSONIC. There is no shock in it, so nothing in the
 #: model warns that the flow has stopped being what it describes.
 _MACH_LIMITE_PRANDTL_GLAUERT = 0.85
 
 
-def _validar_mach_de_ponta(condition, radius_m: float, config: dict) -> list[Issue]:
+def _validate_tip_mach(condition, radius_m: float, config: dict) -> list[Issue]:
     """Warns when the advancing blade tip goes past the regime in which
     this solver's airfoil models are valid.
 
     Found while running: an 8.18 m rotor at 600 RPM gives 514 m/s at the
-    tip, Mach 1.51 -- and Mach 1.8 on the advancing side with mu_x=0.2.
+    tip, Mach 1.51, and Mach 1.8 on the advancing side with mu_x=0.2.
     The compressibility correction then divides Cl by sqrt(1-M^2), which
-    at two of the 7776 elements is worth ~0.004: Cl jumped to 599 (the
-    99th percentile is 2.5). Nothing in the result gave it away; a
-    good-looking CT came out, and the disk maps became unreadable.
+    at two of the 7776 elements is worth approximately 0.004. Cl jumped to
+    599, and the 99th percentile is 2.5. Nothing in the result gave it
+    away. A good-looking CT came out, and the disk maps became unreadable.
 
-    Warning, not error: running is still allowed -- the user may be
-    precisely investigating the limit --, but they now know they crossed
+    Warning, not error: running is still allowed, because the user may be
+    precisely investigating the limit. But they now know they crossed
     the model's boundary instead of finding out from the plot.
     """
     issues: list[Issue] = []
@@ -439,7 +439,7 @@ def validate_project(config: dict, airfoil_def: AirfoilDef,
 
     If ``airfoil_sections`` has 2+ elements (multi-section airfoil, Phase
     D), ``airfoil_def`` (the usual single airfoil) is IGNORED for
-    validation purposes -- the engine also ignores it in that case (see
+    validation purposes. The engine also ignores it in that case (see
     ``airfoils.to_blade_airfoil``).
 
     ``conditions`` (optional): the ``FlightCondition``s that will be run.
@@ -453,25 +453,25 @@ def validate_project(config: dict, airfoil_def: AirfoilDef,
 
     is_propeller = bool(config.get("is_propeller", False))
     for i, condition in enumerate(conditions or []):
-        rotulo = getattr(condition, "name", None) or f"#{i}"
+        label = getattr(condition, "name", None) or f"#{i}"
         for issue in validate_flight_condition(condition):
-            issues.append(Issue(issue.level, f"[condition {rotulo}] {issue.message}"))
-        for issue in _validar_convencao_de_helice(condition, is_propeller):
-            issues.append(Issue(issue.level, f"[condition {rotulo}] {issue.message}"))
+            issues.append(Issue(issue.level, f"[condition {label}] {issue.message}"))
+        for issue in _validate_propeller_convention(condition, is_propeller):
+            issues.append(Issue(issue.level, f"[condition {label}] {issue.message}"))
         if radius_m:
-            for issue in _validar_mach_de_ponta(condition, radius_m, config):
-                issues.append(Issue(issue.level, f"[condition {rotulo}] {issue.message}"))
+            for issue in _validate_tip_mach(condition, radius_m, config):
+                issues.append(Issue(issue.level, f"[condition {label}] {issue.message}"))
     return issues
 
 
-def _validar_convencao_de_helice(condition, is_propeller: bool) -> list[Issue]:
-    """The easiest mistake to make in propeller mode, and one that generates no error
-    -- just wrong results.
+def _validate_propeller_convention(condition, is_propeller: bool) -> list[Issue]:
+    """The easiest mistake to make in propeller mode generates no error and
+    produces just wrong results.
 
     ``mu_x`` is the velocity component IN THE PLANE of the disk: it is what makes the
     blade see ``+-V`` along the azimuth (advancing/retreating) and originates the
     reverse flow. The flight speed of a propeller in level flight is AXIAL,
-    along the thrust axis: goes in ``Vz``, with ``mu_x = 0``.
+    along the thrust axis: it goes in ``Vz``, with ``mu_x = 0``.
 
     Swapping the two gives a rotor edgewise condition that no propeller in level flight
     experiences. The classic symptom is propulsive efficiency above 1.
@@ -491,7 +491,7 @@ def _validar_convencao_de_helice(condition, is_propeller: bool) -> list[Issue]:
             f"along the shaft (Vz=0, shown as V_inf,x / mu_x / J_x). A propeller's "
             f"flight speed is axial: it goes in the 'Advance, axial (J_x)' field, with "
             f"the cross-flow at 0. As is, the blade sees +-V across azimuth, which a "
-            f"propeller in level flight does not -- and the reported propulsive "
+            f"propeller in level flight does not. The reported propulsive "
             f"efficiency will be meaningless. If axis tilt is intentional, also provide "
             f"the axial component (or give the tilt as alpha_disk, measured from the shaft, "
             f"which derives the cross-flow from it).")]

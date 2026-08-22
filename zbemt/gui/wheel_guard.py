@@ -34,29 +34,29 @@ from PyQt6.QtWidgets import (
 
 #: Widgets that edit a value with the wheel and, therefore, need the guard.
 #: `QAbstractSpinBox` covers QSpinBox/QDoubleSpinBox/QDateTimeEdit at once.
-_WIDGETS_SENSIVEIS = (QAbstractSpinBox, QComboBox, QSlider)
+_SENSITIVE_WIDGETS = (QAbstractSpinBox, QComboBox, QSlider)
 
 
-def _area_rolavel_ancestral(widget: QWidget) -> QAbstractScrollArea | None:
-    """Walks up the parent tree until it finds the scrollable area that
+def _ancestor_scroll_area(widget: QWidget) -> QAbstractScrollArea | None:
+    """Walks up the parent tree until it finds the scrollable scroll_area that
     contains the widget -- that is where the wheel event goes when the
     field has no focus."""
-    pai = widget.parentWidget()
-    while pai is not None:
-        if isinstance(pai, QAbstractScrollArea):
-            return pai
-        pai = pai.parentWidget()
+    parent = widget.parentWidget()
+    while parent is not None:
+        if isinstance(parent, QAbstractScrollArea):
+            return parent
+        parent = parent.parentWidget()
     return None
 
 
-class GuardaDeRoda(QObject):
+class WheelGuard(QObject):
     """Application-wide event filter: discards the wheel on an unfocused
-    field and returns it to the surrounding scrollable area."""
+    field and returns it to the surrounding scrollable scroll_area."""
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if event.type() != QEvent.Type.Wheel:
             return False
-        if not isinstance(obj, _WIDGETS_SENSIVEIS):
+        if not isinstance(obj, _SENSITIVE_WIDGETS):
             return False
         # Open combo (the dropdown list) should scroll normally: there the
         # wheel navigates the list, it doesn't change the value by accident.
@@ -65,32 +65,32 @@ class GuardaDeRoda(QObject):
         if obj.hasFocus():
             return False   # deliberate gesture: a focused field edits as usual
 
-        area = _area_rolavel_ancestral(obj)
-        if area is not None:
-            QApplication.sendEvent(area.viewport(), event)
+        scroll_area = _ancestor_scroll_area(obj)
+        if scroll_area is not None:
+            QApplication.sendEvent(scroll_area.viewport(), event)
         return True   # never reaches the field -- no value changes
 
 
-def instalar_guarda_de_roda(app: QApplication) -> GuardaDeRoda:
+def install_wheel_guard(app: QApplication) -> WheelGuard:
     """Installs the guard for the whole application. Returns the filter
     (the caller needs to keep the reference alive: an ownerless `QObject`
     is garbage-collected by Python and the filter stops firing)."""
-    guarda = GuardaDeRoda(app)
-    app.installEventFilter(guarda)
-    return guarda
+    guard = WheelGuard(app)
+    app.installEventFilter(guard)
+    return guard
 
 
-def ajustar_politica_de_foco(raiz: QWidget) -> int:
+def adjust_focus_policy(root: QWidget) -> int:
     """Swaps `WheelFocus` for `StrongFocus` on the sensitive fields under
-    ``raiz``. Without this, the first turn of the wheel would give focus
+    ``root``. Without this, the first turn of the wheel would give focus
     to the field and the second would already edit the value -- the guard
     above would be bypassed by the very gesture it exists to neutralize.
 
     Returns how many widgets were adjusted."""
-    ajustados = 0
-    for tipo in _WIDGETS_SENSIVEIS:
-        for widget in raiz.findChildren(tipo):
+    adjusted = 0
+    for widget_type in _SENSITIVE_WIDGETS:
+        for widget in root.findChildren(widget_type):
             if widget.focusPolicy() == Qt.FocusPolicy.WheelFocus:
                 widget.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-                ajustados += 1
-    return ajustados
+                adjusted += 1
+    return adjusted

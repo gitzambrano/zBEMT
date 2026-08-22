@@ -40,16 +40,16 @@ from zbemt.models import BatchDefinition, FlightCondition
 
 #: Enough cases that "incremental" is distinguishable from "all at once",
 #: few enough that the file stays fast.
-N_CASOS = 6
+N_CASES = 6
 
 #: The heartbeat that proves the loop is alive. Short relative to a single
 #: case, so a run that blocks the thread for even one case misses several
 #: beats.
-INTERVALO_DE_BATIDA_MS = 5
+HEARTBEAT_INTERVAL_MS = 5
 
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not available")
-class TestOMotorNaoTravaAInterface(unittest.TestCase):
+class TestEngineDoesNotFreezeTheInterface(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -64,119 +64,119 @@ class TestOMotorNaoTravaAInterface(unittest.TestCase):
             name="responsiveness",
             conditions=[FlightCondition(name=f"c{i}", mu_x=0.02 * i,
                                         collective_deg=8.0, rpm=600.0)
-                        for i in range(1, N_CASOS + 1)])
+                        for i in range(1, N_CASES + 1)])
 
-    def _rodar_observando(self, timeout_ms: int = 60000) -> dict:
+    def _run_observing(self, timeout_ms: int = 60000) -> dict:
         """Runs the batch through the real worker and records, while it
         runs, everything needed to judge responsiveness."""
         from zbemt.gui.workers import BatchRunnerWorker
 
         worker = BatchRunnerWorker(self.project, batch=self.batch)
-        registro = {"batidas": 0, "progresso": [], "thread_do_worker": None,
-                    "resultados": None, "erro": None}
-        thread_da_gui = QThread.currentThread()
+        log = {"beats": 0, "progress": [], "worker_thread": None,
+               "results": None, "error": None}
+        gui_thread = QThread.currentThread()
 
         loop = QEventLoop()
 
-        pulso = QTimer()
-        pulso.setInterval(INTERVALO_DE_BATIDA_MS)
-        pulso.timeout.connect(lambda: registro.__setitem__("batidas",
-                                                           registro["batidas"] + 1))
+        pulse = QTimer()
+        pulse.setInterval(HEARTBEAT_INTERVAL_MS)
+        pulse.timeout.connect(lambda: log.__setitem__("beats",
+                                                      log["beats"] + 1))
 
-        def ao_terminar_caso(indice, total, resultado):
+        def on_case_done(index, total, result):
             # Recorded from the GUI thread: `case_finished` is a queued
             # connection across threads, so its slot running here at all
             # is itself part of the claim.
-            registro["progresso"].append((indice, total))
-            if registro["thread_do_worker"] is None:
-                registro["thread_do_worker"] = worker.thread()
+            log["progress"].append((index, total))
+            if log["worker_thread"] is None:
+                log["worker_thread"] = worker.thread()
 
-        def ao_terminar(resultados):
-            registro["resultados"] = resultados
+        def on_finished(results):
+            log["results"] = results
             loop.quit()
 
-        def ao_falhar(mensagem):
-            registro["erro"] = mensagem
+        def on_failed(message):
+            log["error"] = message
             loop.quit()
 
-        worker.case_finished.connect(ao_terminar_caso)
-        worker.finished.connect(ao_terminar)
-        worker.failed.connect(ao_falhar)
+        worker.case_finished.connect(on_case_done)
+        worker.finished.connect(on_finished)
+        worker.failed.connect(on_failed)
 
         thread = QThread()
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
-        registro["thread_declarada"] = thread
+        log["declared_thread"] = thread
 
-        pulso.start()
+        pulse.start()
         thread.start()
         QTimer.singleShot(timeout_ms, loop.quit)
         loop.exec()
-        pulso.stop()
+        pulse.stop()
 
         thread.quit()
         thread.wait(5000)
 
-        self.assertIsNone(registro["erro"], f"the batch failed: {registro['erro']}")
-        self.assertIsNotNone(registro["resultados"],
+        self.assertIsNone(log["error"], f"the batch failed: {log['error']}")
+        self.assertIsNotNone(log["results"],
                              "the batch did not finish within the timeout")
-        return registro
+        return log
 
-    def test_o_solve_nao_roda_na_thread_da_interface(self):
+    def test_the_solve_does_not_run_on_the_interface_thread(self):
         """The first and simplest form of the claim: if the solve ran on
         the GUI thread, no amount of care elsewhere could keep the window
         responsive."""
-        thread_da_gui = QThread.currentThread()
-        registro = self._rodar_observando()
-        self.assertIsNot(registro["thread_declarada"], thread_da_gui,
+        gui_thread = QThread.currentThread()
+        log = self._run_observing()
+        self.assertIsNot(log["declared_thread"], gui_thread,
                          "the worker was given the GUI thread to run on")
 
-    def test_o_laco_de_eventos_continua_girando_durante_o_solve(self):
+    def test_the_event_loop_keeps_turning_during_the_solve(self):
         """A timer started before the run must keep firing while it runs.
         Each beat is one pass of the event loop, which is one opportunity
         for the window to repaint, for a button to respond, and for the
         cancel to be noticed."""
-        registro = self._rodar_observando()
+        log = self._run_observing()
         self.assertGreater(
-            registro["batidas"], 3,
+            log["beats"], 3,
             "the event loop stopped dispatching during the solve: only "
-            f"{registro['batidas']} timer beats over {N_CASOS} cases")
+            f"{log['beats']} timer beats over {N_CASES} cases")
 
-    def test_o_progresso_chega_caso_a_caso_e_nao_de_uma_vez(self):
+    def test_progress_arrives_case_by_case_not_all_at_once(self):
         """`case_finished` must arrive once per case, in order. Delivered
         in one burst at the end, a progress bar is decoration: it tells
         the user the work is done at the moment it is already done."""
-        registro = self._rodar_observando()
-        indices = [i for i, _total in registro["progresso"]]
-        self.assertEqual(len(indices), N_CASOS,
+        log = self._run_observing()
+        indices = [i for i, _total in log["progress"]]
+        self.assertEqual(len(indices), N_CASES,
                          f"expected one progress signal per case, got {indices}")
         self.assertEqual(indices, sorted(indices),
                          f"progress arrived out of order: {indices}")
-        totais = {total for _i, total in registro["progresso"]}
-        self.assertEqual(totais, {N_CASOS},
+        totals = {total for _i, total in log["progress"]}
+        self.assertEqual(totals, {N_CASES},
                          "the total announced with the progress is not the batch size")
 
-    def test_os_resultados_chegam_completos_ao_fim(self):
+    def test_results_arrive_complete_at_the_end(self):
         """Running off the main thread must not cost a result."""
-        registro = self._rodar_observando()
-        self.assertEqual(len(registro["resultados"]), N_CASOS)
+        log = self._run_observing()
+        self.assertEqual(len(log["results"]), N_CASES)
 
-    def test_o_cancelamento_e_notado_no_meio_da_execucao(self):
+    def test_cancellation_is_noticed_mid_execution(self):
         """Cancellation is the user-visible consequence of the loop still
         turning: the flag is set from the GUI thread while the worker is
         between cases, and the worker must read it before the end."""
         from zbemt.gui.workers import BatchRunnerWorker
 
         worker = BatchRunnerWorker(self.project, batch=self.batch)
-        feitos = []
+        done = []
         loop = QEventLoop()
 
-        def ao_terminar_caso(indice, _total, _resultado):
-            feitos.append(indice)
-            if len(feitos) == 2:
+        def on_case_done(index, _total, _result):
+            done.append(index)
+            if len(done) == 2:
                 worker.cancel()
 
-        worker.case_finished.connect(ao_terminar_caso)
+        worker.case_finished.connect(on_case_done)
         worker.finished.connect(lambda _r: loop.quit())
         worker.failed.connect(lambda _m: loop.quit())
 
@@ -189,8 +189,8 @@ class TestOMotorNaoTravaAInterface(unittest.TestCase):
         thread.quit()
         thread.wait(5000)
 
-        self.assertGreaterEqual(len(feitos), 2, "the batch never started")
-        self.assertLess(len(feitos), N_CASOS,
+        self.assertGreaterEqual(len(done), 2, "the batch never started")
+        self.assertLess(len(done), N_CASES,
                         "the cancel was only read after the last case: the "
                         "worker is not checking it between cases")
 

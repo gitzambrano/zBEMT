@@ -29,7 +29,7 @@ from zbemt.gui.dialogs import GeometryGeneratorDialog
 from zbemt.gui.tabs.airfoil import AirfoilTab
 from zbemt.gui.tabs.geometry_tab import GeometryTab
 
-from tests.helpers import make_studies_project, patch_em_toda_gui
+from tests.helpers import make_studies_project, patch_message_box_everywhere
 
 
 #: Kept alive at module scope -- QApplication.instance() only survives
@@ -47,157 +47,157 @@ def _app() -> QApplication:
     return _QAPP
 
 
-def _tab_com_projeto(**airfoil_kwargs):
+def _tab_with_project(**airfoil_kwargs):
     """Create an AirfoilTab with a loaded project (the state where
     the user actually uses the tab)."""
     _app()
     state = AppState()
-    projeto = make_studies_project()
+    project = make_studies_project()
     for k, v in airfoil_kwargs.items():
-        setattr(projeto.airfoil, k, v)
-    state.project = projeto
-    aba = AirfoilTab(state)
+        setattr(project.airfoil, k, v)
+    state.project = project
+    tab = AirfoilTab(state)
     state.notify_airfoil()
-    return aba, state
+    return tab, state
 
 
-def _spans(aba) -> list:
-    """(min, max) de alpha de cada curva que o preview desenharia."""
-    d = aba._collect_airfoil_def()
+def _spans(tab) -> list:
+    """(min, max) alpha of each curve the preview would draw."""
+    d = tab._collect_airfoil_def()
     return [(float(np.min(c["alpha_deg"])), float(np.max(c["alpha_deg"])))
-            for c in aba._collect_polar_curves(d)]
+            for c in tab._collect_polar_curves(d)]
 
 
-class FaixaDeAlphaDoPreview(unittest.TestCase):
+class PreviewAlphaRange(unittest.TestCase):
     """Item 6: with Viterna extension active, the curve must be
     CALCULATED to ±180 -- rescaling the axis via matplotlib's bar does
     not recalculate anything, and the user saw an empty plot after 30°."""
 
-    def test_viterna_ativa_desenha_ate_180(self):
-        aba, _ = _tab_com_projeto(stall_model="viterna")
-        self.assertEqual(aba.alpha_range_combo.currentText(), aba._FAIXA_COMPLETA)
-        for lo, hi in _spans(aba):
+    def test_viterna_on_draws_up_to_180(self):
+        tab, _ = _tab_with_project(stall_model="viterna")
+        self.assertEqual(tab.alpha_range_combo.currentText(), tab._RANGE_FULL)
+        for lo, hi in _spans(tab):
             self.assertAlmostEqual(lo, -180.0)
             self.assertAlmostEqual(hi, 180.0)
 
-    def test_sem_viterna_continua_na_faixa_tipica(self):
-        aba, _ = _tab_com_projeto(stall_model="clip")
-        self.assertEqual(aba.alpha_range_combo.currentText(), aba._FAIXA_TIPICA)
-        for lo, hi in _spans(aba):
+    def test_without_viterna_stays_in_the_typical_range(self):
+        tab, _ = _tab_with_project(stall_model="clip")
+        self.assertEqual(tab.alpha_range_combo.currentText(), tab._RANGE_TYPICAL)
+        for lo, hi in _spans(tab):
             self.assertAlmostEqual(lo, -30.0)
             self.assertAlmostEqual(hi, 30.0)
 
-    def test_ligar_viterna_em_tempo_real_abre_a_faixa(self):
-        aba, _ = _tab_com_projeto(stall_model="clip")
-        aba.stall_model_combo.setCurrentText("viterna")
-        self.assertEqual(aba.alpha_range_combo.currentText(), aba._FAIXA_COMPLETA)
-        self.assertAlmostEqual(_spans(aba)[0][1], 180.0)
+    def test_enabling_viterna_live_opens_the_range(self):
+        tab, _ = _tab_with_project(stall_model="clip")
+        tab.stall_model_combo.setCurrentText("viterna")
+        self.assertEqual(tab.alpha_range_combo.currentText(), tab._RANGE_FULL)
+        self.assertAlmostEqual(_spans(tab)[0][1], 180.0)
 
-    def test_escolha_explicita_do_usuario_vence(self):
-        aba, _ = _tab_com_projeto(stall_model="clip")
-        # simula o usuario escolhendo no combo (sinal `activated`)
-        aba.alpha_range_combo.setCurrentText(aba._FAIXA_TIPICA)
-        aba.alpha_range_combo.activated.emit(0)
-        aba.stall_model_combo.setCurrentText("viterna")
-        self.assertEqual(aba.alpha_range_combo.currentText(), aba._FAIXA_TIPICA)
+    def test_explicit_user_choice_wins(self):
+        tab, _ = _tab_with_project(stall_model="clip")
+        # simulates the user choosing in the combo (`activated` signal)
+        tab.alpha_range_combo.setCurrentText(tab._RANGE_TYPICAL)
+        tab.alpha_range_combo.activated.emit(0)
+        tab.stall_model_combo.setCurrentText("viterna")
+        self.assertEqual(tab.alpha_range_combo.currentText(), tab._RANGE_TYPICAL)
 
 
-class FaixaDeControlesDoCanvas(unittest.TestCase):
+class CanvasControlBar(unittest.TestCase):
     """Item 8: plot controls moved from the left form to a bar above
     the canvas; they must remain (a) connected and (b) without dirtying
     the project."""
 
-    def test_controles_nao_estao_mais_no_formulario_esquerdo(self):
-        aba, _ = _tab_com_projeto()
-        # o formulario esquerdo e' o widget dentro da QScrollArea do splitter
-        esquerda = aba._airfoil_left_widget
-        for w in (aba.alpha_range_combo, aba.autoscale_y_check,
-                  aba.show_reverse_branch_check, aba.mach_compare_edit):
-            self.assertFalse(esquerda.isAncestorOf(w),
-                             f"{w} continua dentro do formulario da esquerda")
+    def test_controls_are_no_longer_in_the_left_form(self):
+        tab, _ = _tab_with_project()
+        # the left form is the widget inside the splitter's QScrollArea
+        left_form = tab._airfoil_left_widget
+        for w in (tab.alpha_range_combo, tab.autoscale_y_check,
+                  tab.show_reverse_branch_check, tab.mach_compare_edit):
+            self.assertFalse(left_form.isAncestorOf(w),
+                             f"{w} is still inside the left form")
 
-    def test_caixas_marcadas_por_padrao(self):
-        aba, _ = _tab_com_projeto()
-        self.assertTrue(aba.autoscale_y_check.isChecked())
-        self.assertTrue(aba.show_reverse_branch_check.isChecked())
+    def test_checkboxes_checked_by_default(self):
+        tab, _ = _tab_with_project()
+        self.assertTrue(tab.autoscale_y_check.isChecked())
+        self.assertTrue(tab.show_reverse_branch_check.isChecked())
 
-    def test_ramo_reverso_aparece_por_padrao_nas_curvas(self):
-        aba, _ = _tab_com_projeto()
-        rotulos = [c["label"] for c in aba._collect_polar_curves(aba._collect_airfoil_def())]
-        self.assertTrue(any("reverse flow" in r for r in rotulos), rotulos)
+    def test_reverse_branch_shown_by_default_in_curves(self):
+        tab, _ = _tab_with_project()
+        labels = [c["label"] for c in tab._collect_polar_curves(tab._collect_airfoil_def())]
+        self.assertTrue(any("reverse flow" in r for r in labels), labels)
 
-    def test_controles_de_plot_nao_sujam_o_projeto(self):
-        aba, _ = _tab_com_projeto()
-        aba._clear_dirty()
-        aba.autoscale_y_check.setChecked(False)
-        aba.show_reverse_branch_check.setChecked(False)
-        aba.alpha_range_combo.setCurrentText(aba._FAIXA_COMPLETA)
-        aba.mach_compare_edit.setText("0.0, 0.2")
-        aba.mach_compare_edit.editingFinished.emit()
-        self.assertFalse(aba._dirty)
+    def test_plot_controls_do_not_dirty_the_project(self):
+        tab, _ = _tab_with_project()
+        tab._clear_dirty()
+        tab.autoscale_y_check.setChecked(False)
+        tab.show_reverse_branch_check.setChecked(False)
+        tab.alpha_range_combo.setCurrentText(tab._RANGE_FULL)
+        tab.mach_compare_edit.setText("0.0, 0.2")
+        tab.mach_compare_edit.editingFinished.emit()
+        self.assertFalse(tab._dirty)
 
-    def test_controles_de_plot_continuam_ligados_ao_redesenho(self):
-        """A armadilha do item 8: movidos para fora de `left_widget`, eles
-        perdem as conexoes genericas por findChildren."""
-        aba, _ = _tab_com_projeto()
-        aba._preview_timer.stop()
-        aba.autoscale_y_check.setChecked(False)
-        self.assertTrue(aba._preview_timer.isActive())
-        aba._preview_timer.stop()
-        aba.show_reverse_branch_check.setChecked(False)
-        self.assertTrue(aba._preview_timer.isActive())
-        aba._preview_timer.stop()
-        aba.alpha_range_combo.setCurrentText(aba._FAIXA_COMPLETA)
-        self.assertTrue(aba._preview_timer.isActive())
+    def test_plot_controls_stay_connected_to_the_redraw(self):
+        """The trap of item 8: moved out of `left_widget`, they lose the
+        generic connections made by findChildren."""
+        tab, _ = _tab_with_project()
+        tab._preview_timer.stop()
+        tab.autoscale_y_check.setChecked(False)
+        self.assertTrue(tab._preview_timer.isActive())
+        tab._preview_timer.stop()
+        tab.show_reverse_branch_check.setChecked(False)
+        self.assertTrue(tab._preview_timer.isActive())
+        tab._preview_timer.stop()
+        tab.alpha_range_combo.setCurrentText(tab._RANGE_FULL)
+        self.assertTrue(tab._preview_timer.isActive())
 
-    def test_grupo_de_visualizacao_comparativa_sumiu_do_formulario(self):
-        aba, _ = _tab_com_projeto()
-        titulos = [b.title() for b in aba.findChildren(type(aba.table_box))]
-        self.assertNotIn("Comparative Visualization", titulos)
-
-
-class PainelDeSecoes(unittest.TestCase):
-    """Item 9: a lista de secoes existe tambem em modo aerofolio unico."""
-
-    def test_lista_visivel_com_uma_linha_all(self):
-        aba, _ = _tab_com_projeto(name="perfil X")
-        self.assertTrue(aba.sections_list.isVisibleTo(aba))
-        self.assertEqual(aba.sections_list.count(), 1)
-        self.assertIn("r/R=all", aba.sections_list.item(0).text())
-        self.assertIn("perfil X", aba.sections_list.item(0).text())
-
-    def test_linha_de_r_norm_continua_escondida_em_modo_unico(self):
-        aba, _ = _tab_com_projeto()
-        for w in aba._section_r_row_widgets:
-            self.assertFalse(w.isVisibleTo(aba))
-
-    def test_selecionar_a_linha_sintetica_nao_troca_de_secao(self):
-        aba, _ = _tab_com_projeto()
-        aba.sections_list.setCurrentRow(0)
-        self.assertEqual(aba._current_section_index, -1)
-        self.assertEqual(aba._sections, [])
-
-    def test_adicionar_secao_passa_para_multi(self):
-        aba, _ = _tab_com_projeto()
-        aba._add_section()
-        self.assertEqual(len(aba._sections), 2)
-        self.assertEqual(aba.sections_list.count(), 2)
-        self.assertTrue(all(w.isVisibleTo(aba) for w in aba._section_r_row_widgets))
-
-    def test_remover_volta_para_a_linha_unica(self):
-        aba, _ = _tab_com_projeto()
-        aba._add_section()
-        aba._remove_section()
-        aba._remove_section()
-        self.assertEqual(aba._sections, [])
-        self.assertEqual(aba.sections_list.count(), 1)
-        self.assertIn("r/R=all", aba.sections_list.item(0).text())
+    def test_comparative_visualization_group_is_gone_from_the_form(self):
+        tab, _ = _tab_with_project()
+        titles = [b.title() for b in tab.findChildren(type(tab.table_box))]
+        self.assertNotIn("Comparative Visualization", titles)
 
 
-class SugestaoDeReynoldsEMach(unittest.TestCase):
-    """Item 15: estimativa fechada, sem rodar o motor."""
+class SectionsPanel(unittest.TestCase):
+    """Item 9: the sections list also exists in single-airfoil mode."""
 
-    def test_tres_valores_crescentes_de_re_e_mach(self):
+    def test_list_visible_with_a_single_all_row(self):
+        tab, _ = _tab_with_project(name="airfoil X")
+        self.assertTrue(tab.sections_list.isVisibleTo(tab))
+        self.assertEqual(tab.sections_list.count(), 1)
+        self.assertIn("r/R=all", tab.sections_list.item(0).text())
+        self.assertIn("airfoil X", tab.sections_list.item(0).text())
+
+    def test_r_norm_row_stays_hidden_in_single_mode(self):
+        tab, _ = _tab_with_project()
+        for w in tab._section_r_row_widgets:
+            self.assertFalse(w.isVisibleTo(tab))
+
+    def test_selecting_the_synthetic_row_does_not_switch_section(self):
+        tab, _ = _tab_with_project()
+        tab.sections_list.setCurrentRow(0)
+        self.assertEqual(tab._current_section_index, -1)
+        self.assertEqual(tab._sections, [])
+
+    def test_adding_a_section_switches_to_multi(self):
+        tab, _ = _tab_with_project()
+        tab._add_section()
+        self.assertEqual(len(tab._sections), 2)
+        self.assertEqual(tab.sections_list.count(), 2)
+        self.assertTrue(all(w.isVisibleTo(tab) for w in tab._section_r_row_widgets))
+
+    def test_removing_returns_to_the_single_row(self):
+        tab, _ = _tab_with_project()
+        tab._add_section()
+        tab._remove_section()
+        tab._remove_section()
+        self.assertEqual(tab._sections, [])
+        self.assertEqual(tab.sections_list.count(), 1)
+        self.assertIn("r/R=all", tab.sections_list.item(0).text())
+
+
+class ReynoldsAndMachSuggestion(unittest.TestCase):
+    """Item 15: closed-form estimate, without running the engine."""
+
+    def test_three_increasing_re_and_mach_values(self):
         geom = geometry.generate_tapered(root_chord_norm=0.10, tip_chord_norm=0.04,
                                           radius_m=2.0, n_stations=12)
         s = airfoils.suggest_reynolds_mach_lists(geom, rpm=600.0)
@@ -206,57 +206,57 @@ class SugestaoDeReynoldsEMach(unittest.TestCase):
         self.assertEqual(s["reynolds"], sorted(s["reynolds"]))
         self.assertEqual(s["mach"], sorted(s["mach"]))
 
-    def test_bate_com_a_conta_fechada_na_estacao_de_referencia(self):
+    def test_matches_the_closed_form_at_the_reference_station(self):
         geom = geometry.generate_rectangular(chord_norm=0.08, radius_m=1.5, n_stations=11)
         rpm, nu, a = 900.0, 1.46e-5, 340.294
         s = airfoils.suggest_reynolds_mach_lists(geom, rpm=rpm, nu_air=nu, a_sound=a)
         omega = rpm * 2 * np.pi / 60.0
         U = omega * 1.5 * airfoils.REFERENCE_RADIUS_NORM
-        re_esperado = U * (0.08 * 1.5) / nu
-        # a lista e' arredondada a 2 algarismos significativos
-        self.assertTrue(any(abs(v - re_esperado) / re_esperado < 0.05 for v in s["reynolds"]),
-                        (s["reynolds"], re_esperado))
+        expected_re = U * (0.08 * 1.5) / nu
+        # the list is rounded to 2 significant digits
+        self.assertTrue(any(abs(v - expected_re) / expected_re < 0.05 for v in s["reynolds"]),
+                        (s["reynolds"], expected_re))
         self.assertAlmostEqual(s["mach"][1], round(U / a, 2), places=2)
 
-    def test_geometria_degenerada_nao_levanta(self):
-        vazio = airfoils.suggest_reynolds_mach_lists(None, rpm=600.0)
-        self.assertEqual(vazio, {"reynolds": [], "mach": []})
+    def test_degenerate_geometry_does_not_raise(self):
+        empty = airfoils.suggest_reynolds_mach_lists(None, rpm=600.0)
+        self.assertEqual(empty, {"reynolds": [], "mach": []})
 
-    def test_sugestao_mantem_tres_estacoes_mesmo_com_arredondamento(self):
+    def test_suggestion_keeps_three_stations_even_with_rounding(self):
         geom = geometry.generate_rectangular(chord_norm=0.08, radius_m=1.0,
                                               n_stations=8)
         s = airfoils.suggest_reynolds_mach_lists(geom, rpm=1.0)
         self.assertEqual(len(s["reynolds"]), 3)
         self.assertEqual(len(s["mach"]), 3)
 
-    def test_gui_preenche_ao_entrar_no_modo_neuralfoil(self):
-        aba, state = _tab_com_projeto()
+    def test_gui_fills_when_entering_neuralfoil_mode(self):
+        tab, state = _tab_with_project()
         state.project.saved_cases = [FlightCondition(name="c", rpm=1200.0)]
-        antes = aba.re_list_edit.text()
-        aba.source_combo.setCurrentText("neuralfoil")
-        self.assertNotEqual(aba.re_list_edit.text(), antes)
-        self.assertEqual(len(airfoils.parse_floats(aba.re_list_edit.text())
+        before = tab.re_list_edit.text()
+        tab.source_combo.setCurrentText("neuralfoil")
+        self.assertNotEqual(tab.re_list_edit.text(), before)
+        self.assertEqual(len(airfoils.parse_floats(tab.re_list_edit.text())
                              if hasattr(airfoils, "parse_floats")
-                             else [v for v in aba.re_list_edit.text().split(",") if v.strip()]), 3)
-        self.assertEqual(len([v for v in aba.mach_list_edit.text().split(",") if v.strip()]), 3)
+                             else [v for v in tab.re_list_edit.text().split(",") if v.strip()]), 3)
+        self.assertEqual(len([v for v in tab.mach_list_edit.text().split(",") if v.strip()]), 3)
 
-    def test_gui_respeita_lista_digitada_pelo_usuario(self):
-        aba, _ = _tab_com_projeto()
-        aba.re_list_edit.setText("1234, 5678")
-        aba.re_list_edit.textEdited.emit("1234, 5678")   # simula digitacao
-        aba.source_combo.setCurrentText("neuralfoil")
-        self.assertEqual(aba.re_list_edit.text(), "1234, 5678")
+    def test_gui_respects_the_user_typed_list(self):
+        tab, _ = _tab_with_project()
+        tab.re_list_edit.setText("1234, 5678")
+        tab.re_list_edit.textEdited.emit("1234, 5678")   # simulates typing
+        tab.source_combo.setCurrentText("neuralfoil")
+        self.assertEqual(tab.re_list_edit.text(), "1234, 5678")
 
-    def test_botao_suggest_sobrescreve_mesmo_apos_edicao(self):
-        aba, _ = _tab_com_projeto()
-        aba.re_list_edit.setText("1234")
-        aba.re_list_edit.textEdited.emit("1234")
-        aba._suggest_re_mach(force=True)
-        self.assertNotEqual(aba.re_list_edit.text(), "1234")
+    def test_suggest_button_overwrites_even_after_editing(self):
+        tab, _ = _tab_with_project()
+        tab.re_list_edit.setText("1234")
+        tab.re_list_edit.textEdited.emit("1234")
+        tab._suggest_re_mach(force=True)
+        self.assertNotEqual(tab.re_list_edit.text(), "1234")
 
 
-class LegendaPorCondicao(unittest.TestCase):
-    """Item 32: cada fatia gerada leva o SEU Reynolds/Mach na legenda."""
+class LegendPerCondition(unittest.TestCase):
+    """Item 32: each generated slice carries ITS OWN Reynolds/Mach in the legend."""
 
     def _slices_neuralfoil(self):
         # external_solvers uses a single `label` for the entire sweep
@@ -267,47 +267,47 @@ class LegendaPorCondicao(unittest.TestCase):
                        reynolds=5e5, mach=0.3, label="neuralfoil:naca4 2412"),
         ]
 
-    def test_label_generico_nao_engole_mais_re_e_mach(self):
-        rotulo = airfoils.condition_label(
+    def test_generic_label_no_longer_swallows_re_and_mach(self):
+        label = airfoils.condition_label(
             {"reynolds": 1e5, "mach": 0.3, "label": "neuralfoil:naca4 2412"})
-        self.assertIn("Re=1e+05", rotulo)
-        self.assertIn("M=0.30", rotulo)
-        self.assertIn("neuralfoil:naca4 2412", rotulo)
+        self.assertIn("Re=1e+05", label)
+        self.assertIn("M=0.30", label)
+        self.assertIn("neuralfoil:naca4 2412", label)
 
-    def test_label_sozinho_quando_nao_ha_condicao(self):
-        self.assertEqual(airfoils.condition_label({"label": "meu_csv"}), "meu_csv")
+    def test_label_alone_when_there_is_no_condition(self):
+        self.assertEqual(airfoils.condition_label({"label": "my_csv"}), "my_csv")
 
-    def test_curvas_de_overlay_tem_legendas_distintas(self):
+    def test_overlay_curves_have_distinct_legends(self):
         a = AirfoilDef(source="table", table_slices=self._slices_neuralfoil())
         conds = airfoils.unique_conditions(a)
-        curvas = airfoils.preview_polar_multi(a, conditions=conds, alpha_deg_range=(-5, 5, 5.0))
-        rotulos = [c["label"] for c in curvas]
-        self.assertEqual(len(set(rotulos)), len(rotulos), rotulos)
+        curves = airfoils.preview_polar_multi(a, conditions=conds, alpha_deg_range=(-5, 5, 5.0))
+        labels = [c["label"] for c in curves]
+        self.assertEqual(len(set(labels)), len(labels), labels)
 
-    def test_curva_selecionada_do_canvas_tambem(self):
-        aba, state = _tab_com_projeto()
+    def test_selected_curve_from_the_canvas_too(self):
+        tab, state = _tab_with_project()
         state.project.airfoil = AirfoilDef(source="table", extend_full_range=False,
                                             table_slices=self._slices_neuralfoil())
         state.notify_airfoil()
-        aba._nav_selection = {"r_norm": None, "reynolds": 5e5, "mach": 0.3}
-        curvas = aba._collect_polar_curves(aba._collect_airfoil_def())
-        self.assertIn("Re=5e+05", curvas[0]["label"])
+        tab._nav_selection = {"r_norm": None, "reynolds": 5e5, "mach": 0.3}
+        curves = tab._collect_polar_curves(tab._collect_airfoil_def())
+        self.assertIn("Re=5e+05", curves[0]["label"])
 
 
-class PopupDeGeracaoDeGeometria(unittest.TestCase):
-    """Itens 1 e 2 do popup GeometryGeneratorDialog."""
+class GeometryGenerationPopup(unittest.TestCase):
+    """Items 1 and 2 of the GeometryGeneratorDialog popup."""
 
-    def test_popup_do_combo_nao_elide_as_opcoes(self):
+    def test_combo_popup_does_not_elide_options(self):
         _app()
         dlg = GeometryGeneratorDialog(None, 3, 1.0)
         combo = dlg.kind_combo
         self.assertEqual(combo.view().textElideMode(), Qt.TextElideMode.ElideNone)
         fm = combo.fontMetrics()
-        mais_largo = max(fm.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
-        self.assertGreaterEqual(combo.minimumWidth(), mais_largo)
-        self.assertGreaterEqual(combo.view().minimumWidth(), mais_largo)
+        widest = max(fm.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+        self.assertGreaterEqual(combo.minimumWidth(), widest)
+        self.assertGreaterEqual(combo.view().minimumWidth(), widest)
 
-    def test_n_pas_e_raio_sao_editaveis_e_partem_do_valor_recebido(self):
+    def test_blade_count_and_radius_are_editable_and_start_from_the_given_value(self):
         _app()
         dlg = GeometryGeneratorDialog(None, 4, 2.5)
         self.assertEqual(dlg.n_blades.value(), 4)
@@ -315,17 +315,17 @@ class PopupDeGeracaoDeGeometria(unittest.TestCase):
         self.assertTrue(dlg.n_blades.isEnabled())
         self.assertTrue(dlg.radius_m.isEnabled())
 
-    def test_mudar_n_pas_atualiza_solidez_ao_vivo(self):
+    def test_changing_blade_count_updates_solidity_live(self):
         _app()
         dlg = GeometryGeneratorDialog(None, 2, 1.0)
         sigma2 = dlg.solidity.value()
         ar2 = dlg.aspect_ratio.value()
         dlg.n_blades.setValue(4)
         self.assertAlmostEqual(dlg.solidity.value(), 2 * sigma2, places=4)
-        # AR e' por PA: nao depende do numero de pas
+        # AR is per blade: it does not depend on the number of blades
         self.assertAlmostEqual(dlg.aspect_ratio.value(), ar2, places=2)
 
-    def test_geometria_gerada_usa_os_valores_editados_no_popup(self):
+    def test_generated_geometry_uses_the_values_edited_in_the_popup(self):
         _app()
         dlg = GeometryGeneratorDialog(None, 2, 1.0)
         dlg.n_blades.setValue(5)
@@ -335,21 +335,21 @@ class PopupDeGeracaoDeGeometria(unittest.TestCase):
         self.assertEqual(dlg.generated_geom.n_blades, 5)
         self.assertAlmostEqual(dlg.generated_geom.radius_m, 3.0)
 
-    def test_geometry_tab_absorve_o_round_trip(self):
+    def test_geometry_tab_absorbs_the_round_trip(self):
         _app()
         state = AppState()
         state.project = make_studies_project()
-        with patch_em_toda_gui("QMessageBox"):
-            aba = GeometryTab(state)
+        with patch_message_box_everywhere("QMessageBox"):
+            tab = GeometryTab(state)
             state.notify_geometry()
-            nova = geometry.generate_rectangular(chord_norm=0.09, radius_m=4.0,
-                                                  n_blades=6, n_stations=8)
-            aba.state.project.geometry = nova
-            aba._sync_constants_from_geometry(nova)
-        self.assertEqual(aba.n_blades.value(), 6)
-        self.assertAlmostEqual(aba.radius_m.value(), 4.0)
-        # e o espelhamento nao pode disparar `_apply_constants` de volta
-        self.assertEqual(aba.state.project.geometry.n_blades, 6)
+            new_geom = geometry.generate_rectangular(chord_norm=0.09, radius_m=4.0,
+                                                      n_blades=6, n_stations=8)
+            tab.state.project.geometry = new_geom
+            tab._sync_constants_from_geometry(new_geom)
+        self.assertEqual(tab.n_blades.value(), 6)
+        self.assertAlmostEqual(tab.radius_m.value(), 4.0)
+        # and the mirroring must not trigger `_apply_constants` back
+        self.assertEqual(tab.state.project.geometry.n_blades, 6)
 
 
 if __name__ == "__main__":

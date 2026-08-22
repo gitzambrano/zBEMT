@@ -527,18 +527,18 @@ class TestReportFlag(unittest.TestCase):
                 "--outdir", outdir, *extra])
         return outdir
 
-    def test_report_sem_valor_grava_no_outdir(self):
+    def test_report_without_value_writes_to_the_outdir(self):
         outdir = self._rodar(["--report"])
         self.assertTrue(os.path.exists(os.path.join(outdir, "report.html")))
 
-    def test_report_com_valor_respeita_o_caminho(self):
+    def test_report_with_value_respects_the_path(self):
         d = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, d, ignore_errors=True)
-        alvo = os.path.join(d, "sub", "meu_relatorio.html")
-        self._rodar(["--report", alvo])
-        self.assertTrue(os.path.exists(alvo))
+        target = os.path.join(d, "sub", "my_report.html")
+        self._rodar(["--report", target])
+        self.assertTrue(os.path.exists(target))
 
-    def test_sem_a_flag_nenhum_relatorio_e_gerado(self):
+    def test_without_the_flag_no_report_is_generated(self):
         outdir = self._rodar([])
         self.assertFalse(os.path.exists(os.path.join(outdir, "report.html")))
 
@@ -557,29 +557,29 @@ class TestListBatches(unittest.TestCase):
     every SWEEP batch (those hold `sweep_params`, not a list): all of
     them showed up as '0 condition(s)', which reads as an empty batch."""
 
-    def _listar(self, projeto: str) -> str:
+    def _list(self, project: str) -> str:
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            main_batch.main(["--project", f"projects/{projeto}", "--list-batches"])
+            main_batch.main(["--project", f"projects/{project}", "--list-batches"])
         return buf.getvalue()
 
-    def test_varredura_mostra_quantos_casos_vai_gerar(self):
-        saida = self._listar("test1")
-        self.assertIn("8 sweep case(s)", saida)   # 8 values of mu_x
-        self.assertIn("5 sweep case(s)", saida)   # 5 collectives
-        self.assertNotIn("0 condition", saida)
+    def test_sweep_shows_how_many_cases_it_will_generate(self):
+        output = self._list("test1")
+        self.assertIn("8 sweep case(s)", output)   # 8 values of mu_x
+        self.assertIn("5 sweep case(s)", output)   # 5 collectives
+        self.assertNotIn("0 condition", output)
 
-    def test_fatorial_conta_o_produto_dos_eixos_nao_o_numero_de_eixos(self):
-        saida = self._listar("test3")
-        self.assertIn("9 sweep case(s)", saida)   # 3 rotations x 3 collectives
-        self.assertNotIn("2 case(s)", saida)
+    def test_factorial_counts_the_product_of_the_axes_not_the_number_of_axes(self):
+        output = self._list("test3")
+        self.assertIn("9 sweep case(s)", output)   # 3 rotations x 3 collectives
+        self.assertNotIn("2 case(s)", output)
 
-    def test_lista_explicita_continua_contando_condicoes(self):
-        saida = self._listar("test11")
-        self.assertIn("8 explicit condition(s)", saida)
+    def test_explicit_list_still_counts_conditions(self):
+        output = self._list("test11")
+        self.assertIn("8 explicit condition(s)", output)
 
 
-class TestResumoImpressoSegueOModoDoProjeto(unittest.TestCase):
+class TestPrintedSummaryFollowsTheProjectMode(unittest.TestCase):
     """The CLI printed CT/CQ/CP/FM for any project, including propeller.
 
     FM is the figure of merit for HOVER and an airplane propeller never hovers: the
@@ -587,28 +587,28 @@ class TestResumoImpressoSegueOModoDoProjeto(unittest.TestCase):
     apply. On the propeller side, `eta_prop` fills this role. Both
     families always exist in `summary`; what changes is which one is printed."""
 
-    def _rodar(self, projeto: str) -> str:
+    def _run(self, project: str) -> str:
         d = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, d, ignore_errors=True)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            main_batch.main(["--project", f"projects/{projeto}",
-                             "--from-bemt-case", self._primeiro_caso(projeto),
+            main_batch.main(["--project", f"projects/{project}",
+                             "--from-bemt-case", self._first_case(project),
                              "--outdir", d, "--no-csv"])
         return buf.getvalue()
 
     @staticmethod
-    def _primeiro_caso(projeto: str) -> str:
-        return api.open_project(f"projects/{projeto}").saved_cases[0].name
+    def _first_case(project: str) -> str:
+        return api.open_project(f"projects/{project}").saved_cases[0].name
 
-    def test_helice_imprime_a_familia_de_helice(self):
-        saida = self._rodar("test11")
-        self.assertIn("eta_prop=", saida)
-        self.assertIn("CT_prop=", saida)
-        self.assertNotIn("FM=", saida)
+    def test_propeller_prints_the_propeller_family(self):
+        output = self._run("test11")
+        self.assertIn("eta_prop=", output)
+        self.assertIn("CT_prop=", output)
+        self.assertNotIn("FM=", output)
 
-    def test_rotor_continua_imprimindo_a_familia_de_rotor(self):
-        saida = self._rodar("test1")
-        self.assertIn("FM=", saida)
-        self.assertIn("CT=", saida)
-        self.assertNotIn("eta_prop=", saida)
+    def test_rotor_keeps_printing_the_rotor_family(self):
+        output = self._run("test1")
+        self.assertIn("FM=", output)
+        self.assertIn("CT=", output)
+        self.assertNotIn("eta_prop=", output)

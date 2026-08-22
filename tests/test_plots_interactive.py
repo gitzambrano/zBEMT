@@ -46,7 +46,7 @@ class TestCoefficientsVsAxis(unittest.TestCase):
         fig = pi.coefficients_vs_axis(results, axis="collective_deg")
         self.assertIn("collective", fig.layout.title.text)
 
-    def test_rotulos_sao_texto_puro_nao_mathtext(self):
+    def test_labels_are_plain_text_not_mathtext(self):
         """Plotly does not interpret `$C_T$` (matplotlib syntax) without
         MathJax -- which we deliberately do not load (offline). A
         label with `$` would appear literally on the screen."""
@@ -55,7 +55,7 @@ class TestCoefficientsVsAxis(unittest.TestCase):
         for ann in fig.layout.annotations:
             self.assertNotIn("$", ann.text, f"panel title with raw mathtext: {ann.text}")
 
-    def test_factorial_batch_com_duas_axes_agrupa_por_secundaria(self):
+    def test_factorial_batch_with_two_axes_groups_by_secondary(self):
         """Regression: factorials with 2+ axes should auto-group by
         secondary variables (same behavior as matplotlib). Previously,
         Plotly always combined everything into a single curve."""
@@ -76,7 +76,7 @@ class TestCoefficientsVsAxis(unittest.TestCase):
         # Total: 11 panels × 2 traces per panel = 22 traces
         self.assertEqual(len(fig.data), 22, f"expected 22 traces (11 panels x 2 rpm), got {len(fig.data)}")
 
-    def test_ruido_de_ponto_flutuante_no_alpha_nao_parte_a_serie(self):
+    def test_floating_point_noise_in_alpha_does_not_split_the_series(self):
         """Regression for reported bug: a factorial mu_x x alpha_deg solves
         each combination as Vz=tan(alpha)*V and reconstructs alpha_rotor_deg
         via atan2 -- the round-trip leaves noise of ~1e-4 (e.g. 2.99994
@@ -93,8 +93,8 @@ class TestCoefficientsVsAxis(unittest.TestCase):
                 # DIFFERENT noise per mu_x point (the real case: each
                 # combination goes through its own atan2/tan) -- noise
                 # identical across all mu_x would not exercise the bug.
-                ruidoso = nominal + (1e-4 if i % 2 == 0 else -1e-4) * (i + 1)
-                s = dict(mu_x=mu_x, alpha_rotor_deg=ruidoso, collective_deg=8.0, rpm=600.0,
+                noisy = nominal + (1e-4 if i % 2 == 0 else -1e-4) * (i + 1)
+                s = dict(mu_x=mu_x, alpha_rotor_deg=noisy, collective_deg=8.0, rpm=600.0,
                           CT=0.01, CQ=0.001, FM=0.7, CY=0.0, CMx=0.0, CMy=0.0,
                           CH=0.0, CHp=0.0, CHi=0.0, CPp=0.0005, CPi=0.0005)
                 results.append(Results(summary=s, maps={}, condition_name=f"mu_x={mu_x},a={nominal}"))
@@ -104,9 +104,9 @@ class TestCoefficientsVsAxis(unittest.TestCase):
         self.assertEqual(len(fig.data), 77,
                           f"expected 77 traces (11 panels x 7 alphas), got {len(fig.data)}")
 
-    def test_overlay_mode_usa_series_labels(self):
+    def test_overlay_mode_uses_series_labels(self):
         """Overlay mode with explicit series_labels works."""
-        labels = ["seleção A", "seleção B", "seleção A"]
+        labels = ["selection A", "selection B", "selection A"]
         from zbemt.viz import plots_interactive as pi
         fig = pi.coefficients_vs_axis(self.results, axis="mu_x", series_labels=labels)
         # 2 distinct labels × 11 panels = 22 traces
@@ -144,7 +144,7 @@ class TestXYPlot(unittest.TestCase):
         """Without `$...$`: Plotly would try to render as mathtext (LaTeX),
         which fails/looks out of place with the rest of the page. The x-axis
         shows "mu_x" with real unicode subscript (μₓ), not the raw engine
-        key -- see `widgets.UNIDADES_DE_CONDICAO` for the same convention
+        key -- see `widgets.CONDITION_UNITS` for the same convention
         in dropdowns."""
         from zbemt.viz import plots_interactive as pi
         fig = pi.xy_plot(self.results, x_key="mu_x", y_key="CT")

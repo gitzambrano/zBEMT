@@ -1,35 +1,35 @@
 """visualization.py
 =================
 
-3D via PyVista, isolated in this file — it is the platform's only
-The ``pyvista`` import only happens here, and only inside the functions
-that actually draw (never at module level) — the rest of the platform
+3D via PyVista, isolated in this file. The ``pyvista`` import only
+happens here, and only inside the functions
+that actually draw (never at module level). The rest of the platform
 (geometry, airfoil, BEMT, batch, 2D plots, GUI without the 3D tab) keeps
 working normally even without PyVista installed.
 
 Two layers, deliberately kept separate:
 
-- **mesh builders** (``build_`` prefix) — pure NumPy geometry (points +
+- **mesh builders** (``build_`` prefix): pure NumPy geometry (points +
   connectivity), with NO dependency on PyVista at all. They can be
   called and tested in isolation (including without PyVista installed),
   and are what ``plot_*`` uses underneath to assemble the PyVista
   objects.
-- **plot_*** — wrap the builders above into ``pyvista.PolyData`` /
+- **plot_***: wrap the builders above into ``pyvista.PolyData`` /
   ``pyvista.StructuredGrid`` and draw on a ``pyvista.Plotter``. Only
   these actually call PyVista; they are the only ones that raise
   ``ImportError`` if the package is not installed.
 
 Convention (mirrors ``plots.py``): every ``plot_*`` function accepts
-``plotter=None, fname=None``. If ``plotter`` is supplied (e.g. the GUI
-embedded a PyVista ``QtInteractor`` in a tab), it draws on it and
-returns the ``plotter`` itself — whoever supplied the plotter decides
+``plotter=None, fname=None``. If ``plotter`` is supplied (for example,
+the GUI embedded a PyVista ``QtInteractor`` in a tab), it draws on it and
+returns the ``plotter`` itself. Whoever supplied the plotter decides
 when to call ``.render()``/show it. If ``fname`` is supplied instead, it
 creates an off-screen ``Plotter``, draws, saves a screenshot (``.png``)
-to disk, and closes — this is the mode used by ``api.export_results``.
+to disk, and closes. This is the mode used by ``api.export_results``.
 
 Axis convention (rotor "at rest", seen from outside): X,Y in the disk
 plane, with azimuth ``psi=0`` along +X (same convention as the rest of
-the platform — see ``bemt.element_state``, where ``Ut`` uses
+the platform, see ``bemt.element_state``, where ``Ut`` uses
 ``sin(psi)`` and X is the ``psi=0`` reference); Z along the rotor axis,
 out of the disk plane."""
 
@@ -48,7 +48,7 @@ _PYVISTA_AVAILABLE: Optional[bool] = None
 
 def is_available() -> bool:
     """``True`` if the optional ``pyvista`` package is installed. The
-    import check is done only once and cached — subsequent calls are
+    import check is done only once and cached, so subsequent calls are
     cheap. Used by the GUI to decide whether to show the full 3D tab or
     the schematic 2D fallback (see ``gui.ViewerTab``)."""
     global _PYVISTA_AVAILABLE
@@ -74,17 +74,18 @@ def _require_pyvista():
 
 
 # =============================================================================
-# Mesh builders — 3D blade (pure NumPy, no PyVista)
+# Mesh builders: 3D blade (pure NumPy, no PyVista)
 # =============================================================================
 #
 # The blade is built at an azimuth station psi=0 (along +X), on a
 # structured mesh (n_span radial stations x n_chord profile points).
-# Each radial station is: (1) positioned at (r,0,0) [r in metres]; (2)
-# the 2D profile (x/c, y/c) is scaled by the local chord and ROTATED by
-# the local twist around the radial (span) axis; (3) the whole blade
-# (already with twist applied) is rotated around the Z axis (of the
-# rotor) by the target azimuth — this last rotation is exactly what
-# ``build_rotor_disk`` applies Nb times to assemble the full disk.
+# Each radial station is positioned as follows. (1) It is placed at
+# (r,0,0) [r in meters]. (2) The 2D profile (x/c, y/c) is scaled by the
+# local chord and ROTATED by the local twist around the radial (span)
+# axis. (3) The whole blade (already with twist applied) is rotated
+# around the Z axis (of the rotor) by the target azimuth. This last
+# rotation is exactly what ``build_rotor_disk`` applies Nb times to
+# assemble the full disk.
 
 def _sorted_radial_table(geom):
     r_norm = np.asarray(geom.r_norm, dtype=float)
@@ -96,12 +97,12 @@ def _sorted_radial_table(geom):
 
 def _profile_xy(profile) -> tuple[np.ndarray, np.ndarray]:
     """(x/c, y/c) of the profile, with x referenced to the quarter chord
-    (x=0 at c/4, positive toward the trailing edge) — usual convention
-    for the twist/structural reference axis. If ``profile`` is ``None``
-    or has no generated coordinates, falls back to a thin flat plate (2
-    points, leading/trailing edge) — enough to visualize planform and
-    twist without depending on a 2D profile geometry having already been
-    generated."""
+    (x=0 at c/4, positive toward the trailing edge), the usual convention
+    for the twist and structural reference axis. If ``profile`` is ``None``
+    or has no generated coordinates, falls back to a thin flat plate
+    (2 points, leading and trailing edge). That is enough to visualize
+    planform and twist without depending on a 2D profile geometry having
+    already been generated."""
     if profile is not None and getattr(profile, "x", None) and len(profile.x) >= 3:
         xc = np.asarray(profile.x, dtype=float) - 0.25
         yc = np.asarray(profile.y, dtype=float)
@@ -110,20 +111,20 @@ def _profile_xy(profile) -> tuple[np.ndarray, np.ndarray]:
 
 
 def build_blade_surface(geom, profile=None, n_span: int = 40, azimuth_deg: float = 0.0):
-    """Builds the blade's lofted mesh (a single blade) in metres, at
+    """Builds the blade's lofted mesh (a single blade) in meters, at
     azimuth ``azimuth_deg`` (default 0 = along +X).
 
     geom: ``models.RotorGeometryDef`` (radial table: r_norm, chord_norm,
-        twist_deg — normalized, scaled here by ``geom.radius_m``).
+        twist_deg, normalized, scaled here by ``geom.radius_m``).
     profile: optional ``models.ProfileGeometry``; without it, uses a
         thin flat plate (see ``_profile_xy``).
     n_span: number of radial stations interpolated along the table (the
         original table may have few points; this refines the mesh).
 
     Returns ``(points, faces)``:
-        points: ``(n_span * n_chord, 3)`` float, in metres.
+        points: ``(n_span * n_chord, 3)`` float, in meters.
         faces:  "flat" list in PyVista format (``[4, i0,i1,i2,i3, 4,
-            ...]``), one quad face per cell of the lofted grid — ready
+            ...]``), one quad face per cell of the lofted grid, ready
             for ``pyvista.PolyData(points, faces)``.
     """
     r_norm, chord_norm, twist_deg = _sorted_radial_table(geom)
@@ -175,7 +176,7 @@ def build_rotor_disk(geom, profile=None, n_span: int = 40, phase_deg: float = 0.
     """Builds the rotor's ``geom.n_blades`` blades, evenly spaced in
     azimuth (``360/Nb`` degrees), from ``build_blade_surface``.
 
-    Returns a list of ``(points, faces)`` — one per blade — instead of
+    Returns a list of ``(points, faces)`` (one per blade) instead of
     already combining them into a single mesh, so that the caller drawing
     it (``plot_rotor_3d``) can color/name each blade independently if
     desired."""
@@ -188,20 +189,20 @@ def build_rotor_disk(geom, profile=None, n_span: int = 40, phase_deg: float = 0.
 
 
 # =============================================================================
-# Mesh builders — disk maps / load distributions (pure NumPy)
+# Mesh builders: disk maps and load distributions (pure NumPy)
 # =============================================================================
 #
 # Unlike plots.plot_disk_map (which triangulates "loose" X,Y via
 # ax.tricontourf because matplotlib has no easy native 2D structured
 # grid), here we take advantage of the fact that R_DIM/PSI in `maps`
-# (output of `bemt.solve_bemt`) are ALREADY a structured grid (Ne, Npsi)
-# — it becomes a `pyvista.StructuredGrid` directly, with no triangulation.
+# (output of `bemt.solve_bemt`) are ALREADY a structured grid (Ne, Npsi),
+# so it becomes a `pyvista.StructuredGrid` directly, with no triangulation.
 
 def available_disk_fields(maps: dict) -> list[str]:
     """Lists the fields of ``maps`` (output of ``bemt.solve_bemt`` /
-    ``Results.maps``) that have the same 2D shape (Ne,Npsi) as ``R_DIM``
-    — i.e. the only ones that make sense as a color/height field in a
-    disk map. Useful for populating a selector in the GUI."""
+    ``Results.maps``) that have the same 2D shape (Ne,Npsi) as ``R_DIM``.
+    That is, only the ones that make sense as a color or height field in
+    a disk map. Useful for populating a selector in the GUI."""
     if "R_DIM" not in maps:
         return []
     shape = np.asarray(maps["R_DIM"]).shape
@@ -214,13 +215,13 @@ def available_disk_fields(maps: dict) -> list[str]:
 def _close_azimuth(PSI: np.ndarray, *fields_2d: np.ndarray):
     """Closes the disk in azimuth: ``PSI`` (and the other ``(Ne,Npsi)``
     fields passed in) come from the ``bemt.solve_bemt`` grid, which
-    covers ``[0, 2*pi*(1-1/Npsi)]`` -- i.e. the last psi node does NOT
+    covers ``[0, 2*pi*(1-1/Npsi)]``. That is, the last psi node does NOT
     go all the way around to ``2*pi`` (the same angle as the ``psi=0``
     node, one revolution later). This is correct for integration/physics
-    (closing the node there would duplicate an azimuthal station -- see
+    (closing the node there would duplicate an azimuthal station, see
     ``bemt._trapz_psi_periodic``), but for RENDERING the disk surface it
     leaves a slice with no coverage between the last sampled point and
-    ``psi=0`` -- exactly the disk contour's "blank slice from
+    ``psi=0``, exactly the disk contour's "blank slice from
     discretization".
 
     Here it is safe (and necessary) to duplicate this column, since it
@@ -245,21 +246,21 @@ def build_disk_grid(maps: dict, field: str = "lambda_i",
 
     field: field used to color the surface (``point_data``).
     z_field: if provided, "extrudes" the surface out of the disk plane
-        proportionally to this field (load visualization as a 3D relief
-        — e.g. ``z_field="Fn"`` shows the distributed thrust as height).
-        If ``None`` (default), flat disk (Z=0), colored only.
+        proportionally to this field (load visualization as a 3D relief;
+        for example, ``z_field="Fn"`` shows the distributed thrust as
+        height). If ``None`` (default), flat disk (Z=0), colored only.
     z_scale: extrusion scale, as a fraction of the blade radius (avoids
         the relief becoming disproportionate to the disk size).
     close_azimuth: if ``True`` (default), closes the circle by
         duplicating the ``psi=0`` column at ``psi=2*pi`` (see
-        ``_close_azimuth``) -- without this the raw ``(Ne,Npsi)`` grid
+        ``_close_azimuth``). Without this the raw ``(Ne,Npsi)`` grid
         from ``solve_bemt`` leaves a slice of width ``2*pi/Npsi`` with no
         coverage (the disk's "blank slice from discretization"). Use
-        ``False`` only if you need the raw grid (e.g. to resample/
-        post-process the data before drawing).
+        ``False`` only if you need the raw grid (for example to resample
+        or post-process the data before drawing).
 
-    Returns ``(X, Y, Z, values)`` — 2D arrays, ``(Ne,Npsi+1)`` if
-    ``close_azimuth`` (default) or ``(Ne,Npsi)`` otherwise --, ready for
+    Returns ``(X, Y, Z, values)``, 2D arrays, ``(Ne,Npsi+1)`` if
+    ``close_azimuth`` (default) or ``(Ne,Npsi)`` otherwise, ready for
     ``pyvista.StructuredGrid``."""
     if "R_DIM" not in maps or "PSI" not in maps:
         raise KeyError(
@@ -308,7 +309,7 @@ def build_disk_grid(maps: dict, field: str = "lambda_i",
 
 
 # =============================================================================
-# plot_* — draw via PyVista (the only functions that actually import pyvista)
+# plot_*: draw via PyVista (the only functions that actually import pyvista)
 # =============================================================================
 
 def _resolve_plotter(plotter, fname, window_size=(900, 700)):
@@ -332,7 +333,7 @@ def plot_rotor_3d(geom, profile=None, n_span: int = 40, plotter=None, fname=None
     """Draws the rotor's ``geom.n_blades`` blades in 3D (via
     ``build_rotor_disk``). ``geom``: ``models.RotorGeometryDef``.
     ``profile``: optional ``models.ProfileGeometry`` (otherwise, a
-    schematic flat plate — see ``_profile_xy``)."""
+    schematic flat plate, see ``_profile_xy``)."""
     plotter_out, owned, pv = _resolve_plotter(plotter, fname, window_size)
     blades = build_rotor_disk(geom, profile=profile, n_span=n_span)
     for points, faces in blades:
@@ -354,7 +355,7 @@ def plot_disk_map_3d(maps: dict, field: str = "lambda_i", z_field: Optional[str]
                       window_size=(900, 700)):
     """Draws the disk map ``field`` as a 3D structured surface (see
     ``build_disk_grid``). If ``z_field`` is provided, the surface is
-    extruded out of the plane proportionally to this field (e.g.:
+    extruded out of the plane proportionally to this field (for example:
     ``field="Fn", z_field="Fn"`` — color AND height show the same load
     distribution; ``field="alpha_eff", z_field="Fn"`` shows the angle of
     attack colored over the thrust relief)."""
@@ -375,9 +376,9 @@ def plot_load_distribution_3d(maps: dict, field: str = "Fn", z_scale: float = 0.
                                cmap: str = "plasma", plotter=None, fname=None,
                                window_size=(900, 700)):
     """Shortcut for ``plot_disk_map_3d(maps, field=field, z_field=field,
-    ...)`` — the most direct reading of "load distribution" requested
+    ...)``, the most direct reading of "load distribution" requested
     in Section 8.5 of the plan: 3D relief colored by the field itself
-    (``Fn`` default = normal load/distributed thrust)."""
+    (``Fn`` default = normal load, that is, distributed thrust)."""
     return plot_disk_map_3d(maps, field=field, z_field=field, z_scale=z_scale,
                              cmap=cmap, plotter=plotter, fname=fname, window_size=window_size)
 
@@ -387,7 +388,7 @@ def plot_rotor_with_loads(geom, maps: dict, field: str = "Fn", profile=None, n_s
                            blade_color: str = "lightgray", plotter=None, fname=None,
                            window_size=(900, 700)):
     """Combined scene: 3D blade(s) (``plot_rotor_3d``) + extruded load
-    map (``plot_load_distribution_3d``) in the same window — the
+    map (``plot_load_distribution_3d``) in the same window, the
     overview requested for the "3D Viewer" tab (Section 8.5: "Rotor,
     blade, load distributions, wake (future)")."""
     plotter_out, owned, pv = _resolve_plotter(plotter, fname, window_size)
@@ -397,11 +398,11 @@ def plot_rotor_with_loads(geom, maps: dict, field: str = "Fn", profile=None, n_s
 
 
 # =============================================================================
-# Light self-test (mesh builders only — pure NumPy, runs even without PyVista)
+# Light self-test (mesh builders only: pure NumPy, runs even without PyVista)
 # =============================================================================
 #
 # Does not replace real tests (pytest — backlog item, along with the rest
-# of the suite, see next phase); it only serves as a quick smoke-check of
+# of the suite, see next phase). It only serves as a quick smoke-check of
 # the geometric builders when running this file directly.
 
 if __name__ == "__main__":
@@ -419,7 +420,7 @@ if __name__ == "__main__":
     pts, faces = build_blade_surface(geom, n_span=10)
     assert pts.shape == (10 * 2, 3), pts.shape
     assert len(faces) == (10 - 1) * (2 - 1) * 5
-    print(f"build_blade_surface OK: {pts.shape[0]} pontos, {len(faces)//5} faces")
+    print(f"build_blade_surface OK: {pts.shape[0]} points, {len(faces)//5} faces")
 
     blades = build_rotor_disk(geom, n_span=10)
     assert len(blades) == geom.n_blades

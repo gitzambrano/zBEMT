@@ -30,10 +30,10 @@ class GeometryTab(QWidget):
     (docs/plano.md Section 3).
 
     Embedded canvas (docs/plano_v3.md Part 6.1): same rationale as the
-    Airfoil tab (Part 5) -- horizontal `QSplitter`, form on the left,
-    "Top View"/"Chord-Twist" preview on the right, always visible, live
-    with debounce (~300ms). Replaces the old "Geometry" mode of
-    ResultsTab, removed in this Part."""
+    Airfoil tab (Part 5): a horizontal `QSplitter`, form on the left,
+    "Top View" and "Chord/Twist" preview on the right, always visible,
+    live with a debounce of about 300 ms. Replaces the old "Geometry"
+    mode of ResultsTab, removed in this Part."""
 
     dirty_changed = pyqtSignal(bool)   # asterisk for "not saved to disk" (same mechanism as config.py/airfoil.py)
 
@@ -42,7 +42,7 @@ class GeometryTab(QWidget):
         self.state = state
         self._dirty = False
         # True while this tab is writing its own edit back into
-        # `state.project.geometry` -- prevents `_refresh_from_project`
+        # `state.project.geometry`. That prevents `_refresh_from_project`
         # (connected to `geometry_changed`, which the write itself
         # triggers) from rebuilding the table from what just came out of
         # it and clearing the asterisk before the user saves to disk.
@@ -104,7 +104,7 @@ class GeometryTab(QWidget):
         layout.addWidget(table_box, stretch=1)
 
         save_row = QHBoxLayout()
-        # One-word labels -- see the same change in `tabs/config.py`.
+        # One-word labels, see the same change in `tabs/config.py`.
         btn_save = QPushButton("Save")
         btn_save.setToolTip("Save the current geometry and project settings to disk.")
         btn_save.clicked.connect(self._save_project)
@@ -155,7 +155,7 @@ class GeometryTab(QWidget):
     def _current_geometry(self):
         """Geometry to draw in the preview: reflects the table/constants
         exactly as they are in the form RIGHT NOW, even before "Apply
-        table edits" -- this is the whole reason the live canvas exists
+        table edits". This is the whole reason the live canvas exists
         (see the same principle in Part 5, `_collect_airfoil_def`)."""
         r, c, t = [], [], []
         for i in range(self.table.rowCount()):
@@ -225,7 +225,7 @@ class GeometryTab(QWidget):
                 # Round-trip from item 2: number of blades and radius
                 # are now EDITABLE inside the popup, so the "Global
                 # Geometry" box here has to start showing what was
-                # actually generated -- otherwise the two places diverge
+                # actually generated. Otherwise the two places diverge
                 # and the next `_apply_table_edits` would overwrite the
                 # geometry with this tab's stale values.
                 self._sync_constants_from_geometry(dlg.generated_geom)
@@ -246,9 +246,9 @@ class GeometryTab(QWidget):
         self.radius_m.blockSignals(False)
 
     def _apply_constants(self, _value=None):
-        """Number of blades/radius are editable at any time, including
-        after pasting a custom table — write directly into
-        geom.n_blades/geom.radius_m without reopening the generation
+        """Number of blades and radius are editable at any time,
+        including after pasting a custom table. This writes directly
+        into geom.n_blades/geom.radius_m without reopening the generation
         popup (docs/plano.md Section 3, engineering note)."""
         self._schedule_preview_refresh()
         if self.state.project is None:
@@ -306,7 +306,7 @@ class GeometryTab(QWidget):
         except Exception:
             # Live: a temporarily invalid cell while the user is typing
             # (empty, a lone "-") should not interrupt with a dialog on
-            # every keystroke -- the preview already shows the error
+            # every keystroke, since the preview already shows the error
             # (`_refresh_preview`), and nothing is written to the project
             # until the row becomes a valid number again.
             return

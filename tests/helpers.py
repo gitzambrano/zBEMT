@@ -43,8 +43,8 @@ def make_api_fast_project(path: str) -> Project:
 # `QMessageBox` in a headless suite hangs indefinitely waiting for a click.
 # That is why the patch is applied to every module at once.
 
-def patch_em_toda_gui(nome: str = "QMessageBox", valor=None):
-    """Context manager that replaces ``nome`` in every GUI module that has
+def patch_message_box_everywhere(name: str = "QMessageBox", value=None):
+    """Context manager that replaces ``name`` in every GUI module that has
     it. Returns the mock used (the same object in every module, so
     assertions about calls work regardless of which tab triggered the
     dialog)."""
@@ -54,16 +54,16 @@ def patch_em_toda_gui(nome: str = "QMessageBox", valor=None):
 
     from zbemt.gui.app import GUI_MODULES
 
-    substituto = mock.MagicMock() if valor is None else valor
+    replacement = mock.MagicMock() if value is None else value
 
     @contextlib.contextmanager
     def _cm():
         with contextlib.ExitStack() as stack:
-            for nome_mod in ("zbemt.gui.app",) + GUI_MODULES:
-                mod = importlib.import_module(nome_mod)
-                if hasattr(mod, nome):
-                    stack.enter_context(mock.patch.object(mod, nome, substituto))
-            yield substituto
+            for module_name in ("zbemt.gui.app",) + GUI_MODULES:
+                module = importlib.import_module(module_name)
+                if hasattr(module, name):
+                    stack.enter_context(mock.patch.object(module, name, replacement))
+            yield replacement
 
     return _cm()
 

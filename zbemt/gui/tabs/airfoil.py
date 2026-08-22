@@ -54,9 +54,9 @@ from ...viz import plots
 from ...models import AirfoilDef, ProfileGeometry, PolarSlice, uses_full_range_extension
 from ...bemt import BEMTConfig
 
-from ..common import (parse_list, AppState, show_error, CanvasHost, definir_linha_visivel,
+from ..common import (parse_list, AppState, show_error, CanvasHost, set_row_visible,
                       require_optional_package)
-from ..dialogs import ajustar_largura_de_combo
+from ..dialogs import adjust_combo_width
 from ..workers import ExternalPolarWorker, launch_worker
 
 
@@ -91,8 +91,8 @@ def _unir_curvas_coincidentes(curves: list) -> list:
     Three of the six legend entries could name the SAME line: with
     ``reverse_flow_model="viterna_full_range"`` the reverse branch is the
     extended polar itself (there is no separate reverse treatment), and the
-    comparison curve at M=0 is the polar without compressibility correction
-    -- i.e., the main curve again. The legend announced six curves with only
+    comparison curve at M=0 is the polar without compressibility correction,
+    that is, the main curve again. The legend announced six curves with only
     four actually drawn, and the three coincident ones stacked on the same
     line thickness, indistinguishable.
 
@@ -100,34 +100,34 @@ def _unir_curvas_coincidentes(curves: list) -> list:
     resulting label states WHICH conditions fall on the same curve, which is
     exactly what the reader needs to know.
     """
-    unidas: list = []
-    for curva in curves:
-        chave = (tuple(np.round(np.asarray(curva["alpha_deg"], float), 9)),
-                 tuple(np.round(np.asarray(curva["cl"], float), 12)),
-                 tuple(np.round(np.asarray(curva["cd"], float), 12)))
-        for anterior, chave_anterior in unidas:
-            if chave == chave_anterior:
-                anterior["label"] += f" = {curva['label']}"
+    merged: list = []
+    for curve in curves:
+        key = (tuple(np.round(np.asarray(curve["alpha_deg"], float), 9)),
+                 tuple(np.round(np.asarray(curve["cl"], float), 12)),
+                 tuple(np.round(np.asarray(curve["cd"], float), 12)))
+        for previous, previous_key in merged:
+            if key == previous_key:
+                previous["label"] += f" = {curve['label']}"
                 break
         else:
-            unidas.append((dict(curva), chave))
-    return [curva for curva, _ in unidas]
+            merged.append((dict(curve), key))
+    return [curve for curve, _ in merged]
 
 
-def _CATALOGO_DE_NACA_EM_TEXTO() -> str:
-    """One line per typical blade section, from `airfoils.AIRFOIL_PRESETS`
-    -- the catalog that used to feed the presets combo, now read where the
+def NACA_CATALOG_TEXT() -> str:
+    """One line per typical blade section, from `airfoils.AIRFOIL_PRESETS`,
+    the catalog that used to feed the presets combo, now read where the
     code is typed.
 
     Derived, not copied: a new catalog entry (which the CLI also accepts in
     `--airfoil-geometry`) appears here on its own."""
     return "; ".join(
-        f"{dados['code']} ({dados['note'].split('--')[0].strip().rstrip('.').lower()})"
-        for _apelido, dados in sorted(airfoils.AIRFOIL_PRESETS.items()))
+        f"{preset['code']} ({preset['note'].split('--')[0].strip().rstrip('.').lower()})"
+        for _alias, preset in sorted(airfoils.AIRFOIL_PRESETS.items()))
 
 
 # =============================================================================
-# Tab 3 — Airfoil (single-section at this stage; multi-section is Phase D
+# Tab 3 — Airfoil (single-section at this stage. Multi-section is Phase D
 # of the plan). Gains here, by relocation (docs/plano.md Section 4): reverse
 # flow + compressibility (coming from Analysis) and the visual grouping of
 # Viterna together with the static stall model. Loses: the preview canvases
@@ -140,15 +140,15 @@ class AirfoilTab(QWidget):
     #: Width of the left panel (item 3). The minimum is what guarantees that
     #: the QDoubleSpinBox spin buttons appear without dragging the
     #: splitter; the initial value gives some slack above that.
-    _LARGURA_MINIMA_FORMULARIO = 520
-    _LARGURA_INICIAL_FORMULARIO = 600
+    _FORM_MIN_WIDTH = 520
+    _FORM_INITIAL_WIDTH = 600
 
     def __init__(self, state: AppState):
         super().__init__()
         self.state = state
         self._dirty = False
         # True while this tab is writing its own edit back to
-        # `state.project` (see `_apply_to_project`) -- prevents
+        # `state.project` (see `_apply_to_project`). That prevents
         # `_refresh_from_project` (connected to `airfoil_changed`, which the
         # write itself triggers) from rebuilding the form/section scratch
         # from what just came out of it.
@@ -162,11 +162,11 @@ class AirfoilTab(QWidget):
         # --- multi-section airfoil state (Phase D, docs/plano.md
         # Section 4) --------------------------------------------------------
         # self._sections empty = "single airfoil" mode (the usual
-        # behavior); the form below edits project.airfoil directly.
-        # self._sections with 2+ AirfoilDef = multi-section mode; the
+        # behavior), and the form below edits project.airfoil directly.
+        # self._sections with 2+ AirfoilDef = multi-section mode. The
         # form ALWAYS edits the section selected in self.sections_list
         # (self._current_section_index), never both things at the same
-        # time -- switching sections saves the previous one to scratch before
+        # time. Switching sections saves the previous one to scratch before
         # loading the new one. Any field edit applies live (see
         # _apply_to_project), which always resolves the entire scratch (all
         # sections, not just the current one) before writing to the project.
@@ -178,10 +178,10 @@ class AirfoilTab(QWidget):
         # `_sync_alpha_range_to_extension`); becomes True the instant the
         # user picks a range in the combo, and from then on their choice
         # wins.
-        self._alpha_range_escolhida_pelo_usuario = False
+        self._alpha_range_chosen_by_user = False
         # Item 15: same idea for the NeuralFoil Reynolds/Mach lists --
         # suggested from the rotor until the user types their own list.
-        self._re_mach_editados_pelo_usuario = False
+        self._re_mach_user_edited = False
 
         # Live preview (docs/plano_v3.md Part 5): state of the multi-axis
         # navigator (r/R, Reynolds, Mach), shared between the "Polar" and
@@ -196,28 +196,28 @@ class AirfoilTab(QWidget):
         scroll.setWidgetResizable(True)
         # Item 3: at 460px the field column already opened cramped and the
         # increment/decrement ARROWS of the QDoubleSpinBox got cut off by
-        # the scroll area's border -- the user had to drag the splitter
+        # the scroll area's border, so the user had to drag the splitter
         # before being able to use the widget. The minimum width below is
         # that of the entire form (longest label + field + spin buttons)
         # and the initial size gives some slack above it.
-        scroll.setMinimumWidth(self._LARGURA_MINIMA_FORMULARIO)
+        scroll.setMinimumWidth(self._FORM_MIN_WIDTH)
         left_widget = QWidget()
         self._airfoil_left_widget = left_widget
         # The minimum width also needs to be on the content: the splitter can
         # respect the viewport and still compress the inner widget, cutting
         # off the spin box arrows on the right side of the form.
-        left_widget.setMinimumWidth(self._LARGURA_MINIMA_FORMULARIO)
+        left_widget.setMinimumWidth(self._FORM_MIN_WIDTH)
         left = QVBoxLayout(left_widget)
         scroll.setWidget(left_widget)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(scroll)
         splitter.addWidget(self._build_preview_panel())
-        # Extra space goes to the CANVAS, not to the form -- see the
+        # Extra space goes to the CANVAS, not to the form, see the
         # equivalent note in `geometry_tab.py`.
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([self._LARGURA_INICIAL_FORMULARIO, 900])
+        splitter.setSizes([self._FORM_INITIAL_WIDTH, 900])
         outer = QVBoxLayout(self)
         outer.addWidget(splitter)
 
@@ -239,7 +239,7 @@ class AirfoilTab(QWidget):
         # what any field edit already triggers.
         # No "Apply to project": every field already writes to
         # `state.project` live (see `_apply_to_project`, now called on every
-        # edit) -- "Save"/"Restore" only decide whether that goes to disk
+        # edit). "Save"/"Restore" only decide whether that goes to disk
         # or is discarded.
         btn_save = QPushButton("Save")
         btn_save.setToolTip("Write the project to disk")
@@ -260,15 +260,15 @@ class AirfoilTab(QWidget):
 
         self.state.airfoil_changed.connect(self._refresh_from_project)
         # The NeuralFoil Reynolds/Mach suggestion is a function of the
-        # GEOMETRY (radius, chord) and the CONDITION (RPM, advance) -- both
+        # GEOMETRY (radius, chord) and the CONDITION (RPM, advance). Both
         # live outside this tab, so it needs to listen for both changing,
         # otherwise it keeps showing the envelope of a rotor that no longer
         # exists.
         # `project_changed` covers editing conditions in Run Case/Run
         # Batch (which save the case to the project).
-        self.state.geometry_changed.connect(self._resugerir_re_mach)
-        self.state.project_changed.connect(self._resugerir_re_mach)
-        self.state.config_changed.connect(self._resugerir_re_mach)
+        self.state.geometry_changed.connect(self._re_suggest_re_mach)
+        self.state.project_changed.connect(self._re_suggest_re_mach)
+        self.state.config_changed.connect(self._re_suggest_re_mach)
         # cascade (docs/plano.md Section 4): source/stall model decide
         # whether the dynamic stall toggle makes sense.
         self.source_combo.currentTextChanged.connect(self._update_dynamic_stall_enabled)
@@ -277,20 +277,20 @@ class AirfoilTab(QWidget):
         self._update_dynamic_stall_enabled()
         self._update_source_visibility()
 
-        # Live update (~300ms debounce, docs/plano_v3.md Part 5): any form
+        # Live update (about 300 ms debounce, docs/plano_v3.md Part 5): any form
         # field edit schedules a redraw of the embedded canvas -- a generic
         # connection (findChildren) instead of one widget at a time, so it
         # does not go stale with every new form field.
         #
-        # `_APENAS_VISUALIZACAO` are controls for HOW TO DRAW (alpha
+        # `_VIEW_ONLY` are controls for HOW TO DRAW (alpha
         # range, axis scale, reverse branch, overlay Machs), not project
         # fields: they redraw the canvas, but must not call
-        # `_apply_to_project` -- otherwise changing a chart's scale would
+        # `_apply_to_project`. Otherwise changing a chart's scale would
         # mark the project as unsaved and prompt for confirmation on
         # window close. Since item 8 they moved to the control strip above
         # the canvas, OUTSIDE `left_widget`: the loops below no longer
         # reach them and `_wire_plot_toolbar` wires them explicitly. The
-        # `not in _APENAS_VISUALIZACAO` check remains as a safety belt in
+        # `not in _VIEW_ONLY` check remains as a safety belt in
         # case one of them moves back into the form.
         for w in left_widget.findChildren(QDoubleSpinBox):
             w.valueChanged.connect(self._schedule_preview_refresh)
@@ -300,11 +300,11 @@ class AirfoilTab(QWidget):
             w.valueChanged.connect(self._apply_to_project)
         for w in left_widget.findChildren(QComboBox):
             w.currentTextChanged.connect(self._schedule_preview_refresh)
-            if w not in self._APENAS_VISUALIZACAO:
+            if w not in self._VIEW_ONLY:
                 w.currentTextChanged.connect(self._apply_to_project)
         for w in left_widget.findChildren(QCheckBox):
             w.toggled.connect(self._schedule_preview_refresh)
-            if w not in self._APENAS_VISUALIZACAO:
+            if w not in self._VIEW_ONLY:
                 w.toggled.connect(self._apply_to_project)
         for w in left_widget.findChildren(QLineEdit):
             w.editingFinished.connect(self._schedule_preview_refresh)
@@ -328,14 +328,14 @@ class AirfoilTab(QWidget):
 
     #: Base tooltip of the dynamic stall checkbox. Constant because
     #: `_update_dynamic_stall_enabled` rewrites the tooltip and needs to
-    #: recompose the original text -- the first token in quotes is what
+    #: recompose the original text. The first token in quotes is what
     #: `field_help` reads to know WHICH field to open in the help popup.
-    _DICA_DE_DYNAMIC_STALL = (
+    _DYNAMIC_STALL_TOOLTIP = (
         '"airfoil.use_dynamic_stall" — applies the Øye model for aerodynamic '
         'lag; requires a base polar with real stall')
 
     @property
-    def _APENAS_VISUALIZACAO(self) -> tuple:
+    def _VIEW_ONLY(self) -> tuple:
         return (self.alpha_range_combo, self.autoscale_y_check,
                 self.show_reverse_branch_check, self.mach_compare_edit)
 
@@ -431,15 +431,15 @@ class AirfoilTab(QWidget):
             if 0 <= self._current_section_index < len(self._sections):
                 self.sections_list.setCurrentRow(self._current_section_index)
         else:
-            nome = (self.airfoil_name_edit.text().strip()
+            name = (self.airfoil_name_edit.text().strip()
                     if hasattr(self, "airfoil_name_edit") else "") or "airfoil"
-            self.sections_list.addItem(QListWidgetItem(f"r/R=all — {nome}"))
+            self.sections_list.addItem(QListWidgetItem(f"r/R=all — {name}"))
             self.sections_list.setCurrentRow(0)
         self.sections_list.blockSignals(False)
 
-    def _on_airfoil_name_edited(self, texto: str):
+    def _on_airfoil_name_edited(self, text: str):
         if 0 <= self._current_section_index < len(self._sections):
-            self._sections[self._current_section_index].name = texto.strip()
+            self._sections[self._current_section_index].name = text.strip()
         self._refresh_sections_list_widget()
 
     def _save_current_form_into_scratch(self):
@@ -623,7 +623,7 @@ class AirfoilTab(QWidget):
         'table' with the toggle on, or source 'analytical' with
         stall_model='viterna'."""
         on = self._airfoil_extend_full_range()
-        definir_linha_visivel(self._analytical_form, self.viterna_blend_width_deg, on)
+        set_row_visible(self._analytical_form, self.viterna_blend_width_deg, on)
         self._sync_alpha_range_to_extension()
 
     def _update_source_visibility(self, *_args):
@@ -631,7 +631,7 @@ class AirfoilTab(QWidget):
         analytical / table / neuralfoil -- each showing only the relevant
         fields. 'neuralfoil' is NOT a separate `AirfoilDef.source` in the
         data model (it remains `source='table'` internally, see
-        `_collect_airfoil_def`/`_load_form_from_airfoil_def`) -- it is a
+        `_collect_airfoil_def`/`_load_form_from_airfoil_def`). It is a
         GUI MODE that treats NeuralFoil as "a special table generated on
         the fly" (per section, when Radial sections exist): shows geometry
         (f) + the engine (g) to generate the table, and hides manual CSV
@@ -642,9 +642,9 @@ class AirfoilTab(QWidget):
         is_neuralfoil = mode == "neuralfoil"
 
         for w in self._analytical_field_widgets:
-            definir_linha_visivel(self._analytical_form, w, is_analytical)
+            set_row_visible(self._analytical_form, w, is_analytical)
 
-        definir_linha_visivel(self._analytical_form, self.extend_full_range, is_table_like)
+        set_row_visible(self._analytical_form, self.extend_full_range, is_table_like)
         if hasattr(self, "table_box"):
             self.table_box.setVisible(is_table_like)
             self.table_box.setTitle("Table generated by NeuralFoil (per section)" if is_neuralfoil
@@ -654,7 +654,7 @@ class AirfoilTab(QWidget):
             self.geometry_box.setVisible(is_neuralfoil)
         if hasattr(self, "external_box"):
             self.external_box.setVisible(is_neuralfoil)
-        # 'neuralfoil' always runs with the 'neuralfoil' engine -- there is
+        # 'neuralfoil' always runs with the 'neuralfoil' engine. There is
         # no longer a separate "Engine" combo to choose it (that was the
         # source of the reported confusion: two selectors for a single
         # decision).
@@ -664,19 +664,19 @@ class AirfoilTab(QWidget):
         self._update_dynamic_stall_enabled()
         # The availability of the compressibility correction depends on
         # the source (only the table IN USE can double-count Mach), so it
-        # is reevaluated here, not just when the slices list changes --
-        # that was what left the toggle grayed out forever after a pass
+        # is reevaluated here, not just when the slices list changes.
+        # That was what left the toggle grayed out forever after a pass
         # through 'table'.
-        self._atualizar_prandtl_glauert_disponivel()
+        self._update_prandtl_glauert_availability()
 
         # Item 15: suggest Reynolds/Mach only on the TRANSITION into
         # 'neuralfoil' mode. This method runs on every source/stall
-        # change; without the transition guard, the suggestion would
+        # change. Without the transition guard, the suggestion would
         # overwrite the list on every signal, including while loading a
         # project.
-        anterior = getattr(self, "_modo_fonte_anterior", None)
-        self._modo_fonte_anterior = mode
-        if is_neuralfoil and anterior != "neuralfoil" and not getattr(self, "_loading", False):
+        previous = getattr(self, "_previous_source_mode", None)
+        self._previous_source_mode = mode
+        if is_neuralfoil and previous != "neuralfoil" and not getattr(self, "_loading", False):
             self._suggest_re_mach(force=False)
 
     def _build_dynamic_stall_box(self) -> QGroupBox:
@@ -693,7 +693,7 @@ class AirfoilTab(QWidget):
         box = QGroupBox("Dynamic Stall")
         form = QFormLayout(box)
         self.use_dynamic_stall = QCheckBox("Enable dynamic stall (Øye)")
-        self.use_dynamic_stall.setToolTip(self._DICA_DE_DYNAMIC_STALL)
+        self.use_dynamic_stall.setToolTip(self._DYNAMIC_STALL_TOOLTIP)
         form.addRow(self.use_dynamic_stall)
         # dynamic_stall_method is always "frequency" — we don't offer UI to choose it
         self.dyn_method = _FixedValueHolder("frequency")
@@ -728,7 +728,7 @@ class AirfoilTab(QWidget):
     def _update_dynamic_stall_visibility(self, *_args):
         """Shows the Øye parameters only when the model is enabled.
 
-        Hides the ROW (label + field) via `definir_linha_visivel` --
+        Hides the ROW (label + field) via `set_row_visible` --
         `widget.setVisible(False)` directly left the "?" help button (which
         wraps the field in a container) alone on screen, the size of the
         whole row, with the field hidden inside it.
@@ -736,7 +736,7 @@ class AirfoilTab(QWidget):
         Note: dynamic_stall_method is not included because it has no visible widget."""
         ligado = self.use_dynamic_stall.isChecked() and self.use_dynamic_stall.isEnabled()
         for w in (self.dyn_A, self.dyn_fade_start, self.dyn_fade_end):
-            definir_linha_visivel(self._dynamic_stall_form, w, ligado)
+            set_row_visible(self._dynamic_stall_form, w, ligado)
 
     def _update_dynamic_stall_enabled(self, *_args):
         blocked = self.source_combo.currentText() == "analytical" and self.stall_model_combo.currentText() == "linear"
@@ -752,37 +752,37 @@ class AirfoilTab(QWidget):
         # disappeared (that was the reported defect: "no popup and no
         # tooltip"). The restriction, when it exists, is appended to the
         # base text instead of taking its place.
-        dica = self._DICA_DE_DYNAMIC_STALL
+        tip = self._DYNAMIC_STALL_TOOLTIP
         if blocked:
-            dica += ("\n\nUnavailable here: dynamic stall needs a base polar with "
+            tip += ("\n\nUnavailable here: dynamic stall needs a base polar with "
                      "real static stall ('clip'/'enhanced'/'viterna' model, or "
                      "the 'table' source).")
-        self.use_dynamic_stall.setToolTip(dica)
+        self.use_dynamic_stall.setToolTip(tip)
         self._update_dynamic_stall_visibility()
 
     #: Preview alpha range -> (min, max, step) for `preview_polar`.
-    #: "Typical" is the range in which the project's polar is read; "Full
+    #: "Typical" is the range in which the project's polar is read. "Full
     #: range" is the only one where you can actually SEE what Viterna/the
     #: ±180 extension did, which was the blind spot: with extend_full_range
     #: on, the extrapolation existed but was entirely off the drawn axis.
-    _FAIXA_TIPICA = "Typical (-30° to 30°)"
-    _FAIXA_COMPLETA = "Full range (-180° to 180°)"
-    _FAIXAS_DE_ALPHA = {
-        _FAIXA_TIPICA: (-30.0, 30.0, 1.0),
+    _RANGE_TYPICAL = "Typical (-30° to 30°)"
+    _RANGE_FULL = "Full range (-180° to 180°)"
+    _ALPHA_RANGES = {
+        _RANGE_TYPICAL: (-30.0, 30.0, 1.0),
         "Extended (-90° to 90°)": (-90.0, 90.0, 1.0),
-        _FAIXA_COMPLETA: (-180.0, 180.0, 1.0),
+        _RANGE_FULL: (-180.0, 180.0, 1.0),
     }
 
     def _build_plot_toolbar(self) -> QWidget:
         """Item 8: the HOW-TO-DRAW controls now sit in a compact strip
-        above the canvas, on the right -- no longer in a QGroupBox
+        above the canvas, on the right, no longer in a QGroupBox
         ("Comparative Visualization") lost in the middle of the form on
         the left, where they competed for width with the project fields
         and ended up out of view.
 
         Design consequence that needs to keep holding: these are DISPLAY
-        controls (`_APENAS_VISUALIZACAO`) -- they redraw the canvas, but
-        NEVER call `_apply_to_project`, otherwise adjusting a chart's
+        controls (`_VIEW_ONLY`). They redraw the canvas but
+        NEVER call `_apply_to_project`; otherwise adjusting a chart's
         scale would mark the project as unsaved. Since they now live
         outside `left_widget`, the constructor's generic `findChildren`
         connections don't reach them: each signal is wired explicitly in
@@ -800,9 +800,9 @@ class AirfoilTab(QWidget):
             "Zooming the axes with the toolbar does NOT recompute the curves; this control does.")
         row.addWidget(alpha_lbl)
         self.alpha_range_combo = QComboBox()
-        self.alpha_range_combo.addItems(list(self._FAIXAS_DE_ALPHA))
+        self.alpha_range_combo.addItems(list(self._ALPHA_RANGES))
         self.alpha_range_combo.setToolTip(alpha_lbl.toolTip())
-        ajustar_largura_de_combo(self.alpha_range_combo)
+        adjust_combo_width(self.alpha_range_combo)
         row.addWidget(self.alpha_range_combo)
 
         self.autoscale_y_check = QCheckBox("Auto-fit Y")
@@ -833,12 +833,12 @@ class AirfoilTab(QWidget):
     def _wire_plot_toolbar(self):
         """Wires the signals of the canvas control strip. Explicit on
         purpose: these widgets are OUTSIDE `left_widget`, so the
-        constructor's generic (`findChildren`) connections don't see them
-        -- and forgetting this fails silently (the control appears on
+        constructor's generic (`findChildren`) connections don't see
+        them, and forgetting this fails silently (the control appears on
         screen and simply does nothing)."""
         self.alpha_range_combo.currentTextChanged.connect(self._schedule_preview_refresh)
         # `activated` fires only on user interaction, never on programmatic
-        # `setCurrentText` -- that's what distinguishes "the user chose a
+        # `setCurrentText`. That's what distinguishes "the user chose a
         # range" from "the tab adjusted the range on its own".
         self.alpha_range_combo.activated.connect(self._on_alpha_range_chosen)
         self.autoscale_y_check.toggled.connect(self._schedule_preview_refresh)
@@ -846,30 +846,30 @@ class AirfoilTab(QWidget):
         self.mach_compare_edit.editingFinished.connect(self._schedule_preview_refresh)
 
     def _on_alpha_range_chosen(self, _index: int):
-        self._alpha_range_escolhida_pelo_usuario = True
+        self._alpha_range_chosen_by_user = True
 
     def _sync_alpha_range_to_extension(self):
         """Item 6: when the full range extension (Viterna ±180°) is
         active, the drawn range defaults to the full one.
 
         Reason: the extrapolation existed and was correct, but the preview
-        kept being computed only from -30° to 30° -- and the user's
+        kept being computed only from -30° to 30°. The user's
         natural way out (opening 'Edit axis, curve and image parameters'
         on the matplotlib toolbar and setting the X axis to ±180) only
-        RESCALES the axes, it does not recompute the curve: the result is
+        RESCALES the axes, it does not recompute the curve. The result is
         an empty chart from 30° onward, which reads as "the extension
         doesn't work". Respects an explicit user choice in the combo (see
         `_on_alpha_range_chosen`)."""
-        if getattr(self, "_alpha_range_escolhida_pelo_usuario", False):
+        if getattr(self, "_alpha_range_chosen_by_user", False):
             return
         if not hasattr(self, "alpha_range_combo"):
             return
-        alvo = self._FAIXA_COMPLETA if self._airfoil_extend_full_range() else self._FAIXA_TIPICA
-        if self.alpha_range_combo.currentText() != alvo:
-            self.alpha_range_combo.setCurrentText(alvo)
+        target = self._RANGE_FULL if self._airfoil_extend_full_range() else self._RANGE_TYPICAL
+        if self.alpha_range_combo.currentText() != target:
+            self.alpha_range_combo.setCurrentText(target)
 
     def _alpha_range(self) -> tuple:
-        return self._FAIXAS_DE_ALPHA[self.alpha_range_combo.currentText()]
+        return self._ALPHA_RANGES[self.alpha_range_combo.currentText()]
 
     def _build_table_box(self) -> QGroupBox:
         box = QGroupBox("Aerodynamic Polar Data")
@@ -878,7 +878,7 @@ class AirfoilTab(QWidget):
 
         row = QHBoxLayout()
         btn_import = QPushButton("Import CSV…")
-        btn_import.setToolTip(self._DICA_DE_IMPORTAR_CSV)
+        btn_import.setToolTip(self._CSV_IMPORT_TOOLTIP)
         btn_import.clicked.connect(self._import_csv)
         self._btn_import_csv = btn_import
         btn_export = QPushButton("Export CSV…")
@@ -893,23 +893,23 @@ class AirfoilTab(QWidget):
         row.addStretch(1)
         layout.addLayout(row)
         #: the two read as a pair: same width (see `showEvent`)
-        self._botoes_de_tabela = (btn_import, btn_export)
+        self._table_buttons = (btn_import, btn_export)
 
         # The same text as the button, visible without having to discover
         # there is a tooltip: whoever reaches this block is precisely
-        # trying to assemble the file. `_DICA_DE_IMPORTAR_CSV` is the
+        # trying to assemble the file. `_CSV_IMPORT_TOOLTIP` is the
         # single source for both screens.
-        ajuda_formato = QLabel(
+        format_hint = QLabel(
             'Expected file: one line per angle of attack, columns '
             '<code>alpha_deg, Cl, Cd</code> — plus <code>r_norm</code>, '
             '<code>reynolds</code> and/or <code>mach</code> repeated on every '
             'line to declare a sweep. Hover "Import CSV…" for the full format '
             'with examples.')
-        ajuda_formato.setWordWrap(True)
-        ajuda_formato.setStyleSheet("color: #666; font-size: 11px;")
-        ajuda_formato.setToolTip(self._DICA_DE_IMPORTAR_CSV)
-        layout.addWidget(ajuda_formato)
-        self._rotulo_de_formato_de_csv = ajuda_formato
+        format_hint.setWordWrap(True)
+        format_hint.setStyleSheet("color: #666; font-size: 11px;")
+        format_hint.setToolTip(self._CSV_IMPORT_TOOLTIP)
+        layout.addWidget(format_hint)
+        self._csv_format_tooltip = format_hint
 
         self.detected_axes_label = QLabel("No data imported yet.")
         self.detected_axes_label.setWordWrap(True)
@@ -929,7 +929,7 @@ class AirfoilTab(QWidget):
     #: block is, and how a Reynolds/Mach/radial station sweep is declared
     #: (the answer is the same for all three: one extra COLUMN, repeated
     #: on every row of the block).
-    _DICA_DE_IMPORTAR_CSV = (
+    _CSV_IMPORT_TOOLTIP = (
         "Imports a Cl/Cd polar from a CSV, as one or more slices.\n\n"
         "ONE LINE = ONE ANGLE OF ATTACK. The file is a plain table with a "
         "header line and one row per point:\n"
@@ -965,10 +965,10 @@ class AirfoilTab(QWidget):
 
     #: Help text for the contour import button. It is the answer to the
     #: user's question ("does the same .dat work for any generator?"): yes,
-    #: it does -- an imported contour is NOT another generation "family",
+    #: it does. An imported contour is NOT another generation "family":
     #: it is the final list of points, and it replaces whatever any
     #: generator would produce.
-    _DICA_DE_IMPORTAR_DAT = (
+    _DAT_IMPORT_TOOLTIP = (
         "Loads the contour from a coordinate file and uses it as the profile, "
         "whatever the source above was — an imported contour is the final list "
         "of points, not another family to generate from.\n\n"
@@ -998,14 +998,14 @@ class AirfoilTab(QWidget):
 
     #: CONTOUR sources offered on screen. `cst` and `bezier` left the list
     #: (user request: "the CST fields are never editable; a NACA code or an
-    #: imported .dat are enough") -- they keep existing in
+    #: imported .dat are enough"). They keep existing in
     #: `airfoils.generate_cst`/`generate_bezier` and in `ProfileGeometry`,
-    #: for scripting and for old projects, and `_FONTES_DE_PERFIL_LEGADAS`
+    #: for scripting and for old projects, and `_LEGACY_PROFILE_SOURCES`
     #: offers them again when the OPEN project uses one of them: hiding an
     #: option must never mean losing the data of someone who already used
     #: it.
-    _FONTES_DE_PERFIL = ("naca4", "naca5", "imported")
-    _FONTES_DE_PERFIL_LEGADAS = ("cst", "bezier")
+    _PROFILE_SOURCES = ("naca4", "naca5", "imported")
+    _LEGACY_PROFILE_SOURCES = ("cst", "bezier")
 
     def _build_geometry_box(self) -> QGroupBox:
         box = QGroupBox("2D Profile Geometry")
@@ -1022,8 +1022,8 @@ class AirfoilTab(QWidget):
         # moment the code is typed. The catalog keeps existing for the CLI
         # (`--airfoil-geometry naca0012`) and for scripts.
         self.profile_source_combo = QComboBox()
-        for fonte in self._FONTES_DE_PERFIL:
-            self.profile_source_combo.addItem(fonte)
+        for source_name in self._PROFILE_SOURCES:
+            self.profile_source_combo.addItem(source_name)
         self.profile_source_combo.setMinimumWidth(130)
         # No quoted token on purpose: the field is called `source`, the
         # same name as the POLAR's source, and `field_help._campo_do_widget`
@@ -1043,7 +1043,7 @@ class AirfoilTab(QWidget):
             "and the last two the maximum thickness as a percentage of chord. "
             "Camber shifts the zero-lift angle negative; thickness governs how "
             "gently the profile stalls.\n\n"
-            "Sections in common rotor use: " + _CATALOGO_DE_NACA_EM_TEXTO())
+            "Sections in common rotor use: " + NACA_CATALOG_TEXT())
         form.addRow("NACA code:", self.naca_code_edit)
 
         self.cst_upper_edit = QLineEdit("0.17, 0.16, 0.20, 0.18")
@@ -1064,8 +1064,8 @@ class AirfoilTab(QWidget):
         # Order: trailing edge -> upper surface -> leading edge -> lower
         # surface -> trailing edge (the list CLOSES at the trailing edge,
         # see the convention in `airfoils.generate_bezier`). The old
-        # default closed at the leading edge -- "0,0 / 0.3,0.08 / 1,0 /
-        # 0.3,-0.05 / 0,0" -- and came out with the blunt nose at the back
+        # default closed at the leading edge ("0,0 / 0.3,0.08 / 1,0 /
+        # 0.3,-0.05 / 0,0") and came out with the blunt nose at the back
         # and the point at the front.
         self.bezier_points_edit = QPlainTextEdit(
             "1,0\n0.5,0.12\n0,0.15\n-0.05,0\n0,-0.10\n0.5,-0.06\n1,0")
@@ -1087,13 +1087,13 @@ class AirfoilTab(QWidget):
             "and with it the engine, changes only when NeuralFoil runs.")
         btn_generate_profile.clicked.connect(self._generate_profile)
         btn_import_dat = QPushButton("Import .dat…")
-        btn_import_dat.setToolTip(self._DICA_DE_IMPORTAR_DAT)
+        btn_import_dat.setToolTip(self._DAT_IMPORT_TOOLTIP)
         btn_import_dat.clicked.connect(self._import_dat)
         row.addWidget(btn_generate_profile)
         row.addWidget(btn_import_dat)
         form.addRow(row)
         # The two read as a pair ("generate OR import"): same width.
-        self._botoes_de_geometria = (btn_generate_profile, btn_import_dat)
+        self._geometry_buttons = (btn_generate_profile, btn_import_dat)
         #: kept to hide the entire ROW of contour fields (label included)
         #: -- see `_update_profile_fields`
         self._geometry_form = form
@@ -1180,50 +1180,50 @@ class AirfoilTab(QWidget):
     #: case -- the same default as `cli.DEFAULT_RPM` and the RPM field in
     #: the Run Case tab, so the suggestion matches what the user is going
     #: to run.
-    _RPM_PADRAO_PARA_SUGESTAO = 600.0
+    _DEFAULT_SUGGESTION_RPM = 600.0
 
-    def _rpm_de_referencia(self) -> float:
+    def _reference_rpm(self) -> float:
         """Representative RPM for the project, without running anything:
         the first saved case that declares one, else the first one of the
         first batch, else the GUI/CLI default. RPM is not a `Project`
         field -- it lives in `FlightCondition` -- so an estimate by
         geometry needs to pick one, and picking explicitly is better than
         pretending a canonical value exists."""
-        projeto = self.state.project
-        if projeto is not None:
-            candidatos = list(projeto.saved_cases)
-            for b in projeto.batches:
-                candidatos.extend(b.conditions)
-            for c in candidatos:
+        project = self.state.project
+        if project is not None:
+            candidates = list(project.saved_cases)
+            for b in project.batches:
+                candidates.extend(b.conditions)
+            for c in candidates:
                 if getattr(c, "rpm", None):
                     return float(c.rpm)
-        return self._RPM_PADRAO_PARA_SUGESTAO
+        return self._DEFAULT_SUGGESTION_RPM
 
-    def _mu_de_referencia(self) -> float:
+    def _reference_mu(self) -> float:
         """Representative advance ratio of the project, chosen with the
-        SAME rule as RPM (see `_rpm_de_referencia`): the first saved
+        SAME rule as RPM (see `_reference_rpm`): the first saved
         condition that declares one, else 0 (hover).
 
         The largest mu_x among the conditions, not the first: the
         suggested list is an ENVELOPE, and an envelope that doesn't cover
         the project's fastest condition is useless."""
-        projeto = self.state.project
-        if projeto is None:
+        project = self.state.project
+        if project is None:
             return 0.0
-        candidatos = list(projeto.saved_cases)
-        for b in projeto.batches:
-            candidatos.extend(b.conditions)
-        mus = [abs(float(getattr(c, "mu_x", 0.0) or 0.0)) for c in candidatos]
+        candidates = list(project.saved_cases)
+        for b in project.batches:
+            candidates.extend(b.conditions)
+        mus = [abs(float(getattr(c, "mu_x", 0.0) or 0.0)) for c in candidates]
         return max(mus) if mus else 0.0
 
-    def _resugerir_re_mach(self, *_args):
+    def _re_suggest_re_mach(self, *_args):
         """Reacts to a change in the project's geometry/condition.
 
         The suggestion used to depend only on the instant the source
         switched to 'neuralfoil': changing the radius, chord, RPM or
         advance speed AFTER that left an envelope on screen that was
         computed for a different rotor. It keeps respecting the list the
-        user typed by hand (`_re_mach_editados_pelo_usuario`), and only
+        user typed by hand (`_re_mach_user_edited`), and only
         acts in the mode where these lists exist.
 
         The reentrancy guard is not decorative: `_suggest_re_mach` ends in
@@ -1232,17 +1232,17 @@ class AirfoilTab(QWidget):
         Without it, a geometry edit would enter infinite recursion and
         crash the process with a stack overflow (a native failure, with no
         Python exception)."""
-        if getattr(self, "_loading", False) or getattr(self, "_sugerindo", False):
+        if getattr(self, "_loading", False) or getattr(self, "_suggesting", False):
             return
         if getattr(self, "_applying_locally", False):
             return
         if self.source_combo.currentText() != "neuralfoil":
             return
-        self._sugerindo = True
+        self._suggesting = True
         try:
             self._suggest_re_mach(force=False)
         finally:
-            self._sugerindo = False
+            self._suggesting = False
 
     def _suggest_re_mach(self, force: bool = False):
         """Item 15: fills the NeuralFoil Reynolds/Mach lists with three
@@ -1253,46 +1253,46 @@ class AirfoilTab(QWidget):
         With ``force=False`` (automatic call when entering 'neuralfoil'
         mode) respects lists the user has already typed; the "Suggest
         from rotor" button calls with ``force=True``."""
-        if not force and self._re_mach_editados_pelo_usuario:
+        if not force and self._re_mach_user_edited:
             return
-        projeto = self.state.project
-        if projeto is None:
+        project = self.state.project
+        if project is None:
             if force:
                 self.suggestion_label.setText("No project open — nothing to estimate from.")
             return
-        cfg = dict(projeto.config)
-        rpm = self._rpm_de_referencia()
-        mu_x = self._mu_de_referencia()
-        sugestao = airfoils.suggest_reynolds_mach_lists(
-            projeto.geometry, rpm,
+        cfg = dict(project.config)
+        rpm = self._reference_rpm()
+        mu_x = self._reference_mu()
+        suggestion = airfoils.suggest_reynolds_mach_lists(
+            project.geometry, rpm,
             nu_air=float(cfg.get("nu_air", 1.46e-5)),
             a_sound=float(cfg.get("a_sound", 340.294)),
             mu_x=mu_x,
         )
-        if not sugestao["reynolds"] and not sugestao["mach"]:
+        if not suggestion["reynolds"] and not suggestion["mach"]:
             if force:
                 self.suggestion_label.setText(
                     "Could not estimate: the radial table needs at least 2 stations "
                     "and a positive radius/RPM.")
             return
-        if sugestao["reynolds"]:
-            self.re_list_edit.setText(", ".join(f"{v:.3g}" for v in sugestao["reynolds"]))
-        if sugestao["mach"]:
-            self.mach_list_edit.setText(", ".join(f"{v:.2f}" for v in sugestao["mach"]))
-        estacoes = ", ".join(f"r/R={r:g}" for r in airfoils.SUGGESTION_STATIONS)
+        if suggestion["reynolds"]:
+            self.re_list_edit.setText(", ".join(f"{v:.3g}" for v in suggestion["reynolds"]))
+        if suggestion["mach"]:
+            self.mach_list_edit.setText(", ".join(f"{v:.2f}" for v in suggestion["mach"]))
+        stations_text = ", ".join(f"r/R={r:g}" for r in airfoils.SUGGESTION_STATIONS)
         # mu_x only enters the text when it is nonzero: in hover the
         # phrase would say "and mu_x=0" to explain a term that added
         # nothing.
-        avanco = f" at μ={mu_x:g}" if mu_x else ""
+        advance_text = f" at μ={mu_x:g}" if mu_x else ""
         self.suggestion_label.setText(
-            f"Estimated at {estacoes} for R={projeto.geometry.radius_m:g} m and {rpm:g} RPM"
-            f"{avanco} (closed form: Re=U·c/ν, M=U/a, U=ΩR(r/R+|μ|)). It follows the project: "
+            f"Estimated at {stations_text} for R={project.geometry.radius_m:g} m and {rpm:g} RPM"
+            f"{advance_text} (closed form: Re=U·c/ν, M=U/a, U=ΩR(r/R+|μ|)). It follows the project: "
             "change the blade, the RPM or the fastest condition and this list is redrawn — "
             "until you type your own, which is then kept.")
         self._apply_to_project()
 
     def _on_re_mach_edited(self, *_args):
-        self._re_mach_editados_pelo_usuario = True
+        self._re_mach_user_edited = True
 
     def _build_out_of_curve_box(self) -> QGroupBox:
         """"Behavior outside the pasted curve": reverse flow and
@@ -1351,7 +1351,7 @@ class AirfoilTab(QWidget):
         cform = QFormLayout(comp_box)
         self.cfg_use_compressibility = QCheckBox("Apply compressibility correction (Prandtl-Glauert)")
         #: value stored while the toggle is locked by the table's Mach
-        #: dependency, restored on re-enabling (see `_atualizar_prandtl_glauert_disponivel`)
+        #: dependency, restored on re-enabling (see `_update_prandtl_glauert_availability`)
         self._compressibilidade_antes_do_bloqueio = None
         self.cfg_use_compressibility.setToolTip(
             '"use_compressibility" — corrects Cl and Cd by factor 1/√(1−M²); '
@@ -1397,20 +1397,20 @@ class AirfoilTab(QWidget):
         # local copy: a new model shows up here on its own.
         from ...bemt import REVERSE_FLOW_MODELS
         options = list(REVERSE_FLOW_MODELS)
-        liberado = self._airfoil_extend_full_range()
+        enabled = self._airfoil_extend_full_range()
         self.cfg_reverse_flow_model.blockSignals(True)
         self.cfg_reverse_flow_model.clear()
         self.cfg_reverse_flow_model.addItems(options)
-        modelo = self.cfg_reverse_flow_model.model()
-        indice = self.cfg_reverse_flow_model.findText("viterna_full_range")
-        if indice >= 0 and modelo is not None:
-            item = modelo.item(indice)
+        combo_model = self.cfg_reverse_flow_model.model()
+        idx = self.cfg_reverse_flow_model.findText("viterna_full_range")
+        if idx >= 0 and combo_model is not None:
+            item = combo_model.item(idx)
             if item is not None:
-                item.setEnabled(liberado)
+                item.setEnabled(enabled)
         # An option that is present but disabled cannot be the selection.
         # Falling back to the first model keeps the widget and the project
         # agreeing about what will actually run.
-        if current == "viterna_full_range" and not liberado:
+        if current == "viterna_full_range" and not enabled:
             current = options[0]
         if current in options:
             self.cfg_reverse_flow_model.setCurrentText(current)
@@ -1422,9 +1422,9 @@ class AirfoilTab(QWidget):
         over the list itself, so the row disappears."""
         if self._airfoil_extend_full_range():
             self.reverse_flow_note.clear()
-            definir_linha_visivel(self._reverse_flow_form, self.reverse_flow_note, False)
+            set_row_visible(self._reverse_flow_form, self.reverse_flow_note, False)
         else:
-            definir_linha_visivel(self._reverse_flow_form, self.reverse_flow_note, True)
+            set_row_visible(self._reverse_flow_form, self.reverse_flow_note, True)
             # bare verb: the sentence below reads "... after you {hint}"
             hint = ("choose stall_model='viterna' in block (a)" if self.source_combo.currentText() == "analytical"
                     else "enable 'Extrapolate with Viterna-Corrigan' in block (a)")
@@ -1435,18 +1435,18 @@ class AirfoilTab(QWidget):
     def _update_profile_fields(self, source: str):
         """Progressive reveal of the outline's rows.
 
-        `definir_linha_visivel`, not `setVisible` on the field: the
+        `set_row_visible`, not `setVisible` on the field: the
         field is wrapped by the "?" help icon, and hiding only that
         left the label ("CST upper (coefs, comma):") orphaned on
         screen, pointing at nothing -- which was the defect reported as
         "CST fields that can't be edited". Today `cst`/`bezier` don't
         even appear in the combo, except in an old project that already
-        uses them (`_sincronizar_fonte_de_perfil`)."""
+        uses them (`_sync_profile_source`)."""
         form = self._geometry_form
-        definir_linha_visivel(form, self.naca_code_edit, source in ("naca4", "naca5"))
-        definir_linha_visivel(form, self.cst_upper_edit, source == "cst")
-        definir_linha_visivel(form, self.cst_lower_edit, source == "cst")
-        definir_linha_visivel(form, self.bezier_points_edit, source == "bezier")
+        set_row_visible(form, self.naca_code_edit, source in ("naca4", "naca5"))
+        set_row_visible(form, self.cst_upper_edit, source == "cst")
+        set_row_visible(form, self.cst_lower_edit, source == "cst")
+        set_row_visible(form, self.bezier_points_edit, source == "bezier")
 
     # --- Embedded preview canvas (docs/plano_v3.md Part 5) ---------------
     # "Polar" tab (Cl/Cd x alpha, navigated slice + overlay from block d/e)
@@ -1593,11 +1593,11 @@ class AirfoilTab(QWidget):
             curves = self._collect_polar_curves(airfoil_def)
             draw_fn = (self._draw_cl_alpha, self._draw_cd_alpha, self._draw_cd_cl)[idx]
             draw_fn(canvas.ax, curves)
-            faixa = ("full range (−180° to 180°)"
+            range_label = ("full range (−180° to 180°)"
                      if uses_full_range_extension(airfoil_def)
                      else "measured range only")
             canvas.ax.set_title(f"{canvas.ax.get_title()} · {airfoil_def.stall_model} · "
-                                 f"{faixa}{self.current_section_label()}", fontsize=9)
+                                 f"{range_label}{self.current_section_label()}", fontsize=9)
         except Exception as exc:
             canvas.clear()
             canvas.ax.set_axis_off()
@@ -1647,7 +1647,7 @@ class AirfoilTab(QWidget):
         Prandtl-Glauert correction in previews (same as what BEMT does
         in element_state), so the plots reflect the actual corrections."""
         use_comp = self._use_compressibility()
-        faixa = self._alpha_range()
+        range_label = self._alpha_range()
         # `project.config` enables reverse flow post-processing inside
         # `preview_polar` (which calls `bemt.apply_reverse_flow_to_polar`,
         # the same function as the engine) -- without it, the drawn curve
@@ -1662,7 +1662,7 @@ class AirfoilTab(QWidget):
             if uses_full_range_extension(airfoil_def):
                 # Use preview_polar to evaluate the extended polar (includes Viterna and comp if active)
                 alpha_arr, cl_arr, cd_arr = airfoils.preview_polar(
-                    airfoil_def, faixa, reynolds=sel_re, mach=sel_mach,
+                    airfoil_def, range_label, reynolds=sel_re, mach=sel_mach,
                     use_compressibility=use_comp, config=cfg_dict,
                 )
                 # Item 32: identify the curve by the actual (Re, Mach)
@@ -1696,24 +1696,24 @@ class AirfoilTab(QWidget):
                 curves.append(dict(alpha_deg=slc.alpha_deg, cl=cl_arr, cd=cd_arr, label=label))
         else:
             alpha, cl, cd = airfoils.preview_polar(
-                airfoil_def, faixa, use_compressibility=False, config=cfg_dict)
+                airfoil_def, range_label, use_compressibility=False, config=cfg_dict)
             curves.append(dict(alpha_deg=alpha, cl=cl, cd=cd, label=airfoil_def.name))
 
         if cfg_dict is not None and self.show_reverse_branch_check.isChecked():
             sel = self._nav_selection
             alpha_r, cl_r, cd_r = airfoils.preview_polar(
-                airfoil_def, faixa, reynolds=sel.get("reynolds"), mach=sel.get("mach"),
+                airfoil_def, range_label, reynolds=sel.get("reynolds"), mach=sel.get("mach"),
                 use_compressibility=use_comp, config=cfg_dict, reverse=True)
-            modelo = cfg_dict.get("reverse_flow_model", "")
+            model_name = cfg_dict.get("reverse_flow_model", "")
             curves.append(dict(alpha_deg=alpha_r, cl=cl_r, cd=cd_r,
-                                label=f"reverse flow ({modelo})"))
+                                label=f"reverse flow ({model_name})"))
 
         opts = self.preview_options()
         if opts["conditions"] or opts["mach_compare"]:
             extra = airfoils.preview_polar_multi(
                 airfoil_def, conditions=opts["conditions"] or None,
                 mach_compare=opts["mach_compare"] or None,
-                alpha_deg_range=faixa,
+                alpha_deg_range=range_label,
                 use_compressibility=use_comp,
             )
             for curve in extra:
@@ -1728,23 +1728,23 @@ class AirfoilTab(QWidget):
     #: enough to contain an extended ±180 polar without cutting, and equal
     #: across refreshes, which is the point: with autoscale, changing an
     #: airfoil rescales the axis and the two curves look identical.
-    _FAIXA_CL_FIXA = (-2.0, 2.5)
-    _FAIXA_CD_FIXA = (0.0, 2.2)
+    _FIXED_CL_RANGE = (-2.0, 2.5)
+    _FIXED_CD_RANGE = (0.0, 2.2)
 
-    def _aplicar_escala_y(self, ax, faixa_fixa):
+    def _apply_y_scale(self, ax, fixed_range):
         if not self.autoscale_y_check.isChecked():
-            ax.set_ylim(*faixa_fixa)
+            ax.set_ylim(*fixed_range)
 
     def _draw_cl_alpha(self, ax, curves: list):
         for curve in curves:
             plots.plot_cl_alpha(curve["alpha_deg"], curve["cl"], ax=ax, label=curve["label"])
-        self._aplicar_escala_y(ax, self._FAIXA_CL_FIXA)
+        self._apply_y_scale(ax, self._FIXED_CL_RANGE)
         ax.legend(fontsize=7, ncols=self._legend_ncols(curves))
 
     def _draw_cd_alpha(self, ax, curves: list):
         for curve in curves:
             plots.plot_cd_alpha(curve["alpha_deg"], curve["cd"], ax=ax, label=curve["label"])
-        self._aplicar_escala_y(ax, self._FAIXA_CD_FIXA)
+        self._apply_y_scale(ax, self._FIXED_CD_RANGE)
         ax.legend(fontsize=7, ncols=self._legend_ncols(curves))
 
     def _draw_cd_cl(self, ax, curves: list):
@@ -1916,18 +1916,18 @@ class AirfoilTab(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, cond)
             self.slices_list.addItem(item)
         self.slices_list.blockSignals(False)
-        self._atualizar_prandtl_glauert_disponivel()
+        self._update_prandtl_glauert_availability()
         self._schedule_preview_refresh()
 
     #: Base tooltip of the compressibility toggle (the text when it IS
     #: available). Constant so the lock path can add the reason without
     #: erasing the explanation -- and so `field_help` can keep finding the
     #: field name in the first quoted token in both states.
-    _DICA_DE_COMPRESSIBILIDADE = (
+    _COMPRESSIBILITY_TOOLTIP = (
         '"use_compressibility" — corrects Cl and Cd by factor 1/√(1−M²); '
         'do not use with tables that already vary with Mach (double counting)')
 
-    def _atualizar_prandtl_glauert_disponivel(self, *_args):
+    def _update_prandtl_glauert_availability(self, *_args):
         """Disables the Prandtl-Glauert toggle when the polar IN USE already
         carries Mach as data: table (or table generated by NeuralFoil) with
         2+ slices of `PolarSlice.mach`. In that case the polar chosen in
@@ -1951,27 +1951,27 @@ class AirfoilTab(QWidget):
             # construction -- the box is created in a block assembled later
             return
         machs = {s.mach for s in (self._imported_slices or []) if s.mach is not None}
-        usa_a_tabela = self.source_combo.currentText() in ("table", "neuralfoil")
-        bloqueado = usa_a_tabela and len(machs) > 1
-        if bloqueado:
+        uses_table = self.source_combo.currentText() in ("table", "neuralfoil")
+        blocked = uses_table and len(machs) > 1
+        if blocked:
             if self.cfg_use_compressibility.isEnabled():
                 self._compressibilidade_antes_do_bloqueio = (
                     self.cfg_use_compressibility.isChecked())
             self.cfg_use_compressibility.setChecked(False)
             self.cfg_use_compressibility.setEnabled(False)
             self.cfg_use_compressibility.setToolTip(
-                self._DICA_DE_COMPRESSIBILIDADE
+                self._COMPRESSIBILITY_TOOLTIP
                 + f'\n\nUnavailable here: the table in use already varies with '
                   f'Mach ({len(machs)} distinct Mach slices), so the polar is '
                   f'compressible by data and the correction would count Mach twice.')
             return
         if not self.cfg_use_compressibility.isEnabled():
             self.cfg_use_compressibility.setEnabled(True)
-            anterior = getattr(self, "_compressibilidade_antes_do_bloqueio", None)
-            if anterior is not None:
-                self.cfg_use_compressibility.setChecked(anterior)
+            previous = getattr(self, "_compressibilidade_antes_do_bloqueio", None)
+            if previous is not None:
+                self.cfg_use_compressibility.setChecked(previous)
                 self._compressibilidade_antes_do_bloqueio = None
-        self.cfg_use_compressibility.setToolTip(self._DICA_DE_COMPRESSIBILIDADE)
+        self.cfg_use_compressibility.setToolTip(self._COMPRESSIBILITY_TOOLTIP)
 
     def _import_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import polar CSV", "", "CSV (*.csv)")
@@ -2005,34 +2005,34 @@ class AirfoilTab(QWidget):
         except Exception as exc:
             show_error(self, "Error exporting CSV", exc)
 
-    def _sincronizar_fonte_de_perfil(self, profile) -> None:
+    def _sync_profile_source(self, profile) -> None:
         """Sets the "Source:" combo to the source of the LOADED outline.
 
         Two things at once. First: the combo was not synchronized with the
         project -- opening a project imported from .dat showed "naca4" over
         an outline that was not NACA at all.
 
-        Second: `cst`/`bezier` left the offered list (see `_FONTES_DE_PERFIL`),
+        Second: `cst`/`bezier` left the offered list (see `_PROFILE_SOURCES`),
         and an old project can use them. In that case the option RETURNS to
         the list, just for that project: the outline stays intact in
         `AirfoilDef.geometry` anyway (the tab passes the entire object), and
         showing "naca4" over a CST outline would be a lie on screen."""
-        fonte = (getattr(profile, "source", "") or "").strip()
+        source_name = (getattr(profile, "source", "") or "").strip()
         combo = self.profile_source_combo
         # The list is REBUILT on each project, not just added to: open a
         # CST project and then a NACA one, and an `addItem` would leave "cst"
         # offered forever -- an option the tab no longer knows how to edit,
         # inherited from a project that already closed.
-        opcoes = list(self._FONTES_DE_PERFIL)
-        if fonte in self._FONTES_DE_PERFIL_LEGADAS:
-            opcoes.append(fonte)
-        alvo = fonte if fonte in opcoes else combo.currentText()
+        options = list(self._PROFILE_SOURCES)
+        if source_name in self._LEGACY_PROFILE_SOURCES:
+            options.append(source_name)
+        target = source_name if source_name in options else combo.currentText()
         combo.blockSignals(True)
-        if [combo.itemText(i) for i in range(combo.count())] != opcoes:
+        if [combo.itemText(i) for i in range(combo.count())] != options:
             combo.clear()
-            combo.addItems(opcoes)
-        if alvo in opcoes:
-            combo.setCurrentText(alvo)
+            combo.addItems(options)
+        if target in options:
+            combo.setCurrentText(target)
         combo.blockSignals(False)
         self._update_profile_fields(combo.currentText())
 
@@ -2093,7 +2093,7 @@ class AirfoilTab(QWidget):
             QMessageBox.warning(self, "No geometry", "Generate or import the profile geometry (block 'f') first.")
             return
         if self._ext_worker is not None:
-            return  # já rodando
+            return  # already running
         try:
             reynolds_list = [float(v) for v in self.re_list_edit.text().split(",") if v.strip()]
             mach_list = [float(v) for v in self.mach_list_edit.text().split(",") if v.strip()]
@@ -2255,9 +2255,9 @@ class AirfoilTab(QWidget):
         # A list that came WITH the project counts as user choice: it was
         # saved on purpose, and rewriting it because the radius changed would
         # erase their data. Only the EMPTY list stays open to automatic
-        # suggestion (see `_resugerir_re_mach`, called at the end of
+        # suggestion (see `_re_suggest_re_mach`, called at the end of
         # loading). The "Suggest from rotor" button ignores this mark.
-        self._re_mach_editados_pelo_usuario = bool(
+        self._re_mach_user_edited = bool(
             a.external_reynolds_list or a.external_mach_list)
         self.ext_alpha_min.setValue(a.external_alpha_min_deg)
         self.ext_alpha_max.setValue(a.external_alpha_max_deg)
@@ -2265,7 +2265,7 @@ class AirfoilTab(QWidget):
         self._imported_slices = list(a.table_slices)
         self._populate_slices_list()
         self._profile = a.geometry
-        self._sincronizar_fonte_de_perfil(a.geometry)
+        self._sync_profile_source(a.geometry)
 
     def _refresh_from_project(self):
         if self.state.project is None:
@@ -2284,7 +2284,7 @@ class AirfoilTab(QWidget):
         # never happens (the project already enters it). Here it runs after
         # loading -- and only when the fields are empty, because a list from
         # the project counts as user choice (see `_load_form_from_airfoil_def`).
-        self._resugerir_re_mach()
+        self._re_suggest_re_mach()
         # The preview does NOT redraw on its own here: `_loading` silences
         # precisely the field-change signals that would schedule it. Without
         # this line, opening a project would repopulate the form but leave the

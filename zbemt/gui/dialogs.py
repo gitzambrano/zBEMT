@@ -22,19 +22,19 @@ from ..models import RotorGeometryDef
 from .common import show_error
 
 
-def ajustar_largura_de_combo(combo: QComboBox, folga: int = 28) -> int:
+def adjust_combo_width(combo: QComboBox, padding: int = 28) -> int:
     """Makes the combo -- and especially its POPUP -- fit the widest item.
 
     Without this Qt sizes the dropdown by the width of the combo itself
     (which QFormLayout squeezes), and options appear cut off or elided with
-    "…": the user opens the dropdown and can't read the alternatives.
+    "…": the user opens the dropdown and cannot read the alternatives.
     Returns the calculated width (in px) for whoever wants to reuse it."""
     if combo.count() == 0:
         return 0
     fm = combo.fontMetrics()
-    largura = max(fm.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
-    barra = combo.style().pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent)
-    total = largura + barra + folga
+    width = max(fm.horizontalAdvance(combo.itemText(i)) for i in range(combo.count()))
+    scrollbar_w = combo.style().pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent)
+    total = width + scrollbar_w + padding
     combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
     combo.setMinimumWidth(total)
     view = combo.view()
@@ -47,16 +47,16 @@ def ajustar_largura_de_combo(combo: QComboBox, folga: int = 28) -> int:
         view.setMinimumSize(view.minimumSize().expandedTo(combo.sizeHint()))
         # HEIGHT: Qt sizes the popup from the view's own frame, which loses
         # a couple of px to the QSS border set on QComboBox QAbstractItemView
-        # (styles.py) -- with few items (e.g. 3) that is enough to make the
+        # (styles.py) -- with few items (for example, 3) that is enough to make the
         # LAST row render partially cut off and a scroll indicator appear,
         # even though the popup has plenty of room to just show every item.
         # Seen on screen: "Type:" (rectangular/tapered/elliptic) in the
         # radial-table generator dialog. Summing each row's own sizeHint
         # (not a flat estimate) and padding it covers custom per-row
         # heights too.
-        altura_linhas = sum(max(view.sizeHintForRow(i), 0) for i in range(combo.count()))
-        moldura = 2 * view.frameWidth() + 8
-        view.setMinimumHeight(altura_linhas + moldura)
+        rows_height = sum(max(view.sizeHintForRow(i), 0) for i in range(combo.count()))
+        frame_margin = 2 * view.frameWidth() + 8
+        view.setMinimumHeight(rows_height + frame_margin)
     return total
 
 
@@ -109,7 +109,7 @@ class GeometryGeneratorDialog(QDialog):
         self.kind_combo.addItems(["rectangular", "tapered", "elliptic"])
         self.kind_combo.setToolTip('"kind" — chord distribution type along the radius')
         self.kind_combo.currentTextChanged.connect(self._update_kind_fields)
-        ajustar_largura_de_combo(self.kind_combo)
+        adjust_combo_width(self.kind_combo)
         form.addRow("Type:", self.kind_combo)
 
         self.root_cutout = QDoubleSpinBox(); self.root_cutout.setRange(0.0, 0.9)
@@ -145,12 +145,12 @@ class GeometryGeneratorDialog(QDialog):
         # the others in real time (all linked to `_on_param_changed`).
         self.solidity = QDoubleSpinBox(); self.solidity.setRange(0.0001, 2.0)
         self.solidity.setDecimals(4); self.solidity.setSingleStep(0.005)
-        self.solidity.setToolTip('"solidity" — σ = Nb·S_blade/(π·R²), blade area fraction of the disk; '
-                                  'alternate way to set the chord fields above (they stay linked)')
+        self.solidity.setToolTip('"solidity" — σ = Nb·S_blade/(π·R²), blade area fraction of the disk. '
+                                  'Alternate way to set the chord fields above (they stay linked)')
         self.aspect_ratio = QDoubleSpinBox(); self.aspect_ratio.setRange(0.1, 1000.0)
         self.aspect_ratio.setDecimals(2); self.aspect_ratio.setSingleStep(0.5)
-        self.aspect_ratio.setToolTip('"aspect_ratio" — AR = R²/S_blade, blade planform aspect ratio; '
-                                      'alternate way to set the chord fields above (they stay linked)')
+        self.aspect_ratio.setToolTip('"aspect_ratio" — AR = R²/S_blade, blade planform aspect ratio. '
+                                      'Alternate way to set the chord fields above (they stay linked)')
         form.addRow("Solidity σ:", self.solidity)
         form.addRow("Blade aspect ratio:", self.aspect_ratio)
 
@@ -166,24 +166,24 @@ class GeometryGeneratorDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-        # `garantir_botoes_legiveis` is applied by TAB in `app.MainWindow`;
+        # `ensure_button_legibility` is applied by TAB in `app.MainWindow`;
         # a dialog is its own window and never went through there, so
         # "Generate and replace table" stayed elided by `QDialogButtonBox`,
         # which splits the width among buttons.
-        from .common import garantir_botoes_legiveis, alinhar_rotulos_de_formulario
-        garantir_botoes_legiveis(self)
+        from .common import ensure_button_legibility, align_form_labels
+        ensure_button_legibility(self)
         # Same reason: label alignment is a window policy and the dialog
         # does not go through the tab scan -- without this labels are
         # justified right and initials misalign.
-        alinhar_rotulos_de_formulario(self)
+        align_form_labels(self)
         # Besides fitting, this is the dialog's main button; a larger width
         # makes the entire action readable even with high screen scaling.
         btn_ok.setMinimumWidth(max(btn_ok.minimumWidth(), 330))
         # QDialogButtonBox redistributes available width among buttons;
         # the isolated button's floor does not prevent text from being elided
         # when the box itself becomes narrow.
-        largura_botoes = sum(b.minimumWidth() for b in buttons.buttons()) + 32
-        buttons.setMinimumWidth(largura_botoes)
+        buttons_width = sum(b.minimumWidth() for b in buttons.buttons()) + 32
+        buttons.setMinimumWidth(buttons_width)
         # And the dialog needs to be wide enough from birth to fit the button
         # row already with this floor -- otherwise the text fits in the button,
         # but the button doesn't fit in the window.
@@ -200,7 +200,7 @@ class GeometryGeneratorDialog(QDialog):
         self.aspect_ratio.valueChanged.connect(lambda _v: self._on_param_changed("aspect_ratio"))
         self.kind_combo.currentTextChanged.connect(lambda _k: self._on_param_changed("kind"))
         # Number of blades enters σ = Nb·S/π: changing blades must move solidity
-        # (and AR stays the same, because it's per-blade) at the same time.
+        # (and AR stays the same, because it is per-blade) at the same time.
         self.n_blades.valueChanged.connect(lambda _v: self._on_param_changed("n_blades"))
 
         self._update_kind_fields(self.kind_combo.currentText())
@@ -208,14 +208,14 @@ class GeometryGeneratorDialog(QDialog):
         # The window is created outside the main tabs; so the application's
         # global help installation doesn't reach its fields. Equip here
         # the documented labels with the same contextual popup as the interface.
-        from .field_help import instalar_popups_de_campo
-        instalar_popups_de_campo(self)
+        from .field_help import install_field_popups
+        install_field_popups(self)
 
-    def _label_atual(self, campo_widget) -> QWidget:
-        """Returns whatever widget currently sits in `campo_widget`'s row,
+    def _current_label(self, field_widget) -> QWidget:
+        """Returns whatever widget currently sits in `field_widget`'s row,
         LabelRole -- NOT `self.chord_a_label`/`self.chord_b_label`.
 
-        `instalar_popups_de_campo` (called at the end of `__init__`)
+        `install_field_popups` (called at the end of `__init__`)
         replaces every field's label QLabel with a clickable QToolButton
         (`field_help._label_clicavel`), inserted via `form.setWidget(...)`.
         That leaves `self.chord_a_label`/`self.chord_b_label` pointing at
@@ -224,24 +224,24 @@ class GeometryGeneratorDialog(QDialog):
         Looking the label up by the (never-replaced) FIELD widget's row,
         every time, is what survives the swap.
         """
-        row, _role = self._form.getWidgetPosition(campo_widget)
+        row, _role = self._form.getWidgetPosition(field_widget)
         item = self._form.itemAt(row, QFormLayout.ItemRole.LabelRole)
-        return item.widget() if item is not None else campo_widget
+        return item.widget() if item is not None else field_widget
 
     def _update_kind_fields(self, kind: str):
-        from .common import definir_linha_visivel
-        label_a = self._label_atual(self.chord_a)
-        label_b = self._label_atual(self.chord_b)
+        from .common import set_row_visible
+        label_a = self._current_label(self.chord_a)
+        label_b = self._current_label(self.chord_b)
         if kind == "rectangular":
             label_a.setText("Chord (c/R):")
-            definir_linha_visivel(self._form, self.chord_b, False)
+            set_row_visible(self._form, self.chord_b, False)
         elif kind == "elliptic":
             label_a.setText("Max chord (c/R):")
-            definir_linha_visivel(self._form, self.chord_b, False)
+            set_row_visible(self._form, self.chord_b, False)
         else:  # tapered
             label_a.setText("Root chord (c/R):")
             label_b.setText("Tip chord (c/R):")
-            definir_linha_visivel(self._form, self.chord_b, True)
+            set_row_visible(self._form, self.chord_b, True)
 
     def _blade_area_norm(self, kind: str, chord_a: float, chord_b: float, root_cutout: float) -> float:
         """Single blade area normalized by R² (S_blade/R²), integrating

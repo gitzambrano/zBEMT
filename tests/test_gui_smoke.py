@@ -273,7 +273,7 @@ class TestResultsHistory(unittest.TestCase):
             item = tab.mode_list.item(i)
             self.assertTrue(
                 bool(item.flags() & _Qt.ItemFlag.ItemIsEnabled),
-                f"modo '{item.text()}' desabilitado com 2 resultados marcados")
+                f"mode '{item.text()}' disabled with 2 results checked")
         # And the condition selector now offers both conditions from the
         # batch plus the standalone case.
         self.assertGreaterEqual(tab.condition_combo.count(), 2)
@@ -405,20 +405,20 @@ class TestAirfoilPreviewCanvas(unittest.TestCase):
         projeto.airfoil = _AirfoilDef(name="linear one", source="analytical",
                                       stall_model="linear", extend_full_range=False)
         state.set_project(projeto)
-        titulo_inicial = tab.cl_alpha_canvas.use_simple().ax.get_title()
-        self.assertIn("linear", titulo_inicial)
+        initial_title = tab.cl_alpha_canvas.use_simple().ax.get_title()
+        self.assertIn("linear", initial_title)
 
         outro = _make_project()
         outro.airfoil = _AirfoilDef(name="viterna one", source="analytical",
                                     stall_model="viterna", extend_full_range=True)
         state.set_project(outro)
 
-        titulo = tab.cl_alpha_canvas.use_simple().ax.get_title()
-        self.assertIn("viterna", titulo,
+        title = tab.cl_alpha_canvas.use_simple().ax.get_title()
+        self.assertIn("viterna", title,
                       "the preview kept showing the previous airfoil")
-        self.assertIn("full range", titulo)
+        self.assertIn("full range", title)
 
-    def test_curvas_coincidentes_viram_uma_entrada_de_legenda(self):
+    def test_coincident_curves_become_one_legend_entry(self):
         """Real bug, seen on screen: the Cl×α preview legend listed six
         entries with four curves drawn.
 
@@ -434,21 +434,21 @@ class TestAirfoilPreviewCanvas(unittest.TestCase):
 
         a = [-5.0, 0.0, 5.0]
         base = dict(alpha_deg=a, cl=[-0.5, 0.0, 0.5], cd=[0.02, 0.01, 0.02])
-        outra = dict(alpha_deg=a, cl=[-0.6, 0.0, 0.6], cd=[0.02, 0.01, 0.02])
-        curvas = [dict(base, label="SC1095"),
+        other = dict(alpha_deg=a, cl=[-0.6, 0.0, 0.6], cd=[0.02, 0.01, 0.02])
+        curves = [dict(base, label="SC1095"),
                   dict(base, label="reverse flow (viterna_full_range)"),
                   dict(base, label="M=0.00"),
-                  dict(outra, label="M=0.30 (P-G)")]
+                  dict(other, label="M=0.30 (P-G)")]
 
-        unidas = _unir_curvas_coincidentes(curvas)
+        merged = _unir_curvas_coincidentes(curves)
 
-        self.assertEqual(len(unidas), 2,
-                         "uma entrada de legenda por linha efetivamente desenhada")
+        self.assertEqual(len(merged), 2,
+                         "one legend entry per actually drawn line")
         self.assertEqual(
-            unidas[0]["label"],
+            merged[0]["label"],
             "SC1095 = reverse flow (viterna_full_range) = M=0.00",
             "the merged label must say WHICH conditions fall on the curve")
-        self.assertEqual(unidas[1]["label"], "M=0.30 (P-G)")
+        self.assertEqual(merged[1]["label"], "M=0.30 (P-G)")
 
     def test_navigator_appears_only_for_axes_with_2plus_values(self):
         from zbemt.models import PolarSlice
@@ -484,18 +484,18 @@ class TestAirfoilPreviewCanvas(unittest.TestCase):
         combo.setCurrentIndex(2)   # r/R = 0.8
         self.assertEqual(tab._nav_selection["r_norm"], 0.8)
 
-        tab.preview_tabs.setCurrentIndex(3)   # aba "Perfil" (4ª mini-aba, após Cl x alpha/Cd x alpha/Cd x Cl)
+        tab.preview_tabs.setCurrentIndex(3)   # "Profile" tab (4th mini-tab, after Cl x alpha/Cd x alpha/Cd x Cl)
         tab._refresh_preview()
-        self.assertEqual(tab._nav_selection["r_norm"], 0.8)   # estado preservado
+        self.assertEqual(tab._nav_selection["r_norm"], 0.8)   # state preserved
 
-        tab.preview_tabs.setCurrentIndex(0)   # volta para "Cl x alpha"
+        tab.preview_tabs.setCurrentIndex(0)   # back to "Cl x alpha"
         tab._refresh_preview()
         self.assertEqual(tab._nav_selection["r_norm"], 0.8)
 
     def test_preview_has_four_mini_tabs_in_order(self):
-        """docs/plano_v3.md Parte 7, itens 4/5: Cl x alpha, Cd x alpha,
-        Cd x Cl (plots separados, com zoom) + Perfil (geometria 2D) como
-        4ª aba, nessa ordem."""
+        """docs/plano_v3.md Part 7, items 4/5: Cl x alpha, Cd x alpha,
+        Cd x Cl (separate plots, with zoom) + Profile (2D geometry) as
+        the 4th tab, in that order."""
         state = self.gui.AppState()
         tab = self.gui.AirfoilTab(state)
         names = [tab.preview_tabs.tabText(i) for i in range(tab.preview_tabs.count())]
@@ -563,7 +563,7 @@ class TestGeometryPreviewCanvas(unittest.TestCase):
         # the project dirty until "Save project".
         self.assertTrue(tab._dirty)
         self.assertAlmostEqual(state.project.geometry.chord_norm[1], 0.3, places=6)
-        # canvas "Vista de cima" desenhou algo (>=1 linha no ax único)
+        # canvas "Top View" drew something (>=1 line in the single ax)
         tab._refresh_preview()
         self.assertGreaterEqual(len(tab.planform_canvas.simple.ax.get_lines()), 1)
 
@@ -736,7 +736,7 @@ class TestInflowCouplingComboRemoved(unittest.TestCase):
     def test_loading_legacy_global_field_model_falls_back_to_local(self):
         state = self.gui.AppState()
         tab = self.gui.ConfigMotorTab(state)
-        with helpers.patch_em_toda_gui("QMessageBox"):
+        with helpers.patch_message_box_everywhere("QMessageBox"):
             tab._set_inflow_widgets_from_field_model("drees_global")
         self.assertEqual(tab.cfg_inflow_family.currentText(), "drees")
         self.assertEqual(tab._inflow_field_model_from_widgets(), "drees_local")
@@ -825,9 +825,9 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
         state = self.gui.AppState()
         tab = self.gui.AirfoilTab(state)
         with unittest.mock.patch.dict(
-                common.PACOTES_OPCIONAIS,
+                common.OPTIONAL_PACKAGES,
                 {"inexistente": ("modulo_que_nao_existe_zbemt", "pip install foo", "a thing")}):
-            with helpers.patch_em_toda_gui("QMessageBox") as mb:
+            with helpers.patch_message_box_everywhere("QMessageBox") as mb:
                 ok = common.require_optional_package(tab, "inexistente")
         self.assertFalse(ok)
         mb.information.assert_called_once()
@@ -839,9 +839,9 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
         state = self.gui.AppState()
         tab = self.gui.AirfoilTab(state)
         with unittest.mock.patch.dict(
-                common.PACOTES_OPCIONAIS,
+                common.OPTIONAL_PACKAGES,
                 {"presente": ("json", "pip install json", "a thing")}):
-            with helpers.patch_em_toda_gui("QMessageBox") as mb:
+            with helpers.patch_message_box_everywhere("QMessageBox") as mb:
                 ok = common.require_optional_package(tab, "presente")
         self.assertTrue(ok)
         mb.information.assert_not_called()
@@ -886,7 +886,7 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
         # never comes, hanging the test indefinitely; mocked as in
         # other tests in this file (see test_..._warning above).
         with unittest.mock.patch("zbemt.external_solvers.run_polar", side_effect=fake_run_polar), \
-             helpers.patch_em_toda_gui("QMessageBox"):
+             helpers.patch_message_box_everywhere("QMessageBox"):
             tab._run_external()
             self.assertIsNotNone(tab._ext_worker, "worker deveria ter sido despachado")
 

@@ -25,10 +25,10 @@ from .common import open_help
 
 
 #: Space between paragraphs, in pixels.
-_ESPACO_ENTRE_PARAGRAFOS = 6
+_PARAGRAPH_SPACING = 6
 
 
-def em_paragrafos(texto: str) -> str:
+def in_paragraphs(text: str) -> str:
     """Converts the double line breaks in the help text into real
     PARAGRAPHS.
 
@@ -42,61 +42,61 @@ def em_paragrafos(texto: str) -> str:
     line marks a paragraph. Text without a double break passes through
     intact, without gaining a `<p>` -- the `<p>` adds margin, and in a
     one-line text that would only push neighboring fields apart."""
-    if not texto:
+    if not text:
         return ""
-    partes = [p.strip() for p in re.split(r"\n[ \t]*\n", texto) if p.strip()]
-    if len(partes) <= 1:
-        return texto
+    parts = [p.strip() for p in re.split(r"\n[ \t]*\n", text) if p.strip()]
+    if len(parts) <= 1:
+        return text
     return "".join(
-        f'<p style="margin:0 0 {_ESPACO_ENTRE_PARAGRAFOS}px 0">{p}</p>'
-        for p in partes)
+        f'<p style="margin:0 0 {_PARAGRAPH_SPACING}px 0">{p}</p>'
+        for p in parts)
 
 # Fixed popup width in pixels. A larger width reduces unnecessary line
 # breaks and lowers the popup's total height.
 #
 # This value NEVER had a real effect until this session: `_scroll` (the
 # body's QScrollArea) had no width of its own fixed, and since `outer`
-# uses SetFixedSize, it was QScrollArea's small, fixed sizeHint (~256px)
+# uses SetFixedSize, it was QScrollArea's small, fixed sizeHint of about 256px
 # that decided the popup's real width, not this constant -- see the
-# comment in `_posicionar`. The popup always rendered much narrower than
+# comment in `_position`. The popup always rendered much narrower than
 # the design value (which is why the minimum-width test never caught the
 # regression: it only read the CONSTANT, not the real screen width).
-# With `_posicionar` fixed (`self._scroll.setFixedWidth(...)`), the value
+# With `_position` fixed (`self._scroll.setFixedWidth(...)`), the value
 # started to take effect for the first time -- and 1285 (the original
 # number) turned out too wide on a real screen. 560 -> 504 (-10%), at the
 # user's request after seeing the popup at its real width for the first
 # time.
-_LARGURA = 504
+_WIDTH = 504
 # Minimum margin from the screen edge
-_MARGEM_BORDA = 12
+_SCREEN_MARGIN = 12
 #: Gap between the body's last line and the footer separator, in px.
 #: Zero leaves the text touching the rule; the value equals about one
 #: line of text -- it is breathing room, not the two-or-three-line empty
 #: band that the `sizeHint()` calculation used to produce (see
-#: `_posicionar`).
-_RESPIRO_NO_FIM = 10
+#: `_position`).
+_BOTTOM_BREATHING_ROOM = 10
 #: Font size of the rendered equation, in points (aligns with the text
 #: font). An attempt to raise it to 10.5 (matplotlib's mathtext has a
 #: cap-height/nominal size a bit smaller than Qt's font, so "10pt" on
 #: both back-ends does not produce the same x-height in pixels) caused a
 #: worse problem: the equation image is not resized to fit the popup's
-#: width (`_adicionar_equacao` only uses the pixmap at its rendered
+#: width (`_add_equation` only uses the pixmap at its rendered
 #: size), so the widest equation in the file started getting cut off at
 #: the popup's right edge -- the requirement "never cut off an equation"
 #: outweighs matching the surrounding text's size exactly. Reverted to
 #: the original value.
-_PONTOS_EQUACAO = 9.5
+_EQUATION_FONT_POINTS = 9.5
 
 
-def _cache_de_equacoes() -> dict:
-    """Pixmap cache keyed by (latex, dpr) -- rendering with mathtext costs
+def _equation_cache() -> dict:
+    """Pixmap cache keyed by (latex, dpr): rendering with mathtext costs
     a few milliseconds and the same popup reopens many times."""
-    if not hasattr(_cache_de_equacoes, "_d"):
-        _cache_de_equacoes._d = {}
-    return _cache_de_equacoes._d
+    if not hasattr(_equation_cache, "_d"):
+        _equation_cache._d = {}
+    return _equation_cache._d
 
 
-def renderizar_equacao(latex: str, dpr: float | None = None):
+def render_equation(latex: str, dpr: float | None = None):
     """LaTeX -> QPixmap via matplotlib's mathtext.
 
     The popup used to show the equation as `<code>` -- raw text, with the
@@ -107,7 +107,7 @@ def renderizar_equacao(latex: str, dpr: float | None = None):
     dependency.
 
     Returns ``None`` when there is no matplotlib or when mathtext rejects
-    the expression -- the caller falls back to plain text. Never raises:
+    the expression. The caller falls back to plain text. Never raises:
     a malformed equation in `help_content` must not bring down the help.
     """
     if not latex:
@@ -115,18 +115,18 @@ def renderizar_equacao(latex: str, dpr: float | None = None):
     # Not every `help_content` entry is an equation: some are prose
     # ("origin ∈ {preset, import, manual} (metadata only)"). mathtext
     # ACCEPTS prose and returns an italic with the spaces collapsed
-    # ("origin∈preset, import, manual(metadataonly)") -- worse than plain
-    # text. Every real expression carries at least one LaTeX command;
+    # ("origin∈preset, import, manual(metadataonly)"), which is worse
+    # than plain text. Every real expression carries at least one LaTeX command;
     # without a backslash, it is prose and goes down the text path.
     if "\\" not in latex and "_" not in latex and "^" not in latex:
         return None
     if dpr is None:
-        tela = QApplication.primaryScreen()
-        dpr = tela.devicePixelRatio() if tela else 1.0
-    chave = (latex, round(float(dpr), 2))
-    cache = _cache_de_equacoes()
-    if chave in cache:
-        return cache[chave]
+        screen = QApplication.primaryScreen()
+        dpr = screen.devicePixelRatio() if screen else 1.0
+    key = (latex, round(float(dpr), 2))
+    cache = _equation_cache()
+    if key in cache:
+        return cache[key]
 
     pixmap = None
     try:
@@ -139,31 +139,31 @@ def renderizar_equacao(latex: str, dpr: float | None = None):
 
         from PyQt6.QtGui import QImage, QPixmap
 
-        expressao = latex if latex.strip().startswith("$") else f"${latex}$"
+        expression = latex if latex.strip().startswith("$") else f"${latex}$"
         fig = _figure.Figure(figsize=(0.01, 0.01))
         fig.patch.set_alpha(0.0)
         FigureCanvasAgg(fig)
-        texto = fig.text(0, 0, expressao, fontsize=_PONTOS_EQUACAO, color="#1a2030")
+        text = fig.text(0, 0, expression, fontsize=_EQUATION_FONT_POINTS, color="#1a2030")
         buf = io.BytesIO()
         # `bbox_inches="tight"` with a small pad crops the figure to the
         # exact rectangle of the text -- without it the whole figure's
         # slack remains.
         fig.savefig(buf, format="png", dpi=96 * dpr, transparent=True,
                     bbox_inches="tight", pad_inches=0.02)
-        del texto
+        del text
         buf.seek(0)
-        imagem = QImage.fromData(buf.getvalue(), "PNG")
-        if not imagem.isNull():
-            imagem.setDevicePixelRatio(dpr)
-            pixmap = QPixmap.fromImage(imagem)
+        image = QImage.fromData(buf.getvalue(), "PNG")
+        if not image.isNull():
+            image.setDevicePixelRatio(dpr)
+            pixmap = QPixmap.fromImage(image)
     except Exception:
         pixmap = None
 
-    cache[chave] = pixmap
+    cache[key] = pixmap
     return pixmap
 
 
-class _FiltroFechamento(QObject):
+class _CloseFilter(QObject):
     """Application-installed event filter: closes the popup on the first
     click outside it."""
 
@@ -184,7 +184,7 @@ class _FiltroFechamento(QObject):
                     else QPoint(-9999, -9999)
                 )
             ):
-                self._popup.fechar()
+                self._popup.close_popup()
         return False
 
 
@@ -192,32 +192,32 @@ class HelpPopup(QFrame):
     """Frameless popup with contextual help for a field or a block.
 
     Usage:
-        popup = HelpPopup.instancia(janela_pai)
-        popup.mostrar_campo("n_blades", referencia_widget)
-        popup.mostrar_bloco("aerodynamic_model", referencia_widget)
+        popup = HelpPopup.instance(parent_window)
+        popup.show_field("n_blades", reference_widget)
+        popup.show_block("aerodynamic_model", reference_widget)
     """
 
     # Singleton per root window
-    _instancias: dict[int, "HelpPopup"] = {}
+    _instances: dict[int, "HelpPopup"] = {}
 
     @classmethod
-    def instancia(cls, pai: QWidget) -> "HelpPopup":
-        raiz = pai.window()
-        chave = id(raiz)
-        if chave not in cls._instancias:
-            cls._instancias[chave] = cls(raiz)
-        return cls._instancias[chave]
+    def instance(cls, parent: QWidget) -> "HelpPopup":
+        root = parent.window()
+        key = id(root)
+        if key not in cls._instances:
+            cls._instances[key] = cls(root)
+        return cls._instances[key]
 
-    def __init__(self, pai: QWidget):
-        super().__init__(pai, Qt.WindowType.ToolTip)
+    def __init__(self, parent: QWidget):
+        super().__init__(parent, Qt.WindowType.ToolTip)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setFrameShadow(QFrame.Shadow.Raised)
-        self.setFixedWidth(_LARGURA)
+        self.setFixedWidth(_WIDTH)
         self.setStyleSheet(
             "HelpPopup { background: #fefefe; border: 1px solid #c0c8d8;"
             " border-radius: 6px; }"
         )
-        self._filtro: _FiltroFechamento | None = None
+        self._close_filter: _CloseFilter | None = None
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(12, 10, 12, 10)
@@ -232,17 +232,17 @@ class HelpPopup(QFrame):
         # grow and it absorbed all the slack left over from the body
         # (just removed, with sizeHint still stale), showing up as a huge
         # empty band above and below the text.
-        self._lbl_titulo = QLabel()
-        fonte_titulo = QFont()
-        fonte_titulo.setBold(True)
-        fonte_titulo.setPointSize(10)
-        self._lbl_titulo.setFont(fonte_titulo)
-        self._lbl_titulo.setWordWrap(True)
-        self._lbl_titulo.setSizePolicy(QSizePolicy.Policy.Preferred,
+        self._title_label = QLabel()
+        title_font = QFont()
+        title_font.setBold(True)
+        title_font.setPointSize(10)
+        self._title_label.setFont(title_font)
+        self._title_label.setWordWrap(True)
+        self._title_label.setSizePolicy(QSizePolicy.Policy.Preferred,
                                        QSizePolicy.Policy.Fixed)
-        self._lbl_titulo.setAlignment(Qt.AlignmentFlag.AlignLeft
+        self._title_label.setAlignment(Qt.AlignmentFlag.AlignLeft
                                       | Qt.AlignmentFlag.AlignTop)
-        outer.addWidget(self._lbl_titulo, 0)
+        outer.addWidget(self._title_label, 0)
 
         # Separator
         sep1 = QFrame(); sep1.setFrameShape(QFrame.Shape.HLine)
@@ -250,13 +250,13 @@ class HelpPopup(QFrame):
         outer.addWidget(sep1)
 
         # Body (content rows assembled dynamically).
-        self._corpo_widget = QWidget()
-        self._corpo = QVBoxLayout(self._corpo_widget)
-        self._corpo.setContentsMargins(0, 0, 0, 0)
-        self._corpo.setSpacing(5)
-        self._corpo.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._body_widget = QWidget()
+        self._body_layout = QVBoxLayout(self._body_widget)
+        self._body_layout.setContentsMargins(0, 0, 0, 0)
+        self._body_layout.setSpacing(5)
+        self._body_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._scroll = QScrollArea()
-        self._scroll.setWidget(self._corpo_widget)
+        self._scroll.setWidget(self._body_widget)
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -264,7 +264,7 @@ class HelpPopup(QFrame):
                                    QSizePolicy.Policy.Preferred)
         self._scroll.setMinimumHeight(0)
         # The definitive limit is recomputed for each monitor's screen in
-        # `_posicionar`; this initial value avoids a short window before
+        # `_position`; this initial value avoids a short window before
         # the first positioning.
         self._scroll.setMaximumHeight(1000)
         outer.addWidget(self._scroll, 1)
@@ -282,87 +282,87 @@ class HelpPopup(QFrame):
             "QPushButton:hover { text-decoration: underline; }"
         )
         self._btn_doc.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._ancora_atual: str | None = None
-        self._btn_doc.clicked.connect(self._abrir_doc)
+        self._current_anchor: str | None = None
+        self._btn_doc.clicked.connect(self._open_docs)
         outer.addWidget(self._btn_doc)
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def mostrar_campo(self, campo: str, perto_de: QWidget) -> None:
+    def show_field(self, field: str, near: QWidget) -> None:
         """Shows a popup with the field's information (from
         `help_content.FIELD_HELP`)."""
         from .. import api
         from . import help_content
-        from .field_help import ancora_do_campo
-        dados = help_content.FIELD_HELP.get(campo)
-        if not dados:
+        from .field_help import field_anchor
+        data = help_content.FIELD_HELP.get(field)
+        if not data:
             return
         # The anchor is DERIVED from the documentation (physics section
         # that explains the field); `FIELD_HELP["anchor"]` is just a
         # fallback — it points to the field table row, which is the
         # "generic box" the user complained about.
-        self._ancora_atual = ancora_do_campo(campo) or dados.get("anchor")
-        self._lbl_titulo.setText(api._descricao_com_simbolos(dados.get("title", campo)))
-        self._limpar_corpo()
+        self._current_anchor = field_anchor(field) or data.get("anchor")
+        self._title_label.setText(api._description_with_symbols(data.get("title", field)))
+        self._clear_body()
 
-        self._adicionar_linha(dados.get("definition", ""))
+        self._add_line(data.get("definition", ""))
 
-        if dados.get("unit"):
-            self._adicionar_par("Unit", dados["unit"])
-        if dados.get("equation"):
-            self._adicionar_equacao(dados["equation"])
-        if dados.get("effect"):
-            self._adicionar_par("Effect", dados["effect"])
-        if dados.get("range"):
-            self._adicionar_par("Typical range", dados["range"])
+        if data.get("unit"):
+            self._add_pair("Unit", data["unit"])
+        if data.get("equation"):
+            self._add_equation(data["equation"])
+        if data.get("effect"):
+            self._add_pair("Effect", data["effect"])
+        if data.get("range"):
+            self._add_pair("Typical range", data["range"])
 
         # Enum options: each option as a bullet
-        options = dados.get("options")
+        options = data.get("options")
         if options:
-            self._adicionar_linha("<b>Options:</b>")
-            for chave, desc in options.items():
-                self._adicionar_linha(f"  <b>{chave}</b> — {desc}", indent=8)
+            self._add_line("<b>Options:</b>")
+            for key, desc in options.items():
+                self._add_line(f"  <b>{key}</b> — {desc}", indent=8)
 
-        self._posicionar(perto_de)
-        self._instalar_filtro()
+        self._position(near)
+        self._install_filter()
         self.show()
 
-    def mostrar_bloco(self, bloco: str, perto_de: QWidget) -> None:
+    def show_block(self, block: str, near: QWidget) -> None:
         """Shows a popup with the conceptual explanation of a block (from
         `help_blocks.BLOCK_HELP`)."""
         from .. import api
         from . import help_blocks
-        dados = help_blocks.BLOCK_HELP.get(bloco)
-        if not dados:
+        data = help_blocks.BLOCK_HELP.get(block)
+        if not data:
             return
-        self._ancora_atual = dados.get("anchor")
-        self._lbl_titulo.setText(api._descricao_com_simbolos(dados.get("title", bloco)))
-        self._limpar_corpo()
+        self._current_anchor = data.get("anchor")
+        self._title_label.setText(api._description_with_symbols(data.get("title", block)))
+        self._clear_body()
 
-        for paragrafo in dados.get("body", []):
-            self._adicionar_linha(paragrafo)
+        for paragraph in data.get("body", []):
+            self._add_line(paragraph)
 
-        self.setFixedWidth(max(_LARGURA, 500))
-        self._posicionar(perto_de)
-        self._instalar_filtro()
+        self.setFixedWidth(max(_WIDTH, 500))
+        self._position(near)
+        self._install_filter()
         self.show()
 
-    def fechar(self) -> None:
+    def close_popup(self) -> None:
         try:
             self.hide()
-            self.setFixedWidth(_LARGURA)  # reset for field (block may have widened it)
+            self.setFixedWidth(_WIDTH)  # reset for field (block may have widened it)
         except RuntimeError:
             pass  # widget destroyed by Qt — nothing to do
-        if self._filtro:
+        if self._close_filter:
             app = QApplication.instance()
             if app:
                 try:
-                    app.removeEventFilter(self._filtro)
+                    app.removeEventFilter(self._close_filter)
                 except RuntimeError:
                     pass
-            self._filtro = None
+            self._close_filter = None
 
     # ------------------------------------------------------------------
     # Escape key
@@ -370,7 +370,7 @@ class HelpPopup(QFrame):
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Escape:
-            self.fechar()
+            self.close_popup()
         else:
             super().keyPressEvent(event)
 
@@ -378,10 +378,10 @@ class HelpPopup(QFrame):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _limpar_corpo(self) -> None:
+    def _clear_body(self) -> None:
         """Empties the body NOW, not on the next event cycle."""
-        while self._corpo.count():
-            item = self._corpo.takeAt(0)
+        while self._body_layout.count():
+            item = self._body_layout.takeAt(0)
             w = item.widget() if item else None
             if w is not None:
                 try:
@@ -391,42 +391,42 @@ class HelpPopup(QFrame):
                 except RuntimeError:
                     pass  # widget already destroyed by Qt
 
-    def _adicionar_linha(self, texto: str, indent: int = 0) -> None:
-        if "$$" in texto:
-            partes = texto.split("$$")
-            for i, parte in enumerate(partes):
-                parte_limpa = parte.strip()
-                if not parte_limpa:
+    def _add_line(self, text: str, indent: int = 0) -> None:
+        if "$$" in text:
+            parts = text.split("$$")
+            for i, parte in enumerate(parts):
+                clean_part = parte.strip()
+                if not clean_part:
                     continue
                 if i % 2 == 1:
                     # LaTeX equation block between $$
-                    self._adicionar_equacao(parte_limpa)
+                    self._add_equation(clean_part)
                 else:
-                    self._adicionar_linha_texto(parte_limpa, indent=indent)
+                    self._add_text_line(clean_part, indent=indent)
         else:
-            self._adicionar_linha_texto(texto, indent=indent)
+            self._add_text_line(text, indent=indent)
 
-    def _adicionar_linha_texto(self, texto: str, indent: int = 0) -> None:
+    def _add_text_line(self, text: str, indent: int = 0) -> None:
         from .. import api
-        lbl = QLabel(em_paragrafos(api._descricao_com_simbolos(texto)))
+        lbl = QLabel(in_paragraphs(api._description_with_symbols(text)))
         lbl.setWordWrap(True)
         lbl.setTextFormat(Qt.TextFormat.RichText)
         lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         if indent:
             lbl.setContentsMargins(indent, 0, 0, 0)
-        self._corpo.addWidget(lbl)
+        self._body_layout.addWidget(lbl)
 
-    def _adicionar_par(self, rotulo: str, valor: str) -> None:
+    def _add_pair(self, label: str, value: str) -> None:
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(6)
         row.setAlignment(Qt.AlignmentFlag.AlignTop)
-        lbl_r = QLabel(f"<b>{rotulo}:</b>")
+        lbl_r = QLabel(f"<b>{label}:</b>")
         lbl_r.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         lbl_r.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         from .. import api
-        lbl_v = QLabel(em_paragrafos(api._descricao_com_simbolos(valor)))
+        lbl_v = QLabel(in_paragraphs(api._description_with_symbols(value)))
         lbl_v.setWordWrap(True)
         lbl_v.setTextFormat(Qt.TextFormat.RichText)
         lbl_v.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -436,11 +436,11 @@ class HelpPopup(QFrame):
         container = QWidget()
         container.setLayout(row)
         container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self._corpo.addWidget(container)
+        self._body_layout.addWidget(container)
 
-    def _adicionar_equacao(self, eq: str) -> None:
+    def _add_equation(self, eq: str) -> None:
         lbl = QLabel()
-        pixmap = renderizar_equacao(eq)
+        pixmap = render_equation(eq)
         if pixmap is not None:
             lbl.setPixmap(pixmap)
             lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
@@ -450,15 +450,15 @@ class HelpPopup(QFrame):
             lbl.setTextFormat(Qt.TextFormat.RichText)
         lbl.setStyleSheet("background: transparent; padding: 1px 0px; margin: 1px 0px;")
         lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self._corpo.addWidget(lbl)
+        self._body_layout.addWidget(lbl)
 
-    def _posicionar(self, ref: QWidget) -> None:
-        """Positions the popup to the right of the reference widget;
-        flips to the left if close to the edge."""
-        janela = ref.window().windowHandle()
-        tela_obj = (janela.screen() if janela is not None else None) \
+    def _position(self, ref: QWidget) -> None:
+        """Positions the popup to the right of the reference widget.
+        Flips to the left if close to the edge."""
+        window = ref.window().windowHandle()
+        screen_obj = (window.screen() if window is not None else None) \
             or QApplication.primaryScreen()
-        tela = tela_obj.availableGeometry()
+        screen = screen_obj.availableGeometry()
 
         # ── Step 1: fix the width ────────────────────────────────────────
         # Must come before any sizeHint query, since the width affects
@@ -470,17 +470,17 @@ class HelpPopup(QFrame):
         # layout is activated (`layout.activate()`, called in Step 2 and
         # Step 4) -- even over an explicit `setFixedWidth()` on the outer
         # widget. And `QScrollArea.sizeHint()` returns a small, fixed
-        # value (~256px) regardless of content -- so the popup's real
-        # width was always that, and `self.setFixedWidth(largura)` alone
-        # never had any effect (which is why raising `_LARGURA` from 1285
+        # value (about 256px) regardless of content -- so the popup's real
+        # width was always that, and `self.setFixedWidth(width)` alone
+        # never had any effect (which is why raising `_WIDTH` from 1285
         # to 2005 changed nothing on screen: the value never even got
         # used). The `_scroll` width needs to be fixed TOO, so that the
         # outer layout's `sizeHint()` -- what `SetFixedSize` actually
         # uses -- is already correct from the start.
-        largura = min(_LARGURA, max(390, tela.width() - 2 * _MARGEM_BORDA))
-        self.setFixedWidth(largura)
-        margens = self.layout().contentsMargins()
-        self._scroll.setFixedWidth(largura - margens.left() - margens.right())
+        width = min(_WIDTH, max(390, screen.width() - 2 * _SCREEN_MARGIN))
+        self.setFixedWidth(width)
+        margins = self.layout().contentsMargins()
+        self._scroll.setFixedWidth(width - margins.left() - margins.right())
 
         # ── Step 2: force layout propagation at the new width ───────────
         layout = self.layout()
@@ -489,11 +489,11 @@ class HelpPopup(QFrame):
             layout.activate()
 
         # ── Step 3: compute the content's real height ────────────────────
-        # QScrollArea.sizeHint() returns a fixed ~256×192 px, regardless
+        # QScrollArea.sizeHint() returns a fixed value of about 256×192 px, regardless
         # of content. The inner widget must be queried directly.
         #
         # `outer.activate()` (step 2) resizes the QScrollArea and, in
-        # turn, the `_corpo_widget` (widgetResizable=True resizes the
+        # turn, the `_body_widget` (widgetResizable=True resizes the
         # inner widget synchronously). But the *layout recalculation* of
         # that widget -- the QLabel line wrapping at the new width, which
         # is what determines each paragraph's real height -- is scheduled
@@ -507,32 +507,32 @@ class HelpPopup(QFrame):
         # The body widgets need to be VISIBLE before measuring. A
         # `QLayoutItem` whose widget is hidden counts as empty, and the
         # layout's `heightForWidth`/`sizeHint` return -1/0 -- the entire
-        # body "measuring zero". Not hypothetical: `_posicionar` runs
-        # BEFORE `self.show()` in `mostrar_bloco`/`mostrar_campo`, and on
-        # popup REOPEN (singleton, already hidden by `fechar()`) the
+        # body "measuring zero". Not hypothetical: `_position` runs
+        # BEFORE `self.show()` in `show_block`/`show_field`, and on
+        # popup REOPEN (singleton, already hidden by `close_popup()`) the
         # freshly-created rows inherited that state. The symptom would be
         # the popup opening at minimum height with all the text behind
         # the scrollbar.
-        for i in range(self._corpo.count()):
-            item = self._corpo.itemAt(i)
+        for i in range(self._body_layout.count()):
+            item = self._body_layout.itemAt(i)
             w = item.widget() if item is not None else None
             if w is not None:
                 w.show()
-        self._corpo.invalidate()
-        self._corpo.activate()
-        max_scroll_h = max(600, tela.height() - 40)
+        self._body_layout.invalidate()
+        self._body_layout.activate()
+        max_scroll_h = max(600, screen.height() - 40)
         # HEIGHT FROM THE REAL WIDTH, not from sizeHint. A `QLabel` with
         # `wordWrap` returns in `sizeHint()` the height of an IDEAL line
         # wrap that Qt picks on its own (close to a square rectangle),
         # not the one for the width the label will actually be drawn at:
         # in the "Dynamic Stall (Øye)" block the first paragraph asks for
         # 154 px of sizeHint against 98 px real at 480 px of width. Added
-        # across the twelve widgets, the body reserved ~790 px for 618 px
+        # across the twelve widgets, the body reserved about 790 px for 618 px
         # of text -- the two-to-three-line empty band left over below
         # EVERY popup. `QBoxLayout.heightForWidth` walks the same items
         # asking for the height AT the given width, which is the correct
         # number. The width comes from the value FIXED in step 1, not
-        # from `_corpo_widget.width()`: the real geometry is only applied
+        # from `_body_widget.width()`: the real geometry is only applied
         # on the next event-loop turn, and reading it here brings in the
         # PREVIOUS popup's width -- the same lag that already forced the
         # `invalidate()/activate()` calls above.
@@ -550,16 +550,16 @@ class HelpPopup(QFrame):
         # underestimates the height by a few dozen pixels in long blocks
         # -- the last line ended up behind the border. The error in the
         # other direction costs a few pixels of slack and hides nothing.
-        barra = self._scroll.verticalScrollBar().sizeHint().width()
-        content_h = self._corpo.heightForWidth(
-            max(120, self._scroll.width() - barra))
+        scrollbar_w = self._scroll.verticalScrollBar().sizeHint().width()
+        content_h = self._body_layout.heightForWidth(
+            max(120, self._scroll.width() - scrollbar_w))
         if content_h <= 0:                       # no item with wordWrap
-            content_h = self._corpo_widget.sizeHint().height()
+            content_h = self._body_widget.sizeHint().height()
         # scroll_h = what the content needs (+ breathing room), capped to screen.
-        scroll_h = min(max(content_h + _RESPIRO_NO_FIM, 40), max_scroll_h)
+        scroll_h = min(max(content_h + _BOTTOM_BREATHING_ROOM, 40), max_scroll_h)
         # `setFixedHeight`, not `setMinimumHeight` + loose maximum: for the
         # same reason as width in step 1, `QScrollArea.sizeHint()` is a
-        # default value (~288 px height) that ignores the content, and the
+        # default value (about 288 px height) that ignores the content, and the
         # external layout's `SetFixedSize` sizes the popup by this sizeHint
         # whenever it is GREATER than the minimum asked for. A short block
         # would then stretch to 288 px, and the difference appeared as an
@@ -576,24 +576,24 @@ class HelpPopup(QFrame):
 
         # ── Step 5: position on screen ────────────────────────────
         pos_global = ref.mapToGlobal(QPoint(ref.width() + 4, 0))
-        if pos_global.x() + self.width() + _MARGEM_BORDA > tela.right():
+        if pos_global.x() + self.width() + _SCREEN_MARGIN > screen.right():
             pos_global = ref.mapToGlobal(QPoint(-self.width() - 4, 0))
-        pos_global.setX(max(tela.left() + _MARGEM_BORDA,
+        pos_global.setX(max(screen.left() + _SCREEN_MARGIN,
                             min(pos_global.x(),
-                                tela.right() - self.width() - _MARGEM_BORDA)))
+                                screen.right() - self.width() - _SCREEN_MARGIN)))
         pos_global.setY(
-            max(tela.top() + _MARGEM_BORDA,
-                min(pos_global.y(), tela.bottom() - self.height() - _MARGEM_BORDA))
+            max(screen.top() + _SCREEN_MARGIN,
+                min(pos_global.y(), screen.bottom() - self.height() - _SCREEN_MARGIN))
         )
         self.move(pos_global)
 
-    def _instalar_filtro(self) -> None:
-        if self._filtro:
-            QApplication.instance().removeEventFilter(self._filtro)
-        self._filtro = _FiltroFechamento(self)
-        QApplication.instance().installEventFilter(self._filtro)
+    def _install_filter(self) -> None:
+        if self._close_filter:
+            QApplication.instance().removeEventFilter(self._close_filter)
+        self._close_filter = _CloseFilter(self)
+        QApplication.instance().installEventFilter(self._close_filter)
 
-    def _abrir_doc(self) -> None:
-        if self._ancora_atual:
-            open_help(self, anchor=self._ancora_atual)
-        self.fechar()
+    def _open_docs(self) -> None:
+        if self._current_anchor:
+            open_help(self, anchor=self._current_anchor)
+        self.close_popup()

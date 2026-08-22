@@ -1,7 +1,7 @@
 """Execution outside the GUI thread.
 
-Every long solve -- batch, factorial analysis, external polar generation
--- runs here, in a ``QThread``, so the window never freezes.
+Every long solve (batch, factorial analysis, external polar generation)
+runs here, in a ``QThread``, so the window never freezes.
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ class BatchRunnerWorker(QObject):
     case_finished = pyqtSignal(int, int, object)
     # list of Results for the successful cases, in order, at the end.
     finished = pyqtSignal(list)
-    # fatal error BEFORE running any case (e.g. invalid sweep_kind,
-    # malformed axis) — unrelated to an individual case failure.
+    # fatal error BEFORE running any case (for example, invalid sweep_kind,
+    # malformed axis). Unrelated to an individual case failure.
     failed = pyqtSignal(str)
 
     def __init__(self, project: Project, *, batch: BatchDefinition | None = None,
@@ -83,16 +83,16 @@ class BatchRunnerWorker(QObject):
 
 class ExternalPolarWorker(QObject):
     """Runs ``api.run_external_polar_from_geometry`` (NeuralFoil) outside
-    the GUI thread -- C4 (production-plan.md): it used to run
+    the GUI thread (C4, production-plan.md). It used to run
     synchronously in ``AirfoilTab._run_external``, freezing the window
     ("Not Responding") for minutes and freezing the GUI test suite along
     with it. Same pattern as ``BatchRunnerWorker``/``launch_worker``
     already used by RunCaseTab/RunBatchTab.
 
     ``external_solvers.run_polar`` exposes no internal checkpoint (it is
-    a single call, not a per-case loop) -- there is no way to interrupt
+    a single call, not a per-case loop). There is no way to interrupt
     NeuralFoil mid-alpha. ``cancel()`` therefore does not abort the
-    calculation already in progress; it only marks ``cancel_requested``
+    calculation already in progress. It only marks ``cancel_requested``
     so that the caller (``AirfoilTab``) ignores the result when
     ``finished`` arrives, instead of applying it to the UI."""
     finished = pyqtSignal(list)
@@ -144,13 +144,13 @@ class ReportWorker(QObject):
 
     def run(self):
         try:
-            destino = api.generate_report(
+            dest = api.generate_report(
                 self.results, self.path, project=self.project,
                 plots=self.plots, dpi=self.dpi)
         except Exception as exc:
             self.failed.emit(str(exc))
             return
-        self.finished.emit(str(destino))
+        self.finished.emit(str(dest))
 
 
 def launch_worker(worker: BatchRunnerWorker) -> QThread:
@@ -164,7 +164,7 @@ def launch_worker(worker: BatchRunnerWorker) -> QThread:
     this guard, the second call created a second ``QThread`` over the
     same object and the whole batch ran TWICE -- each case emitting
     ``case_finished`` twice, double the execution time, and duplicated
-    results in the table. Nothing gave it away; it was just "the batch
+    results in the table. Nothing gave it away. It was just "the batch
     took a while". Found while writing the GUI's end-to-end test
     battery."""
     if getattr(worker, "_launched", False):

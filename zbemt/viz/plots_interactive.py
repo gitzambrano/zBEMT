@@ -1,26 +1,26 @@
 """plots_interactive.py
 =====================
 
-Plotly charts (native browser zoom/pan/color) for the GUI --
+Plotly charts (native browser zoom, pan, and color) for the GUI, via
 `gui/common.py::PlotlyCanvasHost`. Complements (does not replace)
 `viz/plots.py`: the matplotlib functions there remain the path for the
-CLI, the HTML report, and any exported PNG (`fname=`); these exist only
+CLI, the HTML report, and any exported PNG (`fname=`). These exist only
 for the interactive window, when the `interactive` extra is installed
 (`gui/common.py::HAS_INTERACTIVE_PLOTS`).
 
 Convention: every function returns a ready `plotly.graph_objects.Figure`
-(no `ax`/`fname` -- `PlotlyCanvasHost.set_figure(fig)` handles the rest).
+(no `ax`/`fname`, `PlotlyCanvasHost.set_figure(fig)` handles the rest).
 
-Labels here are PLAIN TEXT, not matplotlib mathtext (`$C_T$` etc.):
-Plotly does not interpret that syntax at all in the browser -- without
-MathJax loaded (which we deliberately don't, to stay fully offline) it
-renders the raw `$...$` string literally. Field codes (`CT`, `CQ`, ...)
-read fine on their own and match what the field already looks like in
-the summary table.
+Labels here are PLAIN TEXT, not matplotlib mathtext (`$C_T$` and so on):
+Plotly does not interpret that syntax at all in the browser. Without
+MathJax loaded (which we deliberately do not load, to stay fully
+offline) it renders the raw `$...$` string literally. Field codes
+(`CT`, `CQ`, ...) read fine on their own and match what the field
+already looks like in the summary table.
 
 Initial coverage (the most used view in the Results tab): only
-`coefficients_vs_axis`. The other three views (disk map, azimuth/span,
-planform/profile preview) still use matplotlib for now -- see"""
+`coefficients_vs_axis`. The other three views (disk map, azimuth and
+span, planform and profile preview) still use matplotlib for now."""
 from __future__ import annotations
 
 import numpy as np
@@ -29,18 +29,18 @@ from plotly.subplots import make_subplots
 
 from .. import nomenclature
 from . import plots
-from .plots import (_AXIS_TO_SUMMARY_KEY, _chave_de_agrupamento, _ordem_de_grupo,
-                     mapa_de_agrupamento, TOLERANCIA_DE_AGRUPAMENTO_PADRAO)
+from .plots import (_AXIS_TO_SUMMARY_KEY, _grouping_key, _group_order,
+                     grouping_map, DEFAULT_GROUP_TOLERANCE)
 
 def _xy_label(key: str, is_propeller: bool = False) -> str:
     """Plain-text axis label for any `Results.summary` key.
 
     There used to be a whole second copy of `plots._SUMMARY_KEY_LABELS` here,
-    hand-transcribed into Unicode -- and, having no mode argument, it labeled
+    hand-transcribed into Unicode and, having no mode argument, it labeled
     a propeller's CROSS-flow "mu_x" on every custom X-Y plot. Both problems go
     away by rendering the one label source into the target this file needs.
     """
-    return plots.rotulo_de_summary_em_texto(key, is_propeller)
+    return plots.summary_label_text(key, is_propeller)
 
 
 #: Plotly gets PLAIN TEXT, not mathtext: MathJax is deliberately not loaded
@@ -48,19 +48,19 @@ def _xy_label(key: str, is_propeller: bool = False) -> str:
 #: `nomenclature.symbol_text` is that same plain-text rendering of the one
 #: symbol source, so this file no longer keeps its own copy of the letters --
 #: it only picks the render target.
-def _rotulo_de_eixo_de_varredura(axis: str, is_propeller: bool = False) -> tuple:
+def _sweep_axis_label(axis: str, is_propeller: bool = False) -> tuple:
     """``(axis label, prose title)`` for a sweep panel, in plain text and in
     the mode's own axis letters."""
-    titulos = plots._AXIS_TITLES.get(axis)
-    if titulos is None:
+    titles = plots._AXIS_TITLES.get(axis)
+    if titles is None:
         return axis, axis
-    simbolo = nomenclature.symbol_text(axis, is_propeller)
-    unidade = nomenclature.unit(axis)
-    rotulo = f"{simbolo} ({unidade})" if unidade and unidade != "-" else simbolo
-    return rotulo, f"{titulos[1] if is_propeller else titulos[0]} ({simbolo})"
+    symbol = nomenclature.symbol_text(axis, is_propeller)
+    unit = nomenclature.unit(axis)
+    label = f"{symbol} ({unit})" if unit and unit != "-" else symbol
+    return label, f"{titles[1] if is_propeller else titles[0]} ({symbol})"
 
 
-#: (summary key, y-axis label) -- plain text, no mathtext (see module
+#: (summary key, y-axis label): plain text, no mathtext (see module
 #: docstring). Same 11 panels as `plots._MU_SWEEP_PANELS`, English titles.
 _COEFFICIENT_PANELS = [
     ("CT",  "CT",  "Thrust coefficient"),
@@ -78,9 +78,10 @@ _COEFFICIENT_PANELS = [
 
 
 def coefficients_vs_axis(results_list, axis: str = "mu_x", ncols: int = 4, series_labels=None,
-                          group_tol: float = TOLERANCIA_DE_AGRUPAMENTO_PADRAO):
+                          group_tol: float = DEFAULT_GROUP_TOLERANCE):
     """Panel with the 11 global coefficients (CT, CQ, FM, ...) vs.
-    ``axis`` -- interactive equivalent of ``plots.plot_coefficients_vs_axis``.
+    ``axis``, the interactive equivalent of
+    ``plots.plot_coefficients_vs_axis``.
 
     Supports two modes:
     - Combine mode (series_labels=None, default): auto-detects other factorial
@@ -91,15 +92,15 @@ def coefficients_vs_axis(results_list, axis: str = "mu_x", ncols: int = 4, serie
       _selection_ differs from auto-detected grouping by _secondary axes_.
     """
     key = _AXIS_TO_SUMMARY_KEY.get(axis, axis)
-    axis_label, axis_title = _rotulo_de_eixo_de_varredura(
-        axis, plots.modo_helice_dos_resultados(results_list))
+    axis_label, axis_title = _sweep_axis_label(
+        axis, plots.results_propeller_mode(results_list))
     x_all = np.array([r.summary.get(key, np.nan) for r in results_list], dtype=float)
 
     # Group the results by label (if provided) or by secondary factorial
     # variables that also varied (auto-detection).
     groups = {}
     if series_labels is not None:
-        # Overlay mode: the user provided explicit labels (e.g. A/B selection)
+        # Overlay mode: the user provided explicit labels (for example an A/B selection)
         for i, lbl in enumerate(series_labels):
             groups.setdefault(lbl, []).append(i)
     else:
@@ -107,44 +108,44 @@ def coefficients_vs_axis(results_list, axis: str = "mu_x", ncols: int = 4, serie
         # group by them (same behavior as matplotlib).
         other_keys = [(_AXIS_TO_SUMMARY_KEY[ax], ax) for ax in _AXIS_TO_SUMMARY_KEY.keys() if ax != axis]
         swept_other_vars = []
-        chaves_por_grandeza: dict = {}
+        keys_by_quantity: dict = {}
         for skey, ax_name in other_keys:
             vals = [r.summary.get(skey, None) for r in results_list]
-            chave_de = mapa_de_agrupamento(
+            key_of = grouping_map(
                 [v for v in vals
                  if v is not None and not (isinstance(v, float) and np.isnan(v))], group_tol)
-            chaves_por_grandeza[skey] = chave_de
-            if len(set(chave_de.values())) > 1:
+            keys_by_quantity[skey] = key_of
+            if len(set(key_of.values())) > 1:
                 swept_other_vars.append((skey, ax_name))
 
 
-        ordem_por_label: dict = {}
+        order_by_label: dict = {}
         for i, r in enumerate(results_list):
             label_parts = []
-            ordem = []
+            order_keys = []
             for skey, ax_name in swept_other_vars:
-                bruto = r.summary.get(skey)
-                val = chaves_por_grandeza[skey].get(bruto, _chave_de_agrupamento(bruto))
+                raw_value = r.summary.get(skey)
+                val = keys_by_quantity[skey].get(raw_value, _grouping_key(raw_value))
                 if val is not None and not (isinstance(val, float) and np.isnan(val)):
                     symbol = nomenclature.symbol_name(
-                        ax_name, plots.modo_helice_dos_resultados(results_list))
+                        ax_name, plots.results_propeller_mode(results_list))
                     label_parts.append(f"{symbol}={val:g}" if isinstance(val, (int, float)) else f"{symbol}={val}")
-                    ordem.append(_ordem_de_grupo(val))
+                    order_keys.append(_group_order(val))
 
             lbl = ", ".join(label_parts) if label_parts else None
-            ordem_por_label.setdefault(lbl, tuple(ordem))
+            order_by_label.setdefault(lbl, tuple(order_keys))
             groups.setdefault(lbl, []).append(i)
-        groups = {k: groups[k] for k in sorted(groups, key=lambda k: ordem_por_label.get(k, ()))}
+        groups = {k: groups[k] for k in sorted(groups, key=lambda k: order_by_label.get(k, ()))}
 
     overlay = len(groups) > 1 or (series_labels is not None and len(set(series_labels)) > 1)
 
     n = len(_COEFFICIENT_PANELS)
     nrows = int(np.ceil(n / ncols))
-    titles = [titulo for _, _, titulo in _COEFFICIENT_PANELS]
+    titles = [title for _, _, title in _COEFFICIENT_PANELS]
     fig = make_subplots(rows=nrows, cols=ncols, subplot_titles=titles,
                         vertical_spacing=0.6 / nrows, horizontal_spacing=0.06)
 
-    for i, (field_key, ylabel, _titulo) in enumerate(_COEFFICIENT_PANELS):
+    for i, (field_key, ylabel, _title) in enumerate(_COEFFICIENT_PANELS):
         row, col = i // ncols + 1, i % ncols + 1
         for lbl, idxs in groups.items():
             xs = x_all[idxs]
@@ -168,8 +169,8 @@ def coefficients_vs_axis(results_list, axis: str = "mu_x", ncols: int = 4, serie
         title=f"Rotor performance vs {axis_title}",
         height=280 * nrows, margin=dict(t=90, l=55, r=25, b=45),
         template="plotly_white")
-    # Painel titles small enough not to collide with the neighboring
-    # panel's y-axis label -- Plotly's `subplot_titles` don't wrap on
+    # Panel titles small enough not to collide with the neighboring
+    # panel's y-axis label. Plotly's `subplot_titles` don't wrap on
     # their own, and the default annotation font is too large for a
     # 4-column grid.
     for ann in fig.layout.annotations:
@@ -178,12 +179,12 @@ def coefficients_vs_axis(results_list, axis: str = "mu_x", ncols: int = 4, serie
 
 
 def xy_plot(results_list, x_key: str, y_key: str, group_by: str | None = None,
-             group_tol: float = TOLERANCIA_DE_AGRUPAMENTO_PADRAO):
-    """Interactive twin of ``plots.plot_xy`` -- single-panel free-form X/Y
+             group_tol: float = DEFAULT_GROUP_TOLERANCE):
+    """Interactive twin of ``plots.plot_xy``: single-panel free-form X/Y
     plot from any two ``Results.summary`` keys, optionally grouped into one
     curve per distinct value of a third key. Same semantics as the
     matplotlib version: NaN/missing points skipped, curves sorted by X."""
-    is_propeller = plots.modo_helice_dos_resultados(results_list)
+    is_propeller = plots.results_propeller_mode(results_list)
 
     def _val(r, key):
         v = r.summary.get(key, None)
@@ -194,15 +195,15 @@ def xy_plot(results_list, x_key: str, y_key: str, group_by: str | None = None,
 
     groups: dict = {}
     if group_by:
-        brutos = [r.summary.get(group_by, None) for r in results_list]
-        chave_de = mapa_de_agrupamento(
-            [v for v in brutos if v is not None
+        raw_values = [r.summary.get(group_by, None) for r in results_list]
+        key_of = grouping_map(
+            [v for v in raw_values if v is not None
              and not (isinstance(v, float) and np.isnan(v))], group_tol)
-        for r, gv in zip(results_list, brutos):
+        for r, gv in zip(results_list, raw_values):
             if gv is None or (isinstance(gv, float) and np.isnan(gv)):
                 continue
-            groups.setdefault(chave_de.get(gv, gv), []).append(r)
-        groups = {k: groups[k] for k in sorted(groups, key=_ordem_de_grupo)}
+            groups.setdefault(key_of.get(gv, gv), []).append(r)
+        groups = {k: groups[k] for k in sorted(groups, key=_group_order)}
     else:
         groups[None] = list(results_list)
 

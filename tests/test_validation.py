@@ -319,40 +319,40 @@ class TestAvisoDeMachDePonta(unittest.TestCase):
     elements and returned Cl=599 (99th percentile = 2.5), with nothing in the
     result revealing that the case was outside the model's scope."""
 
-    def _condicao(self, rpm, mu_x=0.2):
+    def _condition(self, rpm, mu_x=0.2):
         from zbemt.models import FlightCondition
         return FlightCondition(name="c", mu_x=mu_x, collective_deg=8.0, Vz=0.0, rpm=rpm)
 
-    def test_ponta_supersonica_avisa(self):
-        from zbemt.validation import _validar_mach_de_ponta
-        issues = _validar_mach_de_ponta(self._condicao(600.0), 8.178,
+    def test_supersonic_tip_warns(self):
+        from zbemt.validation import _validate_tip_mach
+        issues = _validate_tip_mach(self._condition(600.0), 8.178,
                                          {"a_sound": 340.29})
         self.assertTrue(issues, "supersonic rotor passed without a warning")
         self.assertEqual(issues[0].level, "warning")
         self.assertIn("Supersonic", issues[0].message)
 
-    def test_ponta_subsonica_normal_nao_avisa(self):
+    def test_normal_subsonic_tip_does_not_warn(self):
         """The real UH-60: 258 RPM at the same radius, Mach 0.65 at the tip."""
-        from zbemt.validation import _validar_mach_de_ponta
+        from zbemt.validation import _validate_tip_mach
         self.assertEqual(
-            _validar_mach_de_ponta(self._condicao(258.0), 8.178,
+            _validate_tip_mach(self._condition(258.0), 8.178,
                                     {"a_sound": 340.29}), [])
 
-    def test_transonico_avisa_sem_dizer_supersonico(self):
-        from zbemt.validation import _validar_mach_de_ponta
+    def test_transonic_warns_without_saying_supersonic(self):
+        from zbemt.validation import _validate_tip_mach
         # ~0.9 Mach on advancing side
-        issues = _validar_mach_de_ponta(self._condicao(300.0, mu_x=0.15), 8.178,
+        issues = _validate_tip_mach(self._condition(300.0, mu_x=0.15), 8.178,
                                          {"a_sound": 340.29})
         self.assertTrue(issues)
         self.assertIn("Transonic", issues[0].message)
 
-    def test_sem_rpm_ou_sem_raio_nao_inventa_aviso(self):
-        from zbemt.validation import _validar_mach_de_ponta
-        self.assertEqual(_validar_mach_de_ponta(self._condicao(None), 8.178, {}), [])
-        self.assertEqual(_validar_mach_de_ponta(self._condicao(600.0), 0.0, {}), [])
+    def test_without_rpm_or_radius_does_not_invent_a_warning(self):
+        from zbemt.validation import _validate_tip_mach
+        self.assertEqual(_validate_tip_mach(self._condition(None), 8.178, {}), [])
+        self.assertEqual(_validate_tip_mach(self._condition(600.0), 0.0, {}), [])
 
 
-class TestPolarFullRangeVersusFluxoReverso(unittest.TestCase):
+class TestPolarFullRangeVersusReverseFlow(unittest.TestCase):
     """Item 11 from the owner: "if I choose Viterna, the reverse flow model
     should only be viterna, right? and vice-versa?"
 
@@ -368,30 +368,30 @@ class TestPolarFullRangeVersusFluxoReverso(unittest.TestCase):
       the manual offers. Prohibiting it would erase that comparison.
     """
 
-    def _aerofolio(self, estendida: bool) -> AirfoilDef:
+    def _airfoil(self, extended: bool) -> AirfoilDef:
         return AirfoilDef(source="analytical",
-                          stall_model="viterna" if estendida else "clip")
+                          stall_model="viterna" if extended else "clip")
 
-    def _niveis(self, config, aerofolio):
+    def _levels(self, config, airfoil):
         from zbemt.validation import validate_config
-        return [(i.level, str(i)) for i in validate_config(config, aerofolio)]
+        return [(i.level, str(i)) for i in validate_config(config, airfoil)]
 
-    def test_viterna_reverso_sem_polar_estendida_e_erro(self):
-        achados = self._niveis({"reverse_flow_model": "viterna_full_range"},
-                                self._aerofolio(estendida=False))
+    def test_viterna_reverse_without_extended_polar_is_error(self):
+        findings = self._levels({"reverse_flow_model": "viterna_full_range"},
+                                 self._airfoil(extended=False))
         self.assertTrue(any(n == "error" and "viterna_full_range" in t
-                            for n, t in achados), achados)
+                            for n, t in findings), findings)
 
-    def test_polar_estendida_com_outro_modelo_e_apenas_aviso(self):
-        achados = self._niveis({"reverse_flow_model": "flat_plate"},
-                                self._aerofolio(estendida=True))
-        avisos = [t for n, t in achados if n == "warning" and "+/-180" in t]
-        self.assertTrue(avisos, f"faltou o aviso de dado descartado: {achados}")
-        self.assertFalse([t for n, t in achados if n == "error"],
+    def test_extended_polar_with_another_model_is_only_a_warning(self):
+        findings = self._levels({"reverse_flow_model": "flat_plate"},
+                                 self._airfoil(extended=True))
+        warnings = [t for n, t in findings if n == "warning" and "+/-180" in t]
+        self.assertTrue(warnings, f"missing the discarded-data warning: {findings}")
+        self.assertFalse([t for n, t in findings if n == "error"],
                           "combination is suboptimal, not forbidden")
 
-    def test_par_consistente_nao_gera_nada(self):
-        achados = self._niveis({"reverse_flow_model": "viterna_full_range"},
-                                self._aerofolio(estendida=True))
-        self.assertFalse([t for n, t in achados
-                          if "viterna" in t.lower() or "+/-180" in t], achados)
+    def test_consistent_pair_generates_nothing(self):
+        findings = self._levels({"reverse_flow_model": "viterna_full_range"},
+                                 self._airfoil(extended=True))
+        self.assertFalse([t for n, t in findings
+                          if "viterna" in t.lower() or "+/-180" in t], findings)

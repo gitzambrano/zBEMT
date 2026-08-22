@@ -37,8 +37,8 @@ REPO = Path(__file__).resolve().parent.parent
 KATEX_DIR = REPO / "docs" / "vendor" / "katex"
 DOC = Path(DEFAULT_DOC_PATH) if DEFAULT_DOC_PATH else REPO / "docs" / "documentation.html"
 
-_INICIO = "<!-- KATEX-INLINE:INICIO -->"
-_FIM = "<!-- KATEX-INLINE:FIM -->"
+_MARK_START = "<!-- KATEX-INLINE:INICIO -->"
+_MARK_END = "<!-- KATEX-INLINE:FIM -->"
 
 _LINK_ORIGINAL = (
     '<link rel="stylesheet" href="vendor/katex/katex.min.css">\n'
@@ -47,30 +47,30 @@ _LINK_ORIGINAL = (
 )
 
 
-def _bloco_inline() -> str:
+def _inline_block() -> str:
     css = (KATEX_DIR / "katex.min.css").read_text(encoding="utf-8")
     css = css.replace("url(fonts/", "url(vendor/katex/fonts/")
     js_katex = (KATEX_DIR / "katex.min.js").read_text(encoding="utf-8")
     js_auto = (KATEX_DIR / "auto-render.min.js").read_text(encoding="utf-8")
-    return (f"{_INICIO}\n<style>\n{css}\n</style>\n"
+    return (f"{_MARK_START}\n<style>\n{css}\n</style>\n"
             f"<script>\n{js_katex}\n</script>\n"
-            f"<script>\n{js_auto}\n</script>\n{_FIM}\n")
+            f"<script>\n{js_auto}\n</script>\n{_MARK_END}\n")
 
 
 def main() -> None:
     html = DOC.read_text(encoding="utf-8")
 
-    padrao_bloco = re.compile(
-        re.escape(_INICIO) + r".*?" + re.escape(_FIM) + r"\n?", re.DOTALL)
-    if padrao_bloco.search(html):
-        html = padrao_bloco.sub(_LINK_ORIGINAL, html, count=1)
+    block_pattern = re.compile(
+        re.escape(_MARK_START) + r".*?" + re.escape(_MARK_END) + r"\n?", re.DOTALL)
+    if block_pattern.search(html):
+        html = block_pattern.sub(_LINK_ORIGINAL, html, count=1)
     elif _LINK_ORIGINAL not in html:
         raise SystemExit(
             "Nem o link original nem o bloco inline foram encontrados em "
             "documentation.html -- o <head> mudou de formato; atualize "
             "este script antes de rodar de novo.")
 
-    html = html.replace(_LINK_ORIGINAL, _bloco_inline())
+    html = html.replace(_LINK_ORIGINAL, _inline_block())
     DOC.write_text(html, encoding="utf-8")
     print(f"KaTeX embutido em {DOC} ({len(html)} caracteres).")
 

@@ -12,13 +12,13 @@ geometry.
 geometry.py
 ===========
 
-Generation and editing of the rotor/blade 3D geometry (radial chord and
-twist table). Nothing here is 2D (airfoil) — that's ``airfoils.py``.
-Nothing here runs the BEMT engine — that's ``bemt.py``/``studies.py`` via
-``api.py``.
+Generation and editing of the rotor and blade 3D geometry (the radial
+chord and twist table). Nothing here is 2D (airfoil). That work belongs
+to ``airfoils.py``. Nothing here runs the BEMT engine either. That work
+belongs to ``bemt.py``/``studies.py`` via ``api.py``.
 
-All functions take/return ``RotorGeometryDef`` (models.py), which is
-always the radial table "underneath" — even parametric geometries turn
+All functions take and return ``RotorGeometryDef`` (models.py), which is
+always the radial table "underneath". Even parametric geometries turn
 into a table immediately after being generated, so the GUI's graphical
 editor always edits the same representation.
 """
@@ -39,16 +39,16 @@ def _validate_and_sort_table(r_norm, chord_norm, twist_deg, *, context: str
     """Validate a radial table (r_norm, chord_norm, twist_deg) before any
     use with ``np.interp`` (Q3, production-plan.md): ``np.interp`` requires
     ``x`` sorted and increasing, and nothing in the previous code
-    guaranteed that -- a table pasted out of order silently produced wrong
-    chord/twist, with no error or warning.
+    guaranteed that. A table pasted out of order silently produced wrong
+    chord and twist values, with no error or warning.
 
     Decision: REORDER (not error) by increasing ``r_norm``, dragging
-    ``chord_norm``/``twist_deg`` along as a unit -- it's common to paste a
-    tip->root table from a spreadsheet, and this neither loses nor
+    ``chord_norm``/``twist_deg`` along as a unit, because it is common to
+    paste a tip->root table from a spreadsheet. This neither loses nor
     corrupts information (each row keeps its correct trio). Only ERROR
-    when sorting isn't enough to make the table usable: duplicate
-    ``r_norm`` values (ambiguous for ``np.interp`` -- which chord applies
-    at that radius?) or lists of different lengths.
+    when sorting is not enough to make the table usable: duplicate
+    ``r_norm`` values (ambiguous for ``np.interp``, since which chord
+    applies at that radius would be unclear) or lists of different lengths.
     """
     r = np.asarray(r_norm, dtype=float)
     c = np.asarray(chord_norm, dtype=float)
@@ -69,10 +69,10 @@ def _validate_and_sort_table(r_norm, chord_norm, twist_deg, *, context: str
 
     dup = np.diff(r_sorted) == 0.0
     if np.any(dup):
-        valores = sorted(set(r_sorted[np.r_[dup, False] | np.r_[False, dup]].tolist()))
+        values = sorted(set(r_sorted[np.r_[dup, False] | np.r_[False, dup]].tolist()))
         raise ValueError(
-            f"{context}: r_norm has duplicate values {valores} -- "
-            "ambiguous for interpolation (two control points at the same radius)."
+            f"{context}: r_norm has duplicate values {values}. "
+            "This is ambiguous for interpolation (two control points at the same radius)."
         )
     return r_sorted, c_sorted, t_sorted
 
@@ -119,25 +119,25 @@ def generate_elliptic(root_cutout_norm: float = 0.15, radius_m: float = 1.0,
                        n_stations: int = 25, airfoil_name: str = "") -> RotorGeometryDef:
     """Blade with elliptic planform: chord(r) = max_chord_norm*sqrt(1-r_norm²).
 
-    The peak sits at the ROOT (small r_norm), not at mid-span -- this is
+    The peak sits at the ROOT (small r_norm), not at mid-span. This is
     INTENTIONAL (Q3, production-plan.md), not a bug: the convention here
     is single-blade (root->tip), analogous to the classic elliptic
-    distribution of a two-blade rotor viewed as a single disc -- the two
+    distribution of a two-blade rotor viewed as a single disk. The two
     blades, side by side, form a complete ellipse with the peak at the hub
-    (r=0) tapering to zero at both tips; each isolated blade is half of
+    (r=0) tapering to zero at both tips. Each isolated blade is half of
     that ellipse. This is also the shape used in classic references for
-    minimum induced-loss propellers (elliptic loading). Don't confuse this
-    with the ellipse of a WHOLE WING (peak at center/mid-span, two
-    symmetric sides) -- that is not the convention adopted here. Changing
+    minimum induced-loss propellers (elliptic loading). Do not confuse this
+    with the ellipse of a WHOLE WING (peak at the center or mid-span, two
+    symmetric sides). That is not the convention adopted here. Changing
     this would change the blade shape for existing users of the generator,
-    so it stays as is; see ``tests/test_geometry.py::
-    test_generate_elliptic_chord_never_zero_at_tip`` which locks in this
+    so it stays as is. See ``tests/test_geometry.py::
+    test_generate_elliptic_chord_never_zero_at_tip``, which locks in this
     behavior.
     """
     r = _r_grid(n_stations, root_cutout_norm)
     chord = max_chord_norm * np.sqrt(np.maximum(0.0, 1.0 - r ** 2))
     # Q3 (production-plan.md): the ellipse peak at r=0 (root/hub) is
-    # DELIBERATE, not a bug -- see the function docstring. But since the
+    # DELIBERATE, not a bug. See the function docstring. But since the
     # table only starts at r=root_cutout_norm (>0), the value AT THE FIRST
     # POINT already comes out smaller than max_chord_norm (sqrt(1-r^2) < 1
     # for r>0), and the GUI labels this field "Max chord (c/R)": the user
@@ -162,9 +162,9 @@ def generate_elliptic(root_cutout_norm: float = 0.15, radius_m: float = 1.0,
 def generate_custom(r_norm: list[float], chord_norm: list[float], twist_deg: list[float],
                      radius_m: float = 1.0, n_blades: int = 2,
                      airfoil_name: str = "") -> RotorGeometryDef:
-    """Build the geometry directly from user-supplied lists (e.g. pasted
-    from a spreadsheet). The table is reordered by increasing ``r_norm``
-    if it comes out of order (see ``_validate_and_sort_table``)."""
+    """Build the geometry directly from user-supplied lists (for example
+    lists pasted from a spreadsheet). The table is reordered by increasing
+    ``r_norm`` if it comes out of order (see ``_validate_and_sort_table``)."""
     r, c, t = _validate_and_sort_table(r_norm, chord_norm, twist_deg, context="generate_custom")
     return RotorGeometryDef(
         r_norm=r.tolist(), chord_norm=c.tolist(), twist_deg=t.tolist(),
@@ -178,7 +178,7 @@ def generate_custom(r_norm: list[float], chord_norm: list[float], twist_deg: lis
 def resample_geometry(geom: RotorGeometryDef, n_stations: int) -> RotorGeometryDef:
     """Resample the radial table at ``n_stations`` points evenly spaced
     between the root cutout and the tip, via linear interpolation.
-    Used by the graphical editor when adding/removing control points."""
+    Used by the graphical editor when adding or removing control points."""
     if len(geom.r_norm) < 2:
         return geom
     r_old, chord_old, twist_old = _validate_and_sort_table(
@@ -197,7 +197,7 @@ def resample_geometry(geom: RotorGeometryDef, n_stations: int) -> RotorGeometryD
 
 def interpolate_geometry(geom: RotorGeometryDef, r_query_norm: list[float]) -> tuple[list[float], list[float]]:
     """Return (chord_norm, twist_deg) interpolated at the requested radial
-    positions — used both by the conversion to ``Rotor`` (engine) and by
+    positions. Used both by the conversion to ``Rotor`` (engine) and by
     the graphical preview when dragging an editor point."""
     r_old, chord_old, twist_old = _validate_and_sort_table(
         geom.r_norm, geom.chord_norm, geom.twist_deg, context="interpolate_geometry")

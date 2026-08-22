@@ -16,7 +16,7 @@ what keeps the run viable on a CI runner with a small memory allowance.
 Usage:
     python run_all_tests.py             # run everything
     python run_all_tests.py -k airfoil  # only files matching "airfoil"
-    python run_all_tests.py --lista     # list the files and exit
+    python run_all_tests.py --list      # list the files and exit
 """
 from __future__ import annotations
 
@@ -29,12 +29,12 @@ from pathlib import Path
 
 TESTS_DIR = Path(__file__).resolve().parent
 ROOT = TESTS_DIR.parent
-REPORT_PATH = TESTS_DIR / "resultado_testes.txt"
+REPORT_PATH = TESTS_DIR / "test_results.txt"
 
 #: Run these first. They are the files that solve every example project or
 #: mount the full window repeatedly, so they dominate the wall clock and are
 #: where a real regression usually lands.
-ARQUIVOS_LENTOS = (
+SLOW_FILES = (
     "test_api.py",
     "test_gui_e2e.py",
     "test_golden_results.py",
@@ -47,16 +47,16 @@ ARQUIVOS_LENTOS = (
 _SUMMARY_RE = re.compile(
     r"(?P<count>\d+)\s+(?P<kind>passed|failed|error|errors|skipped|xfailed|xpassed)"
 )
-_SKIP_RE = re.compile(r"^(?P<test>\S+::\S+)\s+SKIPPED\s*(?:\((?P<motivo>.*)\))?", re.MULTILINE)
+_SKIP_RE = re.compile(r"^(?P<test>\S+::\S+)\s+SKIPPED\s*(?:\((?P<reason>.*)\))?", re.MULTILINE)
 
 
 #: pytest's own closing line, e.g. "16 passed, 9 subtests passed in 2.75s".
 #: Only a run that finished reporting produces one.
-_LINHA_DE_RESUMO = re.compile(r"^=+ .*\b\d+ (?:passed|skipped).* in [\d.]+s.* =+$",
-                               re.MULTILINE)
+_SUMMARY_LINE = re.compile(r"^=+ .*\b\d+ (?:passed|skipped).* in [\d.]+s.* =+$",
+                           re.MULTILINE)
 
 
-def _resumo_sem_falhas(output: str) -> bool:
+def _summary_is_clean(output: str) -> bool:
     """True when pytest printed its summary and that summary reports no
     failure and no error.
 
@@ -64,16 +64,16 @@ def _resumo_sem_falhas(output: str) -> bool:
     fell over on the way out" from "the interpreter fell over mid-run".
     In the second case pytest never reaches its summary line, so there is
     nothing here to match."""
-    linhas = _LINHA_DE_RESUMO.findall(output)
-    if not linhas:
+    lines = _SUMMARY_LINE.findall(output)
+    if not lines:
         return False
-    ultima = linhas[-1]
-    return not re.search(r"\b\d+ (?:failed|error|errors)\b", ultima)
+    last = lines[-1]
+    return not re.search(r"\b\d+ (?:failed|error|errors)\b", last)
 
 
-def _extrai_skips(output: str) -> list[tuple[str, str]]:
-    """[(test_id, motivo), ...] from a single file's -v output."""
-    return [(m.group("test"), m.group("motivo") or "(sem motivo informado)")
+def _extract_skips(output: str) -> list[tuple[str, str]]:
+    """[(test_id, reason), ...] from a single file's -v output."""
+    return [(m.group("test"), m.group("reason") or "(no reason given)")
              for m in _SKIP_RE.finditer(output)]
 
 
@@ -87,13 +87,13 @@ def _run_one(test_file: Path, env: dict) -> tuple[bool, str, str]:
         cmd, cwd=ROOT, env=env,
         capture_output=True, text=True,
     )
-    saida_bruta = proc.stdout + proc.stderr
+    raw_output = proc.stdout + proc.stderr
 
     # pytest returns 5 when it collected NOTHING. For a file whose whole
     # module skips itself -- every GUI test file, in the CI job that installs
     # the base dependencies only to prove the engine runs without Qt -- that
     # is the correct outcome, not a crash.
-    tudo_pulado = proc.returncode == 5 and " skipped" in saida_bruta
+    all_skipped = proc.returncode == 5 and " skipped" in raw_output
 
     # A native fault AFTER pytest has already reported every test as passing
     # is the Qt/matplotlib teardown-ordering crash this runner exists to
@@ -105,116 +105,116 @@ def _run_one(test_file: Path, env: dict) -> tuple[bool, str, str]:
     # The summary line is the evidence, and it is required: this only
     # applies when pytest itself said 0 failed and 0 errors. A crash DURING
     # the run never produces that line, so a real failure can never be
-    # absorbed here. The event is reported either way -- see `resumo` below
+    # absorbed here. The event is reported either way -- see `summary` below
     # -- so it can never pass unnoticed.
-    crash_no_teardown = (proc.returncode not in (0, 1, 5)
-                          and _resumo_sem_falhas(saida_bruta))
+    teardown_crash = (proc.returncode not in (0, 1, 5)
+                      and _summary_is_clean(raw_output))
 
-    ok = proc.returncode == 0 or tudo_pulado or crash_no_teardown
+    ok = proc.returncode == 0 or all_skipped or teardown_crash
 
-    linhas = [l for l in saida_bruta.strip().splitlines() if l.strip()]
-    resumo = linhas[-1] if linhas else "(sem saida nenhuma -- processo provavelmente travou/crashou antes de imprimir)"
+    lines = [l for l in raw_output.strip().splitlines() if l.strip()]
+    summary = lines[-1] if lines else "(no output at all -- process probably hung/crashed before printing)"
 
-    if crash_no_teardown:
-        resumo = (f"OK, mas o processo morreu no teardown com "
-                   f"0x{proc.returncode & 0xFFFFFFFF:08X} DEPOIS de todos os testes "
-                   f"passarem (crash de ordem de destruicao Qt/matplotlib, sem "
-                   f"relacao com o codigo testado). {resumo}")
-    elif proc.returncode not in (0, 1) and not tudo_pulado:
-        resumo = (f"codigo de saida {proc.returncode} (0x{proc.returncode & 0xFFFFFFFF:08X}) "
-                   f"-- nao e um resultado normal do pytest, provavel crash nativo "
-                   f"(access violation / segfault). {resumo}")
+    if teardown_crash:
+        summary = (f"OK, but the process died during teardown with "
+                   f"0x{proc.returncode & 0xFFFFFFFF:08X} AFTER all tests "
+                   f"passed (Qt/matplotlib teardown-ordering crash, unrelated "
+                   f"to the code under test). {summary}")
+    elif proc.returncode not in (0, 1) and not all_skipped:
+        summary = (f"exit code {proc.returncode} (0x{proc.returncode & 0xFFFFFFFF:08X}) "
+                   f"-- not a normal pytest outcome, probably a native crash "
+                   f"(access violation / segfault). {summary}")
 
-    cabecalho = (
-        f"comando: {' '.join(cmd)}\n"
-        f"codigo de saida: {proc.returncode}\n"
+    header = (
+        f"command: {' '.join(cmd)}\n"
+        f"exit code: {proc.returncode}\n"
     )
-    output = cabecalho + (saida_bruta if saida_bruta.strip() else "(nenhuma saida capturada em stdout/stderr)\n")
+    output = header + (raw_output if raw_output.strip() else "(no output captured from stdout/stderr)\n")
 
-    return ok, resumo, output
+    return ok, summary, output
 
 
-def _ordenar(arquivos: list[Path]) -> list[Path]:
+def _order(files: list[Path]) -> list[Path]:
     """Slowest files first.
 
     They are the ones whose failure is worth knowing about early, and a
     long file starting last leaves the whole run waiting on it. The order
     is by name within each group, so a run is still reproducible."""
-    lentos = [a for a in arquivos if a.name in ARQUIVOS_LENTOS]
-    resto = [a for a in arquivos if a.name not in ARQUIVOS_LENTOS]
-    return sorted(lentos) + sorted(resto)
+    slow = [f for f in files if f.name in SLOW_FILES]
+    rest = [f for f in files if f.name not in SLOW_FILES]
+    return sorted(slow) + sorted(rest)
 
 
 def main() -> int:
     args = sys.argv[1:]
-    filtro = None
+    pattern = None
     if args and args[0] == "-k" and len(args) > 1:
-        filtro = args[1]
+        pattern = args[1]
 
-    arquivos = _ordenar(sorted(TESTS_DIR.glob("test_*.py")))
-    if filtro:
-        arquivos = [a for a in arquivos if filtro in a.name]
+    files = _order(sorted(TESTS_DIR.glob("test_*.py")))
+    if pattern:
+        files = [f for f in files if pattern in f.name]
 
-    if not arquivos:
-        print(f"Nenhum arquivo de teste encontrado em {TESTS_DIR}")
+    if not files:
+        print(f"No test files found in {TESTS_DIR}")
         return 1
 
-    if "--lista" in args:
-        for arquivo in arquivos:
-            print(arquivo.relative_to(ROOT))
+    if "--list" in args:
+        for file in files:
+            print(file.relative_to(ROOT))
         return 0
 
     env = os.environ.copy()
     env.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-    total_ok = total_falha = 0
-    falharam: list[str] = []
-    detalhes: list[str] = []
-    todos_skips: list[tuple[str, str]] = []
-    inicio_geral = time.time()
+    total_ok = total_failed = 0
+    failed_files: list[str] = []
+    details: list[str] = []
+    all_skips: list[tuple[str, str]] = []
+    overall_start = time.time()
 
-    print(f"Rodando {len(arquivos)} arquivos de teste (um processo por arquivo)...\n")
+    print(f"Running {len(files)} test files (one process per file)...\n")
 
-    for i, arquivo in enumerate(arquivos, 1):
-        nome = arquivo.relative_to(ROOT)
-        print(f"[{i:3d}/{len(arquivos)}] {nome} ... ", end="", flush=True)
+    for i, file in enumerate(files, 1):
+        name = file.relative_to(ROOT)
+        print(f"[{i:3d}/{len(files)}] {name} ... ", end="", flush=True)
         t0 = time.time()
-        ok, resumo, saida_completa = _run_one(arquivo, env)
+        ok, summary, full_output = _run_one(file, env)
         dt = time.time() - t0
 
         if ok:
             total_ok += 1
-            print(f"OK  ({dt:.1f}s) -- {resumo}")
+            print(f"OK  ({dt:.1f}s) -- {summary}")
         else:
-            total_falha += 1
-            falharam.append(str(nome))
-            print(f"FALHOU  ({dt:.1f}s) -- {resumo}")
+            total_failed += 1
+            failed_files.append(str(name))
+            print(f"FAILED  ({dt:.1f}s) -- {summary}")
 
-        detalhes.append(f"{'='*70}\n{nome}  ({dt:.1f}s)\n{'='*70}\n{saida_completa}\n")
-        todos_skips.extend(_extrai_skips(saida_completa))
+        details.append(f"{'='*70}\n{name}  ({dt:.1f}s)\n{'='*70}\n{full_output}\n")
+        all_skips.extend(_extract_skips(full_output))
 
-    duracao = time.time() - inicio_geral
+    duration = time.time() - overall_start
 
     print(f"\n{'='*60}")
-    print(f" Resumo: {total_ok} arquivos OK, {total_falha} arquivos com falha"
-          f" ({duracao:.0f}s no total)")
-    if falharam:
-        print(" Falharam:")
-        for nome in falharam:
-            print(f"   - {nome}")
+    print(f" Summary: {total_ok} files OK, {total_failed} files failed"
+          f" ({duration:.0f}s total)")
+    if failed_files:
+        print(" Failed:")
+        for name in failed_files:
+            print(f"   - {name}")
     print(f"{'='*60}")
 
-    if todos_skips:
-        print(f"\n Testes pulados (skipped) -- {len(todos_skips)} no total:")
-        for teste, motivo in todos_skips:
-            print(f"   - {teste}\n       motivo: {motivo}")
+    if all_skips:
+        print(f"\n Skipped tests -- {len(all_skips)} in total:")
+        for test, reason in all_skips:
+            print(f"   - {test}\n       reason: {reason}")
     print(f"{'='*60}")
 
-    print(f"\nRelatorio completo (com o traceback de cada falha) em:\n  {REPORT_PATH}")
+    print(f"\nFull report (with the traceback of each failure) in:\n  {REPORT_PATH}")
 
-    REPORT_PATH.write_text("\n".join(detalhes), encoding="utf-8")
+    REPORT_PATH.write_text("\n".join(details), encoding="utf-8")
 
-    return 0 if total_falha == 0 else 1
+    return 0 if total_failed == 0 else 1
 
 
 if __name__ == "__main__":

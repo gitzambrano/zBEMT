@@ -396,7 +396,7 @@ class TestProfileFileIO(unittest.TestCase):
 
     def test_load_profile_dat_no_coordinates_raises(self):
         path = Path(self.tmp.name) / "empty.dat"
-        path.write_text("nada aqui\nsó texto\n")
+        path.write_text("nothing here\njust text\n")
         with self.assertRaises(ValueError):
             airfoils.load_profile_dat(str(path))
 
@@ -608,7 +608,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class TestQ4ParametrosDePa(unittest.TestCase):
+class TestQ4BladeParameters(unittest.TestCase):
     """Q4 (production-plan.md): `to_blade_airfoil` read method and timing
     of dynamic stall always from the FIRST section and fixed
     `method="frequency"` -- a project that requested `time_march` received
@@ -616,67 +616,67 @@ class TestQ4ParametrosDePa(unittest.TestCase):
     delivered the parameters of that root."""
 
     @staticmethod
-    def _secao(r_norm, **kw):
+    def _section(r_norm, **kw):
         base = dict(name=f"s{r_norm}", r_norm=r_norm, source="analytical")
         base.update(kw)
         return AirfoilDef(**base)
 
-    def test_time_march_pedido_chega_ao_motor(self):
-        secoes = [self._secao(0.2, use_dynamic_stall=True, dynamic_stall_method="time_march"),
-                  self._secao(0.9, use_dynamic_stall=True, dynamic_stall_method="time_march")]
-        composto = airfoils.to_blade_airfoil(secoes)
-        self.assertEqual(composto.dynamic_stall_params["method"], "time_march")
+    def test_requested_time_march_reaches_the_engine(self):
+        sections = [self._section(0.2, use_dynamic_stall=True, dynamic_stall_method="time_march"),
+                    self._section(0.9, use_dynamic_stall=True, dynamic_stall_method="time_march")]
+        composite = airfoils.to_blade_airfoil(sections)
+        self.assertEqual(composite.dynamic_stall_params["method"], "time_march")
 
-    def test_secao_sem_estol_dinamico_nao_dita_os_parametros(self):
+    def test_section_without_dynamic_stall_does_not_dictate_the_parameters(self):
         """The root doesn't use dynamic stall; the ones in charge are the sections that use it."""
-        secoes = [self._secao(0.2, use_dynamic_stall=False,
-                              dynamic_stall_method="frequency",
-                              dynamic_stall_time_march_revolutions=8),
-                  self._secao(0.9, use_dynamic_stall=True,
-                              dynamic_stall_method="time_march",
-                              dynamic_stall_time_march_revolutions=20)]
-        params = airfoils.to_blade_airfoil(secoes).dynamic_stall_params
+        sections = [self._section(0.2, use_dynamic_stall=False,
+                                  dynamic_stall_method="frequency",
+                                  dynamic_stall_time_march_revolutions=8),
+                    self._section(0.9, use_dynamic_stall=True,
+                                  dynamic_stall_method="time_march",
+                                  dynamic_stall_time_march_revolutions=20)]
+        params = airfoils.to_blade_airfoil(sections).dynamic_stall_params
         self.assertEqual(params["method"], "time_march")
         self.assertEqual(params["time_march_revolutions"], 20)
 
-    def test_secoes_em_conflito_avisam(self):
-        secoes = [self._secao(0.2, use_dynamic_stall=True, dynamic_stall_method="frequency"),
-                  self._secao(0.9, use_dynamic_stall=True, dynamic_stall_method="time_march")]
-        with warnings.catch_warnings(record=True) as capturados:
+    def test_conflicting_sections_warn(self):
+        sections = [self._section(0.2, use_dynamic_stall=True, dynamic_stall_method="frequency"),
+                    self._section(0.9, use_dynamic_stall=True, dynamic_stall_method="time_march")]
+        with warnings.catch_warnings(record=True) as captured:
             warnings.simplefilter("always")
-            params = airfoils.to_blade_airfoil(secoes)
-        mensagens = [str(w.message) for w in capturados]
-        self.assertTrue(any("dynamic_stall_method" in m for m in mensagens), mensagens)
+            params = airfoils.to_blade_airfoil(sections)
+        messages = [str(w.message) for w in captured]
+        self.assertTrue(any("dynamic_stall_method" in m for m in messages), messages)
         # the innermost wins, and the value is deterministic
         self.assertEqual(params.dynamic_stall_params["method"], "frequency")
 
-    def test_validacao_avisa_antes_de_rodar(self):
-        secoes = [self._secao(0.2, use_dynamic_stall=True, dynamic_stall_method="frequency"),
-                  self._secao(0.9, use_dynamic_stall=True, dynamic_stall_method="time_march")]
-        avisos = [i for i in validation.validate_airfoil_sections(secoes)
-                  if i.level == "warning" and "method" in i.message]
-        self.assertEqual(len(avisos), 1, [str(i) for i in avisos])
+    def test_validation_warns_before_running(self):
+        sections = [self._section(0.2, use_dynamic_stall=True, dynamic_stall_method="frequency"),
+                    self._section(0.9, use_dynamic_stall=True, dynamic_stall_method="time_march")]
+        warns = [i for i in validation.validate_airfoil_sections(sections)
+                 if i.level == "warning" and "method" in i.message]
+        self.assertEqual(len(warns), 1, [str(i) for i in warns])
 
-    def test_sem_conflito_nao_avisa(self):
-        secoes = [self._secao(0.2, use_dynamic_stall=True, dynamic_stall_method="time_march"),
-                  self._secao(0.9, use_dynamic_stall=True, dynamic_stall_method="time_march")]
+    def test_without_conflict_does_not_warn(self):
+        sections = [self._section(0.2, use_dynamic_stall=True, dynamic_stall_method="time_march"),
+                    self._section(0.9, use_dynamic_stall=True, dynamic_stall_method="time_march")]
         self.assertEqual(
-            [i for i in validation.validate_airfoil_sections(secoes)
+            [i for i in validation.validate_airfoil_sections(sections)
              if "disagree" in i.message], [])
 
 
-class TestImportarContorno(unittest.TestCase):
+class TestContourImport(unittest.TestCase):
     """`load_profile_dat` accepts any file with number pairs --
     and it is precisely for this reason that the COUNT line of Lednicer format
     ("61.  61.") entered silently as a point at x=61, producing a
     profile with a spike of 61 chords without any warning."""
 
-    def _arquivo(self, texto: str, nome: str = "perfil.dat") -> str:
+    def _file(self, text: str, name: str = "profile.dat") -> str:
         import tempfile
         from pathlib import Path
-        caminho = Path(tempfile.mkdtemp()) / nome
-        caminho.write_text(texto, encoding="utf-8")
-        return str(caminho)
+        path = Path(tempfile.mkdtemp()) / name
+        path.write_text(text, encoding="utf-8")
+        return str(path)
 
     _SELIG = ("NACA 2412\n"
               "1.000000  0.001300\n"
@@ -685,29 +685,29 @@ class TestImportarContorno(unittest.TestCase):
               "0.500000 -0.035000\n"
               "1.000000 -0.001300\n")
 
-    def test_selig_entra_como_esta(self):
-        geom = airfoils.load_profile_dat(self._arquivo(self._SELIG))
+    def test_selig_enters_as_is(self):
+        geom = airfoils.load_profile_dat(self._file(self._SELIG))
         self.assertEqual(geom.n_points, 5)
         self.assertEqual(geom.source, "imported")
         self.assertAlmostEqual(geom.x[0], 1.0)
 
-    def test_nome_e_linhas_nao_numericas_sao_ignorados(self):
-        texto = "# comentário\nNACA 2412\n\n1.0 0.0\n0.0 0.0\nfim\n"
-        geom = airfoils.load_profile_dat(self._arquivo(texto))
+    def test_name_and_non_numeric_lines_are_ignored(self):
+        text = "# comment\nNACA 2412\n\n1.0 0.0\n0.0 0.0\nend\n"
+        geom = airfoils.load_profile_dat(self._file(text))
         self.assertEqual(geom.n_points, 2)
 
-    def test_virgula_serve_de_separador(self):
-        geom = airfoils.load_profile_dat(self._arquivo("x,y\n1.0,0.0\n0.0,0.0\n", "p.csv"))
+    def test_comma_works_as_separator(self):
+        geom = airfoils.load_profile_dat(self._file("x,y\n1.0,0.0\n0.0,0.0\n", "p.csv"))
         self.assertEqual(geom.n_points, 2)
 
-    def test_contagem_do_lednicer_e_recusada_com_explicacao(self):
-        texto = "NACA 2412\n      61.      61.\n\n1.0 0.0013\n0.0 0.0\n"
+    def test_lednicer_count_is_rejected_with_an_explanation(self):
+        text = "NACA 2412\n      61.      61.\n\n1.0 0.0013\n0.0 0.0\n"
         with self.assertRaises(ValueError) as ctx:
-            airfoils.load_profile_dat(self._arquivo(texto))
-        mensagem = str(ctx.exception)
-        self.assertIn("Lednicer", mensagem)
-        self.assertIn("Selig", mensagem)
+            airfoils.load_profile_dat(self._file(text))
+        message = str(ctx.exception)
+        self.assertIn("Lednicer", message)
+        self.assertIn("Selig", message)
 
-    def test_arquivo_sem_par_de_numeros_falha(self):
+    def test_file_without_a_pair_of_numbers_fails(self):
         with self.assertRaises(ValueError):
-            airfoils.load_profile_dat(self._arquivo("sem coordenadas aqui\n"))
+            airfoils.load_profile_dat(self._file("no coordinates here\n"))

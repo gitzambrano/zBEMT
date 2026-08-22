@@ -48,7 +48,7 @@ class TestGuiCliParity(unittest.TestCase):
         from zbemt.gui import app as gui
         cls.gui = gui
 
-    # geometria custom compartilhada pelos dois caminhos
+    # custom geometry shared by the two paths
     _R = [0.15, 0.5, 1.0]
     _C = [0.09, 0.06, 0.03]
     _T = [12.0, 6.0, 0.0]
@@ -61,7 +61,7 @@ class TestGuiCliParity(unittest.TestCase):
         project = api.new_project(project_dir, name="parity_gui")
         state.set_project(project)
 
-        # --- Geometria: constantes globais + tabela custom ---
+        # --- Geometry: global constants + custom table ---
         geom_tab = gui.GeometryTab(state)
         geom_tab.n_blades.setValue(self._N_BLADES)
         geom_tab.radius_m.setValue(self._RADIUS_M)
@@ -80,7 +80,7 @@ class TestGuiCliParity(unittest.TestCase):
         airfoil_tab.source_combo.setCurrentText("analytical")
         airfoil_tab.stall_model_combo.setCurrentText("clip")
         airfoil_tab.use_dynamic_stall.setChecked(True)
-        with helpers.patch_em_toda_gui("QMessageBox"):
+        with helpers.patch_message_box_everywhere("QMessageBox"):
             airfoil_tab._apply_to_project()
 
         # --- Config/Engine: inflow, prandtl, solver, augmentations ---
@@ -91,7 +91,7 @@ class TestGuiCliParity(unittest.TestCase):
         config_tab.cfg_solver.setCurrentText("newton")
         config_tab.cfg_use_rotational_augmentation.setChecked(True)
         config_tab.cfg_use_radial_flow_correction.setChecked(True)
-        with helpers.patch_em_toda_gui("QMessageBox"):
+        with helpers.patch_message_box_everywhere("QMessageBox"):
             config_tab._apply_config_to_project()
 
         api.save_project(state.project)

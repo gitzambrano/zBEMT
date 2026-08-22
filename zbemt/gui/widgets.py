@@ -6,8 +6,8 @@ each one has several units that are the same quantity written a
 different way, so a label-dropdown switches the unit and converts the
 value, instead of two fields that could diverge.
 
-The LIST of units changes with the mode -- rotor or propeller --,
-because the axes rotate: see ``UNIDADES_DE_CONDICAO`` below and
+The LIST of units changes with the mode (rotor or propeller),
+because the axes rotate: see ``CONDITION_UNITS`` below and
 Sec.6c of ``bemt.py``.
 """
 
@@ -25,82 +25,82 @@ from PyQt6.QtGui import QDoubleValidator, QTextDocument
 from .. import api
 
 
-_PAPEL_SIMBOLO_DA_UNIDADE = Qt.ItemDataRole.UserRole + 1
+_UNIT_SYMBOL_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
-class _DelegadoDeUnidades(QStyledItemDelegate):
+class _UnitComboDelegate(QStyledItemDelegate):
     """Draws combo symbols with real subscripts and a per-item tooltip."""
 
     def paint(self, painter, option, index):
-        simbolo = index.data(_PAPEL_SIMBOLO_DA_UNIDADE)
-        if not simbolo:
+        symbol = index.data(_UNIT_SYMBOL_ROLE)
+        if not symbol:
             super().paint(painter, option, index)
             return
-        opcao = QStyleOptionViewItem(option)
-        self.initStyleOption(opcao, index)
-        opcao.text = ""
-        estilo = opcao.widget.style() if opcao.widget else QApplication.style()
-        estilo.drawControl(QStyle.ControlElement.CE_ItemViewItem, opcao,
-                           painter, opcao.widget)
-        area = estilo.subElementRect(QStyle.SubElement.SE_ItemViewItemText,
-                                     opcao, opcao.widget)
-        documento = QTextDocument()
-        documento.setDefaultFont(opcao.font)
-        documento.setDocumentMargin(0)
-        cor = opcao.palette.color(
-            opcao.palette.ColorRole.HighlightedText
-            if opcao.state & QStyle.StateFlag.State_Selected
-            else opcao.palette.ColorRole.Text)
-        documento.setHtml(f'<span style="color:{cor.name()}">{simbolo}</span>')
+        option = QStyleOptionViewItem(option)
+        self.initStyleOption(option, index)
+        option.text = ""
+        style = option.widget.style() if option.widget else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, option,
+                           painter, option.widget)
+        area = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText,
+                                     option, option.widget)
+        doc = QTextDocument()
+        doc.setDefaultFont(option.font)
+        doc.setDocumentMargin(0)
+        cor = option.palette.color(
+            option.palette.ColorRole.HighlightedText
+            if option.state & QStyle.StateFlag.State_Selected
+            else option.palette.ColorRole.Text)
+        doc.setHtml(f'<span style="color:{cor.name()}">{symbol}</span>')
         painter.save()
         painter.translate(area.left(), area.top() + max(
-            0.0, (area.height() - documento.size().height()) / 2))
-        documento.drawContents(painter)
+            0.0, (area.height() - doc.size().height()) / 2))
+        doc.drawContents(painter)
         painter.restore()
 
     def sizeHint(self, option, index):
-        simbolo = index.data(_PAPEL_SIMBOLO_DA_UNIDADE)
-        if not simbolo:
+        symbol = index.data(_UNIT_SYMBOL_ROLE)
+        if not symbol:
             return super().sizeHint(option, index)
-        opcao = QStyleOptionViewItem(option)
-        self.initStyleOption(opcao, index)
-        documento = QTextDocument()
-        documento.setDefaultFont(opcao.font)
-        documento.setDocumentMargin(0)
-        documento.setHtml(simbolo)
+        option = QStyleOptionViewItem(option)
+        self.initStyleOption(option, index)
+        doc = QTextDocument()
+        doc.setDefaultFont(option.font)
+        doc.setDocumentMargin(0)
+        doc.setHtml(symbol)
         base = super().sizeHint(option, index)
-        tamanho = documento.size()
-        return base.expandedTo(tamanho.toSize())
+        size = doc.size()
+        return base.expandedTo(size.toSize())
 
 
-class _ComboDeUnidades(QComboBox):
+class _UnitComboBox(QComboBox):
     """Also paints the combo's current item with real subscripts."""
 
     def paintEvent(self, event):  # noqa: N802 (API Qt)
-        simbolo = self.currentData(_PAPEL_SIMBOLO_DA_UNIDADE)
-        if not simbolo:
+        symbol = self.currentData(_UNIT_SYMBOL_ROLE)
+        if not symbol:
             super().paintEvent(event)
             return
-        opcao = QStyleOptionComboBox()
-        self.initStyleOption(opcao)
-        opcao.currentText = ""
-        pintor = QStylePainter(self)
-        pintor.drawComplexControl(QStyle.ComplexControl.CC_ComboBox, opcao)
+        option = QStyleOptionComboBox()
+        self.initStyleOption(option)
+        option.currentText = ""
+        painter = QStylePainter(self)
+        painter.drawComplexControl(QStyle.ComplexControl.CC_ComboBox, option)
         area = self.style().subControlRect(
-            QStyle.ComplexControl.CC_ComboBox, opcao,
+            QStyle.ComplexControl.CC_ComboBox, option,
             QStyle.SubControl.SC_ComboBoxEditField, self)
-        documento = QTextDocument()
-        documento.setDefaultFont(self.font())
-        documento.setDocumentMargin(0)
-        documento.setHtml(simbolo)
-        pintor.save()
-        pintor.translate(area.left() + 4, area.top() + max(
-            0.0, (area.height() - documento.size().height()) / 2))
-        documento.drawContents(pintor)
-        pintor.restore()
+        doc = QTextDocument()
+        doc.setDefaultFont(self.font())
+        doc.setDocumentMargin(0)
+        doc.setHtml(symbol)
+        painter.save()
+        painter.translate(area.left() + 4, area.top() + max(
+            0.0, (area.height() - doc.size().height()) / 2))
+        doc.drawContents(painter)
+        painter.restore()
 
 
-_SIMBOLOS_DAS_UNIDADES = {
+_UNIT_SYMBOLS_HTML = {
     "μₓ": "&mu;<sub>x</sub>", "Jₓ": "J<sub>x</sub>",
     "Vₓ [m/s]": "V<sub>x</sub> [m/s]", "V_z [m/s]": "V<sub>z</sub> [m/s]",
     "μ_z": "&mu;<sub>z</sub>", "J_z": "J<sub>z</sub>",
@@ -108,7 +108,7 @@ _SIMBOLOS_DAS_UNIDADES = {
     "α_dᵢₛₖ [deg]": "&alpha;<sub>disk</sub> [deg]",
 }
 
-_DICAS_DAS_UNIDADES = {
+_UNIT_TOOLTIPS = {
     "mu_x": "<b>μ<sub>x</sub></b><br><br>Advance ratio based on the vehicle x component.<br><br>μ<sub>x</sub> = V<sub>x</sub>/(ΩR).",
     "J_x": "<b>J<sub>x</sub></b><br><br>Propeller advance ratio based on the vehicle x component.<br><br>J<sub>x</sub> = V<sub>x</sub>/(nD).",
     "Vx": "<b>V<sub>x</sub></b><br><br>Free-stream velocity component along the vehicle x-axis.<br><br>It is the forward component for a rotor and the along-shaft airspeed for a propeller.",
@@ -120,45 +120,45 @@ _DICAS_DAS_UNIDADES = {
 }
 
 
-def configurar_combo_de_unidades(combo: QComboBox, pares: list[tuple[str, str]]) -> None:
+def configure_unit_combo(combo: QComboBox, pairs: list[tuple[str, str]]) -> None:
     """Populates a combo with a rich-text symbol and a per-option
     tooltip."""
-    combo.setItemDelegate(_DelegadoDeUnidades(combo))
+    combo.setItemDelegate(_UnitComboDelegate(combo))
     combo.clear()
-    for rotulo, variavel in pares:
-        combo.addItem(rotulo)
-        indice = combo.count() - 1
-        simbolo = _SIMBOLOS_DAS_UNIDADES.get(rotulo, rotulo)
-        combo.setItemData(indice, simbolo, _PAPEL_SIMBOLO_DA_UNIDADE)
-        # `_DICAS_DAS_UNIDADES` already carries the symbol in bold as
+    for label, variable in pairs:
+        combo.addItem(label)
+        index = combo.count() - 1
+        symbol = _UNIT_SYMBOLS_HTML.get(label, label)
+        combo.setItemData(index, symbol, _UNIT_SYMBOL_ROLE)
+        # `_UNIT_TOOLTIPS` already carries the symbol in bold as
         # the tooltip's own first line -- prefixing it again here
         # would duplicate the title ("α_rotor [deg]" followed by
         # "α_rotor" in the same tooltip). It only falls back to the
         # prefix when there is no rich entry (a variable with no
         # tooltip of its own), as a minimal title.
-        dica = _DICAS_DAS_UNIDADES.get(variavel)
-        if dica is None:
-            dica = f"<b>{simbolo}</b>"
-        combo.setItemData(indice, dica, Qt.ItemDataRole.ToolTipRole)
+        tip = _UNIT_TOOLTIPS.get(variable)
+        if tip is None:
+            tip = f"<b>{symbol}</b>"
+        combo.setItemData(index, tip, Qt.ItemDataRole.ToolTipRole)
 
 
-class SpinBoxCientifico(QDoubleSpinBox):
+class ScientificSpinBox(QDoubleSpinBox):
     """Spinbox for quantities that live in orders of magnitude, not in
-    decimal places -- tolerances, residuals, thresholds.
+    decimal places: tolerances, residuals, thresholds.
 
     A regular ``QDoubleSpinBox`` shows the default tolerance 1e-6 as
     ``0.0000010000`` (ten fixed decimal places): the user has to count
     zeros to know the order of magnitude, and 1e-9 and 1e-10 become
     almost indistinguishable. Here the text is ``1e-06``, and the step
     is MULTIPLICATIVE (one decade per click), which is how a tolerance
-    is actually adjusted -- the additive step of a regular spinbox,
+    is actually adjusted. The additive step of a regular spinbox,
     with a fixed increment, either does not move or jumps across the
     whole range.
     """
 
-    #: Step per click: one decade. Half a decade (~3.16x) would be
+    #: Step per click: one decade. Half a decade (approximately 3.16x) would be
     #: finer, but produces values like 3.16e-07, which nobody types.
-    _FATOR = 10.0
+    _STEP_FACTOR = 10.0
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -166,29 +166,29 @@ class SpinBoxCientifico(QDoubleSpinBox):
                                        # the displayed text comes from textFromValue
         self.setKeyboardTracking(False)
 
-    def textFromValue(self, valor: float) -> str:
-        return f"{valor:.6g}" if valor == 0 else f"{valor:.0e}".replace("e-0", "e-")
+    def textFromValue(self, value: float) -> str:
+        return f"{value:.6g}" if value == 0 else f"{value:.0e}".replace("e-0", "e-")
 
-    def valueFromText(self, texto: str) -> float:
+    def valueFromText(self, text: str) -> float:
         try:
-            return float(texto.strip())
+            return float(text.strip())
         except ValueError:
             return self.value()
 
-    def validate(self, texto: str, pos: int):
+    def validate(self, text: str, pos: int):
         # `QDoubleSpinBox.validate` only accepts the locale's decimal
         # notation; without this, typing "1e-8" would be rejected key
         # by key.
-        validador = QDoubleValidator(self.minimum(), self.maximum(), 12, self)
-        validador.setNotation(QDoubleValidator.Notation.ScientificNotation)
-        return validador.validate(texto, pos)
+        validator = QDoubleValidator(self.minimum(), self.maximum(), 12, self)
+        validator.setNotation(QDoubleValidator.Notation.ScientificNotation)
+        return validator.validate(text, pos)
 
-    def stepBy(self, passos: int):
-        valor = self.value()
-        if valor <= 0:
-            super().stepBy(passos)
+    def stepBy(self, steps: int):
+        value = self.value()
+        if value <= 0:
+            super().stepBy(steps)
             return
-        self.setValue(valor * (self._FATOR ** passos))
+        self.setValue(value * (self._STEP_FACTOR ** steps))
 
 
 
@@ -213,8 +213,8 @@ class SpinBoxCientifico(QDoubleSpinBox):
 # the engine's, in disk axes.
 #
 # ROTOR: advance is IN-PLANE (mu_x/J_x/V) and the axial component is
-# climb/descent (`alpha_rotor`, measured from the disk PLANE -- ~0 on a
-# helicopter in forward flight --, or Vz in m/s).
+# climb/descent (`alpha_rotor`, measured from the disk PLANE, approximately
+# 0 on a helicopter in forward flight, or Vz in m/s).
 #
 # PROPELLER: the axes rotate (see `bemt.py`, Sec.6c). The x axis becomes
 # the shaft's, and with it the PRIMARY advance moves to the axial slot --
@@ -249,7 +249,7 @@ class SpinBoxCientifico(QDoubleSpinBox):
 # `longitudinal` is the internal `mu_x` (in the disk plane) and `axial`
 # is the internal `Vz` (along the shaft). Which one carries the letter x
 # depends on the mode -- that is exactly the rotation this table encodes.
-UNIDADES_DE_CONDICAO = {
+CONDITION_UNITS = {
     # ROTOR: vertical axis -> in-plane = x (advance), axial = z (climb)
     ("inplane", False): (("μₓ", "mu_x"), ("Jₓ", "J_x"), ("Vₓ [m/s]", "Vx")),
     ("axial", False): (("αᵣₒₜₒᵣ [deg]", "alpha_deg"), ("V_z [m/s]", "Vz"),
@@ -263,7 +263,7 @@ UNIDADES_DE_CONDICAO = {
 #: Pre-selected unit of each slot per mode -- the one the user almost
 #: always wants. On a rotor: advance in mu_x and climb as an angle. On a
 #: propeller: flight speed in J_x and the cross component at zero.
-_UNIDADE_PADRAO = {
+_DEFAULT_UNIT = {
     ("inplane", False): "μₓ", ("inplane", True): "V_z [m/s]",
     ("axial", False): "αᵣₒₜₒᵣ [deg]", ("axial", True): "Jₓ",
 }
@@ -271,14 +271,14 @@ _UNIDADE_PADRAO = {
 #: Variables whose spinbox is an ANGLE (±90 range) rather than a velocity
 #: or a ratio -- used by both widgets to adjust the range when the unit
 #: is switched.
-_VARIAVEIS_DE_ANGULO = ("alpha_deg", "alpha_disk")
+_ANGLE_VARIABLES = ("alpha_deg", "alpha_disk")
 
 
-def _rotulos_de_unidade(slot: str, is_propeller: bool) -> list:
-    return [rotulo for rotulo, _var in UNIDADES_DE_CONDICAO[(slot, bool(is_propeller))]]
+def _unit_labels(slot: str, is_propeller: bool) -> list:
+    return [label for label, _var in CONDITION_UNITS[(slot, bool(is_propeller))]]
 
 
-def variavel_de_rotulo_de_unidade(slot: str, rotulo: str) -> str:
+def unit_label_variable(slot: str, label: str) -> str:
     """Canonical variable for a label, searching in BOTH modes.
 
     In both because switching modes rebuilds the combo, and between
@@ -286,11 +286,11 @@ def variavel_de_rotulo_de_unidade(slot: str, rotulo: str) -> str:
     mode and the list is already from the other; without the broad
     search, that instant would return the wrong variable for whoever
     was reading the field."""
-    for (s, _modo), pares in UNIDADES_DE_CONDICAO.items():
+    for (s, _mode), pairs in CONDITION_UNITS.items():
         if s != slot:
             continue
-        for r, var in pares:
-            if r == rotulo:
+        for r, var in pairs:
+            if r == label:
                 return var
     return ""
 
@@ -302,7 +302,7 @@ class LongitudinalInput(QWidget):
     In ROTOR mode it is the advance: mu_x, J_x or V [m/s]. In
     PROPELLER mode it is the CROSS flow: Vz_inf [m/s], the angle
     alpha_disk measured from the shaft, or the ratios mu_z/J_z (see
-    `UNIDADES_DE_CONDICAO`).
+    `CONDITION_UNITS`).
 
     The dropdown is positioned on the left and serves as the field's
     own label: clicking it switches the unit, converting the
@@ -321,9 +321,9 @@ class LongitudinalInput(QWidget):
         self._is_propeller = False
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.unit_combo = _ComboDeUnidades()
-        configurar_combo_de_unidades(
-            self.unit_combo, UNIDADES_DE_CONDICAO[(self._SLOT, False)])
+        self.unit_combo = _UnitComboBox()
+        configure_unit_combo(
+            self.unit_combo, CONDITION_UNITS[(self._SLOT, False)])
         self.spin = QDoubleSpinBox()
         self.spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.spin.setRange(-10000.0, 10000.0)
@@ -334,7 +334,7 @@ class LongitudinalInput(QWidget):
         layout.addWidget(self.spin)
         # The slack goes to the END, not to the field. With
         # `addWidget(spin, 1)` the spinbox got all the row's leftover
-        # space; after `common.compactar_campos_de_formulario` started
+        # space; after `common.compact_form_fields` started
         # limiting the numeric field's width, that space became a gap
         # of several hundred pixels BETWEEN the label-dropdown and the
         # value -- the two pieces of the same field ended up at
@@ -355,19 +355,19 @@ class LongitudinalInput(QWidget):
         old_text = self._prev_unit if hasattr(self, '_prev_unit') else None
         new_text = self.unit_combo.currentText()
         self.spin.blockSignals(True)
-        self._ajustar_faixa()
+        self._update_range()
         # convert the value when the unit changes: normalizes the old
-        # value to mu_x and rewrites it in the new unit. `_mu_de`
+        # value to mu_x and rewrites it in the new unit. `_mu_from`
         # returns None when context is missing (or when the angle
         # needs a Vz this widget does not know) -- in that case the
         # number stays as it is, which is the old behavior for
         # mu_x<->V without context.
         if old_text is not None:
-            mu_val = self._mu_de(old_text, self.spin.value())
+            mu_val = self._mu_from(old_text, self.spin.value())
             if mu_val is not None:
-                novo = self._valor_em(new_text, mu_val)
-                if novo is not None:
-                    self.spin.setValue(novo)
+                converted = self._value_in(new_text, mu_val)
+                if converted is not None:
+                    self.spin.setValue(converted)
         self._prev_unit = new_text
         self.spin.blockSignals(False)
         self.changed.emit()
@@ -377,33 +377,33 @@ class LongitudinalInput(QWidget):
     def _ctx(self):
         return self._context_provider() if self._context_provider is not None else None
 
-    def _ajustar_faixa(self):
+    def _update_range(self):
         """An angle lives in ±90; an advance ratio or a velocity does
         not. Without this, choosing `alpha_disk [deg]` would keep the
         wide range (the spinbox would accept 300°) and switching back
         to V [m/s] would leave the range stuck at ±90 (a propeller at
         120 m/s would not fit)."""
-        if self.variable_name() in _VARIAVEIS_DE_ANGULO:
+        if self.variable_name() in _ANGLE_VARIABLES:
             self.spin.setRange(-90.0, 90.0)
         else:
             self.spin.setRange(-10000.0, 10000.0)
 
-    def _mu_de(self, rotulo: str, valor: float):
-        var = variavel_de_rotulo_de_unidade(self._SLOT, rotulo)
+    def _mu_from(self, label: str, value: float):
+        var = unit_label_variable(self._SLOT, label)
         if var == "mu_x":
-            return valor
+            return value
         if var == "J_x":
-            return api.J_to_mu(valor)
+            return api.J_to_mu(value)
         if var == "V":
             ctx = self._ctx()
             if ctx is None:
                 return None
             rpm, radius_m = ctx
-            return api.V_to_mu(valor, rpm, radius_m)
+            return api.V_to_mu(value, rpm, radius_m)
         return None       # alpha_disk: depends on Vz, known only by the tab
 
-    def _valor_em(self, rotulo: str, mu_x: float):
-        var = variavel_de_rotulo_de_unidade(self._SLOT, rotulo)
+    def _value_in(self, label: str, mu_x: float):
+        var = unit_label_variable(self._SLOT, label)
         if var == "mu_x":
             return mu_x
         if var == "J_x":
@@ -425,18 +425,18 @@ class LongitudinalInput(QWidget):
         """This unit DERIVES the in-plane component from the axial
         one, instead of reporting it -- whoever builds the condition
         has to resolve the axial one first (see
-        `common.resolver_par_de_condicao`)."""
+        `common.resolve_condition_pair`)."""
         return self.variable_name() == "alpha_disk"
 
     def variable_name(self) -> str:
         """Canonical engine variable (`mu_x`/`J_x`/`V`/`alpha_disk`)
         -- NEVER the screen label, which rotates with the mode."""
-        return variavel_de_rotulo_de_unidade(self._SLOT, self.unit_combo.currentText()) or "mu_x"
+        return unit_label_variable(self._SLOT, self.unit_combo.currentText()) or "mu_x"
 
     def raw_value(self) -> float:
         """Displayed value, in the current unit -- used as an
         AXIS/fixed factorial value (`studies.build_factorial_conditions`
-        accepts every variable in `UNIDADES_DE_CONDICAO`)."""
+        accepts every variable in `CONDITION_UNITS`)."""
         return self.spin.value()
 
     def mu_x(self, Vz: float = 0.0) -> float:
@@ -452,8 +452,8 @@ class LongitudinalInput(QWidget):
                 return 0.0
             rpm, radius_m = ctx
             return api.V_to_mu(float(np.tan(np.deg2rad(v))) * Vz, rpm, radius_m)
-        convertido = self._mu_de(self.unit_combo.currentText(), v)
-        return v if convertido is None else convertido
+        converted = self._mu_from(self.unit_combo.currentText(), v)
+        return v if converted is None else converted
 
     def set_mu(self, mu_x: float, Vz: float = 0.0):
         self.spin.blockSignals(True)
@@ -466,8 +466,8 @@ class LongitudinalInput(QWidget):
             self.spin.setValue(float(np.degrees(np.arctan2(Vinf_long, Vz)))
                                 if abs(Vz) > 1e-9 else 0.0)
         else:
-            novo = self._valor_em(self.unit_combo.currentText(), mu_x)
-            self.spin.setValue(mu_x if novo is None else novo)
+            converted = self._value_in(self.unit_combo.currentText(), mu_x)
+            self.spin.setValue(mu_x if converted is None else converted)
         self.spin.blockSignals(False)
 
     def set_default_unit(self, is_propeller: bool):
@@ -477,7 +477,7 @@ class LongitudinalInput(QWidget):
         What changes between modes is not just which unit comes
         pre-selected: it is the whole list. In propeller mode this
         field stops being the advance and becomes the cross flow (see
-        `UNIDADES_DE_CONDICAO`), and offering "mu_x"/"J_x" there would
+        `CONDITION_UNITS`), and offering "mu_x"/"J_x" there would
         keep inviting the user to type the aircraft's speed into the
         wrong field -- which was the original bug.
 
@@ -487,18 +487,18 @@ class LongitudinalInput(QWidget):
         is_propeller = bool(is_propeller)
         if is_propeller == self._is_propeller:
             return
-        mu_antes = self.mu_x()
+        previous_mu = self.mu_x()
         self._is_propeller = is_propeller
-        rotulos = _rotulos_de_unidade(self._SLOT, is_propeller)
+        labels = _unit_labels(self._SLOT, is_propeller)
         self.unit_combo.blockSignals(True)
-        configurar_combo_de_unidades(
-            self.unit_combo, UNIDADES_DE_CONDICAO[(self._SLOT, is_propeller)])
-        alvo = _UNIDADE_PADRAO[(self._SLOT, is_propeller)]
-        self.unit_combo.setCurrentText(alvo if alvo in rotulos else rotulos[0])
+        configure_unit_combo(
+            self.unit_combo, CONDITION_UNITS[(self._SLOT, is_propeller)])
+        default_label = _DEFAULT_UNIT[(self._SLOT, is_propeller)]
+        self.unit_combo.setCurrentText(default_label if default_label in labels else labels[0])
         self.unit_combo.blockSignals(False)
         self._prev_unit = self.unit_combo.currentText()
-        self._ajustar_faixa()
-        self.set_mu(mu_antes)
+        self._update_range()
+        self.set_mu(previous_mu)
 
 
 class AxialInput(QWidget):
@@ -508,7 +508,7 @@ class AxialInput(QWidget):
     In ROTOR mode it is climb/descent: the disk angle alpha, or
     Vz [m/s]. In PROPELLER mode it is the flight speed, and comes
     non-dimensionalized as the classic propeller advance: J_x, mu_x
-    or Vx_inf [m/s] (see `UNIDADES_DE_CONDICAO`).
+    or Vx_inf [m/s] (see `CONDITION_UNITS`).
 
     The combo sits on the left and serves as a clickable label. The
     alpha<->Vz conversion depends on mu_x/rpm/radius, so a
@@ -523,9 +523,9 @@ class AxialInput(QWidget):
         self._is_propeller = False
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.unit_combo = _ComboDeUnidades()
-        configurar_combo_de_unidades(
-            self.unit_combo, UNIDADES_DE_CONDICAO[(self._SLOT, False)])
+        self.unit_combo = _UnitComboBox()
+        configure_unit_combo(
+            self.unit_combo, CONDITION_UNITS[(self._SLOT, False)])
         self.spin = QDoubleSpinBox()
         self.spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.spin.setRange(-90, 90)
@@ -536,7 +536,7 @@ class AxialInput(QWidget):
         layout.addWidget(self.spin)
         # The slack goes to the END, not to the field. With
         # `addWidget(spin, 1)` the spinbox got all the row's leftover
-        # space; after `common.compactar_campos_de_formulario` started
+        # space; after `common.compact_form_fields` started
         # limiting the numeric field's width, that space became a gap
         # of several hundred pixels BETWEEN the label-dropdown and the
         # value -- the two pieces of the same field ended up at
@@ -547,7 +547,7 @@ class AxialInput(QWidget):
         self._context_provider = None   # callable() -> (mu_x, rpm, radius_m) | None
         #: once the user switches the combo by hand, `set_default_unit`
         #: stops overriding their choice WITHIN the same mode
-        self._unidade_escolhida_pelo_usuario = False
+        self._unit_chosen_by_user = False
         #: label the next conversion starts from -- with 3 units in
         #: propeller mode, "the other one" stopped being deducible
         self._prev_unit = self.unit_combo.currentText()
@@ -560,7 +560,7 @@ class AxialInput(QWidget):
 
         A propeller's flight speed is AXIAL: it goes in this field.
         And on a propeller it is written non-dimensionalized as
-        J_x = V/(nD) -- the J_x of the propeller charts --, not as a
+        J_x = V/(nD) (the J_x of the propeller charts), not as a
         climb angle. Offering "alpha [deg]" here in propeller mode was
         worse than useless: the disk angle solves
         `Vz = tan(alpha)*V_in-plane`, which is ZERO in every straight
@@ -575,44 +575,44 @@ class AxialInput(QWidget):
             return
         ctx = self._ctx()
         mu_x, rpm, radius_m = ctx if ctx is not None else (0.0, 0.0, 0.0)
-        Vv_antes = self.vv(mu_x, rpm, radius_m)
+        previous_vv = self.vv(mu_x, rpm, radius_m)
         self._is_propeller = is_propeller
-        self._unidade_escolhida_pelo_usuario = False
-        rotulos = _rotulos_de_unidade(self._SLOT, is_propeller)
+        self._unit_chosen_by_user = False
+        labels = _unit_labels(self._SLOT, is_propeller)
         self.unit_combo.blockSignals(True)
-        configurar_combo_de_unidades(
-            self.unit_combo, UNIDADES_DE_CONDICAO[(self._SLOT, is_propeller)])
-        alvo = _UNIDADE_PADRAO[(self._SLOT, is_propeller)]
-        self.unit_combo.setCurrentText(alvo if alvo in rotulos else rotulos[0])
+        configure_unit_combo(
+            self.unit_combo, CONDITION_UNITS[(self._SLOT, is_propeller)])
+        default_label = _DEFAULT_UNIT[(self._SLOT, is_propeller)]
+        self.unit_combo.setCurrentText(default_label if default_label in labels else labels[0])
         self.unit_combo.blockSignals(False)
         # with signals blocked `_on_unit_changed` does not run, and it
         # is normally the one that adjusts the spinbox's range: without
         # this call the field would stay labeled "J_x" and stuck at
         # ±90.
         self._update_range()
-        self.set_vv(Vv_antes, mu_x, rpm, radius_m)
+        self.set_vv(previous_vv, mu_x, rpm, radius_m)
 
     def is_alpha(self) -> bool:
         return self.variable_name() == "alpha_deg"
 
     def variable_name(self) -> str:
         """Canonical engine variable (`alpha_deg`/`Vz`/`mu_z`/`J_z`)."""
-        return variavel_de_rotulo_de_unidade(self._SLOT, self.unit_combo.currentText()) or "Vz"
+        return unit_label_variable(self._SLOT, self.unit_combo.currentText()) or "Vz"
 
     def _ctx(self):
         return self._context_provider() if self._context_provider is not None else None
 
     def _on_unit_changed(self, _index: int):
-        self._unidade_escolhida_pelo_usuario = True
+        self._unit_chosen_by_user = True
         ctx = self._ctx()
         if ctx is not None:
             mu_x, rpm, radius_m = ctx
             # the Vz that the OLD value represented -- read before the
             # new unit takes effect, otherwise the conversion starts
             # from the wrong number
-            anterior = getattr(self, "_prev_unit", None)
-            Vz = self._vv_de(anterior, self.spin.value(), mu_x, rpm, radius_m) \
-                if anterior is not None else self.spin.value()
+            previous_unit = getattr(self, "_prev_unit", None)
+            Vz = self._vv_from(previous_unit, self.spin.value(), mu_x, rpm, radius_m) \
+                if previous_unit is not None else self.spin.value()
             self.spin.blockSignals(True)
             self._update_range()
             self.set_vv(Vz, mu_x, rpm, radius_m)
@@ -633,16 +633,16 @@ class AxialInput(QWidget):
     def raw_value(self) -> float:
         return self.spin.value()
 
-    def _vv_de(self, rotulo: str, valor: float, mu_x: float, rpm: float,
+    def _vv_from(self, label: str, value: float, mu_x: float, rpm: float,
                 radius_m: float) -> float:
-        var = variavel_de_rotulo_de_unidade(self._SLOT, rotulo)
+        var = unit_label_variable(self._SLOT, label)
         if var == "alpha_deg":
-            return api.vv_from_alpha_deg(valor, mu_x, rpm, radius_m)
+            return api.vv_from_alpha_deg(value, mu_x, rpm, radius_m)
         if var == "mu_z":
-            return api.mu_to_V(valor, rpm, radius_m)
+            return api.mu_to_V(value, rpm, radius_m)
         if var == "J_z":
-            return api.mu_to_V(api.J_to_mu(valor), rpm, radius_m)
-        return valor
+            return api.mu_to_V(api.J_to_mu(value), rpm, radius_m)
+        return value
 
     def vv(self, mu_x: float, rpm: float, radius_m: float) -> float:
         """``Vz`` [m/s] corresponding to the displayed value.
@@ -651,7 +651,7 @@ class AxialInput(QWidget):
         propeller units (J_x/mu_x/Vx_inf) report the axial component
         directly, without depending on the in-plane one. That is why
         `alpha_disk` does NOT live here."""
-        return self._vv_de(self.unit_combo.currentText(), self.spin.value(),
+        return self._vv_from(self.unit_combo.currentText(), self.spin.value(),
                             mu_x, rpm, radius_m)
 
     def set_vv(self, Vz: float, mu_x: float, rpm: float, radius_m: float):

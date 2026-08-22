@@ -17,15 +17,15 @@ from pathlib import Path
 
 from tests.helpers import requires_qt
 
-RAIZ = Path(__file__).resolve().parents[1]
-DOC = RAIZ / "docs" / "documentation.html"
+ROOT = Path(__file__).resolve().parents[1]
+DOC = ROOT / "docs" / "documentation.html"
 
 
 def _html() -> str:
     return DOC.read_text(encoding="utf-8")
 
 
-class TestMatematicaRenderiza(unittest.TestCase):
+class TestMathRenders(unittest.TestCase):
     """No HTML tag may sit between two math delimiters.
 
     KaTeX's auto-render walks TEXT NODES looking for `$`...`$`. An element
@@ -40,14 +40,14 @@ class TestMatematicaRenderiza(unittest.TestCase):
     and what the reader saw was a paragraph of `$\\lambda_i$` and `$\\mu_x$`.
     """
 
-    def _blocos_de_matematica(self, html: str) -> list:
-        corpo = html[html.index("<body>"):]
-        corpo = re.sub(r"<script\b.*?</script>|<style\b.*?</style>", " ", corpo, flags=re.S)
-        blocos = re.findall(r"\$\$.*?\$\$", corpo, re.S)
-        blocos += re.findall(r"(?<!\$)\$[^$\n]*\$(?!\$)", corpo)
-        return blocos
+    def _math_blocks(self, html: str) -> list:
+        body = html[html.index("<body>"):]
+        body = re.sub(r"<script\b.*?</script>|<style\b.*?</style>", " ", body, flags=re.S)
+        blocks = re.findall(r"\$\$.*?\$\$", body, re.S)
+        blocks += re.findall(r"(?<!\$)\$[^$\n]*\$(?!\$)", body)
+        return blocks
 
-    def test_katex_embutido_e_copia_fiel_do_vendor(self):
+    def test_embedded_katex_is_a_faithful_copy_of_the_vendor(self):
         """The embedded KaTeX must be the vendor build, byte for byte.
 
         It is minified JavaScript sitting in the same file as the prose, so a
@@ -63,25 +63,25 @@ class TestMatematicaRenderiza(unittest.TestCase):
         `python tools/katex_inline.py` if this fails.
         """
         html = _html()
-        vendor = RAIZ / "docs" / "vendor" / "katex"
-        for nome in ("katex.min.js", "auto-render.min.js"):
-            with self.subTest(arquivo=nome):
-                fonte = (vendor / nome).read_text(encoding="utf-8").strip()
+        vendor = ROOT / "docs" / "vendor" / "katex"
+        for name in ("katex.min.js", "auto-render.min.js"):
+            with self.subTest(file=name):
+                source = (vendor / name).read_text(encoding="utf-8").strip()
                 self.assertIn(
-                    fonte, html,
-                    f"the embedded {nome} differs from docs/vendor/katex/{nome}; "
+                    source, html,
+                    f"the embedded {name} differs from docs/vendor/katex/{name}; "
                     "run `python tools/katex_inline.py` to restore it")
 
-    def test_nenhuma_tag_html_dentro_de_matematica(self):
-        blocos = self._blocos_de_matematica(_html())
-        self.assertGreater(len(blocos), 500, "no math found -- the scan is broken")
-        com_tag = [b for b in blocos if re.search(r"<[a-zA-Z/]", b)]
+    def test_no_html_tag_inside_math(self):
+        blocks = self._math_blocks(_html())
+        self.assertGreater(len(blocks), 500, "no math found -- the scan is broken")
+        with_tag = [b for b in blocks if re.search(r"<[a-zA-Z/]", b)]
         self.assertEqual(
-            [re.sub(r"\s+", " ", b)[:160] for b in com_tag], [],
+            [re.sub(r"\s+", " ", b)[:160] for b in with_tag], [],
             "math containing an HTML tag: KaTeX will not render it and the "
             "raw LaTeX is shown to the reader")
 
-    def test_delimitadores_de_matematica_estao_emparelhados(self):
+    def test_math_delimiters_are_paired(self):
         """An unclosed `$` swallows the prose after it into a bogus formula.
 
         Checked the way the browser sees it. KaTeX walks the DOM and scans
@@ -92,60 +92,60 @@ class TestMatematicaRenderiza(unittest.TestCase):
         """
         from html.parser import HTMLParser
 
-        ignorados = {"script", "noscript", "style", "textarea", "pre", "code", "option"}
+        ignored = {"script", "noscript", "style", "textarea", "pre", "code", "option"}
 
-        class Trechos(HTMLParser):
+        class TextRuns(HTMLParser):
             def __init__(self):
                 super().__init__(convert_charrefs=True)
-                self.trechos, self._atual, self._linha, self._pular = [], [], 0, 0
+                self.runs, self._current, self._line, self._skip = [], [], 0, 0
 
-            def _fechar(self):
-                if self._atual:
-                    self.trechos.append((self._linha, "".join(self._atual)))
-                    self._atual = []
+            def _flush(self):
+                if self._current:
+                    self.runs.append((self._line, "".join(self._current)))
+                    self._current = []
 
             def handle_starttag(self, tag, attrs):
-                self._fechar()
-                if tag in ignorados:
-                    self._pular += 1
+                self._flush()
+                if tag in ignored:
+                    self._skip += 1
 
             def handle_endtag(self, tag):
-                self._fechar()
-                if tag in ignorados and self._pular:
-                    self._pular -= 1
+                self._flush()
+                if tag in ignored and self._skip:
+                    self._skip -= 1
 
             def handle_startendtag(self, tag, attrs):
-                self._fechar()
+                self._flush()
 
             def handle_data(self, data):
-                if self._pular:
+                if self._skip:
                     return
-                if not self._atual:
-                    self._linha = self.getpos()[0]
-                self._atual.append(data)
+                if not self._current:
+                    self._line = self.getpos()[0]
+                self._current.append(data)
 
         html = _html()
-        leitor = Trechos()
-        leitor.feed(html[html.index("<body>"):])
-        leitor._fechar()
+        reader = TextRuns()
+        reader.feed(html[html.index("<body>"):])
+        reader._flush()
 
-        abertos, encontrados = [], 0
-        for linha, trecho in leitor.trechos:
+        unclosed, found = [], 0
+        for line_no, text in reader.runs:
             i = 0
-            while i < len(trecho):
-                j = trecho.find("$", i)
+            while i < len(text):
+                j = text.find("$", i)
                 if j < 0:
                     break
-                fim = "$$" if trecho.startswith("$$", j) else "$"
-                k = trecho.find(fim, j + len(fim))
+                end = "$$" if text.startswith("$$", j) else "$"
+                k = text.find(end, j + len(end))
                 if k < 0:
-                    abertos.append(f"line {linha}: {trecho[j:j + 90]!r}")
+                    unclosed.append(f"line {line_no}: {text[j:j + 90]!r}")
                     break
-                encontrados += 1
-                i = k + len(fim)
+                found += 1
+                i = k + len(end)
 
-        self.assertGreater(encontrados, 500, "no math found -- the scan is broken")
-        self.assertEqual(abertos, [], f"unclosed math delimiters: {abertos}")
+        self.assertGreater(found, 500, "no math found -- the scan is broken")
+        self.assertEqual(unclosed, [], f"unclosed math delimiters: {unclosed}")
 
 
 class TestDocumentationIsSelfContained(unittest.TestCase):
@@ -156,13 +156,20 @@ class TestDocumentationIsSelfContained(unittest.TestCase):
             _html(),
         )
 
-    def test_workflow_e_modos_de_entrada_estao_documentados(self):
+    def test_main_prose_is_justified(self):
+        """Running prose must use justified alignment in the document."""
+        self.assertIn(
+            ".page p, .page li, .page figcaption, .page .boxed{text-align:justify;}",
+            _html(),
+        )
+
+    def test_workflow_and_input_modes_are_documented(self):
         """The workflow order and the two sizing modes must not disappear."""
         html = _html()
         self.assertLess(html.index('id="uso-geometria"'), html.index('id="uso-aerofolio"'))
         self.assertLess(html.index('id="uso-aerofolio"'), html.index('id="uso-case"'))
         self.assertLess(html.index('id="uso-case"'), html.index('id="uso-resultados"'))
-        for trecho in (
+        for snippet in (
             "fixed-thrust trim",
             "fixed-$C_T$ trim",
             # The blade count is N_b throughout, as the nomenclature table
@@ -174,36 +181,36 @@ class TestDocumentationIsSelfContained(unittest.TestCase):
             # this test is about.
             "Solidity and blade aspect ratio",
         ):
-            self.assertIn(trecho, html)
+            self.assertIn(snippet, html)
         self.assertNotIn("botão \"?\"", html)
         self.assertNotIn("Reference definitions (source:", html)
         self.assertNotIn("Repository map", html)
 
     """The embedded help must open in a lab with no internet."""
 
-    def test_nenhum_recurso_carregado_de_fora(self):
-        externos = re.findall(r'src="(https?://[^"]+)"', _html())
-        self.assertEqual(externos, [], f"recursos externos: {externos}")
+    def test_no_resource_loaded_from_outside(self):
+        external = re.findall(r'src="(https?://[^"]+)"', _html())
+        self.assertEqual(external, [], f"external resources: {external}")
 
-    def test_toda_imagem_referenciada_existe_no_repositorio(self):
+    def test_every_referenced_image_exists_in_the_repository(self):
         html = _html()
         refs = set(re.findall(r'src="((?:img|vendor)/[^"]+)"', html))
-        self.assertGreater(len(refs), 20, "esperava dezenas de figuras")
-        faltando = [r for r in refs if not (DOC.parent / r).exists()]
-        self.assertEqual(faltando, [], f"referenciadas e ausentes: {faltando}")
+        self.assertGreater(len(refs), 20, "expected dozens of figures")
+        missing = [r for r in refs if not (DOC.parent / r).exists()]
+        self.assertEqual(missing, [], f"referenced but absent: {missing}")
 
-    def test_katex_esta_empacotado_e_completo(self):
+    def test_katex_is_bundled_and_complete(self):
         """Without local KaTeX, the equations turn into raw LaTeX for
         exactly the reader who went looking for them offline."""
         vendor = DOC.parent / "vendor" / "katex"
-        for arquivo in ("katex.min.js", "auto-render.min.js", "katex.min.css"):
-            self.assertTrue((vendor / arquivo).exists(), f"falta {arquivo}")
+        for file_name in ("katex.min.js", "auto-render.min.js", "katex.min.css"):
+            self.assertTrue((vendor / file_name).exists(), f"missing {file_name}")
         css = (vendor / "katex.min.css").read_text(encoding="utf-8")
-        fontes = set(re.findall(r"url\(([^)]+)\)", css))
-        faltando = [f for f in fontes if not (vendor / f).exists()]
-        self.assertEqual(faltando, [], f"fontes referenciadas e ausentes: {faltando}")
+        fonts = set(re.findall(r"url\(([^)]+)\)", css))
+        missing = [f for f in fonts if not (vendor / f).exists()]
+        self.assertEqual(missing, [], f"referenced fonts absent: {missing}")
 
-    def test_renderizador_nao_aninha_delimitadores_matematicos(self):
+    def test_renderer_does_not_nest_math_delimiters(self):
         r"""Rendering must not rewrite symbols inside a formula.
 
         This rewriting used to produce expressions like ``\mu_{x,V}_z``
@@ -219,7 +226,7 @@ class TestDocumentationIsSelfContained(unittest.TestCase):
         self.assertIn("mu", html)
         self.assertNotIn("preProcess:", html)
 
-    def test_nenhum_caractere_de_controle_no_html(self):
+    def test_no_control_character_in_the_html(self):
         """LaTeX written in a NON-raw Python string arrives corrupted in the HTML.
 
         `"\alpha"` in a plain string becomes BEL+"lpha", `"\frac"` becomes
@@ -231,14 +238,14 @@ class TestDocumentationIsSelfContained(unittest.TestCase):
         No control character has a legitimate use in this file, so the
         check is simply their absence.
         """
-        suspeitos = sorted({
+        suspects = sorted({
             hex(ord(c)) for c in _html() if ord(c) < 32 and c != chr(10)
         })
-        self.assertEqual(suspeitos, [],
-                          "caractere de controle no HTML -- LaTeX escrito "
-                          f"em string nao-raw: {suspeitos}")
+        self.assertEqual(suspects, [],
+                          "control character in the HTML -- LaTeX written "
+                          f"in a non-raw string: {suspects}")
 
-    def test_toda_expressao_matematica_tem_chaves_balanceadas(self):
+    def test_every_math_expression_has_balanced_braces(self):
         """One stray brace brings down the whole equation in KaTeX.
 
         Found this way: the Pitt-Peters state equation carried a `}`
@@ -251,18 +258,18 @@ class TestDocumentationIsSelfContained(unittest.TestCase):
         # JavaScript braces -- scanning the raw HTML would flag KaTeX itself.
         html = re.sub(r"<script\b.*?</script>", "", _html(), flags=re.S | re.I)
         html = re.sub(r"<style\b.*?</style>", "", html, flags=re.S | re.I)
-        blocos = re.findall(r"\$\$(.+?)\$\$", html, re.S)
-        blocos += re.findall(r"(?<!\$)\$([^$\n]{1,400})\$(?!\$)", html)
-        quebrados = []
-        for expr in blocos:
+        blocks = re.findall(r"\$\$(.+?)\$\$", html, re.S)
+        blocks += re.findall(r"(?<!\$)\$([^$\n]{1,400})\$(?!\$)", html)
+        broken = []
+        for expr in blocks:
             # `\{` and `\}` are literal braces, not delimiters
-            limpo = expr.replace(r"\{", "").replace(r"\}", "")
-            if limpo.count("{") != limpo.count("}"):
-                quebrados.append(expr.strip()[:70])
-        self.assertEqual(quebrados, [],
-                          "expressao com chaves desbalanceadas: " + str(quebrados))
+            clean = expr.replace(r"\{", "").replace(r"\}", "")
+            if clean.count("{") != clean.count("}"):
+                broken.append(expr.strip()[:70])
+        self.assertEqual(broken, [],
+                          "expression with unbalanced braces: " + str(broken))
 
-    def test_toda_ancora_interna_resolve(self):
+    def test_every_internal_anchor_resolves(self):
         html = _html()
         ids = re.findall(r'id="([\w-]+)"', html)
         self.assertEqual(len(ids), len(set(ids)), "duplicate IDs in the documentation")
@@ -276,96 +283,96 @@ class TestDocumentationDoesNotCiteMissingFiles(unittest.TestCase):
 
     #: names that existed at the repository root before v0.1.0 and now
     #: live inside the package, at a different path
-    NOMES_MORTOS = ("main_batch.py", "plot_style.py")
+    DEAD_NAMES = ("main_batch.py", "plot_style.py")
 
-    def test_nao_menciona_modulo_que_deixou_de_existir(self):
+    def test_does_not_mention_a_module_that_no_longer_exists(self):
         html = _html()
-        for nome in self.NOMES_MORTOS:
-            with self.subTest(nome=nome):
-                self.assertNotIn(nome, html,
-                                 f"the documentation still cites {nome}, which no longer exists")
+        for name in self.DEAD_NAMES:
+            with self.subTest(name=name):
+                self.assertNotIn(name, html,
+                                 f"the documentation still cites {name}, which no longer exists")
 
-    def test_todo_modulo_citado_com_caminho_existe(self):
+    def test_every_module_cited_with_a_path_exists(self):
         """Catches mentions like `<code>gui/app.py</code>` or
         `<code>viz/plots.py</code>`: if the documentation gives the path,
         it has to resolve inside the package."""
         # The documentation does not name modules any more (see the rules in
         # CLAUDE.md). This stays as a guard: if a path is ever cited again,
         # it has to resolve.
-        citados = set(re.findall(r"<code>((?:\w+/)+\w+\.py)</code>", _html()))
+        cited = set(re.findall(r"<code>((?:\w+/)+\w+\.py)</code>", _html()))
         # the documentation cites both paths inside the package
         # (`gui/app.py`) and paths from the root (`tools/generate_...py`)
-        faltando = [c for c in citados
-                    if not (RAIZ / "zbemt" / c).exists() and not (RAIZ / c).exists()]
-        self.assertEqual(faltando, [], f"citados e inexistentes: {faltando}")
+        missing = [c for c in cited
+                   if not (ROOT / "zbemt" / c).exists() and not (ROOT / c).exists()]
+        self.assertEqual(missing, [], f"cited but nonexistent: {missing}")
 
 
-class TestFlagsCitadasExistemNoCli(unittest.TestCase):
+class TestCitedFlagsExistInTheCli(unittest.TestCase):
     """A documented flag that the CLI rejects sends the user off to debug
     their own command for an error that is not theirs."""
 
     #: `--stall-model` appears on purpose, in a note explaining that it
     #: WAS REMOVED and why. Citing a flag to say it does not exist is
     #: useful information, not an error.
-    CITADAS_COMO_REMOVIDAS = {"--stall-model", "--dynamic-stall-model"}
+    CITED_AS_REMOVED = {"--stall-model", "--dynamic-stall-model"}
 
     @classmethod
     def setUpClass(cls):
         import argparse
         from zbemt import cli
         parser = cli._build_parser()
-        cls.reais = set()
-        for acao in parser._actions:
-            cls.reais.update(acao.option_strings)
+        cls.real = set()
+        for action in parser._actions:
+            cls.real.update(action.option_strings)
         assert isinstance(parser, argparse.ArgumentParser)
 
-    def _flags_citadas(self, texto: str) -> set:
+    def _cited_flags(self, text: str) -> set:
         # The scripts under `tools/` and `tests/` have their own flags,
-        # which the zbemt CLI does not know and should not: `--escrever`
-        # belongs to the index builder and `--lista` to the test runner.
+        # which the zbemt CLI does not know and should not: `--write`
+        # belongs to the index builder and `--list` to the test runner.
         # Out of scope for this check.
-        linhas = [l for l in texto.splitlines()
-                  if "tools/" not in l and "tests/" not in l]
-        texto = chr(10).join(linhas)
+        lines = [l for l in text.splitlines()
+                 if "tools/" not in l and "tests/" not in l]
+        text = chr(10).join(lines)
         # the embedded inline KaTeX block has strings like "--display-mode"
         # which are KaTeX's own option names (its CLI, not zbemt's) -- out of scope
-        texto = re.sub(r"<!-- KATEX-INLINE:INICIO -->.*?<!-- KATEX-INLINE:FIM -->",
-                       "", texto, flags=re.DOTALL)
+        text = re.sub(r"<!-- KATEX-INLINE:INICIO -->.*?<!-- KATEX-INLINE:FIM -->",
+                      "", text, flags=re.DOTALL)
         # `var(--accent)` and the like are CSS variables, not flags
-        texto = re.sub(r"var\(--[\w-]+\)", "", texto)
-        texto = re.sub(r"--[\w-]+\s*:", "", texto)
-        return set(re.findall(r"(?<![\w-])(--[a-z][a-z0-9-]{2,})", texto))
+        text = re.sub(r"var\(--[\w-]+\)", "", text)
+        text = re.sub(r"--[\w-]+\s*:", "", text)
+        return set(re.findall(r"(?<![\w-])(--[a-z][a-z0-9-]{2,})", text))
 
-    def _conferir(self, caminho: Path):
-        citadas = self._flags_citadas(caminho.read_text(encoding="utf-8"))
-        inexistentes = sorted(citadas - self.reais - self.CITADAS_COMO_REMOVIDAS)
-        self.assertEqual(inexistentes, [],
-                         f"{caminho.name} cites flags the CLI does not accept: {inexistentes}")
+    def _check(self, path: Path):
+        cited = self._cited_flags(path.read_text(encoding="utf-8"))
+        nonexistent = sorted(cited - self.real - self.CITED_AS_REMOVED)
+        self.assertEqual(nonexistent, [],
+                         f"{path.name} cites flags the CLI does not accept: {nonexistent}")
 
     def test_documentation_html(self):
-        self._conferir(DOC)
+        self._check(DOC)
 
     def test_readme(self):
-        self._conferir(RAIZ / "README.md")
+        self._check(ROOT / "README.md")
 
     def test_claude_md(self):
-        self._conferir(RAIZ / "CLAUDE.md")
+        self._check(ROOT / "CLAUDE.md")
 
 
-class TestFuncoesDeApiCitadasExistem(unittest.TestCase):
-    def test_toda_api_citada_existe(self):
+class TestCitedApiFunctionsExist(unittest.TestCase):
+    def test_every_cited_api_exists(self):
         from zbemt import api
-        textos = [DOC, RAIZ / "README.md", RAIZ / "CLAUDE.md"]
-        citadas = set()
-        for caminho in textos:
-            citadas |= set(re.findall(r"\bapi\.(\w+)\s*\(", caminho.read_text(encoding="utf-8")))
-        self.assertTrue(citadas, "expected api calls cited in the documentation")
-        faltando = sorted(n for n in citadas if not hasattr(api, n))
-        self.assertEqual(faltando, [], f"citadas e inexistentes em zbemt.api: {faltando}")
+        texts = [DOC, ROOT / "README.md", ROOT / "CLAUDE.md"]
+        cited = set()
+        for path in texts:
+            cited |= set(re.findall(r"\bapi\.(\w+)\s*\(", path.read_text(encoding="utf-8")))
+        self.assertTrue(cited, "expected api calls cited in the documentation")
+        missing = sorted(n for n in cited if not hasattr(api, n))
+        self.assertEqual(missing, [], f"cited but nonexistent in zbemt.api: {missing}")
 
 
 
-class TestIndiceDeCamposSegueATela(unittest.TestCase):
+class TestFieldIndexFollowsTheScreen(unittest.TestCase):
     """Each tab chapter opens with an index of its fields IN THE ORDER
     they appear in the window -- it is the bridge in the direction the
     user travels: they are looking at the third box in the tab and want
@@ -381,35 +388,35 @@ class TestIndiceDeCamposSegueATela(unittest.TestCase):
         try:
             from PyQt6.QtWidgets import QApplication          # noqa: F401
         except ImportError:                                   # pragma: no cover
-            raise unittest.SkipTest("sem PyQt6")
+            raise unittest.SkipTest("PyQt6 not installed")
 
-    def _publicado(self, aba: str) -> list:
+    def _published(self, tab: str) -> list:
         html = _html()
-        bloco = re.search(rf"<!-- INDICE-DE-CAMPOS:{aba} -->(.*?)<!-- /INDICE", html, re.S)
-        self.assertIsNotNone(bloco, f"the documentation has no entry for the {aba} tab")
-        return re.findall(r"<li><code>(\w+)</code>", bloco.group(1))
+        block = re.search(rf"<!-- INDICE-DE-CAMPOS:{tab} -->(.*?)<!-- /INDICE", html, re.S)
+        self.assertIsNotNone(block, f"the documentation has no entry for the {tab} tab")
+        return re.findall(r"<li><code>(\w+)</code>", block.group(1))
 
-    def test_indice_de_cada_aba_bate_com_a_ordem_da_tela(self):
-        sys.path.insert(0, str(RAIZ / "tools"))
-        from field_index import ABAS, coletar_ordem_da_tela
+    def test_each_tab_index_matches_the_screen_order(self):
+        sys.path.insert(0, str(ROOT / "tools"))
+        from field_index import TABS, collect_screen_order
 
-        na_tela = coletar_ordem_da_tela()
-        for aba in ABAS:
-            with self.subTest(aba=aba):
-                esperado = [campo for campo, _ancora in na_tela[aba]]
-                if not esperado:
+        on_screen = collect_screen_order()
+        for tab in TABS:
+            with self.subTest(tab=tab):
+                expected = [field for field, _anchor in on_screen[tab]]
+                if not expected:
                     continue
                 self.assertEqual(
-                    self._publicado(aba), esperado,
-                    f"{aba} tab index out of sync -- run "
-                    f"`python tools/field_index.py --escrever`")
+                    self._published(tab), expected,
+                    f"{tab} tab index out of sync -- run "
+                    f"`python tools/field_index.py --write`")
 
-    def test_todo_link_do_indice_resolve(self):
+    def test_every_link_of_the_index_resolves(self):
         html = _html()
         ids = set(re.findall(r'id="([\w-]+)"', html))
         for bloco in re.findall(r"<!-- INDICE-DE-CAMPOS:.*?<!-- /INDICE", html, re.S):
-            for ancora in re.findall(r'href="#([\w-]+)"', bloco):
-                self.assertIn(ancora, ids)
+            for anchor in re.findall(r'href="#([\w-]+)"', bloco):
+                self.assertIn(anchor, ids)
 
 
 class TestReferenciasNumericasResolvem(unittest.TestCase):
@@ -421,31 +428,31 @@ class TestReferenciasNumericasResolvem(unittest.TestCase):
     at sections that had ceased to exist -- 2.9, 2.8.4, 6.9, 9.3.3.
     """
 
-    def test_toda_secao_citada_em_texto_existe(self):
+    def test_every_section_cited_in_text_exists(self):
         html = _html()
-        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
-        if inicio in html:
-            html = html[:html.index(inicio)] + html[html.index(fim):]
+        start, end = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if start in html:
+            html = html[:html.index(start)] + html[html.index(end):]
 
-        existentes = {
+        existing = {
             m.group(1)
             for m in re.finditer(r'<h[2-6][^>]*>\s*(\d+(?:\.\d+)*)[.\s]', html)
         }
-        self.assertGreater(len(existentes), 50, "no numbered headings found")
+        self.assertGreater(len(existing), 50, "no numbered headings found")
 
-        texto = re.sub(r"<[^>]+>", " ", html)
-        citadas = set()
+        text = re.sub(r"<[^>]+>", " ", html)
+        cited = set()
         for m in re.finditer(
                 r"\bSections?\s+(\d+(?:\.\d+)*)(?:\s*(?:,|and|to|&)\s*(\d+(?:\.\d+)*))?",
-                texto):
-            citadas.update(g for g in m.groups() if g)
+                text):
+            cited.update(g for g in m.groups() if g)
 
-        quebradas = sorted(c for c in citadas if c not in existentes)
+        broken = sorted(c for c in cited if c not in existing)
         self.assertEqual(
-            quebradas, [],
-            f"prose points at sections that do not exist: {quebradas}")
+            broken, [],
+            f"prose points at sections that do not exist: {broken}")
 
-    def test_toda_referencia_e_um_link_para_a_secao_certa(self):
+    def test_every_reference_is_a_link_to_the_right_section(self):
         """A cross-reference must be a link, and the link must resolve to
         the heading carrying that number.
 
@@ -456,47 +463,47 @@ class TestReferenciasNumericasResolvem(unittest.TestCase):
         the number to the anchor here is what stops both.
         """
         html = _html()
-        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
-        if inicio in html:
-            html = html[:html.index(inicio)] + html[html.index(fim):]
+        start, end = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if start in html:
+            html = html[:html.index(start)] + html[html.index(end):]
         for m in re.finditer(
                 r"<!-- INDICE-DE-CAMPOS:.*?<!-- /INDICE-DE-CAMPOS:[^>]*-->",
                 html, re.S):
             html = html.replace(m.group(0), "")
 
         # number -> the id of the heading that carries it
-        numero_para_id = {}
+        number_to_id = {}
         for m in re.finditer(r'<h[2-6]\s+id="([^"]+)"[^>]*>\s*(\d+(?:\.\d+)*)[.\s]',
                              html):
-            numero_para_id.setdefault(m.group(2), m.group(1))
-        self.assertGreater(len(numero_para_id), 50, "no numbered headings with an id")
+            number_to_id.setdefault(m.group(2), m.group(1))
+        self.assertGreater(len(number_to_id), 50, "no numbered headings with an id")
 
-        sem_link, apontando_errado = [], []
+        without_link, pointing_wrong = [], []
         # every "Section N.M" outside an <a>, a <code> or a <pre>
-        neutro = re.sub(r"<a\b.*?</a>|<code>.*?</code>|<pre>.*?</pre>", " ",
-                        html, flags=re.S)
-        for m in re.finditer(r"\bSection\s+(\d+(?:\.\d+)*)", neutro):
-            sem_link.append(m.group(1))
+        neutral = re.sub(r"<a\b.*?</a>|<code>.*?</code>|<pre>.*?</pre>", " ",
+                         html, flags=re.S)
+        for m in re.finditer(r"\bSection\s+(\d+(?:\.\d+)*)", neutral):
+            without_link.append(m.group(1))
 
         for m in re.finditer(
                 r'<a[^>]*href="#([^"]+)"[^>]*>\s*(?:Section|Chapter)\s+(\d+(?:\.\d+)*)\s*</a>',
                 html):
-            destino, numero = m.group(1), m.group(2)
-            esperado = numero_para_id.get(numero)
-            if esperado is None:
-                apontando_errado.append(f"{numero} (no such heading)")
-            elif destino != esperado:
-                apontando_errado.append(f"{numero} -> #{destino}, expected #{esperado}")
+            destination, number = m.group(1), m.group(2)
+            expected = number_to_id.get(number)
+            if expected is None:
+                pointing_wrong.append(f"{number} (no such heading)")
+            elif destination != expected:
+                pointing_wrong.append(f"{number} -> #{destination}, expected #{expected}")
 
-        self.assertEqual(sorted(set(sem_link)), [],
+        self.assertEqual(sorted(set(without_link)), [],
                          "cross-references written as plain text instead of links: "
-                         f"{sorted(set(sem_link))}")
-        self.assertEqual(sorted(set(apontando_errado)), [],
+                         f"{sorted(set(without_link))}")
+        self.assertEqual(sorted(set(pointing_wrong)), [],
                          "links whose number and target disagree: "
-                         f"{sorted(set(apontando_errado))}")
+                         f"{sorted(set(pointing_wrong))}")
 
 
-class TestCapitulosDeAbaSaoEstanques(unittest.TestCase):
+class TestTabChaptersAreSelfContained(unittest.TestCase):
     """Chapters 6-12 are the GUI-tab chapters, and DC-4 makes each field
     section self-contained: the reader must not have to follow a link to
     understand or to set a field.
@@ -508,58 +515,58 @@ class TestCapitulosDeAbaSaoEstanques(unittest.TestCase):
     """
 
     #: (chapter, target) pairs that are scope statements, not deferrals.
-    EXCECOES = {
+    EXCEPTIONS = {
         (8, "9"),      # "the rotor-wide settings are in the Config/Engine tab"
         (8, "13.2"),   # the checks panel runs the validation rules of 13.2
         (11, "10"),    # a batch sweeps the four quantities Run Case defines
         (11, "10.1"),  # ... and a single ad hoc condition uses its flags
     }
 
-    def test_nenhuma_referencia_sai_do_capitulo(self):
+    def test_no_reference_leaves_the_chapter(self):
         html = _html()
-        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
-        if inicio in html:
-            html = html[:html.index(inicio)] + html[html.index(fim):]
+        start, end = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if start in html:
+            html = html[:html.index(start)] + html[html.index(end):]
         for m in re.finditer(
                 r"<!-- INDICE-DE-CAMPOS:.*?<!-- /INDICE-DE-CAMPOS:[^>]*-->",
                 html, re.S):
             html = html.replace(m.group(0), "")
 
-        linhas = html.split("\n")
-        inicio_do_capitulo = {}
-        for i, linha in enumerate(linhas):
-            m = re.match(r'<h2[^>]*>\s*(\d+)\.', linha)
+        lines = html.split("\n")
+        chapter_start = {}
+        for i, line in enumerate(lines):
+            m = re.match(r'<h2[^>]*>\s*(\d+)\.', line)
             if m:
-                inicio_do_capitulo[int(m.group(1))] = i
-        limites = sorted(inicio_do_capitulo.items())
+                chapter_start[int(m.group(1))] = i
+        bounds = sorted(chapter_start.items())
 
-        def capitulo_de(i):
-            atual = None
-            for numero, comeco in limites:
-                if i >= comeco:
-                    atual = numero
-            return atual
+        def chapter_of(i):
+            current = None
+            for number, begin in bounds:
+                if i >= begin:
+                    current = number
+            return current
 
-        citacao = re.compile(r"\b(?:Section|Chapter)\s+(\d+(?:\.\d+)*)")
-        fugas = []
-        for i, linha in enumerate(linhas):
-            cap = capitulo_de(i)
+        citation = re.compile(r"\b(?:Section|Chapter)\s+(\d+(?:\.\d+)*)")
+        escapes = []
+        for i, line in enumerate(lines):
+            cap = chapter_of(i)
             if cap is None or not (6 <= cap <= 12):
                 continue
-            for m in citacao.finditer(linha):
-                alvo = m.group(1)
-                if int(alvo.split(".")[0]) == cap:
+            for m in citation.finditer(line):
+                target = m.group(1)
+                if int(target.split(".")[0]) == cap:
                     continue
-                if (cap, alvo) in self.EXCECOES:
+                if (cap, target) in self.EXCEPTIONS:
                     continue
-                fugas.append(f"chapter {cap}, line {i + 1}: -> {alvo}")
+                escapes.append(f"chapter {cap}, line {i + 1}: -> {target}")
 
-        self.assertEqual(fugas, [],
+        self.assertEqual(escapes, [],
                          "tab chapters must be self-contained (DC-4); these "
-                         f"reference material outside their own chapter: {fugas}")
+                         f"reference material outside their own chapter: {escapes}")
 
 
-class TestExemplosCitadosExistem(unittest.TestCase):
+class TestCitedExamplesExist(unittest.TestCase):
     """Every example the reader is told to run must actually be there.
 
     The document sent people to `projects/heli_utility_medium` and
@@ -568,32 +575,32 @@ class TestExemplosCitadosExistem(unittest.TestCase):
     defines. A command that cannot run is worse than no example.
     """
 
-    def test_todo_projeto_citado_existe(self):
+    def test_every_cited_project_exists(self):
         # Real project folders are lowercase; a capitalised name is a
         # placeholder standing in for the reader's own project.
-        citados = {c for c in re.findall(r"projects/([a-zA-Z_][\w]*)", _html())
-                   if not c[0].isupper()}
-        self.assertTrue(citados, "the examples stopped naming any project")
-        faltando = sorted(c for c in citados if not (RAIZ / "projects" / c).is_dir())
-        self.assertEqual(faltando, [], f"projects cited but absent: {faltando}")
+        cited = {c for c in re.findall(r"projects/([a-zA-Z_][\w]*)", _html())
+                 if not c[0].isupper()}
+        self.assertTrue(cited, "the examples stopped naming any project")
+        missing = sorted(c for c in cited if not (ROOT / "projects" / c).is_dir())
+        self.assertEqual(missing, [], f"projects cited but absent: {missing}")
 
-    def test_todo_batch_citado_existe(self):
+    def test_every_cited_batch_exists(self):
         import json
-        citados = set(re.findall(r'--from-bemt-batch\s+"([^"]+)"', _html()))
-        if not citados:
+        cited = set(re.findall(r'--from-bemt-batch\s+"([^"]+)"', _html()))
+        if not cited:
             self.skipTest("no batch named in the examples")
-        nomes = set()
-        for arquivo in (RAIZ / "projects").glob("*/inputs/batches.bemt"):
+        names = set()
+        for file_path in (ROOT / "projects").glob("*/inputs/batches.bemt"):
             try:
-                nomes.update(b.get("name") for b in json.loads(
-                    arquivo.read_text(encoding="utf-8")))
+                names.update(b.get("name") for b in json.loads(
+                    file_path.read_text(encoding="utf-8")))
             except (ValueError, OSError):
                 continue
-        faltando = sorted(c for c in citados if c not in nomes)
-        self.assertEqual(faltando, [], f"batches cited but not defined: {faltando}")
+        missing = sorted(c for c in cited if c not in names)
+        self.assertEqual(missing, [], f"batches cited but not defined: {missing}")
 
 
-class TestCaminhosDeCliCitados(unittest.TestCase):
+class TestCitedCliPaths(unittest.TestCase):
     """Every `--set` path cited must name a real field of that namespace.
 
     The documentation repeatedly claimed a field was "not exposed" on the
@@ -613,22 +620,22 @@ class TestCaminhosDeCliCitados(unittest.TestCase):
             "geom": {f.name for f in fields(RotorGeometryDef)},
         }
 
-    def test_todo_set_citado_existe(self):
+    def test_every_cited_set_exists(self):
         # `--set NAMESPACE.FIELD` is the placeholder in the CLI's own help
         # text, not a path; real paths are lowercase.
-        citados = [(ns, c) for ns, c in re.findall(r"--set\s+(\w+)\.(\w+)", _html())
-                   if not ns.isupper()]
-        self.assertGreater(len(citados), 10, "the --set examples disappeared")
-        invalidos = []
-        for ns, campo in citados:
-            se = self.namespaces.get(ns)
-            if se is None:
-                invalidos.append(f"--set {ns}.{campo} (unknown namespace)")
-            elif campo not in se:
-                invalidos.append(f"--set {ns}.{campo} (no such field in {ns})")
-        self.assertEqual(sorted(set(invalidos)), [], f"broken --set paths: {invalidos}")
+        cited = [(ns, c) for ns, c in re.findall(r"--set\s+(\w+)\.(\w+)", _html())
+                 if not ns.isupper()]
+        self.assertGreater(len(cited), 10, "the --set examples disappeared")
+        invalid = []
+        for ns, field in cited:
+            members = self.namespaces.get(ns)
+            if members is None:
+                invalid.append(f"--set {ns}.{field} (unknown namespace)")
+            elif field not in members:
+                invalid.append(f"--set {ns}.{field} (no such field in {ns})")
+        self.assertEqual(sorted(set(invalid)), [], f"broken --set paths: {invalid}")
 
-    def test_nenhum_campo_e_declarado_sem_caminho_de_cli(self):
+    def test_no_field_is_declared_without_a_cli_path(self):
         """No field may be documented as unreachable from the command line."""
         html = _html()
         for frase in ("CLI</span>: not exposed",
@@ -639,7 +646,7 @@ class TestCaminhosDeCliCitados(unittest.TestCase):
                 "config/airfoil/geom is reachable with --set")
 
 
-class TestNumeracaoDosTitulos(unittest.TestCase):
+class TestHeadingNumbering(unittest.TestCase):
     """A heading's number must have as many parts as its depth.
 
     Restructuring renumbers hundreds of references at once, and the way
@@ -649,7 +656,7 @@ class TestNumeracaoDosTitulos(unittest.TestCase):
     simply wrong. This catches it.
     """
 
-    def test_numero_do_titulo_bate_com_o_capitulo_e_o_nivel(self):
+    def test_heading_number_matches_chapter_and_level(self):
         """A heading's number must name its chapter and match its depth.
 
         Renumbering also caught headings that were never section numbers:
@@ -659,33 +666,33 @@ class TestNumeracaoDosTitulos(unittest.TestCase):
         agree with the chapter it sits in.
         """
         html = _html()
-        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
-        if inicio in html:                       # the index repeats every number
-            html = html[:html.index(inicio)] + html[html.index(fim):]
+        start, end = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if start in html:                       # the index repeats every number
+            html = html[:html.index(start)] + html[html.index(end):]
 
-        capitulo, errados = None, []
+        chapter, wrong = None, []
         for m in re.finditer(r'<h([2-6])([^>]*)>(.*?)</h\1>', html, re.S):
-            nivel, attrs = int(m.group(1)), m.group(2)
-            texto = re.sub(r"<[^>]+>", "", m.group(3)).strip()
-            achado = re.match(r"(\d+(?:\.\d+)*)[.\s]", texto)
-            if not achado or 'id="uso-' in attrs:
+            level, attrs = int(m.group(1)), m.group(2)
+            text = re.sub(r"<[^>]+>", "", m.group(3)).strip()
+            found = re.match(r"(\d+(?:\.\d+)*)[.\s]", text)
+            if not found or 'id="uso-' in attrs:
                 continue
-            numero = achado.group(1)
-            if nivel == 2:
-                capitulo = numero
+            number = found.group(1)
+            if level == 2:
+                chapter = number
                 continue
-            partes = numero.split(".")
-            if partes[0] != str(capitulo):
-                errados.append(f"h{nivel} '{numero}' in chapter {capitulo}: {texto[:40]}")
-            elif len(partes) != nivel - 1:
-                errados.append(f"h{nivel} '{numero}' needs {nivel - 1} parts: {texto[:40]}")
-        self.assertEqual(errados, [], f"heading numbers out of step: {errados}")
+            parts = number.split(".")
+            if parts[0] != str(chapter):
+                wrong.append(f"h{level} '{number}' in chapter {chapter}: {text[:40]}")
+            elif len(parts) != level - 1:
+                wrong.append(f"h{level} '{number}' needs {level - 1} parts: {text[:40]}")
+        self.assertEqual(wrong, [], f"heading numbers out of step: {wrong}")
 
-    def test_capitulos_sao_sequenciais(self):
+    def test_chapters_are_sequential(self):
         html = _html()
-        inicio, fim = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
-        if inicio in html:
-            html = html[:html.index(inicio)] + html[html.index(fim):]
+        start, end = "<!-- INDICE-GERAL -->", "<!-- /INDICE-GERAL -->"
+        if start in html:
+            html = html[:html.index(start)] + html[html.index(end):]
         numeros = [int(m.group(1))
                    for m in re.finditer(r'<h2[^>]*>\s*(\d+)[.\s]', html)]
         self.assertEqual(numeros, list(range(len(numeros))),
@@ -693,7 +700,7 @@ class TestNumeracaoDosTitulos(unittest.TestCase):
 
 
 @requires_qt
-class TestTodoCampoTemSecao(unittest.TestCase):
+class TestEveryFieldHasASection(unittest.TestCase):
     """Every settable field is explained, and says how to set it in all three.
 
     One chapter per GUI page, one subsection per field of that page. The
@@ -701,7 +708,7 @@ class TestTodoCampoTemSecao(unittest.TestCase):
     a field explained only for the window leaves the other two interfaces
     undocumented, which is the gap this checks.
 
-    Requires PyQt6: `secoes_da_documentacao` lives in
+    Requires PyQt6: `documentation_sections` lives in
     `zbemt.gui.field_help`, which also defines Qt-dependent classes at
     module level, so the module cannot be imported without it. The engine
     and CLI job (no PyQt6, by design) skips this class rather than failing
@@ -709,40 +716,40 @@ class TestTodoCampoTemSecao(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        sys.path.insert(0, str(RAIZ / "tools"))
-        from field_inventory import coletar
-        from zbemt.gui.field_help import secoes_da_documentacao
-        cls.registros = coletar()
-        cls.secoes = secoes_da_documentacao()
+        sys.path.insert(0, str(ROOT / "tools"))
+        from field_inventory import collect
+        from zbemt.gui.field_help import documentation_sections
+        cls.records = collect()
+        cls.sections = documentation_sections()
 
-    def _secoes_do_campo(self, campo: str) -> list:
-        alvo = re.compile(rf"<code>{re.escape(campo)}</code>")
-        return [s for s in self.secoes if alvo.search(s.corpo)]
+    def _field_sections(self, field: str) -> list:
+        target = re.compile(rf"<code>{re.escape(field)}</code>")
+        return [s for s in self.sections if target.search(s.body)]
 
     @staticmethod
-    def _marcas(secao) -> int:
-        return sum(m in secao.corpo
+    def _marks(section) -> int:
+        return sum(m in section.body
                    for m in ('class="gui"', 'class="bemt"', 'class="cli"'))
 
-    def test_todo_campo_tem_secao_com_gui_bemt_e_cli(self):
-        faltando = []
-        for reg in self.registros:
-            if not any(self._marcas(s) == 3 for s in self._secoes_do_campo(reg["field"])):
-                faltando.append(f"{reg['dataclass']}.{reg['field']}")
+    def test_every_field_has_a_section_with_gui_bemt_and_cli(self):
+        missing = []
+        for record in self.records:
+            if not any(self._marks(s) == 3 for s in self._field_sections(record["field"])):
+                missing.append(f"{record['dataclass']}.{record['field']}")
         self.assertEqual(
-            faltando, [],
+            missing, [],
             "fields with no subsection stating GUI, .bemt and CLI together: "
-            f"{faltando}")
+            f"{missing}")
 
-    def test_nenhum_campo_e_citado_so_em_tabela_de_indice(self):
+    def test_no_field_is_cited_only_in_the_index_table(self):
         """A field named only in the generated per-tab list is not documented."""
-        for reg in self.registros:
-            with self.subTest(campo=reg["field"]):
-                self.assertTrue(self._secoes_do_campo(reg["field"]),
-                                f"{reg['field']} is not cited anywhere")
+        for record in self.records:
+            with self.subTest(field=record["field"]):
+                self.assertTrue(self._field_sections(record["field"]),
+                                f"{record['field']} is not cited anywhere")
 
 
-class TestIndiceGeral(unittest.TestCase):
+class TestGeneralIndex(unittest.TestCase):
     """The table of contents is generated, so it must match the headings.
 
     A hand-edited index is the classic way for a long document to start
@@ -750,48 +757,48 @@ class TestIndiceGeral(unittest.TestCase):
     reader concludes the section was removed.
     """
 
-    def _construtor(self):
-        sys.path.insert(0, str(RAIZ / "tools"))
+    def _builder(self):
+        sys.path.insert(0, str(ROOT / "tools"))
         import build_toc
         return build_toc
 
-    def test_indice_esta_presente(self):
+    def test_index_is_present(self):
         html = _html()
         self.assertIn("<!-- INDICE-GERAL -->", html)
         self.assertIn('<nav class="indice-geral"', html)
 
-    def test_indice_bate_com_os_titulos(self):
-        build_toc = self._construtor()
-        atual = _html()
-        limpo = atual
-        i = limpo.index(build_toc.MARCA_INICIO)
-        j = limpo.index(build_toc.MARCA_FIM) + len(build_toc.MARCA_FIM)
-        if limpo[j:j + 1] == "\n":
+    def test_index_matches_the_headings(self):
+        build_toc = self._builder()
+        current = _html()
+        clean = current
+        i = clean.index(build_toc.MARK_START)
+        j = clean.index(build_toc.MARK_END) + len(build_toc.MARK_END)
+        if clean[j:j + 1] == "\n":
             j += 1
-        limpo = limpo[:i] + limpo[j:]
-        limpo, entradas = build_toc.coletar(limpo)
-        esperado = build_toc.aplicar(limpo, build_toc.renderizar(entradas))
+        clean = clean[:i] + clean[j:]
+        clean, entries = build_toc.collect(clean)
+        expected = build_toc.apply(clean, build_toc.render(entries))
         self.assertEqual(
-            esperado, atual,
-            "table of contents out of sync -- run `python tools/build_toc.py --escrever`")
+            expected, current,
+            "table of contents out of sync -- run `python tools/build_toc.py --write`")
 
-    def test_todo_link_do_indice_resolve(self):
+    def test_every_link_of_the_index_resolves(self):
         html = _html()
         ids = set(re.findall(r'id="([\w-]+)"', html))
-        bloco = re.search(r"<!-- INDICE-GERAL -->(.*?)<!-- /INDICE-GERAL -->", html, re.S)
-        self.assertIsNotNone(bloco)
-        ancoras = re.findall(r'href="#([\w-]+)"', bloco.group(1))
-        self.assertGreater(len(ancoras), 50, "the index looks truncated")
-        for ancora in ancoras:
-            with self.subTest(ancora=ancora):
-                self.assertIn(ancora, ids)
+        block = re.search(r"<!-- INDICE-GERAL -->(.*?)<!-- /INDICE-GERAL -->", html, re.S)
+        self.assertIsNotNone(block)
+        anchors = re.findall(r'href="#([\w-]+)"', block.group(1))
+        self.assertGreater(len(anchors), 50, "the index looks truncated")
+        for anchor in anchors:
+            with self.subTest(anchor=anchor):
+                self.assertIn(anchor, ids)
 
 
 if __name__ == "__main__":
     unittest.main()
 
 
-class TestAjudaAbreNoCapituloDaAba(unittest.TestCase):
+class TestHelpOpensInTheTabChapter(unittest.TestCase):
     """A help popup must open the chapter of the tab it belongs to.
 
     The documentation is one chapter per GUI tab, so a field or a block on
@@ -803,10 +810,10 @@ class TestAjudaAbreNoCapituloDaAba(unittest.TestCase):
     """
 
     #: The four condition fields Run Case and Run Batch share.
-    CONDICAO = {"mu_x", "Vz", "collective_deg", "rpm"}
+    CONDITION = {"mu_x", "Vz", "collective_deg", "rpm"}
 
     #: GUI tab -> the chapter title that documents it
-    CAPITULO_DA_ABA = {
+    TAB_CHAPTER = {
         "geometria": "Geometry",
         "aerofolio": "Airfoil",
         "config": "Config/Engine",
@@ -821,53 +828,53 @@ class TestAjudaAbreNoCapituloDaAba(unittest.TestCase):
         except ModuleNotFoundError:
             raise unittest.SkipTest("PyQt6 is not installed")
         cls.html = _html()
-        cls.capitulos = [
+        cls.chapters = [
             (m.start(), re.sub(r"<[^>]+>", "", m.group(1)).strip())
             for m in re.finditer(r"<h2[^>]*>(.*?)</h2>", cls.html, re.S)
         ]
-        cls.posicao = {m.group(1): m.start()
-                       for m in re.finditer(r'id="([\w-]+)"', cls.html)}
+        cls.position = {m.group(1): m.start()
+                        for m in re.finditer(r'id="([\w-]+)"', cls.html)}
 
-    def _capitulo_de(self, ancora: str) -> str:
-        pos = self.posicao.get(ancora)
-        self.assertIsNotNone(pos, f"anchor '{ancora}' is not in the document")
-        atual = None
-        for p, titulo in self.capitulos:
+    def _chapter_of(self, anchor: str) -> str:
+        pos = self.position.get(anchor)
+        self.assertIsNotNone(pos, f"anchor '{anchor}' is not in the document")
+        current = None
+        for p, title in self.chapters:
             if p <= pos:
-                atual = titulo
+                current = title
             else:
                 break
-        return atual or ""
+        return current or ""
 
-    def test_ancoras_de_bloco_resolvem(self):
+    def test_block_anchors_resolve(self):
         from zbemt.gui.help_blocks import BLOCK_HELP
-        ids = set(self.posicao)
-        mortas = sorted({v.get("anchor") for v in BLOCK_HELP.values()
-                         if v.get("anchor") not in ids})
-        self.assertEqual(mortas, [], f"block help points at missing anchors: {mortas}")
+        ids = set(self.position)
+        dead = sorted({v.get("anchor") for v in BLOCK_HELP.values()
+                       if v.get("anchor") not in ids})
+        self.assertEqual(dead, [], f"block help points at missing anchors: {dead}")
 
-    def test_campo_abre_no_capitulo_da_sua_aba(self):
-        sys.path.insert(0, str(RAIZ / "tools"))
-        from field_index import coletar_ordem_da_tela
-        from zbemt.gui.field_help import ancora_do_campo
+    def test_field_help_opens_in_its_tabs_chapter(self):
+        sys.path.insert(0, str(ROOT / "tools"))
+        from field_index import collect_screen_order
+        from zbemt.gui.field_help import field_anchor
 
-        for aba, campos in coletar_ordem_da_tela().items():
-            titulo = self.CAPITULO_DA_ABA.get(aba)
-            if not titulo:
+        for tab, fields in collect_screen_order().items():
+            title = self.TAB_CHAPTER.get(tab)
+            if not title:
                 continue
-            for campo, _antigo in campos:
-                ancora = ancora_do_campo(campo)
-                if ancora is None:
+            for field, _old in fields:
+                anchor = field_anchor(field)
+                if anchor is None:
                     continue
-                aceitos = [titulo]
+                accepted = [title]
                 # Run Batch sweeps the very same four condition fields that
                 # Run Case sets one at a time. They are one quantity, not
                 # two, so their help opens the Run Case description rather
                 # than a second copy of it.
-                if aba == "run_batch" and campo in self.CONDICAO:
-                    aceitos.append("Run Case")
-                with self.subTest(aba=aba, campo=campo):
+                if tab == "run_batch" and field in self.CONDITION:
+                    accepted.append("Run Case")
+                with self.subTest(tab=tab, field=field):
                     self.assertTrue(
-                        any(t in self._capitulo_de(ancora) for t in aceitos),
-                        f"{campo} is on the {aba} tab but its help opens "
-                        f"'{self._capitulo_de(ancora)}'")
+                        any(t in self._chapter_of(anchor) for t in accepted),
+                        f"{field} is on the {tab} tab but its help opens "
+                        f"'{self._chapter_of(anchor)}'")

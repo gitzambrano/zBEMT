@@ -44,53 +44,53 @@ class TestTodaOpcaoAparece(unittest.TestCase):
         from zbemt.gui.app import MainWindow
 
         cls.app = QApplication.instance() or QApplication([])
-        cls.janela = MainWindow()
-        cls.janela.resize(1400, 900)
+        cls.window = MainWindow()
+        cls.window.resize(1400, 900)
 
     @classmethod
     def tearDownClass(cls):
-        cls.janela.close()
-        cls.janela.deleteLater()
+        cls.window.close()
+        cls.window.deleteLater()
 
-    def test_nenhum_combo_esconde_opcoes_atras_de_rolagem(self):
+    def test_no_combo_hides_options_behind_scrolling(self):
         """`maxVisibleItems` must cover the whole list.
 
         Qt's default is 10 and applies silently, so this only shows up
         once a list crosses that length -- which is exactly when the list
         is long enough that the user cannot guess what is missing."""
-        from zbemt.gui.common import MAXIMO_DE_OPCOES_SEM_ROLAGEM
+        from zbemt.gui.common import MAX_OPTIONS_WITHOUT_SCROLL
 
-        escondidos = []
-        for combo in self.janela.findChildren(QComboBox):
+        hidden = []
+        for combo in self.window.findChildren(QComboBox):
             if combo.count() > combo.maxVisibleItems():
-                escondidos.append(
+                hidden.append(
                     f"{combo.count()} options, {combo.maxVisibleItems()} visible: "
                     f"{[combo.itemText(i) for i in range(combo.count())][:4]}")
         self.assertEqual(
-            escondidos, [],
+            hidden, [],
             "dropdown that opens without showing every option "
-            f"(the cap is {MAXIMO_DE_OPCOES_SEM_ROLAGEM}): " + str(escondidos))
+            f"(the cap is {MAX_OPTIONS_WITHOUT_SCROLL}): " + str(hidden))
 
-    def test_um_combo_preenchido_depois_tambem_mostra_tudo(self):
+    def test_a_combo_filled_later_also_shows_everything(self):
         """The lists that overflowed were filled from results, long after
         the window was built, so the cap has to survive a later change of
         contents rather than being computed once from the count."""
-        combos = self.janela.findChildren(QComboBox)
+        combos = self.window.findChildren(QComboBox)
         self.assertTrue(combos, "no combo found in the window")
-        alvo = combos[0]
-        antes = alvo.count()
-        alvo.addItems([f"extra {i}" for i in range(20)])
+        target = combos[0]
+        before = target.count()
+        target.addItems([f"extra {i}" for i in range(20)])
         try:
             self.assertGreaterEqual(
-                alvo.maxVisibleItems(), alvo.count(),
+                target.maxVisibleItems(), target.count(),
                 "a combo filled after construction went back to hiding options")
         finally:
-            while alvo.count() > antes:
-                alvo.removeItem(alvo.count() - 1)
+            while target.count() > before:
+                target.removeItem(target.count() - 1)
 
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not available")
-class TestDivulgacaoProgressiva(unittest.TestCase):
+class TestProgressiveDisclosure(unittest.TestCase):
     """PR-2's second half. The hidden-row half -- a hidden field must not
     leave its label behind -- is checked in `test_gui_layout.py`; what is
     checked here is that hiding is used for the right reason."""
@@ -101,32 +101,55 @@ class TestDivulgacaoProgressiva(unittest.TestCase):
         from zbemt.gui.app import MainWindow
 
         cls.app = QApplication.instance() or QApplication([])
-        cls.janela = MainWindow()
-        cls.janela.resize(1400, 900)
+        cls.window = MainWindow()
+        cls.window.resize(1400, 900)
 
     @classmethod
     def tearDownClass(cls):
-        cls.janela.close()
-        cls.janela.deleteLater()
+        cls.window.close()
+        cls.window.deleteLater()
 
-    def _aba(self, titulo):
-        for i in range(self.janela.tabs.count()):
-            if self.janela.tabs.tabText(i).startswith(titulo):
-                return self.janela.tabs.widget(i)
-        self.fail(f"tab '{titulo}' not found")
+    def _tab(self, title):
+        for i in range(self.window.tabs.count()):
+            if self.window.tabs.tabText(i).startswith(title):
+                return self.window.tabs.widget(i)
+        self.fail(f"tab '{title}' not found")
 
-    def test_o_bloco_de_pitt_peters_some_com_outro_modelo_de_inflow(self):
+    def test_the_pitt_peters_block_disappears_with_another_inflow_model(self):
         """The canonical case for HIDING: with Glauert selected, the
         Pitt-Peters parameters have no meaning at all -- there is no
         value the user could usefully read or set. Showing them disabled
         would be four rows of noise on every configuration that does not
         use them."""
-        config = self._aba("Config")
+        config = self._tab("Config")
         combo = config.cfg_inflow_family
-        indice = combo.findText("pitt_peters")
-        self.assertGreaterEqual(indice, 0, "the pitt_peters family is not offered")
+        index = combo.findText("pitt_peters")
+        self.assertGreaterEqual(index, 0, "the pitt_peters family is not offered")
 
-        combo.setCurrentIndex(indice)
+        combo.setCurrentIndex(index)
+        self.app.processEvents()
+        self.assertTrue(config.pitt_peters_box.isVisibleTo(config),
+                        "the Pitt-Peters block did not appear for its own model")
+
+        glauert = combo.findText("glauert")
+        self.assertGreaterEqual(glauert, 0, "the glauert family is not offered")
+        combo.setCurrentIndex(glauert)
+        self.app.processEvents()
+        self.assertFalse(config.pitt_peters_box.isVisibleTo(config),
+                         "the Pitt-Peters block stayed on screen under Glauert")
+
+    def test_an_option_blocked_by_the_mode_stays_disabled_and_does_not_vanish(self):
+        """The canonical case for HIDING: with Glauert selected, the
+        Pitt-Peters parameters have no meaning at all -- there is no
+        value the user could usefully read or set. Showing them disabled
+        would be four rows of noise on every configuration that does not
+        use them."""
+        config = self._tab("Config")
+        combo = config.cfg_inflow_family
+        index = combo.findText("pitt_peters")
+        self.assertGreaterEqual(index, 0, "the pitt_peters family is not offered")
+
+        combo.setCurrentIndex(index)
         self.app.processEvents()
         self.assertTrue(config.pitt_peters_box.isVisibleTo(config),
                         "the Pitt-Peters block did not appear for its own model")
@@ -148,23 +171,23 @@ class TestDivulgacaoProgressiva(unittest.TestCase):
         This is the defect PR-2 names. The option used to be deleted from
         the dropdown, leaving a note underneath as the only evidence that
         there was anything to look for."""
-        airfoil = self._aba("Airfoil")
+        airfoil = self._tab("Airfoil")
         combo = airfoil.cfg_reverse_flow_model
-        rotulos = [combo.itemText(i) for i in range(combo.count())]
+        labels = [combo.itemText(i) for i in range(combo.count())]
         self.assertIn(
-            "viterna_full_range", rotulos,
+            "viterna_full_range", labels,
             "an option unavailable in the current configuration was removed "
             "from the list instead of being disabled")
 
-    def test_a_opcao_bloqueada_esta_de_fato_desabilitada(self):
+    def test_the_blocked_option_is_in_fact_disabled(self):
         """Present is only half of it. Listed and still selectable, the
         user picks a model the airfoil cannot feed and the run fails
         later, with the cause several steps behind."""
-        airfoil = self._aba("Airfoil")
+        airfoil = self._tab("Airfoil")
         combo = airfoil.cfg_reverse_flow_model
-        indice = combo.findText("viterna_full_range")
-        self.assertGreaterEqual(indice, 0)
-        item = combo.model().item(indice)
+        index = combo.findText("viterna_full_range")
+        self.assertGreaterEqual(index, 0)
+        item = combo.model().item(index)
         self.assertIsNotNone(item, "the combo does not use an item model")
 
         # The default project's airfoil does not extend to the full range.
@@ -176,19 +199,19 @@ class TestDivulgacaoProgressiva(unittest.TestCase):
         # Turning the extension on must unlock it, in the same list.
         airfoil.stall_model_combo.setCurrentText("viterna")
         self.app.processEvents()
-        indice = combo.findText("viterna_full_range")
-        self.assertTrue(combo.model().item(indice).isEnabled(),
+        index = combo.findText("viterna_full_range")
+        self.assertTrue(combo.model().item(index).isEnabled(),
                         "the option stayed blocked after the extension was enabled")
 
-    def test_nenhum_combo_fica_visivel_e_vazio(self):
+    def test_no_combo_stays_visible_and_empty(self):
         """A visible dropdown with nothing in it is the worst of both: it
         announces a choice and offers none. Either it has options or it
         should not be on screen."""
-        vazios = []
-        for combo in self.janela.findChildren(QComboBox):
-            if combo.isVisibleTo(self.janela) and combo.count() == 0:
-                vazios.append(combo.objectName() or combo.toolTip()[:50] or "(unnamed)")
-        self.assertEqual(vazios, [], "visible combo with no options: " + str(vazios))
+        empty = []
+        for combo in self.window.findChildren(QComboBox):
+            if combo.isVisibleTo(self.window) and combo.count() == 0:
+                empty.append(combo.objectName() or combo.toolTip()[:50] or "(unnamed)")
+        self.assertEqual(empty, [], "visible combo with no options: " + str(empty))
 
 
 if __name__ == "__main__":

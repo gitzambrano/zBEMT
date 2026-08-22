@@ -96,12 +96,12 @@ FIELD_HELP: dict[str, dict] = {
             "rectangular: c(r)=c\\quad"
             "tapered: c(r)=c_{root}+(c_{tip}-c_{root})\\,\\bar r\\quad"
             "elliptic: c(r) \\propto \\sqrt{1-r^2}"),
-        "effect": "Changes how chord (and therefore solidity) is distributed along the span; does not by itself change total blade area.",
+        "effect": "Changes how chord (and therefore solidity) is distributed along the span. It does not by itself change total blade area.",
         "range": "rectangular, tapered, or elliptic",
         "options": {
-            "rectangular": "Constant chord along the whole span — simplest to build, common on small rotors.",
-            "tapered": "Linear interpolation between a root chord and a tip chord — trades build simplicity for a spanwise load closer to elliptic.",
-            "elliptic": "Chord follows an elliptic planform — minimizes induced drag for a given lift, at the cost of a more complex blade to manufacture.",
+            "rectangular": "Constant chord along the whole span: simplest to build, common on small rotors.",
+            "tapered": "Linear interpolation between a root chord and a tip chord. It trades build simplicity for a spanwise load closer to elliptic.",
+            "elliptic": "Chord follows an elliptic planform: it minimizes induced drag for a given lift, at the cost of a more complex blade to manufacture.",
         }
     },
     "n_stations": {
@@ -220,14 +220,14 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Airfoil Name",
         "definition": (
             "Descriptive name or aerodynamic profile designation for the airfoil "
-            "(e.g., 'NACA 0012', 'SC1095', 'Clark Y').\n\n"
+            "(for example, 'NACA 0012', 'SC1095', 'Clark Y').\n\n"
             "Used to identify the aerodynamic section across reports, polar plots, "
             "and project files. In multi-section rotor configurations, this name "
             "distinguishes each radial station's profile along the blade span."),
         "unit": "—",
         "equation": r"\mathrm{profile\ name} \in \{\mathrm{NACA\ 0012},\ \mathrm{SC1095},\ \dots\}",
-        "effect": "Labels and organizes airfoil polars in plots, summaries, and generated reports; does not directly alter numerical aerodynamics.",
-        "range": "alphanumeric string (e.g., 'NACA 0012', 'Clark Y', 'Root Section')",
+        "effect": "Labels and organizes airfoil polars in plots, summaries, and generated reports. It does not directly alter numerical aerodynamics.",
+        "range": "alphanumeric string (for example, 'NACA 0012', 'Clark Y', 'Root Section')",
         "options": None
     },
     "source": {
@@ -241,9 +241,9 @@ FIELD_HELP: dict[str, dict] = {
         "effect": "Changing the source alters how the blade element forces are computed at each radial station and flight condition.",
         "range": "analytical, table, or neuralfoil",
         "options": {
-            "analytical": "Polynomial analytical model with stall transition; fast and smooth, best for preliminary design.",
-            "table": "Precomputed polar curves at fixed Reynolds and Mach slices; accurate but requires data and interpolation.",
-            "neuralfoil": "NeuralFoil external solver generates the polar on demand; high fidelity but slower and requires external installation."
+            "analytical": "Polynomial analytical model with stall transition. Fast and smooth, best for preliminary design.",
+            "table": "Precomputed polar curves at fixed Reynolds and Mach slices. Accurate, but it requires data and interpolation.",
+            "neuralfoil": "NeuralFoil external solver generates the polar on demand. High fidelity but slower, and it requires an external installation."
         }
     },
     "cl_alpha": {
@@ -307,10 +307,10 @@ FIELD_HELP: dict[str, dict] = {
         "effect": "Choosing a different stall model changes how the polar behaves at high angles of attack and in reverse flow.",
         "range": "linear, clip, enhanced, or viterna",
         "options": {
-            "linear": "Linear lift up to stall angle, then constant; simplest model, useful for low-stall-margin designs.",
-            "clip": "Linear to stall, then Cl drops to zero immediately; unrealistic but diagnostic for stall sensitivity.",
-            "enhanced": "Smooth transition from linear region through a peak Cl_max to a shallow post-stall decline; realistic and continuous.",
-            "viterna": "Viterna-Corrigan model with curvature; extends to ±90° if enabled, most physically grounded for high α and reverse flow."
+            "linear": "Linear lift up to stall angle, then constant. The simplest model, useful for low-stall-margin designs.",
+            "clip": "Linear to stall, then Cl drops to zero immediately. Unrealistic but diagnostic for stall sensitivity.",
+            "enhanced": "Smooth transition from linear region through a peak Cl_max to a shallow post-stall decline. Realistic and continuous.",
+            "viterna": "Viterna-Corrigan model with curvature. It extends to ±90° if enabled and is the most physically grounded choice for high α and reverse flow."
         }
     },
     "alpha_stall_pos_deg": {
@@ -426,7 +426,7 @@ FIELD_HELP: dict[str, dict] = {
             "No correction beyond this angle."),
         "unit": "deg",
         "equation": r"\chi = 0 \quad (\alpha > \alpha_{\mathrm{fade,end}})",
-        "effect": "Increasing the fade end angle extends dynamic stall effects to higher angles; beyond it, static polar is used directly.",
+        "effect": "Increasing the fade end angle extends dynamic stall effects to higher angles. Beyond it, the static polar is used directly.",
         "range": "40–90°",
         "options": None
     },
@@ -449,10 +449,10 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"y_t = 5t\left(0.2969\sqrt{x} - 0.126x - 0.3516x^2 + 0.2843x^3 - 0.1015x^4\right)",
         "effect": (
             "Camber shifts the zero-lift angle negative and raises Cl at a given "
-            "angle; thickness governs how gently the section stalls and how much "
+            "angle. Thickness governs how gently the section stalls and how much "
             "profile drag it carries.\n\n"
             "Careful: the contour only reaches the engine through the polar "
-            "generated from it — changing the code changes nothing until "
+            "generated from it. Changing the code changes nothing until "
             "NeuralFoil runs again."),
         "range": (
             "4 or 5 digits.\n\n"
@@ -511,10 +511,10 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "",
         "equation": r"U_T = \Omega r + V_x \sin\psi < 0",
         "effect": (
-            "The five options differ in WHERE they act: viterna_full_range and "
-            "alpha_blending change the effective angle fed to the polar, "
+            "The five options differ in where they act. viterna_full_range and "
+            "alpha_blending change the effective angle fed to the polar. "
             "flat_plate and simple_flip post-process Cl/Cd inside the reverse "
-            "region, and thin_plate_blend blends the polar with thin-plate "
+            "region. thin_plate_blend blends the polar with thin-plate "
             "theory as a smooth function of |α| with no switch at Ut = 0.\n\n"
             "All five change element forces, not just plots."),
         "range": "viterna_full_range, flat_plate, simple_flip, alpha_blending, thin_plate_blend",
@@ -524,7 +524,7 @@ FIELD_HELP: dict[str, dict] = {
                 "continuous through Ut = 0, and with a polar defined over ±180° "
                 "the standard blade-element formulas generalize on their own. "
                 "α_eff = α_geom wrapped into (−180°, 180°].\n\n"
-                "The most physically grounded choice — and the only one that "
+                "The most physically grounded choice, and the only one that "
                 "requires the full-range (Viterna-Corrigan) extension to be "
                 "active."),
             "flat_plate": (
@@ -536,7 +536,7 @@ FIELD_HELP: dict[str, dict] = {
             "simple_flip": (
                 "Mirrors the incidence in the reverse region (α_eff = −α_geom, "
                 "Cd forced positive), keeping the airfoil polar.\n\n"
-                "Fast, symmetric, and discontinuous at Ut = 0 — a diagnostic "
+                "Fast, symmetric, and discontinuous at Ut = 0: a diagnostic "
                 "approximation."),
             "alpha_blending": (
                 "Fades the incidence to zero across the reverse-flow boundary: "
@@ -566,8 +566,8 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "—",
         "equation": r"\alpha_{eff} = \alpha_{geom}\,\tanh\!\left(\dfrac{k\,U_T}{\Omega r}\right),\quad U_T < 0",
         "effect": (
-            "Increase k for a sharper (more simple_flip-like) branch transition; "
-            "decrease it to remove oscillations near Ut = 0. It smooths the "
+            "Increase k for a sharper (more simple_flip-like) branch transition. "
+            "Decrease it to remove oscillations near Ut = 0. It smooths the "
             "numerical switch and does not move the reverse-flow boundary.\n\n"
             "Careful: it is ignored by the other four reverse-flow models."),
         "range": "0.1–50",
@@ -620,10 +620,10 @@ FIELD_HELP: dict[str, dict] = {
             "Enable it when local Mach is high enough that incompressible polars "
             "are no longer adequate.\n\n"
             "Careful: apply it only to a polar that is not already "
-            "Mach-resolved; otherwise the effect is double-counted.\n\n"
+            "Mach-resolved. Otherwise the effect is double-counted.\n\n"
             "The correction is local to the airfoil coefficients and does not "
             "alter momentum theory."),
-        "range": "off/on; use cautiously as M approaches 1",
+        "range": "off/on (use cautiously as M approaches 1)",
         "options": None
     },
     "a_sound": {
@@ -695,7 +695,7 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Table Slices",
         "definition": (
             "List of Reynolds/Mach slices in a tabulated polar.\n\n"
-            "Each slice is a complete Cl(α), Cd(α) curve at fixed Re and M; the "
+            "Each slice is a complete Cl(α), Cd(α) curve at fixed Re and M. The "
             "solver interpolates between slices."),
         "unit": "",
         "equation": r"C_l(\alpha, Re, M)",
@@ -706,7 +706,7 @@ FIELD_HELP: dict[str, dict] = {
     "geometry": {
         "title": "Airfoil Geometry",
         "definition": (
-            "2D airfoil contour definition (NACA, CST, Bézier, etc.) used to "
+            "2D airfoil contour definition (NACA, CST, Bézier, and so on) used to "
             "generate an external (NeuralFoil) polar.\n\n"
             "Careful: it is metadata only if source is 'analytical' or "
             "'table'."),
@@ -776,7 +776,7 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "",
         "equation": r"\lambda_i = \lambda_0\left[1 + K_x \bar{r}\cos\psi + K_y \bar{r}\sin\psi\right]",
         "effect": (
-            "Use the local Glauert/Coleman/Drees variants when azimuthal load "
+            "Use the local Glauert, Coleman, or Drees variants when azimuthal load "
             "feedback matters. Use Pitt-Peters for a finite-state disk "
             "response.\n\n"
             "Careful: use the unsteady variant only through the dedicated "
@@ -784,7 +784,7 @@ FIELD_HELP: dict[str, dict] = {
         "range": (
             "glauert_local, coleman_local, drees_local, pitt_peters_steady "
             "(GUI)\n\n"
-            "global/unsteady values are compatibility/API cases"),
+            "The global and unsteady values are compatibility and API cases"),
         "options": {
             "glauert_local": "Classical annular momentum coupling at each mesh node.",
             "coleman_local": "Coleman first harmonic for front/rear wake tilt, solved locally.",
@@ -800,7 +800,7 @@ FIELD_HELP: dict[str, dict] = {
             "to account for finite blade count effects."),
         "unit": "",
         "equation": r"F_{tip} = \dfrac{2}{\pi}\arccos\left(e^{-\dfrac{N_b(1-\bar{r})}{2\,\bar{r}\,|\sin\phi|}}\right)",
-        "effect": "Choose both for normal finite-blade predictions; choose tip or root to isolate one physical loss mechanism; choose off only for an idealized infinite-blade comparison.",
+        "effect": "Choose both for normal finite-blade predictions. Choose tip or root to isolate one physical loss mechanism. Choose off only for an idealized infinite-blade comparison.",
         "range": "off, tip, root, both",
         "options": {
             "off": "No Prandtl loss correction; full blade element loads are used.",
@@ -818,7 +818,7 @@ FIELD_HELP: dict[str, dict] = {
             'the separated region and delays stall.\n\n'
             'The effect is strongest near the root, where the chord is a large '
             'fraction of the radius, and vanishes at the tip.\n\n'
-            'Careful: a 2D wind-tunnel polar cannot contain it — the section '
+            'Careful: a 2D wind-tunnel polar cannot contain it. The section '
             'there does not rotate.'),
         "unit": '',
         "equation": r"C_l = C_{l,2D} + 3.1\,\dfrac{\lambda_r^2}{1+\lambda_r^2}\,g(\alpha)\left(\dfrac{c}{r}\right)^2\left(C_{l,att}-C_{l,2D}\right)",
@@ -827,8 +827,8 @@ FIELD_HELP: dict[str, dict] = {
             'value C<sub>l,att</sub> = C<sub>lα</sub>(α − α<sub>0</sub>), so it does nothing '
             'while the flow is attached and only bites once the polar has '
             'stalled.\n\n'
-            'Its size scales with (c/r)&sup2; — doubling the chord at a station '
-            'quadruples it — so it is a root-region effect that dies out toward '
+            'Its size scales with (c/r)&sup2; (doubling the chord at a station '
+            'quadruples it), so it is a root-region effect that dies out toward '
             'the tip.\n\n'
             'Expect a higher inner loading and a modest rise in thrust and '
             'torque in cases where the root is stalled (hover at high '
@@ -844,7 +844,7 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "In forward flight the blade also sees a velocity component ALONG "
             "its span, U<sub>R</sub> = V<sub>x</sub>&middot;cos&psi;, built from the IN-PLANE component of "
-            "the flight velocity — largest where the blade points along that "
+            "the flight velocity, largest where the blade points along that "
             "component and zero fore and aft.\n\n"
             "In ROTOR mode that in-plane component is V<sub>x</sub>, the advance; in "
             "PROPELLER mode it is the cross-flow V<sub>z</sub>.\n\n"
@@ -854,7 +854,7 @@ FIELD_HELP: dict[str, dict] = {
         "unit": '',
         "equation": r"U_R = V_x\cos\psi,\qquad C_d \leftarrow C_d\,f(\chi)",
         "effect": (
-            'This acts on DRAG only — it does not change lift, does not add a '
+            'This acts on DRAG only. It does not change lift, does not add a '
             'wake state, and does not solve a radial momentum equation. So it '
             'moves torque and power, and barely moves thrust.\n\n'
             'In ROTOR mode it is identically zero in hover (V<sub>x</sub> = 0, so no '
@@ -885,7 +885,7 @@ FIELD_HELP: dict[str, dict] = {
             'profile power predicted there); lowering it caps the effect '
             'earlier.\n\n'
             'It changes nothing in hover, where the skew is zero, and nothing '
-            'below the chosen angle — only the high-μ<sub>x</sub> end of a sweep '
+            'below the chosen angle. Only the high-μ<sub>x</sub> end of a sweep '
             'moves.'),
         "range": '30-90 deg',
         "options": None
@@ -941,10 +941,10 @@ FIELD_HELP: dict[str, dict] = {
         "effect": "Changing solver algorithms alters convergence speed, robustness in stalled conditions, and sensitivity to initial guesses.",
         "range": "fixed_point, newton, bisection, aitken",
         "options": {
-            "newton": "Newton-Raphson with numerical Jacobian; fastest for smooth, convergent cases.",
-            "fixed_point": "Fixed-point iteration (Picard); slow but robust, useful for stalled or difficult cases.",
-            "bisection": "Bracketing method; guaranteed convergence but slowest, used for safety.",
-            "aitken": "Aitken acceleration of fixed-point; attempts to speed up slow fixed-point convergence."
+            "newton": "Newton-Raphson with numerical Jacobian. Fastest for smooth, convergent cases.",
+            "fixed_point": "Fixed-point iteration (Picard). Slow but robust and useful for stalled or difficult cases.",
+            "bisection": "Bracketing method. Guaranteed convergence but slowest, so it is used for safety.",
+            "aitken": "Aitken acceleration of fixed-point. It attempts to speed up slow fixed-point convergence."
         }
     },
     "max_iter": {
@@ -979,7 +979,7 @@ FIELD_HELP: dict[str, dict] = {
             "Typically 0–1; stabilizes oscillatory convergence."),
         "unit": "—",
         "equation": r"\lambda_{i,n+1} = \lambda_{i,n} + \omega\left[g(\lambda_{i,n})-\lambda_{i,n}\right]",
-        "effect": "Decreasing the relaxation factor slows convergence but improves stability; too low causes stagnation.",
+        "effect": "Decreasing the relaxation factor slows convergence but improves stability. Too low a value causes stagnation.",
         "range": "0.1–1.0 (typically 0.5–0.9)",
         "options": None
     },
@@ -1042,7 +1042,7 @@ FIELD_HELP: dict[str, dict] = {
     },
     "relax_azimuth_threshold": {
         "title": "Azimuthal Relaxation Threshold",
-        "definition": "Threshold (0–1) that activates the azimuthal relaxation factor when a criterion (e.g., reverse-flow proximity) is met.",
+        "definition": "Threshold (0–1) that activates the azimuthal relaxation factor when a criterion (for example, reverse-flow proximity) is met.",
         "unit": "—",
         "equation": "Azimuth factor applied when criterion > threshold",
         "effect": "Increasing the threshold restricts azimuthal relaxation to fewer azimuths, localizing the slowdown.",
@@ -1081,7 +1081,7 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "Boolean switch between Rotor mode (helicopter, wind turbine) and "
             "Propeller mode (airplane, UAV).\n\n"
-            "The axes are vehicle-fixed — x horizontal, z vertical — so the "
+            "The axes are vehicle-fixed (x horizontal, z vertical), so the "
             "switch decides which physical direction each letter names: the "
             "shaft is vertical on a rotor and horizontal on a propeller.\n\n"
             "It also changes the performance coefficients and the reported "
@@ -1093,7 +1093,7 @@ FIELD_HELP: dict[str, dict] = {
             "change meaning.\n\n"
             "μ<sub>x</sub> = V<sub>x</sub>/(ΩR) and J<sub>x</sub> = V<sub>x</sub>/(nD) = π·μ<sub>x</sub> are the IN-PLANE "
             "advance ratio on a rotor and the ALONG-SHAFT airspeed ratio on a "
-            "propeller, while μ<sub>z</sub>, J<sub>z</sub> and λ<sub>z</sub> name the along-shaft "
+            "propeller. The ratios μ<sub>z</sub>, J<sub>z</sub> and λ<sub>z</sub> instead name the along-shaft "
             "climb/descent on a rotor and the vertical cross-flow on a "
             "propeller.\n\n"
             "It also switches the reported angle (α<sub>rotor</sub>, from the disk "
@@ -1106,13 +1106,13 @@ FIELD_HELP: dict[str, dict] = {
                 "and z is vertical.\n\n"
                 "The airspeed is the along-shaft component V<sub>x</sub>, and "
                 "J<sub>x</sub> = V<sub>x</sub>/(n·D) = π·μ<sub>x</sub> is the classic propeller advance "
-                "ratio — the one propulsive efficiency uses; λ<sub>x</sub> is the "
+                "ratio, the one propulsive efficiency uses. λ<sub>x</sub> is the "
                 "same number in the inflow vocabulary.\n\n"
                 "The in-plane component becomes the vertical CROSS-FLOW V<sub>z</sub> "
                 "(μ<sub>z</sub>, J<sub>z</sub>), which is zero in straight cruise.\n\n"
                 "The angle shown is α<sub>disk</sub>, measured from the SHAFT (0° in "
                 "straight cruise, positive with the disk tilted nose-up).\n\n"
-                "Inflow closes as λ<sub>total</sub> = λ<sub>i</sub> + λ<sub>x</sub>, i.e. "
+                "Inflow closes as λ<sub>total</sub> = λ<sub>i</sub> + λ<sub>x</sub>, that is, "
                 "V<sub>x,total</sub> = V<sub>x</sub> + v_i through the disk. Reported with η_prop "
                 "and the axis-thrust convention."),
             False: (
@@ -1125,7 +1125,7 @@ FIELD_HELP: dict[str, dict] = {
                 "The angle shown is α<sub>rotor</sub>, measured from the DISK PLANE "
                 "(0° in level forward flight, positive when the flow arrives "
                 "from below).\n\n"
-                "Inflow closes as λ<sub>total</sub> = λ<sub>i</sub> + λ<sub>z</sub>, i.e. "
+                "Inflow closes as λ<sub>total</sub> = λ<sub>i</sub> + λ<sub>z</sub>, that is, "
                 "V<sub>z,total</sub> = V<sub>z</sub> + v_i through the disk. Reported with "
                 "figure-of-merit FM and the disk-thrust convention.")
         }
@@ -1140,13 +1140,13 @@ FIELD_HELP: dict[str, dict] = {
             "one and this is V<sub>x</sub>, the advance: μ<sub>x</sub> = V<sub>x</sub>/(ΩR), with μ<sub>x</sub> = 0 hover and "
             "μ<sub>x</sub> ≈ 0.3 helicopter cruise.\n\n"
             "Accepted there as μ<sub>x</sub>, as J<sub>x</sub> = V<sub>x</sub>/(nD) = π·μ<sub>x</sub>, or as the "
-            "dimensional speed V<sub>x</sub> [m/s]; λ<sub>x</sub> is the same number in the inflow "
+            "dimensional speed V<sub>x</sub> [m/s]. λ<sub>x</sub> is the same number in the inflow "
             "vocabulary.\n\n"
             "IN PROPELLER MODE the shaft is horizontal, so the in-plane direction is the "
             "VERTICAL one and this same component is the CROSS-FLOW V<sub>z</sub>, written μ<sub>z</sub> = "
             "V<sub>z</sub>/(ΩR) or J<sub>z</sub> = V<sub>z</sub>/(nD) = π·μ<sub>z</sub>.\n\n"
-            "Careful: it is ZERO in straight cruise — the airspeed "
-            "goes in the along-shaft field — and J<sub>z</sub> is NOT the propeller advance ratio, which "
+            "Careful: it is ZERO in straight cruise (the airspeed "
+            "goes in the along-shaft field), and J<sub>z</sub> is NOT the propeller advance ratio, which "
             "is J<sub>x</sub>.\n\n"
             "In propeller mode the field also accepts α<sub>disk</sub>, the angle between the free stream "
             "and the SHAFT (0° in straight cruise, positive with the disk tilted nose-up), "
@@ -1163,7 +1163,7 @@ FIELD_HELP: dict[str, dict] = {
             "installation, and it stays at zero in straight cruise."),
         "range": (
             "0–1.5\n\n"
-            "In ROTOR mode, cruise μ<sub>x</sub> 0–0.5; in PROPELLER mode the cross-flow "
+            "In ROTOR mode, cruise μ<sub>x</sub> 0–0.5. In PROPELLER mode the cross-flow "
             "μ<sub>z</sub> is usually 0."),
         "options": None
     },
@@ -1179,7 +1179,7 @@ FIELD_HELP: dict[str, dict] = {
             "inflow vocabulary, μ<sub>z</sub> = V<sub>z</sub>/(ΩR) in the advance-ratio one (the same number), "
             "or J<sub>z</sub> = V<sub>z</sub>/(nD) = π·μ<sub>z</sub>.\n\n"
             "In rotor mode the field also accepts α<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>), "
-            "the angle measured FROM THE DISK PLANE — 0 in level forward flight, positive "
+            "the angle measured FROM THE DISK PLANE: 0 in level forward flight, positive "
             "when the flow arrives from below the disk.\n\n"
             "IN PROPELLER MODE the shaft is horizontal, so this is the HORIZONTAL component "
             "V<sub>x</sub>: the AIRSPEED, and the whole flight velocity in straight cruise.\n\n"
@@ -1188,7 +1188,7 @@ FIELD_HELP: dict[str, dict] = {
             "is the field's default unit and the one propulsive efficiency uses, since thrust "
             "acts along the shaft; λ<sub>x</sub> is the same number in the inflow vocabulary.\n\n"
             "Careful: no "
-            "angle is offered here in propeller mode — an angle only splits a known component "
+            "angle is offered here in propeller mode. An angle only splits a known component "
             "into the other one, and the cross-flow V<sub>z</sub> = tan(α<sub>disk</sub>)·V<sub>x</sub> is 0 in every "
             "straight axial flight."),
         "unit": "m/s",
@@ -1215,7 +1215,7 @@ FIELD_HELP: dict[str, dict] = {
             "blade span and added to the geometric twist.\n\n"
             "Together with the inflow it fixes the section angle of attack "
             "α<sub>eff</sub> at every radius and azimuth.\n\n"
-            "Careful: α<sub>eff</sub> is not α<sub>rotor</sub> or α<sub>disk</sub> — those two "
+            "Careful: α<sub>eff</sub> is not α<sub>rotor</sub> or α<sub>disk</sub>. Those two "
             "describe how the free stream meets the whole disk, while α<sub>eff</sub> "
             "varies with radius and azimuth."),
         "unit": "deg",
@@ -1223,8 +1223,8 @@ FIELD_HELP: dict[str, dict] = {
         "effect": (
             "Increasing collective pitch raises α<sub>eff</sub> and thrust in either "
             "mode, increasing power consumption and stall risk.\n\n"
-            "The along-shaft component works the other way — V<sub>z</sub> in ROTOR mode, "
-            "V<sub>x</sub> in PROPELLER mode — so a propeller needs more collective as "
+            "The along-shaft component works the other way (V<sub>z</sub> in ROTOR mode, "
+            "V<sub>x</sub> in PROPELLER mode), so a propeller needs more collective as "
             "J<sub>x</sub> grows if it is to hold its loading."),
         "range": "−20 to +20° (typical −5 to +15)",
         "options": None

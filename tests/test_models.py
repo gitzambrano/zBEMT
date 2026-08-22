@@ -17,7 +17,7 @@ from zbemt.models import (
     RotorGeometryDef, AirfoilDef, ProfileGeometry, PolarSlice,
     FlightCondition, BatchDefinition, Project,
     save_bemt, load_bemt, save_bemt_list, load_bemt_list, default_project_paths,
-    migrar_config_raw,
+    migrate_config_raw,
 )
 
 
@@ -37,7 +37,7 @@ class TestSaveLoadRoundtrip(unittest.TestCase):
         geom = RotorGeometryDef(
             r_norm=[0.2, 0.5, 1.0], chord_norm=[0.08, 0.06, 0.03], twist_deg=[12.0, 6.0, 0.0],
             origin="parametric", origin_params={"kind": "tapered", "root_chord_norm": 0.08},
-            n_blades=4, radius_m=1.4, root_cutout_norm=0.2143, airfoil_name="perfil 1",
+            n_blades=4, radius_m=1.4, root_cutout_norm=0.2143, airfoil_name="profile 1",
         )
         path = self._path("geom.bemt")
         save_bemt(geom, path)
@@ -62,15 +62,15 @@ class TestSaveLoadRoundtrip(unittest.TestCase):
             dynamic_stall_time_march_avg_last=2,
             table_slices=[
                 PolarSlice(alpha_deg=[-5, 0, 5], cl=[-0.3, 0.2, 0.7], cd=[0.02, 0.015, 0.02],
-                           r_norm=0.5, reynolds=5e5, mach=0.1, label="raiz"),
+                           r_norm=0.5, reynolds=5e5, mach=0.1, label="root"),
                 PolarSlice(alpha_deg=[-5, 0, 5], cl=[-0.2, 0.3, 0.8], cd=[0.018, 0.014, 0.019],
-                           r_norm=0.9, reynolds=1.2e6, mach=0.2, label="ponta"),
+                           r_norm=0.9, reynolds=1.2e6, mach=0.2, label="tip"),
             ],
             geometry=ProfileGeometry(
                 source="cst", naca_code="2412",
                 cst_upper=[0.1, 0.2, 0.3], cst_lower=[-0.1, -0.2, -0.3],
                 bezier_control_points=[[0.0, 0.0], [0.5, 0.05], [1.0, 0.0]],
-                imported_path="perfis/meu_perfil.dat", n_points=150,
+                imported_path="profiles/my_profile.dat", n_points=150,
                 x=[0.0, 0.5, 1.0], y=[0.0, 0.03, 0.0],
             ),
             external_engine="neuralfoil",
@@ -87,7 +87,7 @@ class TestSaveLoadRoundtrip(unittest.TestCase):
     def test_polar_slice_roundtrip(self):
         slice_ = PolarSlice(alpha_deg=[-5, 0, 5, 10], cl=[-0.3, 0.2, 0.7, 1.1],
                              cd=[0.02, 0.015, 0.02, 0.03], r_norm=0.42,
-                             reynolds=8.5e5, mach=0.15, label="seção X")
+                             reynolds=8.5e5, mach=0.15, label="section X")
         path = self._path("polar_slice.bemt")
         save_bemt(slice_, path)
         loaded = load_bemt(PolarSlice, path)
@@ -98,7 +98,7 @@ class TestSaveLoadRoundtrip(unittest.TestCase):
             source="bezier", naca_code="4412",
             cst_upper=[0.15, 0.25], cst_lower=[-0.15, -0.25],
             bezier_control_points=[[0.0, 0.0], [0.3, 0.06], [1.0, 0.0]],
-            imported_path="perfis/import.dat", n_points=175,
+            imported_path="profiles/import.dat", n_points=175,
             x=[0.0, 0.25, 0.5, 0.75, 1.0], y=[0.0, 0.02, 0.03, 0.015, 0.0],
         )
         path = self._path("profile_geometry.bemt")
@@ -133,7 +133,7 @@ class TestSaveLoadRoundtrip(unittest.TestCase):
         path = self._path("airfoil_old_schema.bemt")
         with open(path, "w", encoding="utf-8") as f:
             json.dump({
-                "name": "perfil antigo", "source": "analytical",
+                "name": "old profile", "source": "analytical",
                 "use_viterna_extension": False, "blend_with_viterna": True,
                 "extrapolate_full_range": False, "use_compressibility": True,
             }, f)
@@ -163,7 +163,7 @@ class TestSaveLoadRoundtrip(unittest.TestCase):
             with self.subTest(stall_model=modelo):
                 path = self._path(f"airfoil_{modelo}.bemt")
                 with open(path, "w", encoding="utf-8") as f:
-                    json.dump({"name": "atual", "source": "analytical",
+                    json.dump({"name": "current", "source": "analytical",
                                "extend_full_range": True, "stall_model": modelo}, f)
                 self.assertEqual(load_bemt(AirfoilDef, path).stall_model, modelo)
 
@@ -241,14 +241,14 @@ class TestAirfoilSectionsRoundtrip(unittest.TestCase):
 
     def test_save_load_list_roundtrip(self):
         sections = [
-            AirfoilDef(name="raiz", r_norm=0.15, cd0=0.02),
-            AirfoilDef(name="ponta", r_norm=1.0, cd0=0.008),
+        AirfoilDef(name="root", r_norm=0.15, cd0=0.02),
+        AirfoilDef(name="tip", r_norm=1.0, cd0=0.008),
         ]
         path = Path(self.tmp.name) / "airfoil_sections.bemt"
         save_bemt_list(sections, path)
         loaded = load_bemt_list(AirfoilDef, path)
         self.assertEqual(len(loaded), 2)
-        self.assertEqual(loaded[0].name, "raiz")
+        self.assertEqual(loaded[0].name, "root")
         self.assertEqual(loaded[0].r_norm, 0.15)
         self.assertEqual(loaded[1].r_norm, 1.0)
         self.assertEqual(loaded[1].cd0, 0.008)
@@ -274,32 +274,32 @@ class TestProjectNamePersistence(unittest.TestCase):
     def test_custom_name_survives_save_and_reopen(self):
         from zbemt import api
 
-        project_dir = Path(self.tmp.name) / "pasta_generica"
-        project = api.new_project(str(project_dir), name="Meu Rotor Bonito")
-        self.assertEqual(project.name, "Meu Rotor Bonito")
+        project_dir = Path(self.tmp.name) / "generic_dir"
+        project = api.new_project(str(project_dir), name="My Pretty Rotor")
+        self.assertEqual(project.name, "My Pretty Rotor")
 
         reloaded = api.open_project(str(project_dir))
-        self.assertEqual(reloaded.name, "Meu Rotor Bonito")
+        self.assertEqual(reloaded.name, "My Pretty Rotor")
         self.assertNotEqual(reloaded.name, project_dir.name)
 
     def test_legacy_project_without_meta_falls_back_to_folder_name(self):
         from zbemt import api
 
-        project_dir = Path(self.tmp.name) / "projeto_legado"
-        project = api.new_project(str(project_dir), name="qualquer coisa")
+        project_dir = Path(self.tmp.name) / "legacy_project"
+        project = api.new_project(str(project_dir), name="anything")
         # simulates a project saved BEFORE this fix: without meta.bemt.
         paths = default_project_paths(str(project_dir))
         paths["meta"].unlink()
 
         reloaded = api.open_project(str(project_dir))
-        self.assertEqual(reloaded.name, "projeto_legado")
+        self.assertEqual(reloaded.name, "legacy_project")
 
 
 if __name__ == "__main__":
     unittest.main()
 
 
-class TestSerializacaoQ1(unittest.TestCase):
+class TestQ1Serialization(unittest.TestCase):
     """Q1 (production-plan.md): three serialization holes that lost
     data or produced invalid files, all silently."""
 
@@ -307,36 +307,36 @@ class TestSerializacaoQ1(unittest.TestCase):
         self.dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
 
-    def test_nao_finitos_geram_json_valido_e_voltam_iguais(self):
+    def test_non_finite_values_produce_valid_json_and_come_back_equal(self):
         """`json.dump` writes `NaN`/`Infinity` without quotes -- literals that
         Python rereads but that any strict parser refuses, invalidating the
         entire file for any other tool."""
-        alvo = self.dir / "polar.bemt"
+        target = self.dir / "polar.bemt"
         slice_ = PolarSlice(alpha_deg=[0.0, 5.0],
                             cl=[float("nan"), float("inf")],
                             reynolds=float("-inf"))
-        save_bemt(slice_, alvo)
+        save_bemt(slice_, target)
 
-        texto = alvo.read_text(encoding="utf-8")
-        self.assertNotRegex(texto, r":\s*(NaN|-?Infinity)\s*[,}\]]",
+        text = target.read_text(encoding="utf-8")
+        self.assertNotRegex(text, r":\s*(NaN|-?Infinity)\s*[,}\]]",
                             "non-finite written as a literal: invalid JSON")
 
-        de_volta = load_bemt(PolarSlice, alvo)
-        self.assertTrue(math.isnan(de_volta.cl[0]))
-        self.assertEqual(de_volta.cl[1], float("inf"))
-        self.assertEqual(de_volta.reynolds, float("-inf"))
+        back = load_bemt(PolarSlice, target)
+        self.assertTrue(math.isnan(back.cl[0]))
+        self.assertEqual(back.cl[1], float("inf"))
+        self.assertEqual(back.reynolds, float("-inf"))
 
-    def test_chave_desconhecida_avisa_em_vez_de_sumir(self):
-        alvo = self.dir / "polar.bemt"
-        alvo.write_text('{"alpha_deg": [1.0], "campo_que_foi_renomeado": 7}',
-                        encoding="utf-8")
-        with warnings.catch_warnings(record=True) as capturados:
+    def test_unknown_key_warns_instead_of_disappearing(self):
+        target = self.dir / "polar.bemt"
+        target.write_text('{"alpha_deg": [1.0], "renamed_field": 7}',
+                          encoding="utf-8")
+        with warnings.catch_warnings(record=True) as captured:
             warnings.simplefilter("always")
-            obj = load_bemt(PolarSlice, alvo)
-        mensagens = [str(w.message) for w in capturados
-                     if issubclass(w.category, UserWarning)]
-        self.assertTrue(any("campo_que_foi_renomeado" in m for m in mensagens),
-                        f"nenhum aviso sobre a chave descartada: {mensagens}")
+            obj = load_bemt(PolarSlice, target)
+        messages = [str(w.message) for w in captured
+                    if issubclass(w.category, UserWarning)]
+        self.assertTrue(any("renamed_field" in m for m in messages),
+                        f"no warning about the dropped key: {messages}")
         self.assertEqual(obj.alpha_deg, [1.0])   # the rest continues loading
 
     def test_config_legado_use_prandtl_loss_vira_prandtl_loss_mode(self):
@@ -344,12 +344,12 @@ class TestSerializacaoQ1(unittest.TestCase):
         even in the repository's reference project, which kept
         `use_prandtl_loss: true` and was running with the default."""
         self.assertEqual(
-            migrar_config_raw({"use_prandtl_loss": True})["prandtl_loss_mode"], "both")
+            migrate_config_raw({"use_prandtl_loss": True})["prandtl_loss_mode"], "both")
         self.assertEqual(
-            migrar_config_raw({"use_prandtl_loss": False})["prandtl_loss_mode"], "off")
-        self.assertNotIn("use_prandtl_loss", migrar_config_raw({"use_prandtl_loss": True}))
+            migrate_config_raw({"use_prandtl_loss": False})["prandtl_loss_mode"], "off")
+        self.assertNotIn("use_prandtl_loss", migrate_config_raw({"use_prandtl_loss": True}))
 
-    def test_migracao_prandtl_desligado_produz_valor_que_o_motor_reconhece(self):
+    def test_prandtl_off_migration_produces_a_value_the_engine_recognizes(self):
         """`False` has to become "off", not a value outside the enum.
 
         The engine selects the loss factor with a dict lookup whose default
@@ -357,27 +357,27 @@ class TestSerializacaoQ1(unittest.TestCase):
         correction back ON for a project that had it OFF. Regression for the
         migration writing "none"."""
         from zbemt.bemt import BEMTConfig
-        modos_validos = {"off", "tip", "root", "both"}
-        for antigo, esperado in ((True, "both"), (False, "off")):
-            with self.subTest(use_prandtl_loss=antigo):
-                modo = migrar_config_raw(
-                    {"use_prandtl_loss": antigo})["prandtl_loss_mode"]
-                self.assertIn(modo, modos_validos)
-                self.assertEqual(modo, esperado)
+        valid_modes = {"off", "tip", "root", "both"}
+        for old, expected in ((True, "both"), (False, "off")):
+            with self.subTest(use_prandtl_loss=old):
+                mode = migrate_config_raw(
+                    {"use_prandtl_loss": old})["prandtl_loss_mode"]
+                self.assertIn(mode, valid_modes)
+                self.assertEqual(mode, expected)
                 # and the migrated value survives a trip through the dataclass
-                self.assertEqual(BEMTConfig(prandtl_loss_mode=modo).prandtl_loss_mode,
-                                 esperado)
+                self.assertEqual(BEMTConfig(prandtl_loss_mode=mode).prandtl_loss_mode,
+                                 expected)
 
-    def test_as_duas_migracoes_de_prandtl_concordam(self):
+    def test_the_two_prandtl_migrations_agree(self):
         """`models` and `studies` both migrate the same legacy key; they
         disagreed, one writing "off" and the other "none"."""
         from zbemt.studies import _migrate_config_dict
-        for antigo in (True, False):
-            with self.subTest(use_prandtl_loss=antigo):
+        for old in (True, False):
+            with self.subTest(use_prandtl_loss=old):
                 self.assertEqual(
-                    migrar_config_raw({"use_prandtl_loss": antigo})["prandtl_loss_mode"],
-                    _migrate_config_dict({"use_prandtl_loss": antigo})["prandtl_loss_mode"])
+                    migrate_config_raw({"use_prandtl_loss": old})["prandtl_loss_mode"],
+                    _migrate_config_dict({"use_prandtl_loss": old})["prandtl_loss_mode"])
 
-    def test_migracao_nao_atropela_valor_ja_no_schema_novo(self):
-        migrado = migrar_config_raw({"use_prandtl_loss": True, "prandtl_loss_mode": "tip"})
-        self.assertEqual(migrado["prandtl_loss_mode"], "tip")
+    def test_migration_does_not_override_a_value_already_in_the_new_schema(self):
+        migrated = migrate_config_raw({"use_prandtl_loss": True, "prandtl_loss_mode": "tip"})
+        self.assertEqual(migrated["prandtl_loss_mode"], "tip")

@@ -532,66 +532,66 @@ class TestCancelamentoDentroDoCaso(unittest.TestCase):
         # high max_iter and impossible tol: without cancellation this solve
         # would waste all 400 iterations
         self.project = _make_project(solver="fixed_point", max_iter=400, tol=1e-14)
-        self.condition = FlightCondition(name="longo", mu_x=0.2, collective_deg=8.0, rpm=600.0)
+        self.condition = FlightCondition(name="long", mu_x=0.2, collective_deg=8.0, rpm=600.0)
 
-    def test_cancelar_no_meio_do_solve_levanta_solvecancelled(self):
-        iteracoes = {"n": 0}
+    def test_cancelling_mid_solve_raises_solvecancelled(self):
+        iterations = {"n": 0}
 
-        def cancelar_na_terceira():
-            iteracoes["n"] += 1
-            return iteracoes["n"] >= 3
+        def cancel_on_third():
+            iterations["n"] += 1
+            return iterations["n"] >= 3
 
         with self.assertRaises(SolveCancelled):
             studies.run_single_case(self.project, self.condition,
-                                     should_cancel=cancelar_na_terceira)
+                                     should_cancel=cancel_on_third)
         # stopped at the 3rd query, not at 400 iterations
-        self.assertLess(iteracoes["n"], 10)
+        self.assertLess(iterations["n"], 10)
 
-    def test_sem_cancelamento_o_solve_roda_normalmente(self):
-        chamadas = {"n": 0}
+    def test_without_cancellation_the_solve_runs_normally(self):
+        calls = {"n": 0}
 
-        def nunca_cancela():
-            chamadas["n"] += 1
+        def never_cancels():
+            calls["n"] += 1
             return False
 
-        resultado = studies.run_single_case(self.project, self.condition,
-                                             should_cancel=nunca_cancela)
-        self.assertIn("CT", resultado.summary)
-        self.assertGreater(chamadas["n"], 1, "should_cancel should be polled once per iteration")
+        result = studies.run_single_case(self.project, self.condition,
+                                          should_cancel=never_cancels)
+        self.assertIn("CT", result.summary)
+        self.assertGreater(calls["n"], 1, "should_cancel should be polled once per iteration")
 
-    def test_should_cancel_none_e_o_caminho_default_intocado(self):
-        resultado = studies.run_single_case(self.project, self.condition)
-        self.assertIn("CT", resultado.summary)
+    def test_should_cancel_none_is_the_untouched_default_path(self):
+        result = studies.run_single_case(self.project, self.condition)
+        self.assertIn("CT", result.summary)
 
-    def test_batch_para_no_caso_em_andamento_e_devolve_os_concluidos(self):
+    def test_batch_stops_at_the_running_case_and_returns_the_completed_ones(self):
         """The interrupted case is DISCARDED: a solve that didn't converge
         returned halfway would pass as a valid result."""
         batch = BatchDefinition(sweep_kind="mu_sweep",
                                 sweep_params={"mu_values": [0.1, 0.2, 0.3], "rpm": 600.0})
-        concluidos = []
+        completed = []
 
-        chamadas_pos_caso1 = {"n": 0}
+        calls_after_case1 = {"n": 0}
 
-        def cancelar_dentro_do_segundo():
+        def cancel_inside_second():
             """Let the 1st case finish completely. After it, the FIRST
             query is the between-case check -- returning False there,
             we guarantee that the 2nd case really STARTS to solve, and the
             cancellation happens inside the solve, not before it."""
-            if not concluidos:
+            if not completed:
                 return False
-            chamadas_pos_caso1["n"] += 1
-            return chamadas_pos_caso1["n"] > 1
+            calls_after_case1["n"] += 1
+            return calls_after_case1["n"] > 1
 
-        resultados = studies.run_batch(
+        results = studies.run_batch(
             self.project, batch,
-            on_case_done=lambda i, total, r: concluidos.append(r),
-            should_cancel=cancelar_dentro_do_segundo)
+            on_case_done=lambda i, total, r: completed.append(r),
+            should_cancel=cancel_inside_second)
 
-        self.assertGreaterEqual(chamadas_pos_caso1["n"], 2,
+        self.assertGreaterEqual(calls_after_case1["n"], 2,
                                  "the cancellation never made it into the 2nd case's solve")
-        self.assertEqual(len(resultados), 1, "the interrupted case must not be returned")
+        self.assertEqual(len(results), 1, "the interrupted case must not be returned")
         # cancellation is not a failure: no exception delivered as "case with error"
-        self.assertFalse([c for c in concluidos if isinstance(c, Exception)])
+        self.assertFalse([c for c in completed if isinstance(c, Exception)])
 
 
 class TestRunCaseTrimmed(unittest.TestCase):

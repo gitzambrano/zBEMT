@@ -18,32 +18,32 @@ except ImportError:                                   # pragma: no cover
 from tests import helpers
 
 
-@unittest.skipUnless(_HAS_QT, "sem PyQt6")
-class TestMapaDeCampos(unittest.TestCase):
-    def test_mapa_cobre_a_maioria_dos_campos_do_schema(self):
-        from zbemt.gui.field_help import mapa_de_campos
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestFieldMap(unittest.TestCase):
+    def test_map_covers_most_of_the_schema_fields(self):
+        from zbemt.gui.field_help import field_map
         from zbemt.bemt import BEMTConfig
         from zbemt.models import AirfoilDef
 
-        mapa = mapa_de_campos()
-        alvo = set(BEMTConfig.__dataclass_fields__) | set(AirfoilDef.__dataclass_fields__)
-        cobertos = alvo & set(mapa)
-        self.assertGreater(len(cobertos) / len(alvo), 0.75,
-                           f"only {len(cobertos)}/{len(alvo)} fields have a section")
+        mapping = field_map()
+        target = set(BEMTConfig.__dataclass_fields__) | set(AirfoilDef.__dataclass_fields__)
+        covered = target & set(mapping)
+        self.assertGreater(len(covered) / len(target), 0.75,
+                           f"only {len(covered)}/{len(target)} fields have a section")
 
-    def test_toda_ancora_do_mapa_existe_na_documentacao(self):
+    def test_every_anchor_of_the_map_exists_in_the_documentation(self):
         """A broken anchor would open documentation at the top without saying
         it failed -- worse than not having a button."""
         import re
         from zbemt import paths
-        from zbemt.gui.field_help import mapa_de_campos
+        from zbemt.gui.field_help import field_map
 
         html = paths.documentation_path().read_text(encoding="utf-8")
         ids = set(re.findall(r'id="([\w-]+)"', html))
-        quebradas = sorted({a for a in mapa_de_campos().values() if a not in ids})
-        self.assertEqual(quebradas, [])
+        broken = sorted({a for a in field_map().values() if a not in ids})
+        self.assertEqual(broken, [])
 
-    def test_campos_centrais_caem_na_fisica_e_nao_na_tabela_de_campos(self):
+    def test_central_fields_land_on_the_physics_not_the_field_table(self):
         """CURRENT contract (see `field_help`'s docstring): the
         `ajuda-{field}` row in the "Parameters by tab" table is the LAST resort,
         not the first.
@@ -55,17 +55,17 @@ class TestMapaDeCampos(unittest.TestCase):
         repeats the tooltip; the user clicking "?" wants the section that
         explains the quantity.
         """
-        from zbemt.gui.field_help import mapa_de_campos
-        mapa = mapa_de_campos()
-        for campo in ("n_blades", "stall_model", "solver", "collective_deg"):
+        from zbemt.gui.field_help import field_map
+        mapping = field_map()
+        for field in ("n_blades", "stall_model", "solver", "collective_deg"):
             self.assertFalse(
-                mapa[campo].startswith("ajuda-"),
-                f"{campo} caiu na tabela de campos ({mapa[campo]}) em vez de "
-                "in an explanation section")
+                mapping[field].startswith("ajuda-"),
+                f"{field} fell into the field table ({mapping[field]}) instead of "
+                "an explanation section")
 
 
-@unittest.skipUnless(_HAS_QT, "sem PyQt6")
-class TestBotoesNaJanela(unittest.TestCase):
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestButtonsInTheWindow(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
@@ -74,117 +74,117 @@ class TestBotoesNaJanela(unittest.TestCase):
         import tempfile, shutil
         self._tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self._tmp, ignore_errors=True)
-        with helpers.patch_em_toda_gui("PROJECTS_ROOT", self._tmp):
+        with helpers.patch_message_box_everywhere("PROJECTS_ROOT", self._tmp):
             from zbemt.gui import app as gui
             self.win = gui.MainWindow()
         self.addCleanup(self.win.deleteLater)
 
-    def _labels_clicaveis(self, indice_aba):
+    def _clickable_labels(self, tab_index):
         """QToolButtons that function as field labels (hand cursor)."""
         from PyQt6.QtCore import Qt
         from PyQt6.QtWidgets import QToolButton
-        aba = self.win.tabs.widget(indice_aba)
-        return [b for b in aba.findChildren(QToolButton)
+        tab = self.win.tabs.widget(tab_index)
+        return [b for b in tab.findChildren(QToolButton)
                 if b.cursor().shape() == Qt.CursorShape.PointingHandCursor]
 
-    def _botoes_bloco(self, indice_aba):
+    def _block_buttons(self, tab_index):
         """Groupboxes whose TITLE opens the block help.
 
         It used to scan `QPushButton` with text "?" -- and that's why
         it was failing: there are no "?" buttons left in the window (see
         `field_help`'s docstring). Block help is now the `QGroupBox`'s
-        title itself, set up by `common.tornar_titulo_de_bloco_clicavel`,
-        which marks the groupbox with `_ajuda_de_bloco`. That marker
+        title itself, set up by `common.make_block_title_clickable`,
+        which marks the groupbox with `_block_help`. That marker
         identifies a block with help.
         """
         from PyQt6.QtWidgets import QGroupBox
-        aba = self.win.tabs.widget(indice_aba)
-        return [gb for gb in aba.findChildren(QGroupBox)
-                if getattr(gb, "_ajuda_de_bloco", None) is not None]
+        tab = self.win.tabs.widget(tab_index)
+        return [gb for gb in tab.findChildren(QGroupBox)
+                if getattr(gb, "_block_help", None) is not None]
 
-    def test_abas_de_fisica_ganham_labels_clicaveis(self):
+    def test_physics_tabs_gain_clickable_labels(self):
         """Documented fields gain clickable QToolButton labels."""
-        self.assertGreater(len(self._labels_clicaveis(2)), 15, "Airfoil tab has no clickable labels")
-        self.assertGreater(len(self._labels_clicaveis(3)), 10, "Config/Motor tab has no clickable labels")
+        self.assertGreater(len(self._clickable_labels(2)), 15, "Airfoil tab has no clickable labels")
+        self.assertGreater(len(self._clickable_labels(3)), 10, "Config/Motor tab has no clickable labels")
 
-    def test_abas_de_fisica_ganham_botoes_de_bloco(self):
+    def test_physics_tabs_gain_block_buttons(self):
         """Relevant groupboxes gain block '?' button."""
-        self.assertGreater(len(self._botoes_bloco(2)), 3, "Airfoil tab has no block '?'")
-        self.assertGreater(len(self._botoes_bloco(3)), 3, "aba Config/Motor sem '?' de bloco")
+        self.assertGreater(len(self._block_buttons(2)), 3, "Airfoil tab has no block '?'")
+        self.assertGreater(len(self._block_buttons(3)), 3, "Config/Motor tab has no block '?'")
 
-    def test_condicao_de_voo_tambem_ganha(self):
+    def test_flight_condition_gains_them_too(self):
         # Run Case has few editable fields with documented tooltips;
         # verify that at least some gained clickable label OR block button
-        clicaveis = len(self._labels_clicaveis(4)) + len(self._botoes_bloco(4))
-        self.assertGreaterEqual(clicaveis, 2, "aba Run Case sem ajuda interativa")
+        clickable = len(self._clickable_labels(4)) + len(self._block_buttons(4))
+        self.assertGreaterEqual(clickable, 2, "Run Case tab has no interactive help")
 
-    def test_o_label_segue_a_visibilidade_do_campo(self):
+    def test_the_label_follows_the_field_visibility(self):
         """Progressive disclosure hides the field; the clickable label must follow."""
         from PyQt6.QtCore import Qt
         from PyQt6.QtWidgets import QFormLayout, QToolButton
-        aba = self.win.tabs.widget(2)  # Airfoil
-        aba.stall_model_combo.setCurrentText("clip")
-        aba.use_dynamic_stall.setChecked(True)
-        campo = aba.dyn_A
+        tab = self.win.tabs.widget(2)  # Airfoil
+        tab.stall_model_combo.setCurrentText("clip")
+        tab.use_dynamic_stall.setChecked(True)
+        field = tab.dyn_A
 
-        # Encontra o QToolButton label na mesma linha do formulário
+        # Find the QToolButton label in the same form row
         label_btn = None
-        for form in aba.findChildren(QFormLayout):
+        for form in tab.findChildren(QFormLayout):
             for r in range(form.rowCount()):
                 fi = form.itemAt(r, QFormLayout.ItemRole.FieldRole)
                 li = form.itemAt(r, QFormLayout.ItemRole.LabelRole)
-                if fi and fi.widget() == campo and li:
+                if fi and fi.widget() == field and li:
                     w = li.widget()
                     if isinstance(w, QToolButton):
                         label_btn = w
                         break
             if label_btn:
                 break
-        self.assertIsNotNone(label_btn, "campo dyn_A sem label QToolButton")
+        self.assertIsNotNone(label_btn, "dyn_A field without a QToolButton label")
 
         # Hide the row via progressive disclosure
-        aba.use_dynamic_stall.setChecked(False)
-        self.assertTrue(campo.isHidden() or label_btn.isHidden(),
-                        "campo e label deveriam estar ocultos")
-        aba.use_dynamic_stall.setChecked(True)
-        self.assertFalse(campo.isHidden() and label_btn.isHidden(),
+        tab.use_dynamic_stall.setChecked(False)
+        self.assertTrue(field.isHidden() or label_btn.isHidden(),
+                        "field and label should be hidden")
+        tab.use_dynamic_stall.setChecked(True)
+        self.assertFalse(field.isHidden() and label_btn.isHidden(),
                          "field/label should be visible again")
 
-    def test_instalar_e_idempotente(self):
-        """Calling instalar_popups_de_campo twice does not create duplicate labels."""
+    def test_install_is_idempotent(self):
+        """Calling install_field_popups twice does not create duplicate labels."""
         from PyQt6.QtWidgets import QToolButton
-        from zbemt.gui.field_help import instalar_popups_de_campo
-        aba = self.win.tabs.widget(3)
-        antes = len(self._labels_clicaveis(3))
-        self.assertEqual(instalar_popups_de_campo(aba), 0)
-        self.assertEqual(len(self._labels_clicaveis(3)), antes)
+        from zbemt.gui.field_help import install_field_popups
+        tab = self.win.tabs.widget(3)
+        before = len(self._clickable_labels(3))
+        self.assertEqual(install_field_popups(tab), 0)
+        self.assertEqual(len(self._clickable_labels(3)), before)
 
 
-@unittest.skipUnless(_HAS_QT, "sem PyQt6")
-class TestOpenHelpComAncora(unittest.TestCase):
-    def test_url_recebe_o_fragmento(self):
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestOpenHelpWithAnchor(unittest.TestCase):
+    def test_url_receives_the_fragment(self):
         from unittest import mock
         from zbemt.gui import common
-        with mock.patch.object(common, "QDesktopServices") as servicos:
+        with mock.patch.object(common, "QDesktopServices") as services:
             common.open_help(None, anchor="cap-3-2-1")
-        url = servicos.openUrl.call_args[0][0]
+        url = services.openUrl.call_args[0][0]
         self.assertEqual(url.fragment(), "cap-3-2-1")
         self.assertTrue(url.toLocalFile().endswith("documentation.html"))
 
-    def test_sem_ancora_abre_no_topo(self):
+    def test_without_anchor_opens_at_the_top(self):
         from unittest import mock
         from zbemt.gui import common
-        with mock.patch.object(common, "QDesktopServices") as servicos:
+        with mock.patch.object(common, "QDesktopServices") as services:
             common.open_help(None)
-        self.assertEqual(servicos.openUrl.call_args[0][0].fragment(), "")
+        self.assertEqual(services.openUrl.call_args[0][0].fragment(), "")
 
 
 if __name__ == "__main__":
     unittest.main()
 
 
-@unittest.skipUnless(_HAS_QT, "sem PyQt6")
-class TestAjudaNaoQuebraRevelacaoProgressiva(unittest.TestCase):
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestHelpDoesNotBreakProgressiveDisclosure(unittest.TestCase):
     """The "?" wraps the field in a container to fit the button next to it.
     This changes which widget is the FIELD in the form row -- and the code
     that hides the row searches for the original widget. Without care,
@@ -195,48 +195,48 @@ class TestAjudaNaoQuebraRevelacaoProgressiva(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_esconder_linha_funciona_com_label_clicavel(self):
+    def test_hiding_a_row_works_with_the_clickable_label(self):
         """Progressive disclosure must hide field AND its clickable label together."""
         import shutil, tempfile
         from PyQt6.QtWidgets import QFormLayout, QToolButton
         from zbemt import api
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
-        with helpers.patch_em_toda_gui("PROJECTS_ROOT", tmp):
+        with helpers.patch_message_box_everywhere("PROJECTS_ROOT", tmp):
             from zbemt.gui import app as gui
             win = gui.MainWindow()
         self.addCleanup(win.deleteLater)
         win.state.set_project(api.open_project("projects/test2"))
 
-        aba = win.tabs.widget(5)                       # Run Batch
-        campo = aba.fixed_collective
+        tab = win.tabs.widget(5)                       # Run Batch
+        field = tab.fixed_collective
         # What OCCUPIES the field column can be a wrapper of the field (Run
         # Batch indents simple spins to the column of composite field numbers).
-        # `_container_de_ajuda` is exactly the marker that
-        # `common.definir_linha_visivel` follows to find the row.
-        ocupante = getattr(campo, "_container_de_ajuda", None) or campo
+        # `_help_container` is exactly the marker that
+        # `common.set_row_visible` follows to find the row.
+        occupant = getattr(field, "_help_container", None) or field
 
-        # Encontra label QToolButton da mesma linha
+        # Find the QToolButton label of the same row
         label_btn = None
-        for form in aba.findChildren(QFormLayout):
+        for form in tab.findChildren(QFormLayout):
             for r in range(form.rowCount()):
                 fi = form.itemAt(r, QFormLayout.ItemRole.FieldRole)
                 li = form.itemAt(r, QFormLayout.ItemRole.LabelRole)
-                if fi and fi.widget() == ocupante and li:
+                if fi and fi.widget() == occupant and li:
                     w = li.widget()
                     if isinstance(w, QToolButton):
                         label_btn = w
                         break
             if label_btn:
                 break
-        self.assertIsNotNone(label_btn, "fixed_collective sem label QToolButton")
+        self.assertIsNotNone(label_btn, "fixed_collective without a QToolButton label")
 
-        slot_combo = aba.axis_rows[0][0]
-        i_coletivo = [i for i, (_l, s) in enumerate(aba._AXIS_SLOTS)
-                      if s == "collective_deg"][0]
-        slot_combo.setCurrentIndex(i_coletivo)         # coletivo vira EIXO → linha deve sumir
-        self.assertTrue(campo.isHidden() or label_btn.isHidden(),
+        slot_combo = tab.axis_rows[0][0]
+        collective_index = [i for i, (_l, s) in enumerate(tab._AXIS_SLOTS)
+                            if s == "collective_deg"][0]
+        slot_combo.setCurrentIndex(collective_index)   # collective becomes AXIS -> row should vanish
+        self.assertTrue(field.isHidden() or label_btn.isHidden(),
                         "fixed field stayed visible while being an axis")
 
-        slot_combo.setCurrentIndex(0)                  # nenhum eixo → linha deve voltar
-        self.assertFalse(campo.isHidden() and label_btn.isHidden())
+        slot_combo.setCurrentIndex(0)                  # no axis -> row should come back
+        self.assertFalse(field.isHidden() and label_btn.isHidden())

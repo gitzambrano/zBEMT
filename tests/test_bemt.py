@@ -465,7 +465,7 @@ class TestBEMTConfigDefaults(unittest.TestCase):
         self.assertTrue(BEMTConfig().mask_reverse_flow_plots)
 
 
-class TestTetoDeCompressibilidade(unittest.TestCase):
+class TestCompressibilityCeiling(unittest.TestCase):
     """Prandtl-Glauert is limited by a documented Mach ceiling.
 
     The old guard (`beta > 1e-3`) only prevented an EXACT division by
@@ -478,7 +478,7 @@ class TestTetoDeCompressibilidade(unittest.TestCase):
     single-color rectangle.
     """
 
-    def _resolver(self, mach: float, piso: float | None = None):
+    def _resolve(self, mach: float, floor: float | None = None):
         """Solve the same rotor with and without compressibility, at the
         given Mach.
 
@@ -499,58 +499,58 @@ class TestTetoDeCompressibilidade(unittest.TestCase):
         cfg_on.a_sound = cfg_off.a_sound = W / mach
 
         original = bemt.BETA_MINIMO_DE_PRANDTL_GLAUERT
-        if piso is not None:
-            bemt.BETA_MINIMO_DE_PRANDTL_GLAUERT = piso
+        if floor is not None:
+            bemt.BETA_MINIMO_DE_PRANDTL_GLAUERT = floor
         try:
-            ligado = solve_bemt(rotor, airfoil, cfg_on, mu_x=0.0, Vz=0.0)
+            corrected = solve_bemt(rotor, airfoil, cfg_on, mu_x=0.0, Vz=0.0)
         finally:
             bemt.BETA_MINIMO_DE_PRANDTL_GLAUERT = original
-        desligado = solve_bemt(rotor, airfoil, cfg_off, mu_x=0.0, Vz=0.0)
-        return ligado, desligado
+        uncorrected = solve_bemt(rotor, airfoil, cfg_off, mu_x=0.0, Vz=0.0)
+        return corrected, uncorrected
 
     #: Maximum Cl amplification that is still defensible as a
     #: linearized correction. Deliberately NOT derived from
     #: `BETA_MINIMO_DE_PRANDTL_GLAUERT`: a limit computed from the
     #: very constant under test would pass for any value of it --
     #: including for the old guard, which amplified 191x.
-    AMPLIFICACAO_MAXIMA_DEFENSAVEL = 3.0
+    MAX_DEFENSIBLE_AMPLIFICATION = 3.0
 
-    def test_malha_transonica_nao_amplifica_cl_sem_limite(self):
+    def test_transonic_mesh_does_not_amplify_cl_without_limit(self):
         """With the old guard (`beta > 1e-3`) this same case returned
         Cl = 164 -- 191x the max of the uncorrected polar, which is 0.86."""
-        ligado, desligado = self._resolver(0.99998)
-        self.assertGreater(np.nanmax(ligado["Mach"]), 0.99,
+        corrected, uncorrected = self._resolve(0.99998)
+        self.assertGreater(np.nanmax(corrected["Mach"]), 0.99,
                            "the case must actually reach the transonic regime")
-        razao = (float(np.nanmax(np.abs(ligado["Cl"])))
-                 / float(np.nanmax(np.abs(desligado["Cl"]))))
+        ratio = (float(np.nanmax(np.abs(corrected["Cl"])))
+                 / float(np.nanmax(np.abs(uncorrected["Cl"]))))
         self.assertLessEqual(
-            razao, self.AMPLIFICACAO_MAXIMA_DEFENSAVEL,
-            f"Cl amplified {razao:.1f}x by a linearized correction -- "
+            ratio, self.MAX_DEFENSIBLE_AMPLIFICATION,
+            f"Cl amplified {ratio:.1f}x by a linearized correction -- "
             "numerical artifact presented as a result")
 
-    def test_o_teto_de_mach_fica_na_faixa_em_que_o_modelo_ainda_diz_algo(self):
+    def test_the_mach_ceiling_stays_in_the_range_where_the_model_still_says_something(self):
         """Prandtl-Glauert is honest up to M ~ 0.7 and empty above M ~ 0.9.
         A ceiling outside that range either cuts nothing (the original
         defect) or cuts a valid result."""
         self.assertTrue(0.85 <= MACH_MAXIMO_DE_PRANDTL_GLAUERT <= 0.9,
-                        f"teto em M={MACH_MAXIMO_DE_PRANDTL_GLAUERT}")
+                        f"ceiling at M={MACH_MAXIMO_DE_PRANDTL_GLAUERT}")
         self.assertAlmostEqual(
             BETA_MINIMO_DE_PRANDTL_GLAUERT,
             float(np.sqrt(1.0 - MACH_MAXIMO_DE_PRANDTL_GLAUERT ** 2)),
             places=12, msg="the beta floor must be the one from the Mach ceiling")
 
-    def test_abaixo_do_teto_nada_muda(self):
+    def test_below_the_ceiling_nothing_changes(self):
         """The ceiling only cuts the range that was already physically empty.
 
         Below M = 0.9 the expression must be identical to the classic one,
         with no floor at all -- that is what guarantees no already-validated
         result moves. The thirteen example projects reach at most M = 0.75.
         """
-        com_teto, _ = self._resolver(0.75)
-        sem_piso, _ = self._resolver(0.75, piso=0.0)
-        for chave in ("Cl", "Cd", "Fn", "Ft", "lambda_i"):
-            with self.subTest(chave=chave):
-                np.testing.assert_allclose(com_teto[chave], sem_piso[chave],
+        with_ceiling, _ = self._resolve(0.75)
+        without_floor, _ = self._resolve(0.75, floor=0.0)
+        for key in ("Cl", "Cd", "Fn", "Ft", "lambda_i"):
+            with self.subTest(key=key):
+                np.testing.assert_allclose(with_ceiling[key], without_floor[key],
                                            rtol=0, atol=0)
 
 

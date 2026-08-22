@@ -1,4 +1,4 @@
-"""Implement the command-line interface for the same workflows as the GUI.
+﻿"""Implement the command-line interface for the same workflows as the GUI.
 
 Purpose: parse project, geometry, airfoil, flight-condition, batch, solver, and
 export options and delegate all behavior to ``api.py``. Inputs are arguments,
@@ -12,8 +12,8 @@ cli.py
 ======
 
 Script/CLI equivalent to the GUI. Same ``api.py`` calls that
-``zbemt.gui.app`` uses; zero widgets, zero physics, zero direct I/O --
-everything goes through ``api.py``.
+``zbemt.gui.app`` uses. Zero widgets, zero physics, zero direct I/O.
+Everything goes through ``api.py``.
 
 CLI<->GUI<->.bemt parity: every flag of this script sets a
 ``Project``/``BEMTConfig`` field that is also editable from the GUI, and
@@ -53,7 +53,7 @@ import numpy as np
 
 # Running the FILE directly (`python zbemt/cli.py`, or the "Run" button of
 # an IDE with this file open) executes it as a standalone script, without a
-# package -- and then every `from . import ...` below raises
+# package. Then every `from . import ...` below raises
 # "attempted relative import with no known parent package". Putting the
 # repository root on `sys.path` and declaring `__package__` makes the
 # relative import resolve, so the "Run" button works the same as
@@ -71,16 +71,16 @@ from . import airfoils
 from .bemt import BEMTConfig
 
 
-# Running with no arguments (e.g. the IDE's "Run" button) uses this example
+# Running with no arguments (for example, the IDE's "Run" button) uses this example
 # project by default.
 DEFAULT_PROJECT_PATH = "projects/starter_rotor"
 
 #: RPM for the no-argument run. Must be explicit here: RPM is MANDATORY in
 #: every flight condition (`studies._require_rpm` has no default, on
-#: purpose -- BEMT non-dimensionalizes everything by Omega*R) and
-#: `starter_rotor` ships no saved cases, so without this the no-argument
+#: purpose, because BEMT non-dimensionalizes everything by Omega*R) and
+#: `starter_rotor` ships no saved cases. Without this, the no-argument
 #: run used to end in a validation ERROR ("Flight condition without
-#: RPM") instead of a clean run -- a terrible first impression for
+#: RPM") instead of a clean run. That is a terrible first impression for
 #: someone who just hit "Run" to see what the program does.
 DEFAULT_RPM = 600.0
 
@@ -133,23 +133,23 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="Run the saved case NAME (project.saved_cases).")
 
     # --- NeuralFoil: polar table generation (Phase 7, docs/plano_v3.md
-    # Part 7.4) -- mode independent of running BEMT, exits right after
+    # Part 7.4). Mode independent of running BEMT, exits right after
     # generating (and optionally exporting/applying). ---------------------
-    neuralfoil_group = p.add_argument_group("NeuralFoil (Phase 7 -- polar table generation)")
+    neuralfoil_group = p.add_argument_group("NeuralFoil (Phase 7: polar table generation)")
     neuralfoil_group.add_argument(
         "--gen-neuralfoil", action="store_true",
         help="Generate a polar table via NeuralFoil for --airfoil-geometry and exit "
              "(does not run BEMT). Requires the 'neuralfoil' package (pip install neuralfoil).")
     neuralfoil_group.add_argument(
         "--airfoil-geometry", metavar="SPEC", default=None,
-        help="Airfoil geometry: NACA4/5 code (e.g. 'naca2412', 'naca23012') or a "
-             f"typical blade/rotor preset ({', '.join(sorted(airfoils.AIRFOIL_PRESETS))}).")
+        help="Airfoil geometry: NACA4/5 code (for example 'naca2412', 'naca23012') "
+             f"or a typical rotor-blade preset ({', '.join(sorted(airfoils.AIRFOIL_PRESETS))}).")
     neuralfoil_group.add_argument(
         "--reynolds", metavar="R1,R2,...", default=None,
-        help="List of Reynolds for NeuralFoil sweep, e.g. '1e5,5e5,1e6'.")
+        help="List of Reynolds for NeuralFoil sweep, for example '1e5,5e5,1e6'.")
     neuralfoil_group.add_argument(
         "--mach", metavar="M1,M2,...", default=None,
-        help="List of Mach for NeuralFoil sweep, e.g. '0.1,0.3'.")
+        help="List of Mach for NeuralFoil sweep, for example '0.1,0.3'.")
     neuralfoil_group.add_argument(
         "--alpha-range", metavar="MIN:MAX:STEP", default="-10:20:0.5",
         help="Alpha [deg] range for NeuralFoil sweep (default: -10:20:0.5).")
@@ -163,13 +163,13 @@ def _build_parser() -> argparse.ArgumentParser:
     # project has no batch.conditions) ----------------------------------
     # Phase 8 (docs/CHANGELOG.md): the representations of one component are
     # INTERCHANGEABLE representation pairs of the same physical quantity
-    # (Sec.6c of bemt.py) -- one flag per SLOT: the representations of the
+    # (Section 6c of bemt.py). One flag per SLOT: the representations of the
     # in-plane component are mutually exclusive with each other, and so are
     # those of the along-shaft one. Parity with the GUI's unit dropdown
     # (RunCaseTab/RunBatchTab), which offers the same choice per row.
     p.add_argument("--rpm", type=float, default=None, help="RPM for ad hoc condition.")
     # NAMED BY SLOT, NOT BY LETTER. The flags and `--project` are parsed in
-    # the same pass, so a flag cannot know the project's mode -- and the
+    # the same pass, so a flag cannot know the project's mode, but the
     # letter does: the in-plane component is mu_x on a rotor and mu_z on a
     # propeller. `--mu-inplane` is the in-plane component in both, and which
     # letter it is shown under is left to the surfaces that know the mode
@@ -178,13 +178,13 @@ def _build_parser() -> argparse.ArgumentParser:
     inplane_group.add_argument("--mu-inplane", dest="mu_inplane", type=float, default=None,
                                help="IN-PLANE advance ratio (default 0.0, hover): "
                                     "V_inplane/(Omega*R). The component in the plane of "
-                                    "the disk -- a rotor's forward-flight advance, a "
+                                    "the disk: a rotor's forward-flight advance, or a "
                                     "propeller's CROSS-flow (zero in straight cruise). "
                                     "Alternative to --j-inplane/--v-inplane.")
     inplane_group.add_argument("--j-inplane", dest="J_inplane", type=float, default=None,
                                help="IN-PLANE advance ratio in propeller form: "
                                     "V_inplane/(n*D) = pi*mu_inplane. NOT a propeller's "
-                                    "own advance ratio -- that one is along the shaft, "
+                                    "own advance ratio. That one is along the shaft, "
                                     "--j-axial. Alternative to --mu-inplane.")
     inplane_group.add_argument("--v-inplane", dest="V_inplane", type=float, default=None,
                                help="IN-PLANE velocity [m/s]. Requires --rpm (the ratio "
@@ -216,18 +216,18 @@ def _build_parser() -> argparse.ArgumentParser:
                                   "Alternative to --v-axial.")
     axial_group.add_argument("--alpha-rotor-deg",
                               dest="alpha_rotor_deg", type=float, default=None,
-                              help="Disk angle [deg] -- the ALONG-SHAFT component is "
+                              help="Disk angle [deg]. The ALONG-SHAFT component is "
                                    "derived from the in-plane one, --rpm (required with "
                                    "this flag) and the project's rotor radius. Measured "
                                    "from the disk PLANE (90 deg is "
                                    "purely axial); for the propeller convention, measured "
                                    "from the shaft, use --alpha-disk-deg. Alternative to "
                                    "--v-axial. "
-                                   "Rotor mode only -- a propeller reads --alpha-disk-deg. "
+                                   "Rotor mode only; a propeller reads --alpha-disk-deg. "
                                    "(--disk-alpha-deg is kept as an alias of this flag.)")
     p.add_argument("--collective", type=float, default=8.0, help="Collective pitch [deg] for ad hoc.")
 
-    # --- Geometria (RotorGeometryDef) — Parte 3.3, grupo Geometria ---------
+    # --- Geometry (RotorGeometryDef) -- Part 3.3, geometry group ---------
     p.add_argument("--geom-preset", choices=["rectangular", "tapered", "elliptic", "custom"],
                     default=None, help="Generate project.geometry from a parametric preset.")
     p.add_argument("--geom-file", metavar="PATH", default=None,
@@ -256,7 +256,7 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="Point-by-point table (custom preset): r/R:chord_norm:twist_deg, "
                          "separated by comma.")
 
-    # --- Airfoil (AirfoilDef) — Part 3.3 -------------------------------
+    # --- Airfoil (AirfoilDef) -- Part 3.3 -------------------------------
     p.add_argument("--airfoil-source", choices=["analytical", "table"], default=None,
                     help="Choose where the polar comes from (AirfoilDef.source).")
     p.add_argument("--airfoil-table", metavar="CSV", default=None,
@@ -268,9 +268,9 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="Turn dynamic stall off (AirfoilDef.use_dynamic_stall=False).")
     # There is no flag for BEMTConfig.dynamic_stall_model: today only one
     # model is supported ("oye"), so the field has no real choice to
-    # expose in the CLI -- what turns dynamic stall on/off is the boolean
+    # expose in the CLI. What turns dynamic stall on/off is the boolean
     # --dynamic-stall/--no-dynamic-stall above. The field still exists
-    # in BEMTConfig (serialized, used by the GUI); if a second model is
+    # in BEMTConfig (serialized, used by the GUI). If a second model is
     # implemented, this is where the choice flag should be added back.
     p.add_argument("--airfoil-stall-model", choices=["linear", "clip", "enhanced", "viterna"],
                     default=None,
@@ -323,26 +323,26 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="Output folder. Default: <project>/batch.outdir if defined, "
                          "otherwise <project>/outputs.")
     p.add_argument("--plots", nargs="*", default=None,
-                    help="Which plots to export (e.g. performance disk_map). Default: "
+                    help="Which plots to export (for example: performance disk_map). Default: "
                          "batch.plots from the selected batch, or the project's. "
                          "'--plots' without values = no plots.")
     p.add_argument("--no-csv", action="store_true", help="Do not write results.csv.")
     p.add_argument("--report", nargs="?", const="", default=None, metavar="FILE",
-                    help="Generate a self-contained HTML report (summary table + mesh, "
-                         "solver and rotor used + embedded plots). Without value, "
+                    help="Generate a self-contained HTML report (summary table, mesh, "
+                         "solver and rotor used, embedded plots). Without value, "
                          "write <outdir>/report.html. Same report as the "
                          "'Generate report...' button in the GUI.")
     p.add_argument("--report-notes", default=None, metavar="TEXT",
                     help="Notes text to embed in the report (--report).")
     p.add_argument("--export-layout", choices=["flat", "per_case"], default="flat",
-                    help="Organization of PER-CONDITION plots (docs/plano_v3.md Part 4.3): "
-                         "'flat' (default) = one file per case, self-explanatory name; "
+                    help="Organization of PER-CONDITION plots (docs/plano_v3.md Part 4.3). "
+                         "'flat' (default) = one file per case, self-explanatory name. "
                          "'per_case' = one folder per case.")
 
     # --- generic setter (S3, docs/production-plan.md) --------------------
     # Only 14/40 BEMTConfig fields and 3/25 AirfoilDef fields had a
-    # dedicated flag; creating ~50 new flags would make --help unreadable
-    # and become a list that's easy to let drift. --set closes the gap
+    # dedicated flag. Creating about 50 new flags would make --help unreadable
+    # and become a list that is easy to let drift. --set closes the gap
     # without that: any BEMTConfig/AirfoilDef/RotorGeometryDef field
     # becomes reachable, validated against the dataclass's real fields
     # (dataclasses.fields) and converted from its type annotation
@@ -351,20 +351,20 @@ def _build_parser() -> argparse.ArgumentParser:
         "--set", dest="set", action="append", default=[],
         metavar="NAMESPACE.FIELD=VALUE",
         help="Set any field of BEMTConfig/AirfoilDef/RotorGeometryDef directly, "
-             "without needing a dedicated flag. NAMESPACE is 'config' (BEMTConfig, e.g. "
+             "without needing a dedicated flag. NAMESPACE is 'config' (BEMTConfig, for example "
              "config.Ne=90, config.Npsi=144, config.rho=1.2, config.is_propeller=true), "
-             "'airfoil' (AirfoilDef, e.g. airfoil.cd0=0.012) or 'geom' (RotorGeometryDef, "
-             "e.g. geom.n_blades=3). Bool accepts true/false/1/0/yes/no. Repeatable "
+             "'airfoil' (AirfoilDef, for example airfoil.cd0=0.012) or 'geom' (RotorGeometryDef, "
+             "for example geom.n_blades=3). Bool accepts true/false/1/0/yes/no. Repeatable "
              "(--set a=1 --set b=2). PRECEDENCE: --set is applied AFTER all dedicated "
-             "flags above (--inflow, --geom-radius, --dynamic-stall, etc.), so in case "
-             "of conflict --set always wins. Non-existent field name or value that does "
+             "flags above (--inflow, --geom-radius, --dynamic-stall, and so on), so in "
+             "case of conflict --set always wins. Non-existent field name or value that does "
              "not convert to the field type is an error (SystemExit), never silently applied.")
 
     trim_group = p.add_argument_group("Trimmed run (fixed thrust/CT, bisection loop)")
     trim_group.add_argument(
         "--trim-mode", choices=["solve_rpm", "solve_collective"], default=None,
         help="Instead of running the condition as entered, solve for one DOF by bisection until "
-             "a target thrust/CT is hit: 'solve_rpm' keeps --collective fixed and solves for RPM; "
+             "a thrust or CT target is hit. 'solve_rpm' keeps --collective fixed and solves for RPM. "
              "'solve_collective' keeps --rpm fixed and solves for collective. Requires at least one "
              "condition to run (ad hoc, a saved case, or a batch) and exactly one of "
              "--trim-target-thrust/--trim-target-ct. For a batch, every queued "
@@ -387,8 +387,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _preprocess_argv(argv=None) -> list[str]:
     """Normalizes `argv` before parsing: `--alpha-range VAL` becomes
-    `--alpha-range=VAL` so argparse isn't confused when VAL starts
-    with `-` (e.g. negative ranges, "-10:20:0.5")."""
+    `--alpha-range=VAL` so argparse is not confused when VAL starts
+    with `-` (for example negative ranges, "-10:20:0.5")."""
     if argv is None:
         argv = sys.argv[1:]
     else:
@@ -425,8 +425,8 @@ def _build_run_options_dataclass(parser: argparse.ArgumentParser):
             continue
         seen.add(dest)
         default = action.default
-        # dataclasses rejects a mutable default (list/dict/set) directly --
-        # e.g. `--set` (action="append", default=[]). default_factory
+        # dataclasses rejects a mutable default (list/dict/set) directly,
+        # for example `--set` (action="append", default=[]). default_factory
         # captures the value by copy so instances don't share the same list.
         if isinstance(default, (list, dict, set)):
             fields.append((dest, typing.Any,
@@ -448,7 +448,7 @@ RunOptions.from_argv = classmethod(_run_options_from_argv)
 
 
 # =============================================================================
-# Applying flags to the Project (Geometry/Airfoil/Config-Solver group —
+# Applying flags to the Project (Geometry/Airfoil/Config-Solver group,
 # Part 3.3, item 3: setting via command line any field that today is only
 # editable from the GUI)
 # =============================================================================
@@ -566,8 +566,8 @@ def _apply_config_flags(project, args) -> None:
 
 
 # =============================================================================
-# generic --set (S3, docs/production-plan.md) -- closes the parity gap
-# without creating ~50 new dedicated flags. See --set's help in _build_parser.
+# generic --set (S3, docs/production-plan.md): closes the parity gap
+# without creating about 50 new dedicated flags. See --set's help in _build_parser.
 # =============================================================================
 
 # namespace -> (attribute on Project, dataclass used to validate field/type)
@@ -630,12 +630,12 @@ def _apply_set_flags(project, args) -> None:
         if "=" not in item:
             raise SystemExit(
                 f"--set: invalid format {item!r}, expected NAMESPACE.FIELD=VALUE "
-                f"(e.g. --set config.Ne=90).")
+                f"(for example --set config.Ne=90).")
         key, raw_value = item.split("=", 1)
         if "." not in key:
             raise SystemExit(
                 f"--set: {key!r} needs a namespace (config./airfoil./geom.), "
-                f"e.g. --set config.{key}=...")
+                f"for example --set config.{key}=...")
         ns, field_name = key.split(".", 1)
         dataclass_type = _SET_NAMESPACE_DATACLASS.get(ns)
         if dataclass_type is None:
@@ -668,7 +668,7 @@ def _apply_set_flags(project, args) -> None:
 
 
 # =============================================================================
-# NeuralFoil (Phase 7 -- Part 7.4): polar table generation, CLI mode
+# NeuralFoil (Phase 7, Part 7.4): polar table generation, CLI mode
 # =============================================================================
 
 def _parse_float_list(text: str, flag: str) -> list[float]:
@@ -704,7 +704,7 @@ def _run_gen_neuralfoil(project, project_path, args) -> int:
             alpha_min_deg=float(lo_s), alpha_max_deg=float(hi_s), alpha_step_deg=float(step_s),
         )
     except (RuntimeError, ValueError) as exc:
-        # Clear message (not a raw traceback) -- covers the common case of
+        # Clear message (not a raw traceback). It covers the common case of
         # 'neuralfoil' not being installed in this environment.
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -745,26 +745,26 @@ def main(argv=None, options=None) -> int:
         project_path = args.project
 
     if args.list_batches:
-        # A sweep batch stores `sweep_params`, not a list of conditions --
-        # printing `len(conditions)` said "0 condition(s)" for all of
+        # A sweep batch stores `sweep_params`, not a list of conditions.
+        # Printing `len(conditions)` said "0 condition(s)" for all of
         # them, which sounded like an empty batch. What matters here is
         # how many cases the sweep WILL generate.
         for b in project.batches:
             if b.conditions:
-                quanto = f"{len(b.conditions)} explicit condition(s)"
+                count_text = f"{len(b.conditions)} explicit condition(s)"
             else:
                 params = b.sweep_params or {}
                 if b.sweep_kind == "factorial":
                     # Factorial: the product of the axes, not the number of axes.
-                    eixos = [eixo.get("values", []) for eixo in params.get("axes", [])]
+                    axes = [axis.get("values", []) for axis in params.get("axes", [])]
                 else:
-                    eixos = [v for v in params.values() if isinstance(v, (list, tuple))]
+                    axes = [v for v in params.values() if isinstance(v, (list, tuple))]
                 n = 1
-                for eixo in eixos:
-                    n *= max(len(eixo), 1)
-                quanto = (f"{n} sweep case(s)" if eixos
-                          else "no conditions defined")
-            print(f"{b.name}\t{quanto}\tsweep_kind={b.sweep_kind}")
+                for axis in axes:
+                    n *= max(len(axis), 1)
+                count_text = (f"{n} sweep case(s)" if axes
+                              else "no conditions defined")
+            print(f"{b.name}\t{count_text}\tsweep_kind={b.sweep_kind}")
         return 0
     if args.list_cases:
         for c in project.saved_cases:
@@ -777,7 +777,7 @@ def main(argv=None, options=None) -> int:
     _apply_geometry_flags(project, args)
     _apply_airfoil_flags(project, args)
     _apply_config_flags(project, args)
-    _apply_set_flags(project, args)   # AFTER the dedicated ones -- --set wins on conflict
+    _apply_set_flags(project, args)   # AFTER the dedicated ones: --set wins on conflict
 
     if args.save_as:
         project.path = args.save_as
@@ -787,7 +787,7 @@ def main(argv=None, options=None) -> int:
     # --- resolve what to run: saved batch > saved case > existing
     # batch.conditions > ad hoc condition (parity Part 3.3, item 1-2) -----
     # The two angles are in different exclusive GROUPS (the axis one is
-    # the in-plane component; the disk one, the axial), so `argparse`
+    # the in-plane component, and the disk one is the axial), so `argparse`
     # cannot express "one from each group, except this combination".
     # Without the explicit check, `--alpha-disk-deg 6 --alpha-rotor-deg 84`
     # used to pass and resolve Vz from a still-zero mu_x: Vz=0, a silent
@@ -807,9 +807,9 @@ def main(argv=None, options=None) -> int:
         case = api.get_saved_case(project, args.from_bemt_case)
         batch = BatchDefinition(name=f"cli_case_{case.name}", conditions=[case])
     else:
-        raio_m = project.geometry.radius_m
+        radius_m = project.geometry.radius_m
 
-        def _axial(mu_conhecido: float):
+        def _axial(mu_known: float):
             """Axial component [m/s]. Only the disk-angle branch depends
             on the already-resolved in-plane component."""
             if args.alpha_rotor_deg is not None:
@@ -817,8 +817,8 @@ def main(argv=None, options=None) -> int:
                     return None, ("cli.py: error: --alpha-rotor-deg requires --rpm "
                                   "(the axial component is derived from the in-plane "
                                   "one, the rpm and the rotor radius).")
-                return api.vv_from_alpha_deg(args.alpha_rotor_deg, mu_conhecido,
-                                              args.rpm, raio_m), None
+                return api.vv_from_alpha_deg(args.alpha_rotor_deg, mu_known,
+                                              args.rpm, radius_m), None
             if args.J_axial is not None or args.mu_axial is not None:
                 if args.rpm is None:
                     return None, ("cli.py: error: --j-axial/--mu-axial require --rpm "
@@ -826,15 +826,15 @@ def main(argv=None, options=None) -> int:
                                   "from the RPM).")
                 mu = (api.J_to_mu(args.J_axial) if args.J_axial is not None
                       else args.mu_axial)
-                return api.mu_to_V(mu, args.rpm, raio_m), None
+                return api.mu_to_V(mu, args.rpm, radius_m), None
             if args.V_axial is not None:
                 return args.V_axial, None
             return 0.0, None
 
         # ORDER: normally the in-plane component is the known one and the
         # axial one can be derived from it (--alpha-rotor-deg). With
-        # --alpha-disk-deg the dependency inverts -- the in-plane comes out
-        # of the axial -- so the axial comes first. Same inversion as
+        # --alpha-disk-deg the dependency inverts, because the in-plane comes out
+        # of the axial, so the axial comes first. Same inversion as
         # `bemt.resolve_advance_velocity`.
         if args.alpha_disk_deg is not None:
             if args.rpm is None:
@@ -842,14 +842,14 @@ def main(argv=None, options=None) -> int:
                       "(the in-plane component is tan(alpha_disk)*Vz, and mu_x needs Omega*R).",
                       file=sys.stderr)
                 return 2
-            Vz, erro = _axial(0.0)
-            if erro:
-                print(erro, file=sys.stderr)
+            Vz, error_message = _axial(0.0)
+            if error_message:
+                print(error_message, file=sys.stderr)
                 return 2
             # |Vz|: same reason as `bemt.resolve_advance_velocity`.
             mu_x = api.V_to_mu(
                 float(np.tan(np.deg2rad(args.alpha_disk_deg))) * abs(Vz),
-                args.rpm, raio_m)
+                args.rpm, radius_m)
         else:
             if args.mu_inplane is not None:
                 mu_x = args.mu_inplane
@@ -860,12 +860,12 @@ def main(argv=None, options=None) -> int:
                     print("cli.py: error: --v-inplane requires --rpm (the ratio is "
                           "V/(Omega*R), and Omega comes from the RPM).", file=sys.stderr)
                     return 2
-                mu_x = api.V_to_mu(args.V_inplane, args.rpm, raio_m)
+                mu_x = api.V_to_mu(args.V_inplane, args.rpm, radius_m)
             else:
                 mu_x = 0.0   # default: hover
-            Vz, erro = _axial(mu_x)
-            if erro:
-                print(erro, file=sys.stderr)
+            Vz, error_message = _axial(mu_x)
+            if error_message:
+                print(error_message, file=sys.stderr)
                 return 2
 
         condition = FlightCondition(
@@ -880,14 +880,14 @@ def main(argv=None, options=None) -> int:
     # after hours of unsupervised batch. `api.validate_project` already
     # existed exactly for this and the CLI never called it.
     issues = api.validate_project(project, conditions=batch.conditions)
-    erros = [i for i in issues if i.level == "error"]
+    errors = [i for i in issues if i.level == "error"]
     if issues:
-        destino = sys.stderr if erros else sys.stdout
-        print("Project validation:", file=destino)
+        stream = sys.stderr if errors else sys.stdout
+        print("Project validation:", file=stream)
         for issue in issues:
-            print(f"  {issue}", file=destino)
-    if erros and not args.ignore_validation_errors:
-        print(f"\ncli.py: {len(erros)} validation error(s) — nothing was run.\n"
+            print(f"  {issue}", file=stream)
+    if errors and not args.ignore_validation_errors:
+        print(f"\ncli.py: {len(errors)} validation error(s). Nothing was run.\n"
               f"Use --ignore-validation-errors to run anyway.", file=sys.stderr)
         return 2
 
@@ -936,27 +936,27 @@ def main(argv=None, options=None) -> int:
         report_path = args.report or str(Path(outdir) / "report.html")
         written.append(str(api.generate_report(
             results, report_path, project=project,
-            title=f"zBEMT Report — {project.name}",
+            title=f"zBEMT Report: {project.name}",
             notes=args.report_notes)))
 
     # Both coefficient families are always in `summary` (see
-    # `bemt.aggregate_results`); what changes is which one the user wants
+    # `bemt.aggregate_results`). What changes is which one the user wants
     # to read. Printing FM for a propeller is worse than useless: FM is the
-    # figure of merit for HOVER, and an aircraft propeller never hovers --
-    # the number comes out low and looks like a bad design, when the
+    # figure of merit for HOVER, and an aircraft propeller never hovers.
+    # The number comes out low and looks like a bad design, when the
     # metric simply does not apply. The one that fills this role on the
     # propeller side is `eta_prop`.
     is_propeller = bool(project.config.get("is_propeller"))
     if is_propeller:
-        campos = ("J_z", "CT_prop", "CQ_prop", "CP_prop", "eta_prop")
+        coeff_keys = ("J_z", "CT_prop", "CQ_prop", "CP_prop", "eta_prop")
     else:
-        campos = ("CT", "CQ", "CP", "FM")
+        coeff_keys = ("CT", "CQ", "CP", "FM")
 
     for res in results:
         summary = res.summary
-        keys = [k for k in campos if k in summary]
-        # The key is the ENGINE's; what gets printed is the letter this mode
-        # shows -- a propeller's along-shaft advance ratio is J_x on screen,
+        keys = [k for k in coeff_keys if k in summary]
+        # The key is the ENGINE's. What gets printed is the letter this mode
+        # shows: a propeller's along-shaft advance ratio is J_x on screen,
         # in the report and in its `.bemt` file, so printing the internal
         # `J_z` here would make the CLI the one surface that disagrees.
         parts = ", ".join(

@@ -87,7 +87,7 @@ class ProjectTab(QWidget):
         btn_open_dialog.clicked.connect(self._open_dialog)
         right.addWidget(btn_open_dialog)
 
-        # "Save", same as the other tabs -- the Save/Restore pair appears
+        # "Save", same as the other tabs. The Save/Restore pair appears
         # in Geometry, Airfoil, and Config/Engine with this label, and a
         # fourth spelling ("Save Project") would only make the user
         # wonder if the button does something different.

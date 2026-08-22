@@ -27,11 +27,11 @@ class TestProjectLifecycle(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.project_path = str(Path(self.tmp.name) / "MeuProjeto")
+        self.project_path = str(Path(self.tmp.name) / "MyProject")
 
     def test_new_project_creates_files_on_disk(self):
         project = api.new_project(self.project_path)
-        self.assertEqual(project.name, "MeuProjeto")
+        self.assertEqual(project.name, "MyProject")
         for fname in ("config.bemt", "geom.bemt", "airfoil.bemt", "batches.bemt"):
             self.assertTrue((Path(self.project_path) / "inputs" / fname).exists(), fname)
 
@@ -43,7 +43,7 @@ class TestProjectLifecycle(unittest.TestCase):
         self.assertEqual(opened.config["Ne"], created.config["Ne"])
 
     def test_open_project_with_missing_files_falls_back_to_defaults(self):
-        empty_path = str(Path(self.tmp.name) / "vazio")
+        empty_path = str(Path(self.tmp.name) / "empty")
         project = api.open_project(empty_path)
         self.assertEqual(project.config, {})
         self.assertIsNotNone(project.geometry)
@@ -62,7 +62,7 @@ class TestProjectLifecycle(unittest.TestCase):
         self.assertEqual(names, ["ProjA", "ProjB"])
 
     def test_list_projects_missing_root_returns_empty(self):
-        self.assertEqual(api.list_projects(str(Path(self.tmp.name) / "nao_existe")), [])
+        self.assertEqual(api.list_projects(str(Path(self.tmp.name) / "missing")), [])
 
 
 class TestValidateProject(unittest.TestCase):
@@ -118,7 +118,7 @@ class TestRunExternalPolar(unittest.TestCase):
                               geometry=ProfileGeometry(source="naca4", naca_code="0012"),
                               external_reynolds_list=[1e6], external_mach_list=[0.1])
         if external_solvers.is_available("neuralfoil"):
-            self.skipTest("geometria sem coordenadas geradas -- coberto por test_external_solvers.py")
+            self.skipTest("geometry without generated coordinates -- covered by test_external_solvers.py")
         # 'neuralfoil' not installed in this environment: fails with a clear
         # message, not a generic NotImplementedError nor a raw traceback.
         with self.assertRaises(RuntimeError):
@@ -194,7 +194,7 @@ class TestExportResults(unittest.TestCase):
 
     def test_unknown_plot_kind_silently_ignored(self):
         outdir = Path(self.tmp.name) / "out6"
-        written = api.export_results(self.results, str(outdir), plots=["nao_existe"], save_csv=False)
+        written = api.export_results(self.results, str(outdir), plots=["does_not_exist"], save_csv=False)
         self.assertEqual(written, [])
 
     def test_single_result_not_in_list_also_works(self):
@@ -221,7 +221,7 @@ class TestExportResults(unittest.TestCase):
     def test_layout_flat_is_default_and_unchanged(self):
         """Zero regression (Part 4.3): omitting `layout` still writes
         one file per case directly in plots_dir, with the condition's
-        LABEL as suffix (`api.rotulos_de_condicao`: "Case N", plus the
+        LABEL as suffix (`api.condition_labels`: "Case N", plus the
         name when it distinguishes the conditions) -- the suffix used
         to be the raw `condition_name`, which collapsed same-named
         conditions into the same file."""
@@ -275,9 +275,9 @@ class TestExportResultsTabular(unittest.TestCase):
     def test_scientific_notation_expanded_to_fixed_point(self):
         outdir = Path(self.tmp.name) / "out"
         path = api.export_results_tabular(self.results, str(outdir), sep=",")
-        conteudo = Path(path).read_text()
-        self.assertNotIn("e-0", conteudo.lower())
-        self.assertIn("0,0000827995", conteudo)
+        content = Path(path).read_text()
+        self.assertNotIn("e-0", content.lower())
+        self.assertIn("0,0000827995", content)
 
     def test_csv_uses_semicolon_and_comma_decimal(self):
         outdir = Path(self.tmp.name) / "out"
@@ -303,8 +303,8 @@ class TestSanitizeFilename(unittest.TestCase):
     name on Windows: the export used to blow up partway through an
     already-run batch."""
 
-    def test_caracteres_ilegais_no_windows_viram_hifen(self):
-        for nome, esperado in [
+    def test_windows_illegal_characters_become_hyphen(self):
+        for name, expected in [
             ("alpha=-5:mu_x=0.2", "alpha=-5-mu_x=0.2"),
             ("mu_x=0.2/J_x=0.6", "mu_x=0.2-J_x=0.6"),
             ("caso*normal?", "caso-normal-"),
@@ -313,64 +313,64 @@ class TestSanitizeFilename(unittest.TestCase):
             ("pipe|aqui", "pipe-aqui"),
             ("menor<maior>", "menor-maior-"),
         ]:
-            with self.subTest(nome=nome):
-                self.assertEqual(api.sanitize_filename(nome), esperado)
+            with self.subTest(name=name):
+                self.assertEqual(api.sanitize_filename(name), expected)
 
-    def test_substitui_em_vez_de_apagar(self):
+    def test_replaces_instead_of_deleting(self):
         """Deleting would turn `mu_x=0.2/J_x=0.6` into `mu_x=0.2J=0.6`, which
         reads wrong. The separator has to survive as something."""
         self.assertIn("-", api.sanitize_filename("mu_x=0.2/J_x=0.6"))
 
-    def test_nomes_reservados_do_windows(self):
+    def test_windows_reserved_names(self):
         """`CON.png` fails on Windows even with an extension."""
-        for reservado in ("CON", "PRN", "AUX", "NUL", "COM1", "LPT9", "con", "Com1"):
-            with self.subTest(nome=reservado):
-                self.assertNotEqual(api.sanitize_filename(reservado).upper(), reservado.upper())
+        for reserved in ("CON", "PRN", "AUX", "NUL", "COM1", "LPT9", "con", "Com1"):
+            with self.subTest(name=reserved):
+                self.assertNotEqual(api.sanitize_filename(reserved).upper(), reserved.upper())
 
-    def test_vazio_ou_so_espacos(self):
-        for nome in ("", "   ", None, "...", " . "):
-            with self.subTest(nome=nome):
-                self.assertEqual(api.sanitize_filename(nome), "sem_nome")
+    def test_empty_or_spaces_only(self):
+        for name in ("", "   ", None, "...", " . "):
+            with self.subTest(name=name):
+                self.assertEqual(api.sanitize_filename(name), "sem_nome")
 
-    def test_nome_longo_demais_e_cortado(self):
-        resultado = api.sanitize_filename("x" * 500)
-        self.assertLessEqual(len(resultado), 80)
-        self.assertTrue(resultado)
+    def test_too_long_name_is_truncated(self):
+        result = api.sanitize_filename("x" * 500)
+        self.assertLessEqual(len(result), 80)
+        self.assertTrue(result)
 
-    def test_nao_termina_em_ponto_ou_espaco(self):
+    def test_does_not_end_in_period_or_space(self):
         """Windows refuses a name ending in a period or a space."""
-        for nome in ("termina com ponto.", "termina com espaco ", "ambos . "):
-            with self.subTest(nome=nome):
-                resultado = api.sanitize_filename(nome)
-                self.assertFalse(resultado.endswith((".", " ")))
+        for name in ("termina com ponto.", "termina com espaco ", "ambos . "):
+            with self.subTest(name=name):
+                result = api.sanitize_filename(name)
+                self.assertFalse(result.endswith((".", " ")))
 
-    def test_acentos_sao_preservados(self):
+    def test_accents_are_preserved(self):
         """An accent is legal in a file name -- there is no reason to mutilate
         `condition_with_accent`."""
         self.assertEqual(api.sanitize_filename("condição ok"), "condição ok")
 
-    def test_colisao_recebe_sufixo(self):
+    def test_collision_gets_suffix(self):
         """Two DIFFERENT names can sanitize to the same text; without
         disambiguation, one would silently overwrite the other's file."""
-        mapa = api.mapa_de_nomes_de_arquivo(["a:b", "a?b", "a*b"])
-        self.assertEqual(len(set(mapa.values())), 3, f"colidiram: {mapa}")
+        mapping = api.filename_map(["a:b", "a?b", "a*b"])
+        self.assertEqual(len(set(mapping.values())), 3, f"collided: {mapping}")
 
-    def test_colisao_ignora_maiusculas(self):
+    def test_collision_ignores_case(self):
         """The Windows file system is case-insensitive:
         `Caso` and `caso` are the same file."""
-        mapa = api.mapa_de_nomes_de_arquivo(["Caso:1", "caso:1"])
-        valores = [v.lower() for v in mapa.values()]
-        self.assertEqual(len(set(valores)), 2, f"colidiram: {mapa}")
+        mapping = api.filename_map(["Caso:1", "caso:1"])
+        values = [v.lower() for v in mapping.values()]
+        self.assertEqual(len(set(values)), 2, f"collided: {mapping}")
 
-    def test_mapa_e_estavel_para_o_mesmo_nome(self):
+    def test_mapping_is_stable_for_same_name(self):
         """`_result_plot_path` is called once per FIELD per condition
         (twelve disk-map fields). The name has to come out the same every
         time, otherwise a case's files spread out over `_2`, `_3`…"""
-        mapa = api.mapa_de_nomes_de_arquivo(["caso:1", "caso:2"])
+        mapping = api.filename_map(["caso:1", "caso:2"])
         for _ in range(12):
-            self.assertEqual(api.mapa_de_nomes_de_arquivo(["caso:1", "caso:2"]), mapa)
+            self.assertEqual(api.filename_map(["caso:1", "caso:2"]), mapping)
 
-    def test_exportacao_com_nome_hostil_nao_estoura(self):
+    def test_export_with_hostile_name_does_not_blow_up(self):
         """The test that matters: a batch with a Windows-illegal name has
         to export, not raise."""
         with tempfile.TemporaryDirectory() as d:
@@ -401,29 +401,29 @@ class TestGenerateReport(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.project = _make_fast_project(os.path.join(self.tmp, "proj"))
-        cond = FlightCondition(name="pairado", mu_x=0.0, collective_deg=8.0, rpm=600.0)
+        cond = FlightCondition(name="hover", mu_x=0.0, collective_deg=8.0, rpm=600.0)
         self.results = [api.run_case(self.project, cond)]
 
-    def test_relatorio_e_um_arquivo_unico_sem_dependencia_externa(self):
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project)
-        html = Path(destino).read_text(encoding="utf-8")
+    def test_report_is_a_single_file_without_external_dependency(self):
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project)
+        html = Path(dest).read_text(encoding="utf-8")
         # no reference to a local file: sending the HTML by email without
         # a folder of PNGs alongside it has to keep working
         self.assertNotRegex(html, r'src="(?!data:)')
         self.assertEqual(
             [p.name for p in Path(self.tmp).iterdir() if p.suffix == ".png"], [])
 
-    def test_relatorio_nao_busca_folha_de_estilo_nem_script_de_fora(self):
+    def test_report_fetches_no_external_stylesheet_or_script(self):
         """PR-5. An `<img>` is not the only way out of the file. A
         stylesheet in a `<link>`, a library in a `<script src>` or a web
         font each turn the report into a page that looks right on the
         machine that generated it and wrong -- or blank -- on the machine
         it was sent to, which is worse than an obvious missing image
         because nothing announces the failure."""
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project)
-        html = Path(destino).read_text(encoding="utf-8")
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project)
+        html = Path(dest).read_text(encoding="utf-8")
         self.assertNotRegex(html, r"<link[^>]+rel=[\"']?stylesheet",
                             "report links an external stylesheet")
         self.assertNotRegex(html, r"<script[^>]+src=",
@@ -432,76 +432,76 @@ class TestGenerateReport(unittest.TestCase):
         self.assertNotRegex(html, r"url\(\s*[\"']?https?:",
                             "report pulls an asset over the network")
 
-    def test_cada_pagina_do_relatorio_dividido_e_autossuficiente(self):
+    def test_each_page_of_the_split_report_is_self_sufficient(self):
         """The self-containment rule holds for the satellites too. They
         are the pages that carry the figures, so a satellite that
         referenced a PNG on disk would break exactly the part of the
         report a reader opens the split version for."""
         conds = [FlightCondition(name=f"c{i}", mu_x=0.05 * i, collective_deg=8.0, rpm=600.0)
                  for i in range(1, 7)]
-        destino = os.path.join(self.tmp, "dividido.html")
+        dest = os.path.join(self.tmp, "split.html")
         api.generate_report([api.run_case(self.project, c) for c in conds],
-                             destino, project=self.project)
-        paginas = [Path(destino)] + sorted(Path(self.tmp).glob("dividido_*.html"))
-        self.assertGreater(len(paginas), 1, "the report did not split")
-        for pagina in paginas:
-            corpo = pagina.read_text(encoding="utf-8")
-            self.assertNotRegex(corpo, r'src="(?!data:)',
-                                f"{pagina.name} references a file outside itself")
-            self.assertNotRegex(corpo, r"<script[^>]+src=",
-                                f"{pagina.name} loads an external script")
+                             dest, project=self.project)
+        pages = [Path(dest)] + sorted(Path(self.tmp).glob("split_*.html"))
+        self.assertGreater(len(pages), 1, "the report did not split")
+        for page in pages:
+            body = page.read_text(encoding="utf-8")
+            self.assertNotRegex(body, r'src="(?!data:)',
+                                f"{page.name} references a file outside itself")
+            self.assertNotRegex(body, r"<script[^>]+src=",
+                                f"{page.name} loads an external script")
         # the only files produced are the HTML pages themselves
-        avulsos = sorted(p.name for p in Path(self.tmp).iterdir()
-                         if p.is_file() and p.suffix not in (".html",))
-        self.assertEqual(avulsos, [], "report left loose asset files: " + str(avulsos))
+        loose = sorted(p.name for p in Path(self.tmp).iterdir()
+                       if p.is_file() and p.suffix not in (".html",))
+        self.assertEqual(loose, [], "report left loose asset files: " + str(loose))
 
-    def test_exporta_todas_as_secoes_em_uma_unica_passagem(self):
+    def test_exports_all_sections_in_a_single_pass(self):
         """Generation must not redraw each section separately."""
-        destino = os.path.join(self.tmp, "relatorio_unico.html")
-        with mock.patch("zbemt.api.export_results", return_value=[]) as exportar:
+        dest = os.path.join(self.tmp, "single_report.html")
+        with mock.patch("zbemt.api.export_results", return_value=[]) as export:
             api.generate_report(
-                self.results, destino, project=self.project,
+                self.results, dest, project=self.project,
                 plots=["blade_geometry", "airfoil_polar", "azimuth", "span",
                        "disk_map", "convergence"],
             )
-        self.assertEqual(exportar.call_count, 1)
+        self.assertEqual(export.call_count, 1)
 
-    def test_falha_de_um_plot_nao_apaga_as_demais_secoes(self):
+    def test_one_plot_failure_does_not_erase_the_other_sections(self):
         """An optional figure with an error must not eliminate the visual report."""
-        destino = os.path.join(self.tmp, "relatorio_com_fallback.html")
+        dest = os.path.join(self.tmp, "report_with_fallback.html")
         with mock.patch(
             "zbemt.api.export_results",
-            side_effect=[RuntimeError("plot inválido"), [], []],
-        ) as exportar:
+            side_effect=[RuntimeError("invalid plot"), [], []],
+        ) as export:
             api.generate_report(
-                self.results, destino, project=self.project,
+                self.results, dest, project=self.project,
                 plots=["azimuth", "span"],
             )
-        self.assertEqual(exportar.call_count, 3)
+        self.assertEqual(export.call_count, 3)
 
-    def test_cabecalho_registra_malha_solver_e_rotor(self):
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project)
-        html = Path(destino).read_text(encoding="utf-8")
+    def test_header_records_mesh_solver_and_rotor(self):
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project)
+        html = Path(dest).read_text(encoding="utf-8")
         cfg = self.project.config
         self.assertIn(f"Ne={cfg['Ne']}", html)
         self.assertIn(f"Npsi={cfg['Npsi']}", html)
         self.assertIn(cfg["solver"], html)
         self.assertIn(str(self.project.geometry.n_blades), html)
 
-    def test_cabecalho_traz_geometria_e_aerofolio_alem_da_malha(self):
+    def test_header_carries_geometry_and_airfoil_beyond_the_mesh(self):
         """"What was run" used to be too short: twist, chord, airfoil
         coefficients, and the reverse flow model did not show up -- the
         only way to know was to read the `.bemt` back."""
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project)
-        html = Path(destino).read_text(encoding="utf-8")
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project)
+        html = Path(dest).read_text(encoding="utf-8")
         self.assertIn("Twist (root", html)
         self.assertIn("Chord c/R (root", html)
         self.assertIn("Reverse flow", html)
         self.assertIn("Stall angles", html)
 
-    def test_colunas_da_tabela_tem_simbolo_unidade_e_tooltip(self):
+    def test_table_columns_have_symbol_unit_and_tooltip(self):
         """A raw `CT`/`CQ` header is code jargon. The header has three
         layers: symbol with subscript (C_T), the UNIT on a second line
         ([-] made explicit for dimensionless, because an empty cell reads
@@ -514,12 +514,12 @@ class TestGenerateReport(unittest.TestCase):
         each, that turns into a queue of waits; nor a local `::after` on
         the `<th>`, which gets clipped by `.tablewrap`'s
         `overflow-x: auto` -- see the comment in `_REPORT_CSS`)."""
-        destino = os.path.join(self.tmp, "rel.html")
+        dest = os.path.join(self.tmp, "rel.html")
         conds = [FlightCondition(name=f"c{i}", mu_x=0.1 * i, collective_deg=8.0, rpm=600.0)
                  for i in range(1, 3)]
-        varios = [api.run_case(self.project, c) for c in conds]
-        api.generate_report(varios, destino, project=self.project, plots=[])
-        html = Path(destino).read_text(encoding="utf-8")
+        many = [api.run_case(self.project, c) for c in conds]
+        api.generate_report(many, dest, project=self.project, plots=[])
+        html = Path(dest).read_text(encoding="utf-8")
         self.assertIn("C<sub>T</sub>", html)
         self.assertIn('data-tip="Thrust coefficient', html)
         self.assertIn('class="tt"', html)
@@ -532,25 +532,25 @@ class TestGenerateReport(unittest.TestCase):
         self.assertIn("closest(\".tt\")", html)
         self.assertIn("<script>", html)
 
-    def test_relatorio_traz_a_polar_e_a_geometria_nao_so_resultados(self):
+    def test_report_carries_the_polar_and_geometry_not_only_results(self):
         """A rotor report without the POLAR and without the GEOMETRY does
         not let you check the aerodynamic hypothesis that produced the
         numbers -- you had to reopen the GUI to see the polar that was
         used. Both are inputs and come before the results."""
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project)
-        gerados = {p.name for p in Path(self.tmp).glob("rel_*.html")}
-        self.assertIn("rel_airfoil_polars.html", gerados)
-        self.assertIn("rel_blade_geometry.html", gerados)
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project)
+        generated = {p.name for p in Path(self.tmp).glob("rel_*.html")}
+        self.assertIn("rel_airfoil_polars.html", generated)
+        self.assertIn("rel_blade_geometry.html", generated)
 
-        polares = (Path(self.tmp) / "rel_airfoil_polars.html").read_text(encoding="utf-8")
-        self.assertIn("lift coefficient vs angle of attack", polares)
-        self.assertIn("drag vs lift (drag polar)", polares)
+        polars_html = (Path(self.tmp) / "rel_airfoil_polars.html").read_text(encoding="utf-8")
+        self.assertIn("lift coefficient vs angle of attack", polars_html)
+        self.assertIn("drag vs lift (drag polar)", polars_html)
         geom = (Path(self.tmp) / "rel_blade_geometry.html").read_text(encoding="utf-8")
         self.assertIn("Blade planform", geom)
         self.assertIn("chord and twist", geom)
 
-    def test_polar_multissecao_sai_uma_por_secao(self):
+    def test_multi_section_polar_outputs_one_per_section(self):
         """With 2+ sections the engine IGNORES `project.airfoil` (see
         `airfoils.to_blade_airfoil`): drawing only it would show a polar
         that was not used. A set comes out PER SECTION, labeled with r/R."""
@@ -559,15 +559,15 @@ class TestGenerateReport(unittest.TestCase):
             replace(self.project.airfoil, r_norm=0.3, name="root"),
             replace(self.project.airfoil, r_norm=0.9, name="tip"),
         ])
-        destino = os.path.join(self.tmp, "ms.html")
-        api.generate_report(self.results, destino, project=proj,
+        dest = os.path.join(self.tmp, "ms.html")
+        api.generate_report(self.results, dest, project=proj,
                              plots=["airfoil_polar"])
-        polares = (Path(self.tmp) / "ms_airfoil_polars.html").read_text(encoding="utf-8")
+        polars_html = (Path(self.tmp) / "ms_airfoil_polars.html").read_text(encoding="utf-8")
         # section suffix in the label: r0p30 / r0p90
-        self.assertIn("r0p30", polares)
-        self.assertIn("r0p90", polares)
+        self.assertIn("r0p30", polars_html)
+        self.assertIn("r0p90", polars_html)
 
-    def test_polar_com_reynolds_e_mach_gera_uma_figura_por_reynolds(self):
+    def test_polar_with_reynolds_and_mach_generates_one_figure_per_reynolds(self):
         """If the table sweeps Reynolds AND Mach (e.g. 3 Re x 3 M),
         overlaying the 9 combinations on a single chart makes it
         impossible to read. The report must split: ONE figure PER
@@ -576,118 +576,118 @@ class TestGenerateReport(unittest.TestCase):
         `Re=<value>` in the title."""
         from dataclasses import replace
         from zbemt.models import PolarSlice
-        fatias = []
+        slices = []
         for re in (1e6, 2e6, 3e6):
             for m in (0.1, 0.3, 0.5):
-                fatias.append(PolarSlice(alpha_deg=[0, 5, 10], cl=[0, 0.5, 1.0],
+                slices.append(PolarSlice(alpha_deg=[0, 5, 10], cl=[0, 0.5, 1.0],
                                           cd=[0.01, 0.015, 0.03],
                                           reynolds=re, mach=m))
         proj = replace(self.project, airfoil=replace(
-            self.project.airfoil, source="table", table_slices=fatias))
-        destino = os.path.join(self.tmp, "rem.html")
-        api.generate_report(self.results, destino, project=proj,
+            self.project.airfoil, source="table", table_slices=slices))
+        dest = os.path.join(self.tmp, "rem.html")
+        api.generate_report(self.results, dest, project=proj,
                              plots=["airfoil_polar"])
-        polares = (Path(self.tmp) / "rem_airfoil_polars.html").read_text(encoding="utf-8")
+        polars_html = (Path(self.tmp) / "rem_airfoil_polars.html").read_text(encoding="utf-8")
         # three Cl-alpha figures, one per Reynolds value (appearing
-        # via `_legenda_de_figura` as "... -- Re<value>")
+        # via `_figure_caption` as "... -- Re<value>")
         import re as _re
         cl_marks = _re.findall(
-            r"lift coefficient vs angle of attack -- Re[0-9]+", polares)
+            r"lift coefficient vs angle of attack -- Re[0-9]+", polars_html)
         self.assertEqual(len(cl_marks), 3,
-                          f"esperava 3 legendas de Cl-alpha (uma por Re), obtive {cl_marks}")
+                          f"expected 3 Cl-alpha captions (one per Re), got {cl_marks}")
 
-    def test_polar_so_com_reynolds_continua_sendo_um_grafico_unico(self):
+    def test_reynolds_only_polar_remains_a_single_chart(self):
         """Regression: with only Reynolds varying (no Mach), the previous
         behavior was ONE figure per coefficient, several curves -- no
         regression wanted toward one figure per Re."""
         from dataclasses import replace
         from zbemt.models import PolarSlice
-        fatias = [PolarSlice(alpha_deg=[0, 5], cl=[0, 0.5], cd=[0.01, 0.02],
+        slices = [PolarSlice(alpha_deg=[0, 5], cl=[0, 0.5], cd=[0.01, 0.02],
                               reynolds=re) for re in (1e6, 2e6, 3e6)]
         proj = replace(self.project, airfoil=replace(
-            self.project.airfoil, source="table", table_slices=fatias))
-        destino = os.path.join(self.tmp, "solo.html")
-        api.generate_report(self.results, destino, project=proj,
+            self.project.airfoil, source="table", table_slices=slices))
+        dest = os.path.join(self.tmp, "solo.html")
+        api.generate_report(self.results, dest, project=proj,
                              plots=["airfoil_polar"])
-        polares = (Path(self.tmp) / "solo_airfoil_polars.html").read_text(encoding="utf-8")
+        polars_html = (Path(self.tmp) / "solo_airfoil_polars.html").read_text(encoding="utf-8")
         # ONE Cl-alpha caption WITHOUT the "-- Re<value>" suffix
         import re as _re
-        cl_com_re = _re.findall(
-            r"lift coefficient vs angle of attack -- Re[0-9]+", polares)
-        self.assertEqual(cl_com_re, [], "Re-only polar should not break into one figure per value")
-        self.assertIn("lift coefficient vs angle of attack", polares)
+        cl_with_re = _re.findall(
+            r"lift coefficient vs angle of attack -- Re[0-9]+", polars_html)
+        self.assertEqual(cl_with_re, [], "Re-only polar should not break into one figure per value")
+        self.assertIn("lift coefficient vs angle of attack", polars_html)
 
-    def test_metadados_de_polar_tabelada_mostram_reynolds_nao_campos_analiticos(self):
+    def test_tabulated_polar_metadata_shows_reynolds_not_analytic_fields(self):
         """`source="table"` has no `cl_alpha`/`cd0` -- showing those
         fields there would be showing garbage from the wrong mode. It
         must show how many slices and which Reynolds are covered."""
         from dataclasses import replace
         from zbemt.models import PolarSlice
-        fatia_a = PolarSlice(alpha_deg=[0, 5], cl=[0, 0.5], cd=[0.01, 0.02], reynolds=1e6)
-        fatia_b = PolarSlice(alpha_deg=[0, 5], cl=[0, 0.5], cd=[0.01, 0.02], reynolds=2e6)
+        slice_a = PolarSlice(alpha_deg=[0, 5], cl=[0, 0.5], cd=[0.01, 0.02], reynolds=1e6)
+        slice_b = PolarSlice(alpha_deg=[0, 5], cl=[0, 0.5], cd=[0.01, 0.02], reynolds=2e6)
         proj = replace(self.project, airfoil=replace(
-            self.project.airfoil, source="table", table_slices=[fatia_a, fatia_b]))
-        destino = os.path.join(self.tmp, "tab.html")
-        api.generate_report(self.results, destino, project=proj)
-        html = Path(destino).read_text(encoding="utf-8")
+            self.project.airfoil, source="table", table_slices=[slice_a, slice_b]))
+        dest = os.path.join(self.tmp, "tab.html")
+        api.generate_report(self.results, dest, project=proj)
+        html = Path(dest).read_text(encoding="utf-8")
         self.assertIn("Polar table", html)
         self.assertIn("2 slice(s)", html)
         self.assertIn("Reynolds", html)
         self.assertNotIn("C<sub>l,&alpha;</sub>", html)
 
-    def test_polar_que_nao_avalia_nao_derruba_o_relatorio(self):
+    def test_polar_that_cannot_evaluate_does_not_crash_the_report(self):
         """`source="external"` raises `NotImplementedError` in
         `to_airfoil`. A polar that cannot be evaluated has to skip the
         section, not abort the whole generation."""
         from dataclasses import replace
         proj = replace(self.project,
                         airfoil=replace(self.project.airfoil, source="external"))
-        destino = os.path.join(self.tmp, "ext.html")
-        api.generate_report(self.results, destino, project=proj)   # does not raise
-        self.assertTrue(Path(destino).exists())
+        dest = os.path.join(self.tmp, "ext.html")
+        api.generate_report(self.results, dest, project=proj)   # does not raise
+        self.assertTrue(Path(dest).exists())
 
-    def test_config_nao_polui_a_tabela_principal(self):
+    def test_config_does_not_pollute_the_main_table(self):
         """The ~40 `cfg_*` keys of `Results.summary` are identical across
         every condition; mixed in with the quantities, they push CT/CQ/FM
         out of view."""
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project, plots=[])
-        html = Path(destino).read_text(encoding="utf-8")
-        principal, _, apendice = html.partition("<details>")
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project, plots=[])
+        html = Path(dest).read_text(encoding="utf-8")
+        main_html, _, appendix = html.partition("<details>")
         # The SYMBOL, not the letters "CT": the description is rendered
         # too (PR-4), so the raw pair no longer appears anywhere and an
         # assertion on it would pass on the tooltip rather than on the
         # column it is meant to be checking.
-        self.assertIn("C<sub>T</sub>", principal)
-        self.assertNotIn("cfg_Ne", principal)
+        self.assertIn("C<sub>T</sub>", main_html)
+        self.assertNotIn("cfg_Ne", main_html)
         # the config echo lives in the appendix, already with its own
         # symbol (N<sub>e</sub>) instead of the raw field name
-        self.assertNotIn("N<sub>e</sub>", principal)
-        self.assertIn("N<sub>e</sub>", apendice)
+        self.assertNotIn("N<sub>e</sub>", main_html)
+        self.assertIn("N<sub>e</sub>", appendix)
 
-    def test_eco_de_config_tem_cabecalho_vertical_e_simbolo_proprio(self):
+    def test_config_echo_has_vertical_header_and_own_symbol(self):
         """Raw field names (`reverse_flow_model`, `dynamic_stall_A`...)
         do not fit a 74px column horizontally -- truncating with an
         ellipsis hid almost the whole name. The echo table rotates the
         header (`.tablewrap.vert`).
 
         Every `cfg_*` now has its own SYMBOL and DESCRIPTION in
-        `_SIMBOLO_DE_COLUNA` (coverage locked in by
-        `test_toda_coluna_tem_simbolo_e_tooltip`): it used to fall back to
+        `_COLUMN_SYMBOL` (coverage locked in by
+        `test_every_column_has_symbol_and_tooltip`): it used to fall back to
         `chave.removeprefix("cfg_")`, which showed the raw field name as
         both symbol AND tooltip -- the tooltip explained nothing, it just
         repeated the header."""
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project, plots=[])
-        html = Path(destino).read_text(encoding="utf-8")
-        principal, _, apendice = html.partition("<details>")
-        self.assertIn('class="tablewrap vert"', apendice)
-        self.assertNotIn(">cfg_Ne<", apendice)
-        self.assertIn("N<sub>e</sub>", apendice)
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project, plots=[])
+        html = Path(dest).read_text(encoding="utf-8")
+        main_html, _, appendix = html.partition("<details>")
+        self.assertIn('class="tablewrap vert"', appendix)
+        self.assertNotIn(">cfg_Ne<", appendix)
+        self.assertIn("N<sub>e</sub>", appendix)
         # tooltip is the DESCRIPTION, no longer an echo of the field's own name
-        self.assertIn('data-tip="Number of radial stations in the mesh"', apendice)
+        self.assertIn('data-tip="Number of radial stations in the mesh"', appendix)
 
-    def test_uma_condicao_usa_a_mesma_matriz_das_varias(self):
+    def test_single_condition_uses_the_same_matrix_as_several(self):
         """A SINGLE orientation, always: one row per condition, one
         quantity per column. Before, a single case came out transposed
         (quantity|value in blocks) and a sweep came out matrix-style --
@@ -695,46 +695,46 @@ class TestGenerateReport(unittest.TestCase):
         relearn the table each time the report changed. The sideways
         scrolling that motivated the transposition lives inside
         `.tablewrap`, not on the page."""
-        destino = os.path.join(self.tmp, "rel_um.html")
-        api.generate_report(self.results, destino, project=self.project, plots=[])
-        html = Path(destino).read_text(encoding="utf-8")
+        dest = os.path.join(self.tmp, "rel_one.html")
+        api.generate_report(self.results, dest, project=self.project, plots=[])
+        html = Path(dest).read_text(encoding="utf-8")
         self.assertIn(">C<sub>T</sub></th>", html)      # header, not a cell
         self.assertIn('<div class="tablewrap">', html)
         self.assertNotIn('<div class="blocos">', html)
 
-    def test_varias_condicoes_seguem_matriciais(self):
+    def test_several_conditions_follow_the_matrix_orientation(self):
         """With a sweep, the matrix orientation is the right one: one
         row per condition is what allows comparing."""
         from zbemt.models import FlightCondition
         conds = [FlightCondition(name=f"c{i}", mu_x=0.1 * i, collective_deg=8.0, rpm=600.0)
                  for i in range(1, 4)]
-        varios = [api.run_case(self.project, c) for c in conds]
-        destino = os.path.join(self.tmp, "rel_varios.html")
-        api.generate_report(varios, destino, project=self.project, plots=[])
-        html = Path(destino).read_text(encoding="utf-8")
+        many = [api.run_case(self.project, c) for c in conds]
+        dest = os.path.join(self.tmp, "rel_many.html")
+        api.generate_report(many, dest, project=self.project, plots=[])
+        html = Path(dest).read_text(encoding="utf-8")
         self.assertIn(">C<sub>T</sub></th>", html)
         self.assertIn("condition</th>", html)
 
-    def test_sem_projeto_ainda_gera_relatorio(self):
+    def test_without_project_still_generates_a_report(self):
         """`project` is optional: a script that only has the `Results` in
         hand can still produce a report (it loses the header, not the report)."""
-        destino = os.path.join(self.tmp, "rel_sem_projeto.html")
-        api.generate_report(self.results, destino)
-        self.assertIn("CT", Path(destino).read_text(encoding="utf-8"))
+        dest = os.path.join(self.tmp, "rel_no_project.html")
+        api.generate_report(self.results, dest)
+        self.assertIn("CT", Path(dest).read_text(encoding="utf-8"))
 
-    def test_lista_vazia_e_erro_explicito(self):
+    def test_empty_list_is_an_explicit_error(self):
         with self.assertRaises(ValueError):
             api.generate_report([], os.path.join(self.tmp, "x.html"))
 
-    def test_notes_do_usuario_aparecem(self):
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project, plots=[],
-                            notes="rotor de teste, malha grossa")
-        self.assertIn("rotor de teste, malha grossa",
-                      Path(destino).read_text(encoding="utf-8"))
+    def test_user_notes_appear(self):
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project, plots=[],
+                            notes="test rotor, coarse mesh")
+        self.assertIn("test rotor, coarse mesh",
+                      Path(dest).read_text(encoding="utf-8"))
 
 
-class TestSecoesDoRelatorio(unittest.TestCase):
+class TestReportSections(unittest.TestCase):
     """The order and content of the chart sections.
 
     The report used to delegate the whole list to `export_results` and
@@ -749,76 +749,75 @@ class TestSecoesDoRelatorio(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.project = _make_fast_project(os.path.join(self.tmp, "proj"))
         cond = FlightCondition(name="c", mu_x=0.2, collective_deg=8.0, rpm=600.0)
-        self.um = [api.run_case(self.project, cond)]
+        self.single = [api.run_case(self.project, cond)]
 
     def _html(self, results, **kw):
-        destino = os.path.join(self.tmp, "r.html")
-        api.generate_report(results, destino, project=self.project, **kw)
-        return Path(destino).read_text(encoding="utf-8")
+        dest = os.path.join(self.tmp, "r.html")
+        api.generate_report(results, dest, project=self.project, **kw)
+        return Path(dest).read_text(encoding="utf-8")
 
-    def _html_completo(self, results, **kw):
+    def _full_html(self, results, **kw):
         """Master + ALL satellites concatenated.
 
         The chart sections live in their own files next to the master
-        (see `_FIGURAS_ANTES_DE_ARQUIVO_PROPRIO`). A test that only looks
+        (see `_FIGURES_BEFORE_OWN_FILE`). A test that only looks
         at the master does not see the figures -- and a test that switched
         to looking at only one satellite would stop checking that the
-        lightweight sections exist. This helper answers "does it exist
         SOMEWHERE in the report", which is the question most of these
         tests ask."""
-        destino = Path(self.tmp) / "r.html"
-        api.generate_report(results, str(destino), project=self.project, **kw)
-        partes = [destino.read_text(encoding="utf-8")]
-        partes += [p.read_text(encoding="utf-8")
-                   for p in sorted(destino.parent.glob("r_*.html"))]
-        return "\n".join(partes)
+        dest = Path(self.tmp) / "r.html"
+        api.generate_report(results, str(dest), project=self.project, **kw)
+        parts = [dest.read_text(encoding="utf-8")]
+        parts += [p.read_text(encoding="utf-8")
+                  for p in sorted(dest.parent.glob("r_*.html"))]
+        return "\n".join(parts)
 
-    def test_azimute_e_envergadura_entram_no_relatorio(self):
-        html = self._html_completo(self.um)
+    def test_azimuth_and_span_enter_the_report(self):
+        html = self._full_html(self.single)
         self.assertIn("Loads along azimuth", html)
         self.assertIn("Loads along blade span", html)
 
-    def test_satellite_obsoleto_nao_sobrevive_a_nova_exportacao(self):
+    def test_obsolete_satellite_does_not_survive_a_new_export(self):
         """A new export must not leave an old section reusable."""
-        antigo = Path(self.tmp) / "r_blade_geometry.html"
-        antigo.write_text("blade_loads_vs_span", encoding="utf-8")
-        self._html(self.um)
-        atual = antigo.read_text(encoding="utf-8") if antigo.exists() else ""
-        self.assertNotIn("blade_loads_vs_span", atual)
+        stale = Path(self.tmp) / "r_blade_geometry.html"
+        stale.write_text("blade_loads_vs_span", encoding="utf-8")
+        self._html(self.single)
+        current = stale.read_text(encoding="utf-8") if stale.exists() else ""
+        self.assertNotIn("blade_loads_vs_span", current)
 
-    def test_mapas_individuais_vem_antes_do_painel_de_12(self):
+    def test_individual_maps_come_before_the_panel_of_12(self):
         """The panel is a visual index: it serves to find a field already
         examined again, not to introduce it."""
-        satelite = Path(self.tmp) / "r_disk_maps.html"
-        self._html(self.um)
-        corpo = satelite.read_text(encoding="utf-8")
-        primeiro_individual = corpo.index("Disk map -- drag coefficient")
-        painel = corpo.index("Disk maps (all fields)")
-        self.assertLess(primeiro_individual, painel)
+        satellite = Path(self.tmp) / "r_disk_maps.html"
+        self._html(self.single)
+        body = satellite.read_text(encoding="utf-8")
+        first_individual = body.index("Disk map -- drag coefficient")
+        panel = body.index("Disk maps (all fields)")
+        self.assertLess(first_individual, panel)
 
-    def test_varredura_traz_os_coeficientes_e_nao_so_CT(self):
+    def test_sweep_carries_the_coefficients_not_only_CT(self):
         conds = [FlightCondition(name=f"c{i}", mu_x=0.1 * i, collective_deg=8.0, rpm=600.0)
                  for i in range(1, 4)]
         html = self._html([api.run_case(self.project, c) for c in conds])
         self.assertIn("Performance coefficients", html)
         self.assertIn("Performance coefficients vs mu_x", html)
 
-    def test_um_caso_so_nao_tem_curva_de_desempenho(self):
+    def test_a_single_case_has_no_performance_curve(self):
         """A single point is not a curve."""
-        self.assertNotIn("Performance coefficients", self._html(self.um))
+        self.assertNotIn("Performance coefficients", self._html(self.single))
 
-    def test_legenda_de_figura_e_legivel_nao_nome_de_arquivo_cru(self):
+    def test_figure_caption_is_readable_not_a_raw_file_name(self):
         """Each figure's caption is what explains the image to someone
         reading the report without having looked at the code -- a raw
         file name (`disk_map_Cd_c`) is internal jargon, not a caption."""
-        html = self._html_completo(self.um)
+        html = self._full_html(self.single)
         self.assertIn("<figcaption>Loads along azimuth", html)
         self.assertIn("<figcaption>Loads along blade span", html)
         self.assertNotIn("<figcaption>loads_vs_azimuth", html)
         self.assertNotIn("<figcaption>blade_loads_vs_span", html)
         self.assertNotIn("<figcaption>disk_map_Cd_", html)
 
-    def test_tabela_matricial_rola_dentro_de_si_nao_a_pagina_inteira(self):
+    def test_matrix_table_scrolls_within_itself_not_the_whole_page(self):
         """A wide table (many conditions/columns) has to scroll WITHIN
         itself (`.tablewrap { overflow-x: auto }`), not stretch the whole
         page -- otherwise the reader has to scroll sideways to read
@@ -830,7 +829,7 @@ class TestSecoesDoRelatorio(unittest.TestCase):
         self.assertIn("max-width: 1600px", html)
         self.assertIn(".tablewrap { overflow-x: auto", html)
 
-    def test_toda_grandeza_de_saida_fica_na_mesma_linha_da_condicao(self):
+    def test_every_output_quantity_stays_on_the_conditions_row(self):
         """EVERY output quantity goes into the matrix, on its condition's
         row -- no separate `<details>` "Additional quantities per
         condition" block, which repeated each quantity's NAME once per
@@ -843,44 +842,44 @@ class TestSecoesDoRelatorio(unittest.TestCase):
         html = self._html([api.run_case(self.project, c) for c in conds])
         self.assertNotIn("Additional quantities per condition", html)
 
-        matriz = html.split("<details>")[0]
-        ordenadas, cfg = api._chaves_ordenadas([api.run_case(self.project, conds[0])])
+        matrix = html.split("<details>")[0]
+        ordered, cfg = api._sorted_keys([api.run_case(self.project, conds[0])])
         # every non-cfg key has to be in the main matrix
-        for chave in ordenadas:
-            simbolo, _ = api._SIMBOLO_DE_COLUNA[chave]
-            self.assertIn(f">{simbolo}</th>", matriz,
-                           f"{chave} saiu da matriz principal")
+        for key in ordered:
+            symbol, _ = api._COLUMN_SYMBOL[key]
+            self.assertIn(f">{symbol}</th>", matrix,
+                           f"{key} left the main matrix")
         # and the config echo does NOT (stays in the <details>)
         self.assertTrue(cfg, "expected cfg_* keys to check the separation")
-        self.assertNotIn(">cfg_Ne</th>", matriz)
+        self.assertNotIn(">cfg_Ne</th>", matrix)
 
-    def test_toda_coluna_tem_simbolo_e_tooltip(self):
+    def test_every_column_has_symbol_and_tooltip(self):
         """The matrix shows 90+ columns with a one-to-two-letter header --
         without `title=`, there is no way to know what the column is. A
         new key in `Results.summary` (including `cfg_*`, the BEMTConfig
         echo -- no longer excluded from coverage, see
-        `_cabecalho_de_coluna`) with no entry in `_SIMBOLO_DE_COLUNA` would
+        `_column_header`) with no entry in `_COLUMN_SYMBOL` would
         show up as raw `snake_case` amid the symbols, with no tooltip."""
         r = api.run_case(self.project, FlightCondition(
             name="c", mu_x=0.2, collective_deg=8.0, rpm=600.0))
-        sem_simbolo = [k for k in r.summary if k not in api._SIMBOLO_DE_COLUNA]
-        self.assertEqual(sem_simbolo, [],
-                          f"summary keys without symbol/tooltip: {sem_simbolo}")
+        without_symbol = [k for k in r.summary if k not in api._COLUMN_SYMBOL]
+        self.assertEqual(without_symbol, [],
+                          f"summary keys without symbol/tooltip: {without_symbol}")
 
-    def test_metadados_de_summary_expostos_publicamente(self):
+    def test_summary_metadata_exposed_publicly(self):
         """`SUMMARY_SYMBOLS`/`SUMMARY_UNITS`/`SUMMARY_PRIMARY_KEYS`/
         `format_summary_value`/`summary_keys_union` are the public source
         that the GUI (Run Case, Results) reuses so it doesn't duplicate by
         hand the same symbols/units/tooltips that the report already
         maintains -- they must remain the SAME object as the private
         implementation, not a copy that could diverge from it."""
-        self.assertIs(api.SUMMARY_SYMBOLS, api._SIMBOLO_DE_COLUNA)
-        self.assertIs(api.SUMMARY_UNITS, api._UNIDADE_DE_COLUNA)
-        self.assertIs(api.SUMMARY_PRIMARY_KEYS, api._COLUNAS_PRINCIPAIS)
-        self.assertIs(api.format_summary_value, api._formatar)
-        self.assertIs(api.summary_keys_union, api._chaves_ordenadas)
+        self.assertIs(api.SUMMARY_SYMBOLS, api._COLUMN_SYMBOL)
+        self.assertIs(api.SUMMARY_UNITS, api._COLUMN_UNITS)
+        self.assertIs(api.SUMMARY_PRIMARY_KEYS, api._MAIN_COLUMNS)
+        self.assertIs(api.format_summary_value, api._format_value)
+        self.assertIs(api.summary_keys_union, api._sorted_keys)
 
-    def test_nenhuma_figura_e_descartada_numa_varredura_grande(self):
+    def test_no_figure_is_dropped_in_a_large_sweep(self):
         """Before, above 3 conditions the report DISCARDED the 12 disk-map
         figures per case and announced the discard in a yellow box,
         offering "regenerate with fewer conditions" as the way out.
@@ -889,42 +888,42 @@ class TestSecoesDoRelatorio(unittest.TestCase):
         and EVERY figure ends up in one of them."""
         conds = [FlightCondition(name=f"c{i}", mu_x=0.02 * i, collective_deg=8.0, rpm=600.0)
                  for i in range(1, 7)]
-        destino = os.path.join(self.tmp, "grande.html")
+        dest = os.path.join(self.tmp, "large.html")
         api.generate_report([api.run_case(self.project, c) for c in conds],
-                             destino, project=self.project)
-        mestre = Path(destino).read_text(encoding="utf-8")
-        self.assertNotIn("Reduced figures in this selection", mestre)
+                             dest, project=self.project)
+        master = Path(dest).read_text(encoding="utf-8")
+        self.assertNotIn("Reduced figures in this selection", master)
 
         # the disk maps went out to a satellite, with ALL fields
-        satelite = Path(self.tmp) / "grande_disk_maps.html"
-        self.assertTrue(satelite.exists(), "disk-map satellite was not generated")
-        corpo = satelite.read_text(encoding="utf-8")
-        self.assertIn("Disk map -- drag coefficient", corpo)
-        self.assertIn("Disk maps (all fields)", corpo)
-        self.assertIn('href="grande.html"', corpo)   # link back to the master
+        satellite = Path(self.tmp) / "large_disk_maps.html"
+        self.assertTrue(satellite.exists(), "disk-map satellite was not generated")
+        body = satellite.read_text(encoding="utf-8")
+        self.assertIn("Disk map -- drag coefficient", body)
+        self.assertIn("Disk maps (all fields)", body)
+        self.assertIn('href="large.html"', body)   # link back to the master
 
-    def test_mestre_tem_tabelas_e_links_nao_o_peso_das_figuras(self):
+    def test_master_has_tables_and_links_not_the_figures_weight(self):
         """The master is the page of INPUTS + OUTPUTS: table and links. With
         all the figures embedded in it, a batch of 4 conditions used to go
         past 3 MB and take a while to open -- precisely the page that is
         consulted first."""
         conds = [FlightCondition(name=f"c{i}", mu_x=0.1 * i, collective_deg=8.0, rpm=600.0)
                  for i in range(1, 5)]
-        destino = os.path.join(self.tmp, "mestre.html")
+        dest = os.path.join(self.tmp, "master.html")
         api.generate_report([api.run_case(self.project, c) for c in conds],
-                             destino, project=self.project)
-        mestre = Path(destino).read_text(encoding="utf-8")
-        self.assertIn("Figure sets", mestre)
-        self.assertIn('<ul class="satelites">', mestre)
+                             dest, project=self.project)
+        master = Path(dest).read_text(encoding="utf-8")
+        self.assertIn("Figure sets", master)
+        self.assertIn('<ul class="satellites">', master)
         # the master does not carry the dozens of per-case figures
-        self.assertLess(mestre.count("<figure>"), 3,
+        self.assertLess(master.count("<figure>"), 3,
                          "master kept the heavy sections' figures loaded")
         # and the per-case sections exist as their own files
-        gerados = {p.name for p in Path(self.tmp).glob("mestre_*.html")}
-        self.assertIn("mestre_disk_maps.html", gerados)
-        self.assertIn("mestre_loads_along_azimuth.html", gerados)
+        generated = {p.name for p in Path(self.tmp).glob("master_*.html")}
+        self.assertIn("master_disk_maps.html", generated)
+        self.assertIn("master_loads_along_azimuth.html", generated)
 
-    def test_eixo_do_grafico_e_o_que_variou(self):
+    def test_chart_axis_is_what_varied(self):
         """A collective sweep plotted against mu_x would stack all the
         points on a single abscissa."""
         conds = [FlightCondition(name=f"c{i}", mu_x=0.2, collective_deg=float(4 + 2 * i),
@@ -932,7 +931,7 @@ class TestSecoesDoRelatorio(unittest.TestCase):
         html = self._html([api.run_case(self.project, c) for c in conds])
         self.assertIn("Performance coefficients vs collective_deg", html)
 
-    def test_figuras_seguem_a_ordem_de_results_list_nao_alfabetica(self):
+    def test_figures_follow_results_list_order_not_alphabetical(self):
         """Condition names are free text, they don't happen to sort
         numerically: an alphabetical `sorted()` on top of the file name
         placed "mu_x=0.1"/"mu_x=0.2"/"mu_x=0.3" BEFORE "mu_x=0" (the "1" of
@@ -941,14 +940,14 @@ class TestSecoesDoRelatorio(unittest.TestCase):
         The correct order is that of `results_list`, not alphabetical."""
         conds = [FlightCondition(name=f"mu_x={m:g}", mu_x=m, collective_deg=8.0, rpm=600.0)
                  for m in (0.0, 0.1, 0.2, 0.3)]
-        html = self._html_completo([api.run_case(self.project, c) for c in conds])
-        posicoes = [html.index(f"Loads along azimuth -- Case {i} - mu_x={m:g}")
-                    for i, m in enumerate((0.0, 0.1, 0.2, 0.3), start=1)]
-        self.assertEqual(posicoes, sorted(posicoes),
-                          "figuras fora da ordem de results_list")
+        html = self._full_html([api.run_case(self.project, c) for c in conds])
+        positions = [html.index(f"Loads along azimuth -- Case {i} - mu_x={m:g}")
+                     for i, m in enumerate((0.0, 0.1, 0.2, 0.3), start=1)]
+        self.assertEqual(positions, sorted(positions),
+                          "figures out of results_list order")
 
 
-class TestRotulosDeCondicao(unittest.TestCase):
+class TestConditionLabels(unittest.TestCase):
     """Every condition in the report is NUMBERED ("Case 1", "Case 2"...) and
     has its own file.
 
@@ -959,7 +958,7 @@ class TestRotulosDeCondicao(unittest.TestCase):
 
     - in the table, five "caso" rows -- there's no way to cite any one of
       them;
-    - in export, `mapa_de_nomes_de_arquivo` indexed by NAME: the five
+        - in export, `filename_map` indexed by NAME: the five
       conditions collapsed into a single key, whose value was the suffix
       of the last one, and the five figures of each field went to the
       SAME file, overwriting each other. The report embedded five copies
@@ -977,46 +976,46 @@ class TestRotulosDeCondicao(unittest.TestCase):
                 name="caso", mu_x=0.05 * i, collective_deg=6.0 + i, rpm=600.0 + 10 * i))
             for i in range(1, 6)]
 
-    def test_rotulo_numerado_por_condicao(self):
-        self.assertEqual(api.rotulos_de_condicao(self.results),
+    def test_label_numbered_per_condition(self):
+        self.assertEqual(api.condition_labels(self.results),
                           ["Case 1", "Case 2", "Case 3", "Case 4", "Case 5"])
 
-    def test_nome_entra_no_rotulo_quando_distingue(self):
+    def test_name_enters_the_label_when_it_distinguishes(self):
         """A name that actually identifies the condition is not lost -- only
         the repeated name (which conveys nothing) is left out."""
-        distintos = [Results(condition_name=f"mu_x={m:g}") for m in (0.0, 0.1)]
-        self.assertEqual(api.rotulos_de_condicao(distintos),
+        distinct = [Results(condition_name=f"mu_x={m:g}") for m in (0.0, 0.1)]
+        self.assertEqual(api.condition_labels(distinct),
                           ["Case 1 - mu_x=0", "Case 2 - mu_x=0.1"])
 
-    def test_cada_condicao_tem_arquivo_proprio_mesmo_com_nome_repetido(self):
+    def test_each_condition_gets_its_own_file_even_with_repeated_names(self):
         outdir = os.path.join(self.tmp, "out")
-        escritos = api.export_results(self.results, outdir, plots=["disk_map_CT"],
-                                       save_csv=False)
-        self.assertEqual(len(escritos), 5)
-        self.assertEqual(len(set(escritos)), 5, "conditions wrote to the same file")
-        for f in escritos:
+        written = api.export_results(self.results, outdir, plots=["disk_map_CT"],
+                                      save_csv=False)
+        self.assertEqual(len(written), 5)
+        self.assertEqual(len(set(written)), 5, "conditions wrote to the same file")
+        for f in written:
             self.assertTrue(Path(f).exists())
 
-    def test_linhas_da_tabela_resumo_sao_numeradas(self):
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project, plots=[])
-        html = Path(destino).read_text(encoding="utf-8")
-        corpo = html.split("<h2>Summary</h2>")[1]
+    def test_summary_table_rows_are_numbered(self):
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project, plots=[])
+        html = Path(dest).read_text(encoding="utf-8")
+        body = html.split("<h2>Summary</h2>")[1]
         for n in range(1, 6):
-            self.assertIn(f"<td>Case {n}</td>", corpo)
-        self.assertNotIn("<td>caso</td>", corpo)
+            self.assertIn(f"<td>Case {n}</td>", body)
+        self.assertNotIn("<td>caso</td>", body)
 
-    def test_cada_figura_leva_a_legenda_da_sua_condicao(self):
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project,
+    def test_each_figure_carries_its_conditions_caption(self):
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project,
                              plots=["convergence"])
-        satelite = Path(self.tmp) / "rel_convergence.html"
-        legendas = re.findall(r"<figcaption>(.*?)</figcaption>",
-                               satelite.read_text(encoding="utf-8"))
-        self.assertEqual(legendas, [f"Solver convergence -- Case {n}" for n in range(1, 6)])
+        satellite = Path(self.tmp) / "rel_convergence.html"
+        captions = re.findall(r"<figcaption>(.*?)</figcaption>",
+                               satellite.read_text(encoding="utf-8"))
+        self.assertEqual(captions, [f"Solver convergence -- Case {n}" for n in range(1, 6)])
 
 
-class TestColunasDaTabelaResumo(unittest.TestCase):
+class TestSummaryTableColumns(unittest.TestCase):
     """Reading order and absence of duplicate columns."""
 
     def setUp(self):
@@ -1026,50 +1025,50 @@ class TestColunasDaTabelaResumo(unittest.TestCase):
         self.results = [api.run_case(self.project, FlightCondition(
             name="c", mu_x=0.2, collective_deg=8.0, rpm=600.0))]
 
-    def test_coletivo_e_rpm_entram_com_as_demais_entradas(self):
+    def test_collective_and_rpm_enter_with_the_other_inputs(self):
         """Collective and RPM are INPUTS, just as much as mu_x/J_x/alpha/Vz:
         without them you can't read a row of the table. They were falling
         after ~40 output columns, in the leftover tail of the dict."""
-        ordenadas, _ = api._chaves_ordenadas(self.results)
-        for chave in ("collective_deg", "rpm"):
-            self.assertIn(chave, ordenadas)
-            self.assertLess(ordenadas.index(chave), ordenadas.index("CT"),
-                             f"{chave} is not among the first columns")
+        ordered, _ = api._sorted_keys(self.results)
+        for key in ("collective_deg", "rpm"):
+            self.assertIn(key, ordered)
+            self.assertLess(ordered.index(key), ordered.index("CT"),
+                             f"{key} is not among the first columns")
 
-    def test_rpm_nao_aparece_duas_vezes(self):
+    def test_rpm_does_not_appear_twice(self):
         """`rpm` and `rotor_rpm` carry the SAME number (`studies` defines
         one from the other); two "RPM" columns side by side make you
         search for a difference that doesn't exist."""
-        ordenadas, _ = api._chaves_ordenadas(self.results)
-        self.assertIn("rpm", ordenadas)
-        self.assertNotIn("rotor_rpm", ordenadas)
+        ordered, _ = api._sorted_keys(self.results)
+        self.assertIn("rpm", ordered)
+        self.assertNotIn("rotor_rpm", ordered)
 
-    def test_rotor_rpm_reaparece_se_divergir_de_rpm(self):
+    def test_rotor_rpm_reappears_if_it_diverges_from_rpm(self):
         """Hiding it is safe only as long as they are the same number."""
-        divergente = [Results(summary={"rpm": 600.0, "rotor_rpm": 610.0})]
-        ordenadas, _ = api._chaves_ordenadas(divergente)
-        self.assertIn("rotor_rpm", ordenadas)
+        divergent = [Results(summary={"rpm": 600.0, "rotor_rpm": 610.0})]
+        ordered, _ = api._sorted_keys(divergent)
+        self.assertIn("rotor_rpm", ordered)
 
-    def test_celula_que_transborda_ganha_tooltip_instantaneo(self):
+    def test_overflowing_cell_gets_instant_tooltip(self):
         """The report columns have a fixed, uniform width (that's how it's
         meant to be), so a long value from the config echo comes out cut
         off by `text-overflow: ellipsis` -- without a tooltip, there is
         NO way to read the whole value. Same mechanism as the header
         (`data-tip`, instant balloon), not the native `title=`."""
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report(self.results, destino, project=self.project, plots=[])
-        html = Path(destino).read_text(encoding="utf-8")
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report(self.results, dest, project=self.project, plots=[])
+        html = Path(dest).read_text(encoding="utf-8")
         self.assertIn('<td class="tt" data-tip="fixed_point">fixed_point</td>', html)
         # a short value doesn't gain a tooltip for no reason
         self.assertIn("<td>Case 1 - c</td>", html)
 
 
-class TestNomenclaturaEOrdemDasColunas(unittest.TestCase):
+class TestColumnNomenclatureAndOrder(unittest.TestCase):
     """The Run Case table, the Results tab table, and the HTML report table
     must show THE SAME quantities, in THE SAME order, with names that
     match the manual (`docs/documentation.html`, Section 2.1 "Nomenclature").
 
-    Before: `_COLUNAS_PRINCIPAIS` listed 25 of the 96 non-`cfg_` keys of
+    Before: `_MAIN_COLUMNS` listed 25 of the 96 non-`cfg_` keys of
     `Results.summary`; the other 71 fell to the end, in the insertion
     order of the engine's dict -- an order that exists only by
     implementation accident and that the Run Case tab, with its own
@@ -1083,26 +1082,26 @@ class TestNomenclaturaEOrdemDasColunas(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp()
-        projeto = _make_fast_project(os.path.join(cls.tmp, "p"))
-        cls.resultado = api.run_case(projeto, FlightCondition(
+        project = _make_fast_project(os.path.join(cls.tmp, "p"))
+        cls.result = api.run_case(project, FlightCondition(
             name="c", mu_x=0.15, Vz=3.0, collective_deg=8.0, rpm=1200.0))
 
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
-    def test_toda_chave_de_saida_esta_em_colunas_principais(self):
-        """Nothing "spills over" to the end: `_chaves_ordenadas` returns
+    def test_every_output_key_is_in_primary_columns(self):
+        """Nothing "spills over" to the end: `_sorted_keys` returns
         primaries + remaining, and `remaining` is the catch-all with no
         thought-out order. With full coverage, the table order is the
         same across all three surfaces because all three read this single
         tuple."""
-        faltando = [k for k in self.resultado.summary
-                    if not k.startswith("cfg_") and k not in api.SUMMARY_PRIMARY_KEYS]
-        self.assertEqual(faltando, [],
-                          f"output keys outside _COLUNAS_PRINCIPAIS: {faltando}")
+        missing = [k for k in self.result.summary
+                   if not k.startswith("cfg_") and k not in api.SUMMARY_PRIMARY_KEYS]
+        self.assertEqual(missing, [],
+                          f"output keys outside _MAIN_COLUMNS: {missing}")
 
-    def test_entradas_vem_primeiro_na_ordem_pedida(self):
+    def test_inputs_come_first_in_the_stated_order(self):
         """The inputs that define the operating point open the table: the
         x component first (the PRIMARY one in both modes), then z,
         then the two angles, then collective and RPM. `lambda_z` comes
@@ -1115,33 +1114,33 @@ class TestNomenclaturaEOrdemDasColunas(unittest.TestCase):
              "alpha_rotor_deg", "alpha_disk_deg",
              "collective_deg", "rpm"))
 
-    def test_nenhuma_grandeza_aparece_duas_vezes_na_ordem(self):
+    def test_no_quantity_appears_twice_in_the_order(self):
         """A repeated key makes `{k: i for i, k in enumerate(...)}` keep
         the index of the LAST occurrence -- that's how `mu_x` ended up at
         the end of the Run Case tab after the synonyms were merged."""
-        chaves = list(api.SUMMARY_PRIMARY_KEYS)
-        repetidas = sorted({k for k in chaves if chaves.count(k) > 1})
-        self.assertEqual(repetidas, [])
+        keys = list(api.SUMMARY_PRIMARY_KEYS)
+        repeated = sorted({k for k in keys if keys.count(k) > 1})
+        self.assertEqual(repeated, [])
 
-    def test_a_tabela_abre_pela_componente_x_nos_DOIS_modos(self):
+    def test_table_opens_with_the_x_component_in_BOTH_modes(self):
         """x is always the PRIMARY one -- the helicopter's advance, the
         propeller's flight speed --, and that's what the table starts
         with. Which key carries the letter x is what changes: `mu_x` on
         the rotor, `mu_z` on the propeller."""
-        ordenadas, _cfg = api.summary_keys_union([self.resultado], True)
-        self.assertEqual(tuple(ordenadas[:3]), ("mu_z", "J_z", "Vz"))
-        ordenadas_rotor, _ = api.summary_keys_union([self.resultado], False)
-        self.assertEqual(tuple(ordenadas_rotor[:3]), ("mu_x", "J_x", "Vx"))
+        ordered, _cfg = api.summary_keys_union([self.result], True)
+        self.assertEqual(tuple(ordered[:3]), ("mu_z", "J_z", "Vz"))
+        ordered_rotor, _ = api.summary_keys_union([self.result], False)
+        self.assertEqual(tuple(ordered_rotor[:3]), ("mu_x", "J_x", "Vx"))
 
-    def test_nao_sobrou_sinonimo_nenhum(self):
+    def test_no_synonym_is_left_over(self):
         """There used to be TWO keys for the same quantity (`mu`+`mu_x`,
         `J`+`J_x`). Now there is ONE, and it says which axis it belongs to."""
-        for chave in ("mu", "J"):
-            with self.subTest(chave=chave):
-                self.assertNotIn(chave, api.SUMMARY_SYMBOLS)
-                self.assertNotIn(chave, self.resultado.summary)
+        for key in ("mu", "J"):
+            with self.subTest(key=key):
+                self.assertNotIn(key, api.SUMMARY_SYMBOLS)
+                self.assertNotIn(key, self.result.summary)
 
-    def test_as_letras_de_eixo_giram_mas_o_numero_nao(self):
+    def test_axis_letters_rotate_but_the_number_does_not(self):
         """`is_propeller` swaps the VOCABULARY, never the value nor the
         key: the same key `Vz` is V_z on a rotor and V_x on a propeller."""
         self.assertEqual(api.summary_symbol("Vz", False)[0], "V<sub>z</sub>")
@@ -1154,34 +1153,34 @@ class TestNomenclaturaEOrdemDasColunas(unittest.TestCase):
         self.assertEqual(set(api.summary_symbols(True)),
                           set(api.summary_symbols(False)))
 
-    def test_cada_coluna_principal_tem_simbolo_unidade_e_descricao(self):
+    def test_each_primary_column_has_symbol_unit_and_description(self):
         """A single-letter symbol without a description can't be read; and
         the description is what answers the nomenclature question ("is
         this V_z the disk's or the freestream's?") without leaving the
         table."""
-        for chave in api.SUMMARY_PRIMARY_KEYS:
-            with self.subTest(chave=chave):
-                self.assertIn(chave, api.SUMMARY_SYMBOLS)
-                simbolo, descricao = api.SUMMARY_SYMBOLS[chave]
-                self.assertTrue(simbolo.strip())
-                self.assertTrue(len(descricao.strip()) > len(chave),
-                                 f"{chave}: description just echoes the name")
-                self.assertIn(chave, api.SUMMARY_UNITS)
+        for key in api.SUMMARY_PRIMARY_KEYS:
+            with self.subTest(key=key):
+                self.assertIn(key, api.SUMMARY_SYMBOLS)
+                symbol, description = api.SUMMARY_SYMBOLS[key]
+                self.assertTrue(symbol.strip())
+                self.assertTrue(len(description.strip()) > len(key),
+                                 f"{key}: description just echoes the name")
+                self.assertIn(key, api.SUMMARY_UNITS)
 
-    def test_triade_de_inflow_existe_e_fecha(self):
+    def test_inflow_triad_exists_and_closes(self):
         """The manual defines lambda = lambda_z + lambda_i (Section 2.6.2)
         and U_P = V_v + v_i (Section 2.4.2). Both identities must be
         verifiable by READING the table, otherwise the names don't mean
         what the manual says they mean."""
-        s = self.resultado.summary
-        for chave in ("lambda_z", "lambda_i", "lambda_total", "Vz", "Vi", "Vz_total"):
-            self.assertIn(chave, s, chave)
+        s = self.result.summary
+        for key in ("lambda_z", "lambda_i", "lambda_total", "Vz", "Vi", "Vz_total"):
+            self.assertIn(key, s, key)
         self.assertAlmostEqual(s["lambda_total"], s["lambda_z"] + s["lambda_i"], places=12)
         self.assertAlmostEqual(s["Vz_total"], s["Vz"] + s["Vi"], places=9)
         self.assertAlmostEqual(s["Vi"], s["lambda_i"] * s["rotor_OmegaR"], places=9)
         self.assertGreater(s["Vi"], 0.0)
 
-    def test_par_casado_de_componentes_do_escoamento_livre(self):
+    def test_freestream_components_come_out_as_a_paired_pair(self):
         """The two freestream components come out as a PAIR of axis
         letters, x and z -- the axial one used to come out as "V_v", with
         no visible pair. And the letters rotate with the mode: in
@@ -1193,68 +1192,68 @@ class TestNomenclaturaEOrdemDasColunas(unittest.TestCase):
                           "V<sub>z</sub>")
         self.assertEqual(api.summary_symbol("Vz", True)[0], "V<sub>x</sub>")
 
-    def test_nenhum_simbolo_de_componente_fica_sem_subscrito(self):
+    def test_no_component_symbol_is_left_without_subscript(self):
         """There is no longer a bare "mu_x" or "J_x": every advance ratio
         states which AXIS it belongs to, in both modes."""
-        for modo in (False, True):
-            for chave in ("mu_x", "J_x", "mu_z", "J_z"):
-                with self.subTest(propeller=modo, chave=chave):
-                    simbolo = api.summary_symbol(chave, modo)[0]
-                    self.assertIn("<sub>", simbolo, f"{chave} sem subscrito")
+        for mode in (False, True):
+            for key in ("mu_x", "J_x", "mu_z", "J_z"):
+                with self.subTest(propeller=mode, key=key):
+                    symbol = api.summary_symbol(key, mode)[0]
+                    self.assertIn("<sub>", symbol, f"{key} without subscript")
 
-    def test_a_velocidade_total_nao_e_um_clone_da_do_escoamento_livre(self):
+    def test_total_velocity_is_not_a_clone_of_the_freestream_one(self):
         """`Vz_total` (what crosses the disk) is `Vz + v_i`; while the two
         were called `Vv`/`Vz`, one repeated the other, occupying a column
         that promised a different quantity."""
-        s = self.resultado.summary
+        s = self.result.summary
         self.assertNotAlmostEqual(s["Vz_total"], s["Vz"], places=6)
 
-    def test_relatorio_usa_a_ordem_de_colunas_principais(self):
-        destino = os.path.join(self.tmp, "rel.html")
-        api.generate_report([self.resultado], destino, plots=[])
-        html = Path(destino).read_text(encoding="utf-8")
-        matriz = html.split("<details>")[0]
+    def test_report_uses_the_primary_column_order(self):
+        dest = os.path.join(self.tmp, "rel.html")
+        api.generate_report([self.result], dest, plots=[])
+        html = Path(dest).read_text(encoding="utf-8")
+        matrix = html.split("<details>")[0]
         # `rotor_rpm` disappears when it is `rpm` again (see
         # `_rotor_rpm_e_redundante`) -- the matrix's effective list is
-        # what `_chaves_ordenadas` returns, not the raw tuple.
-        ordenadas, _ = api.summary_keys_union([self.resultado])
-        posicoes = []
-        for chave in ordenadas:
-            simbolo, _ = api.SUMMARY_SYMBOLS[chave]
-            marca = f">{simbolo}</th>"
-            self.assertIn(marca, matriz, f"{chave} fora da matriz principal")
-            posicoes.append(matriz.index(marca))
-        self.assertEqual(posicoes, sorted(posicoes),
+        # what `_sorted_keys` returns, not the raw tuple.
+        ordered, _ = api.summary_keys_union([self.result])
+        positions = []
+        for key in ordered:
+            symbol, _ = api.SUMMARY_SYMBOLS[key]
+            mark = f">{symbol}</th>"
+            self.assertIn(mark, matrix, f"{key} outside the main matrix")
+            positions.append(matrix.index(mark))
+        self.assertEqual(positions, sorted(positions),
                           "the report matrix does not follow SUMMARY_PRIMARY_KEYS")
 
 
-class TestExportacaoDePlotsNaoSobrescreve(unittest.TestCase):
+class TestPlotExportDoesNotOverwrite(unittest.TestCase):
     """Exporting twice to the SAME folder must not erase the first one.
 
     `export_results_tabular` had always gone through
-    `_caminho_sem_sobrescrever`; `_result_plot_path` did not. Exporting a
+    `_path_without_overwrite`; `_result_plot_path` did not. Exporting a
     case's disk maps, adjusting something, and exporting again would
     erase the previous figure without a word -- the same class of silent
     loss as the bug where N same-named conditions landed in the same
     file."""
 
-    def test_segunda_exportacao_nao_apaga_a_primeira(self):
+    def test_second_export_does_not_erase_the_first(self):
         with tempfile.TemporaryDirectory() as d:
             project = _make_fast_project(os.path.join(d, "proj"))
             res = api.run_case(project, FlightCondition(
                 name="c", mu_x=0.1, collective_deg=8.0, rpm=600.0))
             outdir = os.path.join(d, "out")
-            primeira = api.export_results([res], outdir=outdir,
-                                           plots=["disk_map_CT"], save_csv=False)
-            segunda = api.export_results([res], outdir=outdir,
-                                          plots=["disk_map_CT"], save_csv=False)
-            self.assertTrue(primeira and segunda)
-            self.assertNotEqual(set(primeira), set(segunda),
+            first = api.export_results([res], outdir=outdir,
+                                        plots=["disk_map_CT"], save_csv=False)
+            second = api.export_results([res], outdir=outdir,
+                                         plots=["disk_map_CT"], save_csv=False)
+            self.assertTrue(first and second)
+            self.assertNotEqual(set(first), set(second),
                                  "the second export reused the same files")
-            for f in primeira + segunda:
+            for f in first + second:
                 self.assertTrue(Path(f).exists(), f)
 
-    def test_nomes_continuam_estaveis_dentro_de_uma_exportacao(self):
+    def test_names_stay_stable_within_one_export(self):
         """The anti-overwrite mechanism must not scatter a case's 12
         fields across `(2)`, `(3)`...: each field has its own base name,
         so none collides with the previous one WITHIN the same export."""
@@ -1262,32 +1261,32 @@ class TestExportacaoDePlotsNaoSobrescreve(unittest.TestCase):
             project = _make_fast_project(os.path.join(d, "proj"))
             res = api.run_case(project, FlightCondition(
                 name="c", mu_x=0.1, collective_deg=8.0, rpm=600.0))
-            escritos = api.export_results([res], outdir=os.path.join(d, "out"),
-                                           plots=["disk_map"], save_csv=False)
-            self.assertTrue(escritos)
-            self.assertFalse([f for f in escritos if " (2)" in f],
-                             "a clean export should not have a suffix")
+            written = api.export_results([res], outdir=os.path.join(d, "out"),
+                                          plots=["disk_map"], save_csv=False)
+            self.assertTrue(written)
+            self.assertFalse([f for f in written if " (2)" in f],
+                              "a clean export should not have a suffix")
 
 
-class TestPastaDeSaidaDoProjeto(unittest.TestCase):
+class TestProjectOutputsDir(unittest.TestCase):
     """`<project>/outputs` was hardcoded in Run Case, Run Batch,
     Results and in the CLI. `api.project_outputs_dir` is the canonical definition --
     the same that `models.default_project_paths` already provided, now public."""
 
-    def test_aceita_projeto_e_caminho(self):
+    def test_accepts_project_and_path(self):
         with tempfile.TemporaryDirectory() as d:
-            projeto = _make_fast_project(os.path.join(d, "proj"))
-            esperado = str(Path(d) / "proj" / "outputs")
-            self.assertEqual(api.project_outputs_dir(projeto), esperado)
-            self.assertEqual(api.project_outputs_dir(os.path.join(d, "proj")), esperado)
+            project = _make_fast_project(os.path.join(d, "proj"))
+            expected = str(Path(d) / "proj" / "outputs")
+            self.assertEqual(api.project_outputs_dir(project), expected)
+            self.assertEqual(api.project_outputs_dir(os.path.join(d, "proj")), expected)
 
-    def test_sem_projeto_cai_no_mesmo_fallback_de_sempre(self):
+    def test_without_project_falls_back_to_the_same_fallback_as_always(self):
         """Unsaved project continues exporting (to relative `outputs/`)
         instead of crashing."""
         self.assertEqual(api.project_outputs_dir(None), "outputs")
         self.assertEqual(api.project_outputs_dir(Project(name="x")), "outputs")
 
-    def test_create_cria_a_pasta(self):
+    def test_create_creates_the_folder(self):
         with tempfile.TemporaryDirectory() as d:
-            destino = api.project_outputs_dir(os.path.join(d, "novo"), create=True)
-            self.assertTrue(Path(destino).is_dir())
+            dest = api.project_outputs_dir(os.path.join(d, "new"), create=True)
+            self.assertTrue(Path(dest).is_dir())

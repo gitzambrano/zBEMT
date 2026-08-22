@@ -26,8 +26,8 @@ from PyQt6.QtCore import pyqtSignal
 from ... import api
 from ...bemt import BEMTConfig
 
-from ..common import AppState, show_error, require_project, definir_linha_visivel
-from ..widgets import SpinBoxCientifico
+from ..common import AppState, show_error, require_project, set_row_visible
+from ..widgets import ScientificSpinBox
 
 
 # =============================================================================
@@ -39,10 +39,10 @@ from ..widgets import SpinBoxCientifico
 # =============================================================================
 
 class ConfigMotorTab(QWidget):
-    # Inflow coupling is today FIXED per family -- there is no real
+    # Inflow coupling is today FIXED per family. There is no real
     # choice to offer (glauert/coleman/drees only have "local"
     # implemented; pitt_peters only has "steady"). That's why there is
-    # no more "Type:" combo in the GUI (removed -- see
+    # no more "Type:" combo in the GUI (removed, see
     # docs/CHANGELOG.md): a combo with a single option is not a choice,
     # it's noise. The engine (bemt.py) still accepts "global" in old
     # configs for backward compatibility; only the GUI no longer offers
@@ -62,7 +62,7 @@ class ConfigMotorTab(QWidget):
         self._dirty = False
         self._refreshing_from_project = False
         # True while an edit IN THIS TAB is being written back into
-        # `state.project.config` -- prevents `_refresh_config_from_project`
+        # `state.project.config`. That prevents `_refresh_config_from_project`
         # (connected to `config_changed`, which the write itself
         # triggers) from rebuilding the form from what just came out of
         # it, and avoids clearing the asterisk before the user sees that
@@ -97,11 +97,11 @@ class ConfigMotorTab(QWidget):
         btn_row = QHBoxLayout()
         # No "Apply to project": every field already writes into
         # `state.project.config` live, on each edit (see
-        # `_on_field_changed`) -- "Save"/"Restore" only decide whether
+        # `_on_field_changed`). "Save"/"Restore" only decide whether
         # that goes to disk or is discarded, not whether it reaches
         # memory anymore. One-word labels: the pair is always read
         # together, and "Save project"/"Restore from disk" only repeated
-        # on each button what the whole block already says -- besides
+        # on each button what the whole block already says, besides
         # "Restore from disk" not fitting the button's natural width and
         # coming out with the text cut off.
         btn_save = QPushButton("Save")
@@ -116,7 +116,7 @@ class ConfigMotorTab(QWidget):
         # (`_on_field_changed`), on every project switch, and on every
         # config change coming from another tab (see the connections
         # below), so the button only repeated what the screen already
-        # shows -- and a "validate" button next to an always-updated
+        # shows, and a "validate" button next to an always-updated
         # warnings panel suggests the warnings could be stale, which is
         # the opposite of what happens. Same decision already made for
         # "Check airfoil" in the Airfoil tab.
@@ -141,7 +141,7 @@ class ConfigMotorTab(QWidget):
 
         # Applies live + "not saved to disk" asterisk: generically
         # connects ALL value widgets already built above, instead of
-        # listing the ~27 fields one by one -- a new field is
+        # listing the about 27 fields one by one. A new field is
         # automatically covered without having to remember to add it
         # here.
         for w in self.findChildren(QSpinBox):
@@ -231,7 +231,7 @@ class ConfigMotorTab(QWidget):
     #
     # SEPARATE blocks. While the two shared the "Inflow model and
     # Prandtl loss" box, the block help could only point to one of the
-    # two -- `app._BLOCOS` matches the title -- and the content written
+    # two: `app._BLOCKS` matches the title, and the content written
     # about tip/root loss became unreachable in the window, with no
     # error at all. These are two distinct physics: one distributes the
     # induced velocity over the disk, the other corrects the continuous-
@@ -271,7 +271,7 @@ class ConfigMotorTab(QWidget):
     def _update_pitt_peters_visibility(self, family: str):
         """Progressive disclosure (docs/plano.md Section 5): the
         Pitt-Peters block only appears when the inflow family is
-        'pitt_peters' — hidden (not just disabled) otherwise."""
+        'pitt_peters'. It is hidden (not just disabled) otherwise."""
         self.pitt_peters_box.setVisible(family == "pitt_peters")
 
     def _inflow_field_model_from_widgets(self) -> str:
@@ -293,7 +293,7 @@ class ConfigMotorTab(QWidget):
                 "This project uses inflow_field_model with 'global' coupling, which is no longer "
                 "offered in this tab. When applying any changes here, the value saved in "
                 "project.config will use 'local' (glauert/coleman/drees) or 'steady' "
-                "(Pitt-Peters) -- the only coupling offered today.")
+                "(Pitt-Peters), the only coupling offered today.")
         self.cfg_inflow_family.blockSignals(True)
         self.cfg_inflow_family.setCurrentText(family)
         self.cfg_inflow_family.blockSignals(False)
@@ -327,7 +327,7 @@ class ConfigMotorTab(QWidget):
     def _update_radial_flow_visibility(self, on: bool):
         """Progressive disclosure: radial_flow_max_skew_deg only appears
         when use_radial_flow_correction is on."""
-        definir_linha_visivel(self._radial_flow_form, self.cfg_radial_flow_max_skew_deg, on)
+        set_row_visible(self._radial_flow_form, self.cfg_radial_flow_max_skew_deg, on)
 
     # --- 9) Pitt-Peters ---------------------------------------------------
 
@@ -342,7 +342,7 @@ class ConfigMotorTab(QWidget):
         self.cfg_pitt_peters_relax = QDoubleSpinBox(); self.cfg_pitt_peters_relax.setRange(0.01, 1.0); self.cfg_pitt_peters_relax.setDecimals(3)
         self.cfg_pitt_peters_relax.setSingleStep(0.01)
         self.cfg_pitt_peters_relax.setToolTip('"pitt_peters_relax" — relaxation factor for the outer Pitt-Peters loop')
-        self.cfg_pitt_peters_tol = SpinBoxCientifico(); self.cfg_pitt_peters_tol.setRange(1e-10, 1e-2)
+        self.cfg_pitt_peters_tol = ScientificSpinBox(); self.cfg_pitt_peters_tol.setRange(1e-10, 1e-2)
         self.cfg_pitt_peters_tol.setToolTip('"pitt_peters_tol" — convergence tolerance for the outer Pitt-Peters loop')
         form.addRow("Maximum outer iterations:", self.cfg_pitt_peters_outer_iter)
         form.addRow("Relaxation factor:", self.cfg_pitt_peters_relax)
@@ -364,7 +364,7 @@ class ConfigMotorTab(QWidget):
         form.addRow("Iterative algorithm:", self.cfg_solver)
         self.cfg_max_iter = QSpinBox(); self.cfg_max_iter.setRange(1, 5000)
         self.cfg_max_iter.setToolTip('"max_iter" — maximum number of iterations per element')
-        self.cfg_tol = SpinBoxCientifico(); self.cfg_tol.setRange(1e-12, 1e-2)
+        self.cfg_tol = ScientificSpinBox(); self.cfg_tol.setRange(1e-12, 1e-2)
         self.cfg_tol.setToolTip('"tol" — convergence tolerance for νi residual')
         self.cfg_relax = QDoubleSpinBox(); self.cfg_relax.setRange(0.01, 1.0); self.cfg_relax.setDecimals(3)
         self.cfg_relax.setSingleStep(0.01)
@@ -433,13 +433,13 @@ class ConfigMotorTab(QWidget):
         if self._applying_locally:
             # This tab itself just wrote into `state.project.config`
             # (see `_on_field_changed`), which triggered `config_changed`
-            # and called this method back -- rebuilding the form from
+            # and called this method back. Rebuilding the form from
             # what just came out of it is redundant and would clear the
             # asterisk before the user saves to disk.
             return
         # Populating the widgets from the project triggers the same
         # valueChanged/toggled/currentTextChanged that a manual user edit
-        # would trigger -- without this guard, opening/switching a
+        # would trigger. Without this guard, opening/switching a
         # project would mark the tab as "edited" right away, a false
         # positive.
         self._refreshing_from_project = True
@@ -468,7 +468,7 @@ class ConfigMotorTab(QWidget):
             # Display migration (docs/plano.md GUI v3, Phase B): the
             # actual value in project.config is only rewritten when the
             # user clicks "Apply to project" (same spirit as the inflow
-            # migration above) -- studies._migrate_config_dict already
+            # migration above). studies._migrate_config_dict already
             # does the same when running the engine, regardless of
             # whether the GUI was ever opened.
             cfg["prandtl_loss_mode"] = "both" if cfg["use_prandtl_loss"] else "off"
@@ -546,7 +546,7 @@ class ConfigMotorTab(QWidget):
         """Kept for compatibility with direct calls (tests, scripts):
         every field already applies live via `_on_field_changed` (there
         is no more "Apply to project" button in the GUI), so this is
-        merely idempotent -- reapplies the widgets' current values."""
+        merely idempotent: it reapplies the widgets' current values."""
         if not require_project(self, self.state):
             return
         try:
@@ -578,6 +578,6 @@ class ConfigMotorTab(QWidget):
             self._refresh_config_from_project()
         # The check also runs here: without this, a freshly opened
         # project would leave the warnings panel EMPTY until the first
-        # edit -- and empty, there, reads as "no problems".
+        # edit, and empty, there, reads as "no problems".
         self._validate_config_display()
 

@@ -33,8 +33,8 @@ from .bemt import (
 # a) Aerodynamic model
 # =============================================================================
 
-#: Reference radial station for the Reynolds/Mach that selects the
-#: tabulated polar. r/R=0.75 is the usual convention in rotors (it is
+#: Reference radial station for the Reynolds and Mach numbers that select
+#: the tabulated polar. r/R=0.75 is the usual convention in rotors (it is
 #: where the bulk of the load sits: the annulus area grows with r and so
 #: does the velocity, so the contribution per unit radius weighs heaviest
 #: around 3/4 of the blade).
@@ -47,7 +47,7 @@ def reference_reynolds_mach(rotor, cfg, mu_x: float = 0.0) -> tuple:
 
     Returns ``(reynolds, mach)`` evaluated at the ``REFERENCE_RADIUS_NORM``
     station with the tangential velocity ``Omega*r`` added to the advance
-    ``mu_x*Omega*R`` -- i.e. the velocity that the reference section sees
+    ``mu_x*Omega*R``, that is, the velocity that the reference section sees
     on average over the revolution.
 
     Use ``radial_reynolds_mach`` when what matters is the whole radial
@@ -73,25 +73,25 @@ def radial_reynolds_mach(rotor, cfg, mu_x: float = 0.0, r_norms=None) -> tuple:
     """RADIAL profile of Reynolds and Mach along the blade.
 
     Returns ``(r_norms, reynolds, mach)`` as arrays, evaluated with the
-    tangential velocity ``Omega*r*R`` added to the advance ``mu_x*Omega*R``
-    -- the velocity that each section sees on average over the revolution
-    -- and with the dimensional chord of that section:
+    tangential velocity ``Omega*r*R`` added to the advance ``mu_x*Omega*R``,
+    the velocity that each section sees on average over the revolution,
+    and with the dimensional chord of that section:
 
         Re(r) = U(r) * c(r) / nu_air        Mach(r) = U(r) / a_sound
 
     Why per section and not a single value for the whole blade: ``U`` and
     ``c`` vary with radius, so the tip Reynolds can reach an order of
     magnitude higher than the root's. A single polar chosen from an
-    average Re misses at both ends of the range -- and the root is
-    exactly where low Reynolds changes Cd the most.
+    average Re misses at both ends of the range. The root is also exactly
+    where low Reynolds changes Cd the most.
 
     Remaining LIMITATION: this is one value per RADIAL SECTION, not per
     element (r, psi). The azimuthal variation of ``U`` (±mu_x in advance)
     does not enter the slice choice, because the airfoil object is built
-    once per solve, before a solution exists; and the exact local
-    Reynolds depends on the converged induced velocity -- a circular
-    dependency. The radial component, which is the dominant one, is
-    handled.
+    once per solve, before a solution exists. Also, the exact local
+    Reynolds depends on the converged induced velocity, which is a
+    circular dependency. The radial component, which is the dominant one,
+    is handled.
     """
     omega_R = float(rotor.OmegaR)
     if omega_R <= 1e-9:
@@ -120,14 +120,14 @@ def radial_reynolds_mach(rotor, cfg, mu_x: float = 0.0, r_norms=None) -> tuple:
 
 #: Radial stations used by `suggest_reynolds_mach_lists` to BRACKET the
 #: operating point: useful root, reference (3/4) and tip. Not an
-#: aesthetic choice -- Re and Mach grow monotonically with radius, so
+#: aesthetic choice. Re and Mach grow monotonically with radius, so
 #: these three stations are exactly the minimum, the representative
 #: value, and the maximum of the envelope the blade sees.
 SUGGESTION_STATIONS = (0.4, REFERENCE_RADIUS_NORM, 1.0)
 
 
 def _arredondar_para_2_sig(v: float) -> float:
-    """Rounds to 2 significant figures -- a suggestion is an ESTIMATE,
+    """Rounds to 2 significant figures. A suggestion is an ESTIMATE,
     and '1.9e5' communicates that better than '187342.7'."""
     if not math.isfinite(v) or v == 0.0:
         return 0.0
@@ -149,17 +149,17 @@ def suggest_reynolds_mach_lists(geometry_def, rpm: float, nu_air: float = 1.46e-
 
         U(r) = (rpm·2π/60)·R·(r/R + |mu_x|)   Re(r) = U·c(r)/ν   M(r) = U/a
 
-    evaluated at the three stations of `stations` (useful root / 3/4 /
-    tip), which makes the list BRACKET the operating point instead of
-    pinning a single one. Returns ``{"reynolds": [...], "mach": [...]}``
-    with sorted, unique values rounded to 2 significant figures. Returns
-    empty lists when there is no geometry or the RPM is zero -- does not
-    raise: it is a suggestion, and its absence must not prevent the GUI
-    from opening.
+    evaluated at the three stations of `stations` (the useful root, the
+    reference station at 3/4, and the tip), which makes the list BRACKET
+    the operating point instead of pinning a single one. Returns
+    ``{"reynolds": [...], "mach": [...]}`` with sorted, unique values
+    rounded to 2 significant figures. Returns empty lists when there is
+    no geometry or the RPM is zero. It does not raise: it is a
+    suggestion, and its absence must not prevent the GUI from opening.
 
     ``mu_x``: advance ratio of the reference condition. Enters through
-    the same ``+|mu_x|`` term as `radial_reynolds_mach` -- it is the
-    average velocity the section sees over a revolution, not just the
+    the same ``+|mu_x|`` term as `radial_reynolds_mach`, because it is
+    the average velocity the section sees over a revolution, not just the
     tangential one. Without it the suggestion was the same in hover and
     at mu_x=0.4, where the advancing blade sees 40% more velocity (and
     therefore more Reynolds and Mach): the suggested list underestimated
@@ -204,12 +204,12 @@ def build_analytical(airfoil_def: AirfoilDef) -> AnalyticalAirfoil:
     AirfoilDef parameters. Does not look at `table_slices`.
 
     `stall_model='viterna'` does not exist as an engine model in
-    `bemt.AnalyticalAirfoil` (which only knows linear/clip/enhanced) -- it
+    `bemt.AnalyticalAirfoil` (which only knows linear/clip/enhanced). It
     is an `AirfoilDef`-only option, resolved here to the 'linear' base
-    curve (no clamp, keeps rising past stall -- see
-    `bemt.ViternaExtendedAirfoil`), which is later wrapped by the
-    Viterna-Corrigan extension in `to_airfoil()` via
-    `models.uses_full_range_extension`.
+    curve (no clamp, keeps rising past stall). The base curve is later
+    wrapped by the Viterna-Corrigan extension in `to_airfoil()` via
+    `models.uses_full_range_extension`. For the full behavior see
+    `bemt.ViternaExtendedAirfoil`.
     """
     engine_stall_model = "linear" if airfoil_def.stall_model == "viterna" else airfoil_def.stall_model
     return AnalyticalAirfoil(
@@ -226,9 +226,9 @@ def build_analytical(airfoil_def: AirfoilDef) -> AnalyticalAirfoil:
 def _slices_axes(slices: list[PolarSlice]) -> dict:
     """Detects which extra axes (besides alpha) are present in the list of
     PolarSlice: r_norm (multi-section) and/or reynolds/mach. Reynolds and
-    Mach still have no dedicated solver in bemt.py; when present, the
+    Mach still have no dedicated solver in bemt.py. When present, the
     slice closest to the requested condition is chosen when building the
-    TableAirfoil (see `_select_slice_for_condition`), and the axis is
+    TableAirfoil (see `_select_slice_for_condition`). The axis is
     recorded here only so the GUI can show the user what was detected."""
     has_r = any(s.r_norm is not None for s in slices)
     has_re = any(s.reynolds is not None for s in slices)
@@ -243,22 +243,22 @@ def build_table(airfoil_def: AirfoilDef, reynolds: Optional[float] = None,
 
     When the table has a Reynolds and/or Mach axis, the slice used is the
     one closest to the requested condition (`_select_slice_for_condition`).
-    Real interpolation BETWEEN Reynolds/Mach slices remains future work;
-    today it is nearest neighbor.
+    Real interpolation BETWEEN Reynolds and Mach slices remains future
+    work. Today it is nearest neighbor.
 
     There are two ways to inform the condition:
 
-    - ``radial=(r_norms, reynolds_array, mach_array)`` -- PREFERRED, and
+    - ``radial=(r_norms, reynolds_array, mach_array)``: PREFERRED, and
       what the engine uses. Each radial station picks ITS OWN slice, with
       the Reynolds and Mach of that section (see `radial_reynolds_mach`).
       Since Re grows nearly linearly with radius, root and tip end up on
       different polars, which is the physically correct behavior.
-    - scalar ``reynolds``/``mach`` -- a single pair for the whole blade.
+    - scalar ``reynolds`` or ``mach``: a single pair for the whole blade.
       Used by the GUI preview and by anyone who just wants one
       representative polar.
 
     WARNING: if nothing is informed, EVERY slice scores 0.0 on the
-    proximity criterion and the FIRST one is returned -- the table's
+    proximity criterion and the FIRST one is returned. The table's
     extra axes get silently ignored. It was exactly this omission in
     `to_blade_airfoil` that made an N Re x M Mach NeuralFoil sweep
     collapse into a single polar.
@@ -274,7 +274,7 @@ def build_table(airfoil_def: AirfoilDef, reynolds: Optional[float] = None,
     if not axes["r_norm"]:
         # Table without its own radial axis. If it varies with Re/Mach
         # and we have the condition's radial profile, each station picks
-        # its own slice and the result becomes multi-section -- the
+        # its own slice and the result becomes multi-section, so the
         # radial variation of Reynolds starts to show up in Cl/Cd,
         # instead of a single polar for the whole blade.
         if has_extra_axis and radial_ok:
@@ -324,7 +324,7 @@ def _sections_from_radial_profile(slices: list[PolarSlice], radial: tuple) -> di
     (plus the edges), instead of one per sampled station: the
     `MultiSectionTableAirfoil` interpolates between the sections it
     receives, and repeating the same polar at neighboring stations adds
-    no information -- only assembly cost."""
+    no information, only assembly cost."""
     r_norms = radial[0]
     sections: dict = {}
     anterior = None
@@ -356,10 +356,10 @@ def _select_slice_for_condition(slices: list[PolarSlice], reynolds: Optional[flo
 def apply_viterna_extension(base_airfoil, airfoil_def: AirfoilDef) -> ViternaExtendedAirfoil:
     """Used for `source='analytical'` (or 'external'): there is no real
     table from which to detect CLmax/CLmin, so the stall angles come from
-    `airfoil_def.alpha_stall_pos_deg/neg_deg` (the transition to Viterna
-    is still smoothed by `viterna_blend_width_deg` -- see
-    `bemt.ViternaExtendedAirfoil` -- only anchored on these informed
-    angles, instead of detected ones)."""
+    `airfoil_def.alpha_stall_pos_deg/neg_deg`. The transition to Viterna
+    is still smoothed by `viterna_blend_width_deg`, as in
+    `bemt.ViternaExtendedAirfoil`, but anchored on these informed
+    angles instead of detected ones."""
     return ViternaExtendedAirfoil(
         base_airfoil,
         alpha_stall_pos_deg=airfoil_def.alpha_stall_pos_deg,
@@ -369,16 +369,16 @@ def apply_viterna_extension(base_airfoil, airfoil_def: AirfoilDef) -> ViternaExt
 
 
 def blend_table_with_viterna(table_airfoil, airfoil_def: AirfoilDef) -> ViternaExtendedAirfoil:
-    """'Blend' = real table preserved ENTIRELY across its whole range
-    (never overwritten) + Viterna-Corrigan smoothly fitted only beyond
-    the last real data point on each side. CLmax/CLmin and the
-    corresponding stall angles are detected automatically from the table
-    itself (`alpha_stall_pos_deg=None, alpha_stall_neg_deg=None` forces
-    the auto-detection mode in `ViternaExtendedAirfoil` -- see its
-    docstring); the analytical fields `airfoil_def.alpha_stall_pos_deg/
-    neg_deg` are deliberately NOT used here, since they make no sense
-    for a real table (they only apply to `source='analytical'`, in
-    `apply_viterna_extension`)."""
+    """'Blend' means that the real table is preserved ENTIRELY across its
+    whole range (never overwritten), and Viterna-Corrigan is smoothly
+    fitted only beyond the last real data point on each side.
+    CLmax/CLmin and the corresponding stall angles are detected
+    automatically from the table itself (`alpha_stall_pos_deg=None,
+    alpha_stall_neg_deg=None` forces the auto-detection mode in
+    `ViternaExtendedAirfoil`, see its docstring). The analytical fields
+    `airfoil_def.alpha_stall_pos_deg/neg_deg` are deliberately NOT used
+    here, since they make no sense for a real table. They only apply to
+    `source='analytical'`, in `apply_viterna_extension`."""
     return ViternaExtendedAirfoil(
         table_airfoil,
         alpha_stall_pos_deg=None,
@@ -392,8 +392,8 @@ def _attach_dynamic_stall_params(airfoil, airfoil_def: AirfoilDef):
     as an attribute of the already-built engine object
     (`airfoil.dynamic_stall_params`).
 
-    See docs/plano_v2.md Section 2.4/6.3 (Finding #1): this is the ONLY
-    copy of these parameters -- `bemt.py` (`solve_bemt`/
+    See docs/plano_v2.md Sections 2.4 and 6.3 (Finding #1): this is the
+    ONLY copy of these parameters. `bemt.py` (`solve_bemt`/
     `apply_dynamic_stall`) reads from here when present, and only falls
     back to the like-named fields of `BEMTConfig` for backward
     compatibility with scripts that build `BEMTConfig` by hand without
@@ -415,7 +415,7 @@ def to_airfoil(airfoil_def: AirfoilDef, reynolds: Optional[float] = None,
     """Single bridge function: AirfoilDef -> object ready for bemt.py.
 
     Decides on its own, from `source`/`extend_full_range`, which
-    combination of engine classes to instantiate -- "extend" (analytical)
+    combination of engine classes to instantiate. "Extend" (analytical)
     vs "paste/blend" (table) is derived from `source`, no longer a
     separate user choice (docs/plano_v2.md Section 2.4/Finding #3). Also
     attaches `dynamic_stall_params` to the returned object (Finding #1).
@@ -448,11 +448,11 @@ def to_airfoil(airfoil_def: AirfoilDef, reynolds: Optional[float] = None,
 #: the engine marches once per solve, so method and number of
 #: revolutions apply to the whole blade. A, the fade angles and the
 #: on/off switch remain per section (`dynamic_stall_section_field`).
-_PARAMS_DE_PA = ("dynamic_stall_method", "dynamic_stall_time_march_revolutions",
-                 "dynamic_stall_time_march_avg_last")
+_BLADE_STALL_PARAMS = ("dynamic_stall_method", "dynamic_stall_time_march_revolutions",
+                       "dynamic_stall_time_march_avg_last")
 
 
-def _dynamic_stall_params_da_pa(ordered_defs: list) -> dict:
+def _blade_dynamic_stall_params(ordered_defs: list) -> dict:
     """Resolves the blade's global dynamic-stall parameters.
 
     It used to always read ``ordered_defs[0]`` and hard-code
@@ -460,66 +460,68 @@ def _dynamic_stall_params_da_pa(ordered_defs: list) -> dict:
     stall would hand back that root's parameters, and a project asking
     for ``time_march`` on every section got ``frequency`` with no
     warning. Now what counts is what the sections that actually TURN ON
-    dynamic stall say; if they disagree among themselves, the first one
+    dynamic stall say. If they disagree among themselves, the first one
     wins and the conflict is warned about (the engine only knows how to
     march one way)."""
-    ligadas = [d for d in ordered_defs if d.use_dynamic_stall]
-    if not ligadas:
+    stall_defs = [d for d in ordered_defs if d.use_dynamic_stall]
+    if not stall_defs:
         return {"use_dynamic_stall": False, "method": "frequency",
                 "time_march_revolutions": ordered_defs[0].dynamic_stall_time_march_revolutions,
                 "time_march_avg_last": ordered_defs[0].dynamic_stall_time_march_avg_last}
 
-    escolhida = ligadas[0]
-    for campo in _PARAMS_DE_PA:
-        valores = {getattr(d, campo) for d in ligadas}
-        if len(valores) > 1:
+    chosen = stall_defs[0]
+    for field in _BLADE_STALL_PARAMS:
+        values = {getattr(d, field) for d in stall_defs}
+        if len(values) > 1:
             warnings.warn(
                 f"to_blade_airfoil: sections with dynamic stall enabled disagree "
-                f"on '{campo}' ({sorted(map(str, valores))}). This parameter "
+                f"on '{field}' ({sorted(map(str, values))}). This parameter "
                 f"belongs to the blade, not to the section, because the engine "
                 f"marches once per solve. zBEMT uses "
-                f"{getattr(escolhida, campo)!r}, from section "
-                f"{escolhida.name or 'r_norm='}"
-                f"{escolhida.r_norm}.", UserWarning, stacklevel=3)
+                f"{getattr(chosen, field)!r}, from section "
+                f"{chosen.name or 'r_norm='}"
+                f"{chosen.r_norm}.", UserWarning, stacklevel=3)
     return {
         "use_dynamic_stall": True,
-        "method": escolhida.dynamic_stall_method,
-        "time_march_revolutions": escolhida.dynamic_stall_time_march_revolutions,
-        "time_march_avg_last": escolhida.dynamic_stall_time_march_avg_last,
+        "method": chosen.dynamic_stall_method,
+        "time_march_revolutions": chosen.dynamic_stall_time_march_revolutions,
+        "time_march_avg_last": chosen.dynamic_stall_time_march_avg_last,
     }
 
 
 def to_blade_airfoil(airfoil_defs: list, reynolds: Optional[float] = None,
                       mach: Optional[float] = None, radial: Optional[tuple] = None):
     """Sister bridge function to ``to_airfoil()``, for the WHOLE BLADE
-    instead of a single ``AirfoilDef`` (docs/plano.md Section 4, Phase D
-    -- multi-section airfoil).
+    instead of a single ``AirfoilDef`` (docs/plano.md Section 4, Phase
+    D, multi-section airfoil).
 
     ``reynolds``/``mach`` are the REFERENCE pair of the flight condition
     (see ``reference_reynolds_mach``), passed on to each ``to_airfoil()``
     so that tables with a Reynolds/Mach axis pick the right slice.
     Without them, ``_select_slice_for_condition`` ties everything at 0.0
-    and always returns the first slice -- the table's extra axes would
+    and always returns the first slice. The table's extra axes would
     be silently ignored by the engine.
 
     - ``airfoil_defs`` with 0 or 1 element: delegates to the usual
       ``to_airfoil()`` (the single element, or a default ``AirfoilDef()``
-      if empty) -- the old path, no change in behavior or return type.
+      if empty). That is the old path, with no change in behavior or
+      return type.
     - ``airfoil_defs`` with 2+ elements (ALL needing ``r_norm`` defined):
       builds, for EACH section, the "normal" airfoil via
-      ``to_airfoil(section_def)`` -- each one free to be analytical,
-      tabulated, etc., freely mixed -- and wraps the result in a
+      ``to_airfoil(section_def)``, each one free to be analytical,
+      tabulated, or anything else, freely mixed. It then wraps the result
+      in a
       ``bemt.HeterogeneousMultiSectionAirfoil``, which interpolates the
       RESULTING Cl/Cd by r_norm (not each section's input parameters).
 
     Dynamic stall (Oye) IS applied section by section on the composite
     object: each section turns its own dynamic stall on/off and
-    parametrizes it (A, fade window) --
+    parametrizes it (A, fade window).
     ``composite.dynamic_stall_section_field`` carries these arrays by
     r_norm, read by
     ``bemt.apply_dynamic_stall``/``_dynamic_stall_section_param``. A
     section with ``use_dynamic_stall=False`` simply does not receive
-    the correction (it stays on the pure static polar there); the
+    the correction (it stays on the pure static polar there). The
     sections do not all need to agree.
     """
     defs = list(airfoil_defs) if airfoil_defs else []
@@ -538,7 +540,7 @@ def to_blade_airfoil(airfoil_defs: list, reynolds: Optional[float] = None,
         sections.append((float(section_def.r_norm), af))
 
     composite = HeterogeneousMultiSectionAirfoil(sections)
-    composite.dynamic_stall_params = _dynamic_stall_params_da_pa(ordered_defs)
+    composite.dynamic_stall_params = _blade_dynamic_stall_params(ordered_defs)
     composite.dynamic_stall_section_field = {
         "r_norms": np.array([float(d.r_norm) for d in ordered_defs]),
         "enabled": np.array([1.0 if d.use_dynamic_stall else 0.0 for d in ordered_defs]),
@@ -555,25 +557,25 @@ def preview_polar(airfoil_def: AirfoilDef, alpha_deg_range=(-30, 30, 1.0),
                    config: Optional[dict] = None, reverse: bool = False):
     """Returns (alpha_deg, Cl, Cd) for the preview plot in the Airfoil tab,
     without needing to run the BEMT. Used directly by the GUI (a preview
-    operation, does not go through api.py — see docs/plano.md Section 8,
+    operation, does not go through api.py, see docs/plano.md Section 8,
     final note).
 
     When ``use_compressibility=True`` and ``mach`` is not None, applies
     the Prandtl-Glauert correction (Cl /= β, Cd /= β, β = sqrt(1−M²))
-    identically to what ``bemt.py`` does in ``element_state`` — so the
+    identically to what ``bemt.py`` does in ``element_state``, so the
     preview reflects the real compressibility effect visible on the
     polar. (For source='table', the correction is applied to the raw
-    tabulated polar -- the table must NOT already have been corrected,
+    tabulated polar. The table must NOT already have been corrected,
     since bemt.py also corrects it on the fly.)
 
     ``config`` (the ``project.config`` dict) turns on the REVERSE FLOW
-    model -- calling the SAME two functions that `element_state` uses,
+    model, calling the SAME two functions that `element_state` uses,
     not a reimplementation. There are two because the five models act in
     two places: `bemt.reverse_flow_alpha_eff` decides AT WHICH ANGLE the
     polar is queried (`viterna_full_range`, `alpha_blending`) and
     `bemt.apply_reverse_flow_to_polar` post-processes the returned Cl/Cd
-    (`flat_plate`, `simple_flip`, `thin_plate_blend`). Calling only the
-    second one -- which was the previous state -- the first two models
+    (`flat_plate`, `simple_flip`, `thin_plate_blend`). In the previous
+    state only the second one was called. Then the first two models
     changed NOTHING in the plot even though they changed what the engine
     computed.
 
@@ -581,8 +583,8 @@ def preview_polar(airfoil_def: AirfoilDef, alpha_deg_range=(-30, 30, 1.0),
     direct one. Two readings to know:
 
     * for `thin_plate_blend` the two branches coincide (its blend is a
-      function of |alpha| only, see that function's docstring) -- that is
-      the model's design, not a preview defect;
+      function of |alpha| only, see that function's docstring). That is
+      the model's design, not a preview defect.
     * `alpha_blending` is drawn at the SATURATED LIMIT of the reverse
       region (`bemt.UT_NORMALIZADO_DE_PREVIA`): its factor depends on Ut,
       and a polar, being a function of alpha alone, has no way to show
@@ -596,20 +598,20 @@ def preview_polar(airfoil_def: AirfoilDef, alpha_deg_range=(-30, 30, 1.0),
     mach_arr = np.full_like(alpha_rad, mach) if mach is not None else None
 
     cfg = None
-    alpha_consulta = alpha_rad
-    mascara_reversa = np.full(alpha_rad.shape, bool(reverse))
+    alpha_query = alpha_rad
+    reverse_mask = np.full(alpha_rad.shape, bool(reverse))
     if config is not None:
         from .studies import _build_config
         cfg = _build_config(config)
-        alpha_consulta = np.asarray(
-            reverse_flow_alpha_eff(alpha_rad, mascara_reversa, cfg), dtype=float)
+        alpha_query = np.asarray(
+            reverse_flow_alpha_eff(alpha_rad, reverse_mask, cfg), dtype=float)
 
-    cl, cd = af.cl_cd(alpha_consulta, mach_arr)
+    cl, cd = af.cl_cd(alpha_query, mach_arr)
     cl = np.asarray(cl, dtype=float)
     cd = np.asarray(cd, dtype=float)
 
     if cfg is not None:
-        cl, cd = apply_reverse_flow_to_polar(cl, cd, alpha_rad, mascara_reversa, cfg)
+        cl, cd = apply_reverse_flow_to_polar(cl, cd, alpha_rad, reverse_mask, cfg)
         cl = np.asarray(cl, dtype=float)
         cd = np.asarray(cd, dtype=float)
 
@@ -638,7 +640,7 @@ def unique_conditions(airfoil_def: AirfoilDef) -> list[dict]:
 
 def axis_values(airfoil_def: AirfoilDef) -> dict:
     """Returns, for r_norm/reynolds/mach, the sorted list of distinct
-    values present in `table_slices` -- used by the embedded canvas of
+    values present in `table_slices`. It is used by the embedded canvas of
     the Airfoil tab (plano_v3.md Part 5) to decide which navigation
     controls to draw (progressive disclosure: an axis with <2 values
     generates no control) and to populate each one. Empty
@@ -680,7 +682,7 @@ def condition_label(cond: dict) -> str:
     The condition's (Re, Mach, r/R) ALWAYS comes first, and the slice's
     ``label`` (when it exists) sits in parentheses as the source
     identity. Previously, a non-empty ``label`` was returned alone and
-    won over everything -- and slices generated by NeuralFoil share a
+    won over everything. Slices generated by NeuralFoil share a
     single label ("neuralfoil:naca4 2412", built from the GEOMETRY, which
     is the same for all of them), so a whole Re×Mach sweep went to the
     plot with N curves sharing the same legend, with no way to tell which
@@ -692,11 +694,11 @@ def condition_label(cond: dict) -> str:
         parts.append(f"Re={cond['reynolds']:.3g}")
     if cond.get("mach") is not None:
         parts.append(f"M={cond['mach']:.2f}")
-    condicao = ", ".join(parts)
+    condition = ", ".join(parts)
     label = cond.get("label") or ""
-    if condicao and label:
-        return f"{condicao} ({label})"
-    return condicao or label or "single polar"
+    if condition and label:
+        return f"{condition} ({label})"
+    return condition or label or "single polar"
 
 
 #: Historical alias: the function was private before the GUI needed to
@@ -711,11 +713,11 @@ def preview_polar_multi(airfoil_def: AirfoilDef, conditions: Optional[list[dict]
                           use_compressibility: bool = False) -> list[dict]:
     """Returns a list of curves ``{label, alpha_deg, cl, cd}`` for overlay
     in the Airfoil tab preview (Cl(alpha)/Cd(alpha) as a function of
-    Reynolds and/or Mach — see docs/plano.md Section 8.3-d).
+    Reynolds and/or Mach, see docs/plano.md Section 8.3-d).
 
     - If ``airfoil_def.source == 'table'`` and ``conditions`` is given
       (one or more entries from ``unique_conditions``), returns one curve
-      per condition, using the polar closest to that (Re, Mach) —
+      per condition, using the polar closest to that (Re, Mach). This is
       exactly the same selection logic used in ``to_airfoil`` when
       actually running the BEMT, so the preview is faithful to what will
       be used.
@@ -784,10 +786,10 @@ def detect_csv_axes(path: str) -> dict:
 
 def import_polar_csv(path: str, column_map: Optional[dict] = None) -> list[PolarSlice]:
     """Imports a polar CSV, automatically detecting which axes (r_norm,
-    reynolds, mach) are present, and returns a list of `PolarSlice` — one
+    reynolds, mach) are present, and returns a list of `PolarSlice`, one
     per unique combination of (r_norm, reynolds, mach) found in the file.
     `column_map`, if given, overrides the automatic detection
-    (e.g.: {"alpha_deg": "AOA[deg]"})."""
+    (for example: {"alpha_deg": "AOA[deg]"})."""
     df = pd.read_csv(path)
     cols = dict((k, _match_column(df.columns, k)) for k in _COLUMN_ALIASES)
     if column_map:
@@ -807,7 +809,7 @@ def import_polar_csv(path: str, column_map: Optional[dict] = None) -> list[Polar
         # dropna=False is essential here: `export_polar_csv` always writes
         # the r_norm/reynolds/mach columns (even when None -> NaN in the
         # CSV), and pandas' DEFAULT behavior is to drop groups whose key
-        # has NaN -- without this, re-importing a CSV exported by this
+        # has NaN. Without this, re-importing a CSV exported by this
         # very platform silently returned 0 slices whenever
         # reynolds/mach were not used (bug caught by the export->import
         # roundtrip test in tests/test_airfoils.py).
@@ -847,7 +849,7 @@ def export_polar_slices_csv(slices: list[PolarSlice], path: str) -> Path:
     Cd, r_norm, reynolds, mach``). Low-level function used both by
     ``export_polar_csv`` (below, from an already-built ``AirfoilDef``)
     and by ``api.export_polar_table`` (Phase 7, from the direct return of
-    ``external_solvers.run_polar`` — without needing an
+    ``external_solvers.run_polar``, without needing an
     ``AirfoilDef``/project to generate and export a table)."""
     rows = []
     for s in slices:
@@ -876,7 +878,7 @@ def generate_naca4(code: str = "0012", n_points: int = 200) -> ProfileGeometry:
     position/10, XX=max thickness %chord)."""
     code = code.strip()
     if len(code) != 4 or not code.isdigit():
-        raise ValueError(f"Invalid NACA4 code: {code!r} (expected 4 digits, e.g. '2412')")
+        raise ValueError(f"Invalid NACA4 code: {code!r} (expected 4 digits, for example '2412')")
     m = int(code[0]) / 100.0
     p = int(code[1]) / 10.0
     t = int(code[2:]) / 100.0
@@ -917,7 +919,7 @@ def generate_naca5(code: str = "23012", n_points: int = 200) -> ProfileGeometry:
     standard 5-digit camber line (LxPQ)."""
     code = code.strip()
     if len(code) != 5 or not code.isdigit():
-        raise ValueError(f"Invalid NACA5 code: {code!r} (expected 5 digits, e.g. '23012')")
+        raise ValueError(f"Invalid NACA5 code: {code!r} (expected 5 digits, for example '23012')")
     cl_design = int(code[0]) * (3.0 / 2.0) / 10.0   # L: approximate design Cl
     p_code = int(code[1])
     t = int(code[3:]) / 100.0
@@ -1007,17 +1009,18 @@ def generate_bezier(control_points: list[list[float]], n_points: int = 200) -> P
     literally describe":
 
     1. ORIENTATION. The curve is CLOSED: it starts and ends at the same
-       point, and that closing point is the TRAILING EDGE (the sharp
-       end); the (blunt) leading edge is the opposite extreme in x. If
-       the points come in reverse order -- closing at the leading edge,
-       which is what a graphical editor produces when the user starts
-       drawing from the nose -- the profile comes out backwards: blunt
-       nose at the back, point at the front. Instead of requiring the
-       user to guess the convention, we detect which side the closure
-       landed on and mirror in x.
+        point, and that closing point is the TRAILING EDGE (the sharp
+        end). The (blunt) leading edge is the opposite extreme in x. If
+        the points come in reverse order, closing at the leading edge
+        (which is what a graphical editor produces when the user starts
+        drawing from the nose), the profile comes out backwards: blunt
+        nose at the back, point at the front. Instead of requiring the
+        user to guess the convention, we detect which side the closure
+        landed on and mirror in x.
     2. UNIT CHORD. x is rescaled to run from 0 (leading edge) to 1
-       (trailing edge), with y divided by the SAME factor -- scaling
-       both together preserves the relative thickness t/c, which is what
+        (trailing edge), with y divided by the SAME factor, because
+        scaling both together preserves the relative thickness t/c,
+        which is what
        the polar sees. Without this, control points on an arbitrary
        interval generated a profile of arbitrary chord, inconsistent
        with the convention used by the rest of the module (see
@@ -1048,19 +1051,19 @@ def generate_bezier(control_points: list[list[float]], n_points: int = 200) -> P
 
 #: Outside this range, an "x" is not a chord-normalized contour
 #: coordinate. The limit is deliberately generous (a legitimate contour
-#: lives in 0..1; the slack covers rounding and some extended trailing
+#: lives in 0..1. The slack covers rounding and some extended trailing
 #: edges), and what it actually catches is the point-COUNT line of the
 #: Lednicer format ("61. 61."), which the reader used to read as a point
-#: at x=61 -- see `load_profile_dat`.
-_X_MAXIMO_DE_CONTORNO = 1.5
+#: at x=61. See `load_profile_dat`.
+_X_CONTOUR_LIMIT = 1.5
 
 
 def load_profile_dat(path: str) -> ProfileGeometry:
     """Reads (x,y) coordinates from a text file and returns the contour.
 
     Accepts ANY file whose data lines are two numbers (x then y)
-    separated by space, tab, or comma -- the extension (.dat/.txt/.csv)
-    changes nothing, the content is what decides. Any line that is not a
+    separated by space, tab, or comma. The extension (.dat/.txt/.csv)
+    changes nothing, and the content is what decides. Any line that is not a
     pair of numbers (airfoil name, header, comment, blank line) is
     ignored, which is what lets the **Selig** format (the usual
     UIUC/airfoiltools download: a single loop, trailing edge -> upper
@@ -1070,9 +1073,9 @@ def load_profile_dat(path: str) -> ProfileGeometry:
     The **Lednicer** format does NOT go in as is, and that is why this
     function validates: it starts with a point-COUNT line ("61.  61."),
     which is a perfectly readable pair of numbers and used to be silently
-    imported as a point at x=61 -- the contour came out with a spike 61
+    imported as a point at x=61. The contour came out with a spike 61
     chords long, and nothing warned about it. Since a chord-normalized
-    contour lives in x ∈ [0,1], any x outside ±`_X_MAXIMO_DE_CONTORNO` now
+    contour lives in x ∈ [0,1], any x outside ±`_X_CONTOUR_LIMIT` now
     ERRORS LOUDLY, saying what to do.
 
     The points are used in the order they appear: no reordering, no
@@ -1091,15 +1094,15 @@ def load_profile_dat(path: str) -> ProfileGeometry:
     if not data_lines:
         raise ValueError(f"No (x,y) coordinates recognized in {path}")
     x, y = zip(*data_lines)
-    fora = [v for v in x if abs(v) > _X_MAXIMO_DE_CONTORNO]
-    if fora:
+    outside = [v for v in x if abs(v) > _X_CONTOUR_LIMIT]
+    if outside:
         raise ValueError(
-            f"{path}: x = {fora[0]:g} is outside the chord (a contour normalized "
+            f"{path}: x = {outside[0]:g} is outside the chord (a contour normalized "
             f"by the chord has x between 0 and 1). The usual cause is a Lednicer "
             f"file, whose first line is the number of points of each surface and "
-            f"reads as a coordinate here. Delete that line — and note that "
+            f"reads as a coordinate here. Delete that line. Note that "
             f"Lednicer lists the two surfaces separately, both from the leading "
-            f"edge, so they also need to be joined into a single loop — or "
+            f"edge, so they also need to be joined into a single loop. Or "
             f"download the Selig version of the same airfoil, which needs no "
             f"editing.")
     return ProfileGeometry(source="imported", imported_path=str(path),
@@ -1107,34 +1110,34 @@ def load_profile_dat(path: str) -> ProfileGeometry:
 
 
 # =============================================================================
-# c) Automatic generation from a simple specification (Phase 7 -- NeuralFoil)
+# c) Automatic generation from a simple specification (Phase 7: NeuralFoil)
 # =============================================================================
-# Catalog of TYPICAL blade/rotor section airfoils: all are NACA4/5 (the
+# Catalog of TYPICAL blade section airfoils: all are NACA4/5 (the
 # only family with closed-form geometry implemented here), chosen for
-# documented use in rotor/propeller blades, with a short nickname so the
-# user does not have to memorize the 4/5-digit code. Any arbitrary NACA4/5
-# code (outside this catalog) also works directly -- see
+# documented use in rotor and propeller blades, with a short nickname so the
+# user does not have to memorize the 4-digit or 5-digit code. Any arbitrary NACA4/5
+# code (outside this catalog) also works directly. See
 # `resolve_geometry_spec`.
 AIRFOIL_PRESETS: dict[str, dict] = {
     "naca0009": {"family": "naca4", "code": "0009",
-                 "note": "Thin symmetric -- high-speed blade/propeller tip."},
+                 "note": "Thin symmetric. High-speed blade and propeller tip."},
     "naca0012": {"family": "naca4", "code": "0012",
-                 "note": "Symmetric -- historically one of the most widely used rotor-blade airfoils "
-                         "(root/tip sections of many helicopter rotors, e.g. UH-1/Bell)."},
+                 "note": "Symmetric. Historically one of the most widely used rotor-blade airfoils "
+                         "(root and tip sections of many helicopter rotors, for example UH-1/Bell)."},
     "naca0015": {"family": "naca4", "code": "0015",
-                 "note": "Symmetric, thicker -- inner blade sections (greater structural robustness)."},
+                 "note": "Symmetric and thicker. Inner blade sections (greater structural robustness)."},
     "naca0018": {"family": "naca4", "code": "0018",
-                 "note": "Thick symmetric -- blade root/small wind-turbine applications."},
+                 "note": "Thick symmetric. Blade root and small wind-turbine applications."},
     "naca23012": {"family": "naca5", "code": "23012",
-                  "note": "Cambered -- used in tail-rotor blades and propeller applications."},
+                  "note": "Cambered. Used in tail-rotor blades and propeller applications."},
     "naca4412": {"family": "naca4", "code": "4412",
-                 "note": "Classic cambered section -- educational reference, also used in propellers."},
+                 "note": "Classic cambered section. Educational reference, also used in propellers."},
 }
 
 
 def generate_preset(name: str, n_points: int = 200) -> ProfileGeometry:
     """Generates the geometry of an airfoil from the `AIRFOIL_PRESETS`
-    catalog by its nickname (e.g. ``'naca0012'``)."""
+    catalog by its nickname (for example ``'naca0012'``)."""
     key = name.strip().lower()
     if key not in AIRFOIL_PRESETS:
         raise ValueError(
@@ -1148,18 +1151,18 @@ def generate_preset(name: str, n_points: int = 200) -> ProfileGeometry:
 
 
 def resolve_geometry_spec(spec: str, n_points: int = 200) -> ProfileGeometry:
-    """Single entry point for "generate geometry from a simple string" --
-    used by the GUI (preset combo box in block 'e') and by the CLI
+    """Single entry point for "generate geometry from a simple string".
+    It is used by the GUI (preset combo box in block 'e') and by the CLI
     (``--airfoil-geometry``, Phase 7). Accepts, in order:
 
-    1. A nickname from the `AIRFOIL_PRESETS` catalog (e.g.
-       ``'naca0012'``, a typical blade/rotor airfoil).
-    2. A raw NACA4 code (e.g. ``'naca2412'`` or just ``'2412'``).
-    3. A raw NACA5 code (e.g. ``'naca23012'`` or just ``'23012'``).
+    1. A nickname from the `AIRFOIL_PRESETS` catalog (for example
+       ``'naca0012'``, a typical blade and rotor airfoil).
+    2. A raw NACA4 code (for example ``'naca2412'`` or just ``'2412'``).
+    3. A raw NACA5 code (for example ``'naca23012'`` or just ``'23012'``).
 
     Raises ``ValueError`` with the list of available presets if nothing
-    matches (making explicit what IS supported without needing to read
-    the code)."""
+    matches, making explicit what IS supported without needing to read
+    the code."""
     key = spec.strip().lower()
     if key in AIRFOIL_PRESETS:
         return generate_preset(key, n_points=n_points)
@@ -1172,8 +1175,9 @@ def resolve_geometry_spec(spec: str, n_points: int = 200) -> ProfileGeometry:
 
     raise ValueError(
         f"Unrecognized geometry specification: {spec!r}. Use a NACA4 code "
-        f"(4 digits, e.g. 'naca2412'), NACA5 (5 digits, e.g. 'naca23012'), or a typical "
-        f"blade/rotor preset: {', '.join(sorted(AIRFOIL_PRESETS))}."
+        f"(4 digits, for example 'naca2412'), NACA5 (5 digits, for example "
+        f"'naca23012'), or a typical rotor-blade preset: "
+        f"{', '.join(sorted(AIRFOIL_PRESETS))}."
     )
 
 

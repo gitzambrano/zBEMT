@@ -38,22 +38,22 @@ if _HAS_QT:
     #: sweep uses this list instead of walking `QFormLayout`: seven real
     #: fields escaped the previous version by being text fields or by
     #: living in a `QHBoxLayout`.
-    TIPOS_DE_CAMPO_DE_VALOR = (QAbstractSpinBox, QComboBox, QLineEdit,
-                               QPlainTextEdit, QTextEdit)
+    VALUE_FIELD_TYPES = (QAbstractSpinBox, QComboBox, QLineEdit,
+                         QPlainTextEdit, QTextEdit)
 
     #: Where the search for "container that explains the field" must stop.
-    AGRUPADORES_DE_TELA = (QGroupBox, QScrollArea, QStackedWidget, QTabWidget)
+    SCREEN_GROUPERS = (QGroupBox, QScrollArea, QStackedWidget, QTabWidget)
 
 
-LARGURA_DE_JANELA = 1400
+WINDOW_WIDTH = 1400
 
 #: Fields whose content is free text of unpredictable size: stretching is
 #: the right behavior there (folder path, list "0, 0.1, 0.2").
-#: `compactar_campos_de_formulario` does not touch them, and neither does
+#: `compact_form_fields` does not touch them, and neither does
 #: this test.
 
 
-def _e_campo_editavel(w) -> bool:
+def _is_editable_field(w) -> bool:
     """Discards what is not really an input field.
 
     An editable `QComboBox` and a `QAbstractSpinBox` contain an internal
@@ -63,15 +63,15 @@ def _e_campo_editavel(w) -> bool:
     if isinstance(w, QLineEdit):
         if w.isReadOnly():
             return False
-        pai = w.parentWidget()
-        if isinstance(pai, (QComboBox, QAbstractSpinBox)):
+        parent = w.parentWidget()
+        if isinstance(parent, (QComboBox, QAbstractSpinBox)):
             return False
     if isinstance(w, (QPlainTextEdit, QTextEdit)) and w.isReadOnly():
         return False
     return True
 
 
-def _tem_explicacao(w, raiz) -> bool:
+def _has_explanation(w, root) -> bool:
     """The widget explains itself, either on its own or via the container
     that composes it.
 
@@ -83,30 +83,30 @@ def _tem_explicacao(w, raiz) -> bool:
     """
     if (w.toolTip() or "").strip():
         return True
-    atual = w.parentWidget()
+    current = w.parentWidget()
     # The climb stops at the first SCREEN grouper: a tooltip on the
     # `QGroupBox` explains the block, not each field inside it, and
     # accepting it here would let an entire block of mute fields pass.
-    while (atual is not None and atual is not raiz
-           and not isinstance(atual, AGRUPADORES_DE_TELA)):
-        if (atual.toolTip() or "").strip():
+    while (current is not None and current is not root
+           and not isinstance(current, SCREEN_GROUPERS)):
+        if (current.toolTip() or "").strip():
             return True
-        atual = atual.parentWidget()
+        current = current.parentWidget()
     return False
 
 
-def _descrever_campo(w) -> str:
+def _describe_field(w) -> str:
     """Identifies the field in the failure message (label, name or class)."""
-    for atributo in ("placeholderText", "currentText", "objectName"):
-        valor = getattr(w, atributo, None)
-        texto = (valor() if callable(valor) else valor) or ""
-        if texto:
-            return f"{type(w).__name__} {texto!r}"
+    for attribute in ("placeholderText", "currentText", "objectName"):
+        value = getattr(w, attribute, None)
+        text = (value() if callable(value) else value) or ""
+        if text:
+            return f"{type(w).__name__} {text!r}"
     return f"{type(w).__name__} without a label"
 
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not available")
-class TestLayoutDaJanelaMontada(unittest.TestCase):
+class TestMountedWindowLayout(unittest.TestCase):
     """Mounts the real `MainWindow` (not loose tabs): the width and field
     help adjustments are applied from OUTSIDE, by the window, so a tab
     instantiated alone would not have them and the test would pass by
@@ -120,7 +120,7 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
 
         from zbemt.gui.app import MainWindow
         cls.win = MainWindow()
-        cls.win.resize(LARGURA_DE_JANELA, 900)
+        cls.win.resize(WINDOW_WIDTH, 900)
         cls.win.show()
         cls.app.processEvents()
 
@@ -128,7 +128,7 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
     def tearDownClass(cls):
         cls.win.close()
 
-    def _abas(self):
+    def _tabs(self):
         """Each tab with it ACTIVE in the `QTabWidget`.
 
         `QWidget.isVisible()` is false for everything in a tab that is not
@@ -143,65 +143,65 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
             self.app.processEvents()
             yield self.win.tabs.tabText(i), self.win.tabs.widget(i)
 
-    def test_nenhum_rotulo_fica_orfao_do_proprio_campo(self):
+    def test_no_label_is_orphaned_from_its_own_field(self):
         """Real bug: in "Run Batch" > "3. Run", the "Entered values" mode
         hid the trim fields with `setVisible(False)` -- which hides only
         the FIELD. "Trim variable:" and "Target:" stayed on screen
-        pointing at nothing. `common.definir_linha_visivel` exists exactly
+        pointing at nothing. `common.set_row_visible` exists exactly
         for this and was not being used there."""
-        orfaos = []
-        for nome_aba, aba in self._abas():
-            for form in aba.findChildren(QFormLayout):
-                for linha in range(form.rowCount()):
-                    item_label = form.itemAt(linha, QFormLayout.ItemRole.LabelRole)
-                    item_campo = form.itemAt(linha, QFormLayout.ItemRole.FieldRole)
-                    if item_label is None or item_campo is None:
+        orphans = []
+        for tab_name, tab in self._tabs():
+            for form in tab.findChildren(QFormLayout):
+                for row in range(form.rowCount()):
+                    item_label = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
+                    item_field = form.itemAt(row, QFormLayout.ItemRole.FieldRole)
+                    if item_label is None or item_field is None:
                         continue
                     label = item_label.widget()
-                    campo = item_campo.widget()
-                    if label is None or campo is None:
+                    field = item_field.widget()
+                    if label is None or field is None:
                         continue
-                    if label.isVisible() and not campo.isVisible():
-                        texto = label.text() if hasattr(label, "text") else "?"
-                        orfaos.append(f"{nome_aba}: {texto!r}")
+                    if label.isVisible() and not field.isVisible():
+                        text = label.text() if hasattr(label, "text") else "?"
+                        orphans.append(f"{tab_name}: {text!r}")
         self.assertEqual(
-            orfaos, [],
+            orphans, [],
             "visible label with hidden field -- use "
-            "`common.definir_linha_visivel`, not `setVisible`: " + str(orfaos))
+            "`common.set_row_visible`, not `setVisible`: " + str(orphans))
 
-    def test_nenhum_campo_numerico_ou_de_enum_vira_faixa(self):
+    def test_no_numeric_or_enum_field_becomes_a_strip(self):
         """A `QFormLayout` stretches the field to the end of the row; in a
         1400px window this gave a ~1370px box to type "72", and the same
         quantity came out with a different width in each tab.
-        `common.compactar_campos_de_formulario` sets a ceiling by content
+        `common.compact_form_fields` sets a ceiling by content
         TYPE -- number, enum -- and it is that ceiling this test
         protects."""
-        from zbemt.gui.common import LARGURA_DE_NUMERO, LARGURA_MAX_DE_ENUM
+        from zbemt.gui.common import NUMBER_WIDTH, ENUM_MAX_WIDTH
 
-        faixas = []
-        for nome_aba, aba in self._abas():
-            for w in aba.findChildren(QAbstractSpinBox):
-                if w.isVisible() and w.width() > max(LARGURA_DE_NUMERO,
-                                                     w.minimumSizeHint().width()):
-                    faixas.append(f"{nome_aba}: number field {w.width()}px")
-            for w in aba.findChildren(QComboBox):
+        stretched = []
+        for tab_name, tab in self._tabs():
+            for w in tab.findChildren(QAbstractSpinBox):
+                if w.isVisible() and w.width() > max(NUMBER_WIDTH,
+                                                      w.minimumSizeHint().width()):
+                    stretched.append(f"{tab_name}: number field {w.width()}px")
+            for w in tab.findChildren(QComboBox):
                 # The floor is the minimum the combo itself requests: a
                 # combo whose longest option does not fit in
-                # `LARGURA_MAX_DE_ENUM` asks for more (see
-                # `dialogs.ajustar_largura_de_combo`), and squeezing it
+                # `ENUM_MAX_WIDTH` asks for more (see
+                # `dialogs.adjust_combo_width`), and squeezing it
                 # would elide the option with "…" -- the generic ceiling
                 # cannot override that concrete need. What this test
                 # forbids is the field stretched BEYOND what it needs,
                 # which is the real defect (a 1370px box to type "72").
-                teto = max(LARGURA_MAX_DE_ENUM, w.minimumWidth(),
-                           w.minimumSizeHint().width())
-                if w.isVisible() and w.width() > teto:
-                    faixas.append(f"{nome_aba}: enum de {w.width()}px "
-                                  f"({w.currentText()!r})")
-        self.assertEqual(faixas, [], "field stretched to the end of the row: "
-                                      + str(faixas))
+                ceiling = max(ENUM_MAX_WIDTH, w.minimumWidth(),
+                              w.minimumSizeHint().width())
+                if w.isVisible() and w.width() > ceiling:
+                    stretched.append(f"{tab_name}: enum at {w.width()}px "
+                                     f"({w.currentText()!r})")
+        self.assertEqual(stretched, [], "field stretched to the end of the row: "
+                                        + str(stretched))
 
-    def test_nenhum_bloco_visivel_e_espremido_abaixo_do_proprio_minimo(self):
+    def test_no_visible_block_is_squeezed_below_its_own_minimum(self):
         """Real bug: "Run Batch" was the only tab without a
         `QScrollArea`. The four stacked steps add up to more height than
         the window, and Qt squeezed the "1. Generate cases" box 89px
@@ -215,21 +215,21 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
         """
         from PyQt6.QtWidgets import QGroupBox
 
-        espremidos = []
-        for nome_aba, aba in self._abas():
-            for gb in aba.findChildren(QGroupBox):
+        squeezed_blocks = []
+        for tab_name, tab in self._tabs():
+            for gb in tab.findChildren(QGroupBox):
                 if not gb.isVisible():
                     continue
-                minimo = gb.minimumSizeHint().height()
+                min_height = gb.minimumSizeHint().height()
                 # 2px tolerance: rounding of border/margin from the QSS.
-                if minimo > 0 and gb.height() < minimo - 2:
-                    espremidos.append(
-                        f"{nome_aba}: {gb.title()!r} com {gb.height()}px, "
-                        f"precisa de {minimo}px")
-        self.assertEqual(espremidos, [],
-                          "block squeezed below the minimum: " + str(espremidos))
+                if min_height > 0 and gb.height() < min_height - 2:
+                    squeezed_blocks.append(
+                        f"{tab_name}: {gb.title()!r} at {gb.height()}px, "
+                        f"needs {min_height}px")
+        self.assertEqual(squeezed_blocks, [],
+                          "block squeezed below the minimum: " + str(squeezed_blocks))
 
-    def test_todo_campo_de_valor_visivel_tem_tooltip(self):
+    def test_every_visible_value_field_has_a_tooltip(self):
         """Without a tooltip the field is mute on two levels: it does not
         explain itself on hover AND does not get a clickable help label --
         `field_help` extracts the field NAME from the tooltip itself, so a
@@ -241,20 +241,20 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
         Name", "NACA code", "CST upper/lower", "Bézier") or because they
         lived in a `QHBoxLayout` ("Field", in the Results tab).
         """
-        mudos = []
-        for nome_aba, aba in self._abas():
-            for w in aba.findChildren(TIPOS_DE_CAMPO_DE_VALOR):
+        mute = []
+        for tab_name, tab in self._tabs():
+            for w in tab.findChildren(VALUE_FIELD_TYPES):
                 # No visibility filter: a field revealed only when "cst"
                 # is chosen still needs a tooltip, and five of the mute
                 # fields found on screen were exactly in these
                 # progressive-reveal blocks.
-                if not _e_campo_editavel(w) or _tem_explicacao(w, aba):
+                if not _is_editable_field(w) or _has_explanation(w, tab):
                     continue
-                mudos.append(f"{nome_aba}: {_descrever_campo(w)}")
-        self.assertEqual(mudos, [], "campo de valor sem tooltip: " + str(mudos))
+                mute.append(f"{tab_name}: {_describe_field(w)}")
+        self.assertEqual(mute, [], "value field without a tooltip: " + str(mute))
 
-    def test_tooltip_nomeia_o_campo_no_formato_que_a_ajuda_espera(self):
-        """`field_help._campo_do_widget` reads the field name from the
+    def test_tooltip_names_the_field_in_the_format_the_help_expects(self):
+        """`field_help._widget_field` reads the field name from the
         FIRST quoted token of the tooltip (`"n_blades" — ...`). A tooltip
         that does not start like that is loose text: the field has no way
         to resolve the documentation anchor, and the clickable label is
@@ -270,26 +270,26 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
 
         from zbemt import api
         from zbemt.bemt import BEMTConfig
-        from zbemt.gui.field_help import _campo_do_widget
+        from zbemt.gui.field_help import _widget_field
         from zbemt.models import (AirfoilDef, BatchDefinition, FlightCondition,
                                   ProfileGeometry, Project, RotorGeometryDef)
 
-        conhecidos: set = set(inspect.signature(
+        known: set = set(inspect.signature(
             api.run_case_trimmed).parameters)
         for cls in (BEMTConfig, AirfoilDef, RotorGeometryDef, FlightCondition,
                     BatchDefinition, ProfileGeometry, Project):
-            conhecidos |= set(cls.__dataclass_fields__)
+            known |= set(cls.__dataclass_fields__)
 
-        inventados = []
-        for nome_aba, aba in self._abas():
-            for w in aba.findChildren(TIPOS_DE_CAMPO_DE_VALOR):
-                campo = _campo_do_widget(w)
-                if campo is not None and campo not in conhecidos:
-                    inventados.append(f"{nome_aba}: {campo!r}")
-        self.assertEqual(inventados, [],
-                         "tooltip nomeia campo inexistente: " + str(inventados))
+        invented = []
+        for tab_name, tab in self._tabs():
+            for w in tab.findChildren(VALUE_FIELD_TYPES):
+                field = _widget_field(w)
+                if field is not None and field not in known:
+                    invented.append(f"{tab_name}: {field!r}")
+        self.assertEqual(invented, [],
+                         "tooltip names a nonexistent field: " + str(invented))
 
-    def test_nenhum_botao_estica_muito_alem_do_proprio_texto(self):
+    def test_no_button_stretches_much_beyond_its_own_text(self):
         """In a `QHBoxLayout` without a trailing stretch, the buttons absorb
         all the row's slack: "- Remove" (80px of text) measured 550px, the
         width ceiling of the stylesheet, and the whole row turned into a
@@ -306,33 +306,33 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
         """
         from PyQt6.QtWidgets import QHBoxLayout, QPushButton
 
-        esticados = []
-        for nome_aba, aba in self._abas():
-            for linha in aba.findChildren(QHBoxLayout):
-                botoes = [linha.itemAt(i).widget() for i in range(linha.count())]
-                botoes = [b for b in botoes
-                          if isinstance(b, QPushButton) and b.isVisible()]
-                if len(botoes) < 2:
+        stretched = []
+        for tab_name, tab in self._tabs():
+            for row in tab.findChildren(QHBoxLayout):
+                buttons = [row.itemAt(i).widget() for i in range(row.count())]
+                buttons = [b for b in buttons
+                           if isinstance(b, QPushButton) and b.isVisible()]
+                if len(buttons) < 2:
                     continue
-                for b in botoes:
+                for b in buttons:
                     # GROUP width is deliberate, not layout slack: the
                     # four Run Batch action buttons share the width of the
                     # longest label by explicit request, and "Clear" is
                     # wide for its own text because of that (see
-                    # `RunBatchTab._uniformizar_largura_dos_botoes`).
-                    if getattr(b, "_largura_de_grupo", None) is not None:
+                    # `RunBatchTab._equalize_action_buttons`).
+                    if getattr(b, "_group_width", None) is not None:
                         continue
-                    folga = b.width() - b.sizeHint().width()
-                    if folga > 40:
-                        esticados.append(
-                            f"{nome_aba}: {b.text()!r} com {b.width()}px "
+                    slack = b.width() - b.sizeHint().width()
+                    if slack > 40:
+                        stretched.append(
+                            f"{tab_name}: {b.text()!r} at {b.width()}px "
                             f"for {b.sizeHint().width()}px of content")
-        self.assertEqual(esticados, [],
+        self.assertEqual(stretched, [],
                           "button stretched by the row's slack -- missing a "
-                          "`addStretch(1)` no fim: " + str(esticados))
+                          "trailing `addStretch(1)`: " + str(stretched))
 
-    def test_todo_bloco_de_ajuda_alcanca_um_groupbox_de_verdade(self):
-        """`app._BLOCOS` matches the groupbox TITLE as a string. A renamed
+    def test_every_help_block_reaches_a_real_groupbox(self):
+        """`app._BLOCKS` matches the groupbox TITLE as a string. A renamed
         title (several were, in this very session) leaves the entry
         orphaned and that block's help vanishes with no error at all --
         it just disappears.
@@ -343,58 +343,58 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
         """
         from PyQt6.QtWidgets import QGroupBox
 
-        from zbemt.gui.common import _TituloDeBlocoClicavel
+        from zbemt.gui.common import _ClickableBlockTitle
         from zbemt.gui.help_blocks import BLOCK_HELP
 
-        alcancados: set = set()
-        mudos: list = []
-        for nome_aba, aba in self._abas():
-            for gb in aba.findChildren(QGroupBox):
-                filtro = next((c for c in gb.children()
-                               if isinstance(c, _TituloDeBlocoClicavel)), None)
-                if filtro is None:
-                    mudos.append(f"{nome_aba}: {gb.title()!r}")
+        reached: set = set()
+        mute: list = []
+        for tab_name, tab in self._tabs():
+            for gb in tab.findChildren(QGroupBox):
+                clickable = next((c for c in gb.children()
+                                  if isinstance(c, _ClickableBlockTitle)), None)
+                if clickable is None:
+                    mute.append(f"{tab_name}: {gb.title()!r}")
                 else:
-                    alcancados.add(filtro._bloco)
+                    reached.add(clickable._block_id)
 
-        self.assertEqual(mudos, [],
-                         "groupbox sem ajuda de bloco: " + str(mudos))
-        self.assertEqual(sorted(set(BLOCK_HELP) - alcancados), [],
+        self.assertEqual(mute, [],
+                         "groupbox without block help: " + str(mute))
+        self.assertEqual(sorted(set(BLOCK_HELP) - reached), [],
                          "BLOCK_HELP entry that no groupbox reaches "
                          "-- title renamed without updating `app._BLOCOS`")
 
-    def test_todo_campo_com_tooltip_ganhou_rotulo_clicavel_de_ajuda(self):
+    def test_every_field_with_a_tooltip_gained_a_clickable_help_label(self):
         """The tooltip names the field (`"n_blades" — ...`) and it is from
-        that name that `field_help.instalar_popups_de_campo` derives the
+        that name that `field_help.install_field_popups` derives the
         clickable label. A field that HAS the name in the tooltip but did
         not become a clickable label means the help never reached it --
         the user is left without the popup and without the link to the
         full documentation."""
-        from zbemt.gui.field_help import _campo_do_widget, ancora_do_campo
+        from zbemt.gui.field_help import _widget_field, field_anchor
         from zbemt.gui import help_content
 
-        sem_ajuda = []
-        for nome_aba, aba in self._abas():
-            for form in aba.findChildren(QFormLayout):
-                for linha in range(form.rowCount()):
-                    item = form.itemAt(linha, QFormLayout.ItemRole.FieldRole)
-                    item_label = form.itemAt(linha, QFormLayout.ItemRole.LabelRole)
+        without_help = []
+        for tab_name, tab in self._tabs():
+            for form in tab.findChildren(QFormLayout):
+                for row in range(form.rowCount()):
+                    item = form.itemAt(row, QFormLayout.ItemRole.FieldRole)
+                    item_label = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
                     if item is None or item_label is None:
                         continue
                     w, label = item.widget(), item_label.widget()
                     if w is None or label is None or not w.isVisible():
                         continue
-                    campo = _campo_do_widget(w)
-                    if campo is None:
+                    field = _widget_field(w)
+                    if field is None:
                         continue
-                    documentado = (campo in help_content.FIELD_HELP
-                                   or ancora_do_campo(campo) is not None)
-                    if documentado and not isinstance(label, QToolButton):
-                        sem_ajuda.append(f"{nome_aba}: {campo!r}")
-        self.assertEqual(sem_ajuda, [],
-                         "documented field without a clickable label: " + str(sem_ajuda))
+                    documented = (field in help_content.FIELD_HELP
+                                  or field_anchor(field) is not None)
+                    if documented and not isinstance(label, QToolButton):
+                        without_help.append(f"{tab_name}: {field!r}")
+        self.assertEqual(without_help, [],
+                         "documented field without a clickable label: " + str(without_help))
 
-    def test_nenhum_combo_de_unidade_elide_a_propria_opcao(self):
+    def test_no_unit_combo_elides_its_own_option(self):
         """Real bug: "alpha [deg]" came out cut off ("alpha [deg") in the
         condition combos of Run Case and Run Batch, which had a fixed
         110px.
@@ -404,88 +404,88 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
         the language changes."""
         from zbemt.gui.widgets import LongitudinalInput, AxialInput
 
-        cortados = []
-        for nome_aba, aba in self._abas():
-            for campo in aba.findChildren((LongitudinalInput, AxialInput)):
-                combo = campo.unit_combo
+        clipped = []
+        for tab_name, tab in self._tabs():
+            for field in tab.findChildren((LongitudinalInput, AxialInput)):
+                combo = field.unit_combo
                 if not combo.isVisible():
                     continue
                 fm = combo.fontMetrics()
-                mais_longo = max((combo.itemText(i) for i in range(combo.count())),
-                                 key=fm.horizontalAdvance, default="")
+                longest = max((combo.itemText(i) for i in range(combo.count())),
+                              key=fm.horizontalAdvance, default="")
                 # the dropdown arrow eats ~22px (styles.py) + padding
-                if combo.width() < fm.horizontalAdvance(mais_longo) + 24:
-                    cortados.append(f"{nome_aba}: {mais_longo!r} em {combo.width()}px")
-        self.assertEqual(cortados, [], "combo de unidade elidido: " + str(cortados))
+                if combo.width() < fm.horizontalAdvance(longest) + 24:
+                    clipped.append(f"{tab_name}: {longest!r} at {combo.width()}px")
+        self.assertEqual(clipped, [], "unit combo elided: " + str(clipped))
 
-    def test_campos_de_condicao_comecam_na_mesma_coluna(self):
+    def test_condition_fields_start_in_the_same_column(self):
         """Run Case and Run Batch put the NUMBER of every condition row in
         the same column -- the compound rows (mu_x/J_x, alpha/Vz) have a
         combo-label before the number, and the simple ones (Collective,
-        RPM) are indented up to that point by `_com_recuo_de_unidade`.
+        RPM) are indented up to that point by `_with_unit_indent`.
         Different widths between the two tabs misaligned the column
         within each one."""
         from zbemt.gui.widgets import LongitudinalInput, AxialInput
 
-        for nome_aba, aba in self._abas():
-            if nome_aba.replace("*", "").strip() not in ("Run Case", "Run Batch"):
+        for tab_name, tab in self._tabs():
+            if tab_name.replace("*", "").strip() not in ("Run Case", "Run Batch"):
                 continue
-            larguras = {c.unit_combo.width()
-                        for c in aba.findChildren((LongitudinalInput, AxialInput))
-                        if c.unit_combo.isVisible()}
-            with self.subTest(aba=nome_aba):
-                self.assertLessEqual(len(larguras), 1,
-                                      f"{nome_aba}: combos de unidade com larguras {larguras}")
+            widths = {c.unit_combo.width()
+                      for c in tab.findChildren((LongitudinalInput, AxialInput))
+                      if c.unit_combo.isVisible()}
+            with self.subTest(tab=tab_name):
+                self.assertLessEqual(len(widths), 1,
+                                      f"{tab_name}: unit combos with widths {widths}")
 
-    def test_caixas_vizinhas_nao_colam_umas_nas_outras(self):
+    def test_neighboring_boxes_do_not_stick_to_each_other(self):
         """Real bug: in Run Batch > export, the "Coefficients" label
         touched the "Azimuthal loads" checkbox -- four checkboxes on one
         row with the style's default spacing read as a single block, and
         the eye cannot tell which box each word belongs to."""
         from PyQt6.QtWidgets import QCheckBox, QHBoxLayout, QRadioButton
-        from zbemt.gui.common import ESPACAMENTO_MINIMO_ENTRE_CAIXAS
+        from zbemt.gui.common import MIN_CHECKBOX_SPACING
 
-        coladas = []
-        for nome_aba, aba in self._abas():
-            for linha in aba.findChildren(QHBoxLayout):
-                caixas = [linha.itemAt(i).widget() for i in range(linha.count())
-                          if isinstance(linha.itemAt(i).widget(), (QCheckBox, QRadioButton))]
-                caixas = [c for c in caixas if c.isVisible()]
-                for esquerda, direita in zip(caixas, caixas[1:]):
-                    folga = (direita.mapTo(aba, direita.rect().topLeft()).x()
-                             - (esquerda.mapTo(aba, esquerda.rect().topLeft()).x()
-                                + esquerda.width()))
-                    if folga < ESPACAMENTO_MINIMO_ENTRE_CAIXAS:
-                        coladas.append(
-                            f"{nome_aba}: {esquerda.text()!r} e {direita.text()!r} "
-                            f"a {folga}px")
-        self.assertEqual(coladas, [], "caixas coladas: " + str(coladas))
+        stuck = []
+        for tab_name, tab in self._tabs():
+            for row in tab.findChildren(QHBoxLayout):
+                boxes = [row.itemAt(i).widget() for i in range(row.count())
+                         if isinstance(row.itemAt(i).widget(), (QCheckBox, QRadioButton))]
+                boxes = [c for c in boxes if c.isVisible()]
+                for left, right in zip(boxes, boxes[1:]):
+                    gap = (right.mapTo(tab, right.rect().topLeft()).x()
+                           - (left.mapTo(tab, left.rect().topLeft()).x()
+                              + left.width()))
+                    if gap < MIN_CHECKBOX_SPACING:
+                        stuck.append(
+                            f"{tab_name}: {left.text()!r} and {right.text()!r} "
+                            f"{gap}px apart")
+        self.assertEqual(stuck, [], "adjacent checkboxes stuck together: " + str(stuck))
 
-    def test_linhas_de_eixo_do_fatorial_comecam_na_mesma_coluna(self):
+    def test_factorial_axis_rows_start_in_the_same_column(self):
         """The three factorial axes have a unit combo with a different
         NATURAL width ("mu_x" versus "alpha [deg]"), and the disabled
         axis has no combo at all -- each row started the "values:" field
         at a different x. The column is reserved across all three."""
-        aba = None
-        for nome_aba, widget in self._abas():
-            if nome_aba.replace("*", "").strip() == "Run Batch":
-                aba = widget
-        self.assertIsNotNone(aba, "Run Batch tab not found")
+        tab = None
+        for tab_name, widget in self._tabs():
+            if tab_name.replace("*", "").strip() == "Run Batch":
+                tab = widget
+        self.assertIsNotNone(tab, "Run Batch tab not found")
 
         # one longitudinal axis, one axial, and one disabled: the case
         # where the three natural widths are different
-        for indice, slot_desejado in ((0, "inplane"), (1, "axial")):
-            combo = aba.axis_rows[indice][0]
-            combo.setCurrentIndex(next(i for i, (_r, s) in enumerate(aba._AXIS_SLOTS)
-                                       if s == slot_desejado))
+        for index, wanted_slot in ((0, "inplane"), (1, "axial")):
+            combo = tab.axis_rows[index][0]
+            combo.setCurrentIndex(next(i for i, (_r, s) in enumerate(tab._AXIS_SLOTS)
+                                       if s == wanted_slot))
         self.app.processEvents()
 
-        xs = {edit.mapTo(aba, edit.rect().topLeft()).x()
-              for _slot, _unit, edit in aba.axis_rows}
+        xs = {edit.mapTo(tab, edit.rect().topLeft()).x()
+              for _slot, _unit, edit in tab.axis_rows}
         self.assertEqual(len(xs), 1,
                           f"'values:' fields starting at different x: {sorted(xs)}")
 
-    def test_faixa_de_opcoes_encolhe_para_o_modo_corrente(self):
+    def test_the_options_row_shrinks_for_the_current_mode(self):
         """Real bug: the control strip above the Results tab's plot
         reserved the height of the TALLEST panel (the "3D" mode's) in
         every mode -- 216px measured, with a blank gap of more than a
@@ -495,66 +495,66 @@ class TestLayoutDaJanelaMontada(unittest.TestCase):
         What is measured is the RATIO, not the pixel (rule 3): a mode
         with few controls must leave more screen for the plot than a
         mode with many."""
-        aba = None
-        for nome_aba, widget in self._abas():
-            if nome_aba.replace("*", "").strip() == "Results":
-                aba = widget
-        self.assertIsNotNone(aba, "Results tab not found")
+        tab = None
+        for tab_name, widget in self._tabs():
+            if tab_name.replace("*", "").strip() == "Results":
+                tab = widget
+        self.assertIsNotNone(tab, "Results tab not found")
 
-        def altura_do_grafico(modo: str) -> int:
-            linha = [i for i in range(aba.mode_list.count())
-                     if aba.mode_list.item(i).text() == modo]
-            self.assertTrue(linha, f"mode {modo!r} does not exist in the list")
-            aba.mode_list.setCurrentRow(linha[0])
+        def plot_height(mode: str) -> int:
+            rows = [i for i in range(tab.mode_list.count())
+                    if tab.mode_list.item(i).text() == mode]
+            self.assertTrue(rows, f"mode {mode!r} does not exist in the list")
+            tab.mode_list.setCurrentRow(rows[0])
             self.app.processEvents()
             self.app.processEvents()
-            return aba.canvas_stack.height()
+            return tab.canvas_stack.height()
 
-        magro = altura_do_grafico("Convergence")   # panel practically empty
-        gordo = altura_do_grafico("3D")            # the tallest panel in the tab
+        thin = plot_height("Convergence")   # panel practically empty
+        tall = plot_height("3D")            # the tallest panel in the tab
         self.assertGreater(
-            magro, gordo,
+            thin, tall,
             "the options row did not shrink: the plot has the same height in a "
-            "modo sem controles e no modo com mais controles")
+            "mode without controls and in the mode with most of them")
 
-    def test_linha_de_checkbox_nao_cola_na_linha_seguinte(self):
+    def test_a_checkbox_row_does_not_stick_to_the_next_row(self):
         """Real bug: "Enable dynamic stall (Øye)" touched "Lag
         constant A:", and the three rows of "3D rotational effects" read
         as a single block. The policy lives in the `common` module
-        (`arejar_formularios`), applied by the window -- what is checked
+        (`ensure_row_spacing`), applied by the window -- what is checked
         here is that it reached EVERY form."""
-        from zbemt.gui.common import ESPACAMENTO_MINIMO_DE_LINHA
+        from zbemt.gui.common import MIN_ROW_SPACING
 
-        apertados = []
-        for nome_aba, aba in self._abas():
-            for form in aba.findChildren(QFormLayout):
+        cramped = []
+        for tab_name, tab in self._tabs():
+            for form in tab.findChildren(QFormLayout):
                 if form.rowCount() < 2:
                     continue
-                if form.verticalSpacing() < ESPACAMENTO_MINIMO_DE_LINHA:
-                    apertados.append(f"{nome_aba}: {form.verticalSpacing()}px")
-        self.assertEqual(apertados, [], "cramped form: " + str(apertados))
+                if form.verticalSpacing() < MIN_ROW_SPACING:
+                    cramped.append(f"{tab_name}: {form.verticalSpacing()}px")
+        self.assertEqual(cramped, [], "cramped form: " + str(cramped))
 
-    def test_as_sete_etapas_do_topo_tem_a_mesma_largura(self):
+    def test_the_seven_top_stages_have_the_same_width(self):
         """"Project" and "Config/Engine" differ by dozens of pixels: seven
         colored pills of different sizes read as seven different things,
         not as seven steps of the same flow."""
-        barra = self.win.flow_bar
-        barra._igualar_largura_das_etapas()
-        larguras = {b.width() or b.minimumWidth() for b in barra._buttons}
-        self.assertEqual(len(larguras), 1, f"larguras diferentes: {larguras}")
+        bar = self.win.flow_bar
+        bar._equalize_stage_widths()
+        widths = {b.width() or b.minimumWidth() for b in bar._buttons}
+        self.assertEqual(len(widths), 1, f"different widths: {widths}")
 
-    def test_as_etapas_do_topo_ficam_centradas_na_faixa(self):
+    def test_the_top_stages_stay_centered_in_the_strip(self):
         """Without a fixed height the pill stretches vertically and
         touches both edges of the dark strip -- the colored rectangle
         turns into a bar."""
-        barra = self.win.flow_bar
-        for btn in barra._buttons:
-            with self.subTest(etapa=btn.text()):
-                self.assertEqual(btn.height(), barra.ALTURA_DE_ETAPA)
+        bar = self.win.flow_bar
+        for btn in bar._buttons:
+            with self.subTest(stage=btn.text()):
+                self.assertEqual(btn.height(), bar.STAGE_HEIGHT)
         # and margin is left over on top and bottom (the strip is taller
         # than the pill), which is what "centered" means here
         self.assertGreaterEqual(
-            barra.height(), barra.ALTURA_DE_ETAPA + 2 * barra.MARGEM_VERTICAL)
+            bar.height(), bar.STAGE_HEIGHT + 2 * bar.VERTICAL_MARGIN)
 
 
 if __name__ == "__main__":

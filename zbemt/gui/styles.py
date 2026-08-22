@@ -64,10 +64,10 @@ _SANS = '"Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif'
 _ASSETS = Path(__file__).resolve().parent / "assets"
 
 
-def _seta(nome: str) -> str:
+def _arrow(name: str) -> str:
     """QSS URL for an SVG in ``gui/assets`` (normal paths: Qt doesn't accept
     Windows backslash inside ``url()``)."""
-    return (_ASSETS / f"{nome}.svg").as_posix()
+    return (_ASSETS / f"{name}.svg").as_posix()
 
 
 APP_QSS = f"""
@@ -228,8 +228,8 @@ QSpinBox:focus, QDoubleSpinBox:focus {{
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {{
     background: {_DISABLED_BG}; color: {_DISABLED_FG};
 }}
-/* Seta do dropdown: ver o bloco `_seta` no topo do módulo. Sem estas duas
-   regras o combo fica visualmente idêntico a um QLineEdit. */
+/* Dropdown arrow: see the `_arrow` block at the top of the module.
+   Without these two rules the combo looks identical to a QLineEdit. */
 QComboBox::drop-down {{
     subcontrol-origin: padding;
     subcontrol-position: center right;
@@ -242,12 +242,12 @@ QComboBox::drop-down {{
    them, the SVG is drawn at the natural size of the widget. On screen, the
    chevron of the open state came out huge, in the middle of the combo, ON
    TOP of the option text ("Tip + root (both)" was cut behind it). */
-QComboBox::down-arrow {{ image: url({_seta("chevron-down")}); width: 10px; height: 7px; }}
+QComboBox::down-arrow {{ image: url({_arrow("chevron-down")}); width: 10px; height: 7px; }}
 QComboBox::down-arrow:on {{
-    image: url({_seta("chevron-down-accent")}); width: 10px; height: 7px;
+    image: url({_arrow("chevron-down-accent")}); width: 10px; height: 7px;
 }}
 QComboBox::down-arrow:disabled {{
-    image: url({_seta("chevron-down-disabled")}); width: 10px; height: 7px;
+    image: url({_arrow("chevron-down-disabled")}); width: 10px; height: 7px;
 }}
 /* Space on the right, so the arrow does not touch the option text. */
 QComboBox {{ padding-right: 24px; }}
@@ -274,18 +274,18 @@ QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
     background: {_ACCENT_SOFT};
 }}
 QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
-    image: url({_seta("spin-up")}); width: 8px; height: 5px;
+    image: url({_arrow("spin-up")}); width: 8px; height: 5px;
 }}
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-    image: url({_seta("spin-down")}); width: 8px; height: 5px;
+    image: url({_arrow("spin-down")}); width: 8px; height: 5px;
 }}
 QSpinBox::up-arrow:disabled, QSpinBox::up-arrow:off,
 QDoubleSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:off {{
-    image: url({_seta("spin-up-disabled")});
+    image: url({_arrow("spin-up-disabled")});
 }}
 QSpinBox::down-arrow:disabled, QSpinBox::down-arrow:off,
 QDoubleSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:off {{
-    image: url({_seta("spin-down-disabled")});
+    image: url({_arrow("spin-down-disabled")});
 }}
 QSpinBox, QDoubleSpinBox {{ padding-right: 20px; }}
 

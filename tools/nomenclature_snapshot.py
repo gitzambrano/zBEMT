@@ -1,9 +1,9 @@
 """Regenerates the nomenclature snapshot used by ``tests/test_nomenclature_parity.py``.
 
 Why a snapshot: the rotor/propeller axis nomenclature is produced today by
-several independent tables (``api._SIMBOLO_DE_COLUNA``,
-``viz/plots._SUMMARY_KEY_LABELS``, ``studies._SIMBOLO_DE_VARIAVEL``,
-``gui/widgets.UNIDADES_DE_CONDICAO``). Unifying them into
+several independent tables (``api._COLUMN_SYMBOL``,
+``viz/plots._SUMMARY_KEY_LABELS``, ``studies.condition_name``,
+``gui/widgets.CONDITION_UNITS``). Unifying them into
 ``zbemt/nomenclature.py`` must not silently change what the user reads, and
 "must not change" is only checkable against a record of what it says TODAY.
 
@@ -48,7 +48,7 @@ CONDITION_SAMPLES = [
 GUI_SURFACES = ("condition_units", "default_unit", "slot_labels")
 
 
-def tem_qt() -> bool:
+def has_qt() -> bool:
     import importlib.util
     try:
         return importlib.util.find_spec("PyQt6") is not None
@@ -66,97 +66,97 @@ def collect(include_gui: bool = None) -> dict:
     from zbemt.viz import plots
 
     if include_gui is None:
-        include_gui = tem_qt()
+        include_gui = has_qt()
 
-    instantaneo: dict = {}
+    snapshot: dict = {}
 
     # --- table/report column symbols and tooltips (api.py) ---
-    chaves = sorted(api._SIMBOLO_DE_COLUNA)
-    instantaneo["summary_symbols"] = {
-        modo: {c: list(api.summary_symbol(c, is_propeller=prop)) for c in chaves}
-        for modo, prop in (("rotor", False), ("propeller", True))
+    keys = sorted(api._COLUMN_SYMBOL)
+    snapshot["summary_symbols"] = {
+        mode: {c: list(api.summary_symbol(c, is_propeller=prop)) for c in keys}
+        for mode, prop in (("rotor", False), ("propeller", True))
     }
-    instantaneo["summary_units"] = {c: api._unidade_de_coluna(c) for c in chaves}
-    instantaneo["primary_columns"] = {
+    snapshot["summary_units"] = {c: api._column_unit(c) for c in keys}
+    snapshot["primary_columns"] = {
         "rotor": list(nomenclature.primary_order(False)),
         "propeller": list(nomenclature.primary_order(True)),
-        "shared": list(api._COLUNAS_PRINCIPAIS),
+        "shared": list(api._MAIN_COLUMNS),
     }
-    instantaneo["suppressed_columns"] = {
-        modo: [c for c, q in nomenclature.QUANTITIES.items()
+    snapshot["suppressed_columns"] = {
+        mode: [c for c, q in nomenclature.QUANTITIES.items()
                if not q.alias_of and not q.visible(prop)]
-        for modo, prop in (("rotor", False), ("propeller", True))
+        for mode, prop in (("rotor", False), ("propeller", True))
     }
 
     # --- plot axis labels (viz/plots.py), in the three render targets ---
-    instantaneo["axis_labels"] = {
-        modo: {
+    snapshot["axis_labels"] = {
+        mode: {
             c: {
                 "mathtext": plots._summary_axis_label(c, prop),
-                "text": plots.rotulo_de_summary_em_texto(c, prop),
-                "html": plots.rotulo_de_summary_em_html(c, prop),
+                "text": plots.summary_label_text(c, prop),
+                "html": plots.summary_label_html(c, prop),
             }
-            for c in chaves
+            for c in keys
         }
-        for modo, prop in (("rotor", False), ("propeller", True))
+        for mode, prop in (("rotor", False), ("propeller", True))
     }
 
     # --- condition names (studies.py) ---
-    instantaneo["condition_labels"] = {
-        modo: [studies.nome_de_condicao(v, prop) for v in CONDITION_SAMPLES]
-        for modo, prop in (("rotor", False), ("propeller", True))
+    snapshot["condition_labels"] = {
+        mode: [studies.condition_name(v, prop) for v in CONDITION_SAMPLES]
+        for mode, prop in (("rotor", False), ("propeller", True))
     }
-    instantaneo["factorial_slots"] = {
+    snapshot["factorial_slots"] = {
         v: studies._factorial_slot(v) for v in sorted(studies._FACTORIAL_VARIABLES)
     }
 
     if not include_gui:
-        return instantaneo
+        return snapshot
 
     from zbemt.gui import widgets
 
     # --- input field units and their engine variables (gui/widgets.py) ---
-    instantaneo["condition_units"] = {
-        f"{slot}/{'propeller' if prop else 'rotor'}": [list(par) for par in pares]
-        for (slot, prop), pares in sorted(
-            widgets.UNIDADES_DE_CONDICAO.items(), key=lambda kv: (kv[0][0], kv[0][1])
+    snapshot["condition_units"] = {
+        f"{slot}/{'propeller' if prop else 'rotor'}": [list(pair) for pair in pairs]
+        for (slot, prop), pairs in sorted(
+            widgets.CONDITION_UNITS.items(), key=lambda kv: (kv[0][0], kv[0][1])
         )
     }
-    instantaneo["default_unit"] = {
-        f"{slot}/{'propeller' if prop else 'rotor'}": rotulo
-        for (slot, prop), rotulo in sorted(
-            widgets._UNIDADE_PADRAO.items(), key=lambda kv: (kv[0][0], kv[0][1])
+    snapshot["default_unit"] = {
+        f"{slot}/{'propeller' if prop else 'rotor'}": label
+        for (slot, prop), label in sorted(
+            widgets._DEFAULT_UNIT.items(), key=lambda kv: (kv[0][0], kv[0][1])
         )
     }
 
     # --- row labels and tooltips for the two slots (gui/common.py) ---
-    from zbemt.gui.common import rotulo_e_dica_de_condicao
-    instantaneo["slot_labels"] = {
+    from zbemt.gui.common import condition_label_and_tooltip
+    snapshot["slot_labels"] = {
         f"{slot}/{'propeller' if prop else 'rotor'}":
-            list(rotulo_e_dica_de_condicao(prop, slot))
+            list(condition_label_and_tooltip(prop, slot))
         for slot in ("inplane", "axial")
         for prop in (False, True)
     }
 
-    return instantaneo
+    return snapshot
 
 
-def write(destino: Path = DEFAULT_OUTPUT) -> Path:
+def write(destination: Path = DEFAULT_OUTPUT) -> Path:
     """Writes the snapshot. Requires Qt: the file records EVERY surface, and
     one written without the GUI ones would silently stop checking them."""
-    if not tem_qt():
+    if not has_qt():
         raise SystemExit(
             "nomenclature_snapshot: PyQt6 is required to regenerate the "
             "snapshot -- it records the GUI's field labels too, and a file "
             "written without them would drop those surfaces from the check.")
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    destino.write_text(
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(
         json.dumps(collect(), indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    return destino
+    return destination
 
 
 if __name__ == "__main__":
-    caminho = write()
-    print(f"nomenclature snapshot written to {caminho}")
+    path = write()
+    print(f"nomenclature snapshot written to {path}")

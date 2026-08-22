@@ -1,4 +1,4 @@
-# zBEMT — Software Requirements
+# zBEMT: Software Requirements
 
 zBEMT is a Blade Element Momentum Theory (BEMT) solver for rotors,
 propellers, and eVTOL rotors, exposed through three interfaces (GUI, CLI,
@@ -11,15 +11,15 @@ from:
 
 | Prefix | Section | What it covers |
 |---|---|---|
-| `SC` | 1 | Scope — what the software must and must not do |
-| `PR` | 2 | Product — what the user is entitled to |
-| `AR` | 3.1 | Architecture — which module may do what |
+| `SC` | 1 | Scope: what the software must and must not do |
+| `PR` | 2 | Product: what the user is entitled to |
+| `AR` | 3.1 | Architecture: which module may do what |
 | `EN` | 3.2 | Engine correctness |
 | `PA` | 3.3 | GUI / CLI / `.bemt` parity |
 | `RP` | 3.4 | Reports |
 | `DC` | 3.5 | Documentation |
 | `TB` | 3.6 | GUI tab behaviour |
-| `QR` | 4 | Quality — how the work is done and verified |
+| `QR` | 4 | Quality: how the work is done and verified |
 
 Codes are permanent. A requirement that is removed leaves its code retired
 rather than reassigned, so an old reference never silently points at a
@@ -108,7 +108,7 @@ different rule.
 - **PR-10 — GUI layout invariants.** Fields align vertically across forms;
   buttons that appear together share a width; no text is ever clipped or
   overflowed, in a label, a button, a tooltip or a help popup. A hidden form
-  field hides its whole row, label included — a visible label pointing at a
+  field hides its whole row, label included. A visible label pointing at a
   hidden field is a defect.
 - **PR-11 — The GUI never freezes.** No user action may block the main
   thread. Solving, batch runs, report generation, polar generation and file
@@ -147,12 +147,12 @@ different rule.
   divergence to a nonphysical value must not be considered a complete
   fix.
 - **EN-4** — A published correction must reproduce its published closed form. A
-  correction implemented as a simplification of the form it is named after —
-  a dropped factor, a linearized term — is a defect, not a variant, and must
+  correction implemented as a simplification of the form it is named after (
+  a dropped factor, a linearized term) is a defect, not a variant, and must
   be tested against the closed form rather than against a stored number.
 - **EN-5** — The airfoil polar sources — analytical, tabulated single polar, tabulated
   by radial section, tabulated by Reynolds and/or Mach, Viterna-Corrigan
-  extension, and the table+Viterna blend — must be interchangeable behind one
+  extension, and the table+Viterna blend, must be interchangeable behind one
   interface: the engine must not know which source produced a coefficient.
 - **EN-6** — Every reverse-flow model must be defined on both sides of the boundary, and
   a model advertised as continuous must be continuous at zero tangential
@@ -261,6 +261,12 @@ different rule.
 - **QR-8 — A physics option must be shown to do something.** Locking down a
   toggle's default value is not coverage. Every physics option must have a
   test that turns it on and verifies the expected physical effect against a
-  reference external to the code — a published formula, a limit the engine
+  reference external to the code: a published formula, a limit the engine
   must reproduce, or a property the model must have (harmonic inflow models
   coinciding in hover, for instance).
+- **QR-9 — English internal identifiers.** Every function, class, variable,
+  constant and parameter name in `zbemt/`, `tools/` and `tests/` is an
+  English name that states its purpose. A Portuguese identifier is a defect
+  even when every user-facing string is English. Renames never touch
+  user-facing keys: `.bemt` keys, product CLI flag names, CSV headers, HTML
+  `id` attributes and Qt object/slot names stay fixed.

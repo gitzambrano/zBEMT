@@ -62,7 +62,7 @@ pip install -e ".[all]"                 # install, from the repository root
 
 python tests/run_all_tests.py           # the full suite -- one process per file
 python tests/run_all_tests.py -k airfoil          # only files matching
-python tests/run_all_tests.py --lista             # list the files, run nothing
+python tests/run_all_tests.py --list             # list the files, run nothing
 
 python -m pytest tests/test_bemt.py                           # one file
 python -m pytest tests/test_bemt.py::TestSolveBemtHover -v     # one class
@@ -87,7 +87,7 @@ and the `Agg` backend. No linter is configured.
 canvases across dozens of files and dies with a native access violation
 (exit 139) — a teardown-ordering crash, not a test failure, which hides every
 result after it. The runner gives each file its own process, keeps memory
-bounded, writes `tests/resultado_testes.txt` with a traceback per failure, and
+bounded, writes `tests/test_results.txt` with a traceback per failure, and
 is what CI runs. Running a single file or class through `python -m pytest` is
 fine.
 
@@ -205,7 +205,7 @@ Hide a control only when it has nothing to say in the current configuration. A
 control that is real but blocked stays visible and disabled, so the user can
 learn that it exists (`PR-2`).
 
-After moving or adding a field, run `python tools/field_index.py --escrever`.
+After moving or adding a field, run `python tools/field_index.py --write`.
 
 ## Documentation (`docs/documentation.html`)
 
@@ -260,8 +260,8 @@ rename them; do not add new ones in Portuguese either.
 Regenerate and commit:
 
 ```bash
-python tools/build_toc.py --escrever      # index
-python tools/field_index.py --escrever    # per-tab field lists
+python tools/build_toc.py --write      # index
+python tools/field_index.py --write    # per-tab field lists
 python tools/gui_screenshots.py           # docs/img/gui/*.png
 python tools/field_inventory.py           # field -> tab/default/.bemt/CLI
 ```
@@ -307,7 +307,7 @@ Never use a plain-text approximation such as `lambda_i`, `mu_x` or
 
 - Use `unittest.TestCase`, discoverable by pytest. Both runners must work.
 - `tests/helpers.py` holds shared project constructors and
-  `patch_em_toda_gui(name, value)` for silencing `QMessageBox`. Patch every GUI
+  `patch_message_box_everywhere(name, value)` for silencing `QMessageBox`. Patch every GUI
   module that wires its own instance, not just `zbemt.gui.app`.
 - Example projects under `projects/` are versioned individually — `.gitignore`
   whitelists each by name, so a new example needs its own `!/projects/<name>/`

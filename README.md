@@ -171,7 +171,7 @@ python tests/run_all_tests.py -k airfoil # only files matching "airfoil"
 python -m pytest tests/test_bemt.py      # a single file
 ```
 
-1000+ tests in ~7 minutes, including all GUI tests (headless via `QT_QPA_PLATFORM=offscreen`, already configured in `tests/conftest.py`). A summary is printed and a full report, with a traceback per failure, is written to `tests/resultado_testes.txt`.
+1000+ tests in ~7 minutes, including all GUI tests (headless via `QT_QPA_PLATFORM=offscreen`, already configured in `tests/conftest.py`). A summary is printed and a full report, with a traceback per failure, is written to `tests/test_results.txt`.
 
 Run the full suite through `run_all_tests.py`, which gives each test file its own process. A single `pytest tests/` over everything accumulates Qt/matplotlib canvases across dozens of files and eventually dies with a native access violation during teardown — not a test failure, but it aborts the run and hides every result after it. Individual files and classes run fine under plain `pytest`.
 

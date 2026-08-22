@@ -73,7 +73,7 @@ def parse_list(text: str) -> list[float]:
     return [float(v) for v in text.split(",") if v.strip()]
 
 
-def symbol_to_plain_text(simbolo_html: str) -> str:
+def symbol_to_plain_text(symbol_html: str) -> str:
     """`api.SUMMARY_SYMBOLS` stores symbols in HTML (`"C<sub>T</sub>"`,
     `"&mu;"`) intended for the report; a `QTableWidgetItem` does not
     render HTML, so "&mu;" would appear literally instead of "μ".
@@ -82,8 +82,8 @@ def symbol_to_plain_text(simbolo_html: str) -> str:
     header) and `RunCaseTab` (row label) -- same conversion, a single
     implementation."""
     import html
-    texto = simbolo_html.replace("<sub>", "_").replace("</sub>", "")
-    return html.unescape(texto)
+    text = symbol_html.replace("<sub>", "_").replace("</sub>", "")
+    return html.unescape(text)
 
 
 def describe_case_settings(summary: dict) -> str:
@@ -100,17 +100,17 @@ def describe_case_settings(summary: dict) -> str:
     `V_z`), never `μ` or `V` without an index: the same label appears
     in both modes and without the index it is impossible to tell which
     component it is."""
-    partes = []
+    parts = []
     if "mu_x" in summary:
-        partes.append(f"μ_x={summary['mu_x']:.3g}")
+        parts.append(f"μ_x={summary['mu_x']:.3g}")
     if "collective_deg" in summary:
-        partes.append(f"θ₀={summary['collective_deg']:.3g}°")
+        parts.append(f"θ₀={summary['collective_deg']:.3g}°")
     if "rpm" in summary and summary["rpm"] is not None:
-        partes.append(f"rpm={summary['rpm']:.0f}")
-    componente_z = summary.get("Vz")
-    if componente_z is not None and abs(componente_z) > 1e-9:
-        partes.append(f"V_z={componente_z:.3g}")
-    return ", ".join(partes) if partes else "case"
+        parts.append(f"rpm={summary['rpm']:.0f}")
+    vz_value = summary.get("Vz")
+    if vz_value is not None and abs(vz_value) > 1e-9:
+        parts.append(f"V_z={vz_value:.3g}")
+    return ", ".join(parts) if parts else "case"
 
 
 def describe_batch_settings(results_list: list) -> str:
@@ -121,27 +121,27 @@ def describe_batch_settings(results_list: list) -> str:
     was without having to open the case queue."""
     if not results_list:
         return "batch"
-    partes = []
+    parts = []
     n = len(results_list)
-    for chave, simbolo, fmt, sufixo in (
+    for key, symbol, fmt, suffix in (
         ("mu_x", "μ_x", "{:.3g}", ""),
         ("collective_deg", "θ₀", "{:.3g}", "°"),
         ("rpm", "rpm", "{:.0f}", ""),
         ("Vz", "V_z", "{:.3g}", ""),
     ):
-        valores = [r.summary[chave] for r in results_list
-                   if chave in r.summary and r.summary[chave] is not None]
-        if not valores:
+        values = [r.summary[key] for r in results_list
+                   if key in r.summary and r.summary[key] is not None]
+        if not values:
             continue
-        if chave == "Vz" and all(abs(v) < 1e-9 for v in valores):
+        if key == "Vz" and all(abs(v) < 1e-9 for v in values):
             continue
-        lo, hi = min(valores), max(valores)
+        lo, hi = min(values), max(values)
         if hi - lo > 1e-9 * max(1.0, abs(hi)):
-            partes.append(f"{simbolo}: {fmt.format(lo)}{sufixo}→{fmt.format(hi)}{sufixo}")
+            parts.append(f"{symbol}: {fmt.format(lo)}{suffix}→{fmt.format(hi)}{suffix}")
         else:
-            partes.append(f"{simbolo}={fmt.format(lo)}{sufixo}")
-    partes.append(f"{n} case(s)")
-    return ", ".join(partes)
+            parts.append(f"{symbol}={fmt.format(lo)}{suffix}")
+    parts.append(f"{n} case(s)")
+    return ", ".join(parts)
 
 
 # =============================================================================
@@ -211,7 +211,7 @@ class AppState(QObject):
     def remove_history_entry(self, entry_id: str) -> bool:
         """Removes ONE entry from the history (unlike `clear_history`,
         which clears everything) -- returns True if something was
-        removed. `entry_id` is the `ResultEntry.id` (e.g. `"r3"`), the
+        removed. `entry_id` is the `ResultEntry.id` (for example `"r3"`), the
         same value stored in `Qt.ItemDataRole.UserRole` of the list item
         in `ResultsTab`."""
         antes = len(self.results_history)
@@ -259,32 +259,32 @@ class AppState(QObject):
 #:
 #: Above this many rows a dropdown genuinely is a list to scroll, and a
 #: popup taller than the screen is worse than a scrollbar.
-MAXIMO_DE_OPCOES_SEM_ROLAGEM = 40
+MAX_OPTIONS_WITHOUT_SCROLL = 40
 
 
-def mostrar_todas_as_opcoes(combo: QComboBox) -> None:
+def show_all_options(combo: QComboBox) -> None:
     """Makes the dropdown open with every option already visible.
 
     Qt sizes the popup to ``min(count, maxVisibleItems)`` rows, so raising
     the cap once is enough: a combo with three entries still shows three,
     and one filled from results long after it was built shows all of them
     without anything having to notice the change."""
-    combo.setMaxVisibleItems(MAXIMO_DE_OPCOES_SEM_ROLAGEM)
+    combo.setMaxVisibleItems(MAX_OPTIONS_WITHOUT_SCROLL)
 
 
-def mostrar_todas_as_opcoes_em(raiz: QWidget) -> int:
-    """Applies `mostrar_todas_as_opcoes` to every combo under `raiz`.
+def show_all_options_in(root: QWidget) -> int:
+    """Applies `show_all_options` to every combo under `root`.
 
     Called once on the assembled window, so that a new combo added
     anywhere inherits the behavior without having to remember to ask for
     it. Returns how many it touched."""
-    combos = raiz.findChildren(QComboBox)
+    combos = root.findChildren(QComboBox)
     for combo in combos:
-        mostrar_todas_as_opcoes(combo)
+        show_all_options(combo)
     return len(combos)
 
 
-def definir_linha_visivel(form, widget, visivel: bool) -> None:
+def set_row_visible(form, widget, visible: bool) -> None:
     """Hides/shows the entire ROW of a ``QFormLayout`` -- label included.
 
     Two pitfalls this function exists to avoid:
@@ -292,17 +292,17 @@ def definir_linha_visivel(form, widget, visivel: bool) -> None:
     1. ``widget.setVisible(False)`` hides only the field: the label
        stays on screen, pointing at nothing.
     2. ``form.setRowVisible(widget, ...)`` looks up the row by the FIELD
-       widget. If the field was wrapped (which is what `ajuda_de_campo`
-       does to fit the "?" next to it), the original widget is no
-       longer the row's field, and Qt finds nothing -- failing
-       silently.
+       widget. If the field was wrapped (which is what
+       `install_field_popups` does to make the label clickable), the
+       original widget is no longer the row's field, and Qt finds
+       nothing -- failing silently.
     """
-    alvo = getattr(widget, "_container_de_ajuda", None) or widget
+    target = getattr(widget, "_help_container", None) or widget
     try:
-        form.setRowVisible(alvo, visivel)
+        form.setRowVisible(target, visible)
     except RuntimeError:
         # widget outside this form: fall back to the simple behavior
-        alvo.setVisible(visivel)
+        target.setVisible(visible)
 
 
 # =============================================================================
@@ -310,7 +310,7 @@ def definir_linha_visivel(form, widget, visivel: bool) -> None:
 # =============================================================================
 #
 # A `QFormLayout` stretches the field to the end of the row. In a 1400px
-# window that gave a ~1370px box to type "72" into -- and, worse, the SAME
+# window that gave an approximately 1370px box to type "72" into -- and, worse, the SAME
 # quantity appeared with different widths in each tab, depending on which
 # panel it landed in. It is not a matter of taste: a field that wide
 # separates the label from the value by half the screen, and the eye loses
@@ -323,17 +323,17 @@ def definir_linha_visivel(form, widget, visivel: bool) -> None:
 #   enumeration     width of the longest option (+ arrow clearance), capped
 #   free text       grows (folder path, list of values, name)
 #
-LARGURA_DE_NUMERO = 150      # px: fits "-1234.567890" with room to spare
-LARGURA_MIN_DE_ENUM = 180    # px: a combo never gets narrow enough to
+NUMBER_WIDTH = 150           # px: fits "-1234.567890" with room to spare
+ENUM_MIN_WIDTH = 180         # px: a combo never gets narrow enough to
                              #     elide the selected option
-LARGURA_MAX_DE_ENUM = 340    # px: cap, so it does not go back to the
+ENUM_MAX_WIDTH = 340         # px: cap, so it does not go back to the
                              #     stretched-field problem
 
 # Condition fields (Run Case/Run Batch) use the same geometry, including
 # when the value sits inside a composite widget (mu_x/J_x or alpha/Vz).
-LARGURA_UNIDADE_DE_CONDICAO = 110
-LARGURA_VALOR_DE_CONDICAO = LARGURA_DE_NUMERO
-ESPACO_DE_CONDICAO = 6
+CONDITION_UNIT_WIDTH = 110
+CONDITION_VALUE_WIDTH = NUMBER_WIDTH
+CONDITION_ROW_SPACING = 6
 
 #: Texts of the unit-label combos (`widgets.LongitudinalInput` and
 #: `widgets.AxialInput`). Listed here, rather than read from the widgets,
@@ -342,29 +342,29 @@ ESPACO_DE_CONDICAO = 6
 #: end up narrower than the z-field row (alpha_rotor [deg]/Vz [m/s]) and
 #: the number in each row would start at a different x -- the misalignment
 #: this module exists to prevent.
-#: Derived from `widgets.UNIDADES_DE_CONDICAO` (every mode, every slot):
+#: Derived from `widgets.CONDITION_UNITS` (every mode, every slot):
 #: the width has to fit the longest label of ANY mode, otherwise switching
 #: to propeller would cut off "alpha_disk [deg]" -- and a hand-copied list
 #: would silently go stale the moment a new unit was added.
-def _todos_os_rotulos_de_unidade() -> tuple:
-    from .widgets import UNIDADES_DE_CONDICAO
-    return tuple(sorted({rotulo
-                          for pares in UNIDADES_DE_CONDICAO.values()
-                          for rotulo, _var in pares}))
+def _all_unit_labels() -> tuple:
+    from .widgets import CONDITION_UNITS
+    return tuple(sorted({label
+                         for pairs in CONDITION_UNITS.values()
+                         for label, _var in pairs}))
 
 #: Slack for the text inside a QComboBox: arrow (22px, see styles.py),
 #: side padding (6+6) and border (1+1).
-_FOLGA_DE_COMBO = 38
+_COMBO_SLACK = 38
 
 
-def largura_de_unidade_de_condicao(combos=()) -> int:
+def condition_unit_width(combos=()) -> int:
     """Width of the unit-label combos, MEASURED instead of fixed.
 
     "alpha [deg]" used to come out clipped ("alpha [deg") at the old
     fixed 110px -- and the clipping point changes with the font, the
     theme and the monitor scale, so the right number is not a
     constant, it is a measurement.
-    `LARGURA_UNIDADE_DE_CONDICAO` becomes the FLOOR (no row shrinks
+    `CONDITION_UNIT_WIDTH` becomes the FLOOR (no row shrinks
     below what already looked good).
 
     ``combos``: the actual unit `QComboBox` widgets, when they exist.
@@ -373,7 +373,7 @@ def largura_de_unidade_de_condicao(combos=()) -> int:
     padding and the dropdown arrow --, but it is only valid AFTER the
     QSS polish, which happens on first display. That is why the caller
     passes the combos from inside a `showEvent`
-    (see `RunCaseTab`/`RunBatchTab._ajustar_largura_de_unidade`), and
+    (see `RunCaseTab`/`RunBatchTab._update_unit_width`), and
     the font-metric calculation below serves as the floor for
     construction time, when there is no reliable `sizeHint` yet.
 
@@ -384,27 +384,27 @@ def largura_de_unidade_de_condicao(combos=()) -> int:
 
     app = QApplication.instance()
     if app is None:
-        return LARGURA_UNIDADE_DE_CONDICAO
+        return CONDITION_UNIT_WIDTH
     fm = QFontMetrics(app.font())
-    preciso = max(fm.horizontalAdvance(t) for t in _todos_os_rotulos_de_unidade())
-    largura = max(LARGURA_UNIDADE_DE_CONDICAO, preciso + _FOLGA_DE_COMBO)
+    needed = max(fm.horizontalAdvance(t) for t in _all_unit_labels())
+    width = max(CONDITION_UNIT_WIDTH, needed + _COMBO_SLACK)
     for combo in combos:
         # A QComboBox's `sizeHint` already embeds the longest option;
         # `minimumSizeHint` covers the case of a combo with an imposed
         # maximum width (none of these have one, but it costs nothing
         # and prevents a regression).
-        largura = max(largura, combo.sizeHint().width(),
-                      combo.minimumSizeHint().width())
-    return largura
+        width = max(width, combo.sizeHint().width(),
+                    combo.minimumSizeHint().width())
+    return width
 
 
 #: Engine field each input slot is bound to. `field_help` identifies the row
 #: by the quoted token that opens the tooltip, so this has to be the ENGINE's
 #: name (disk axes) and not the one displayed, which rotates with the mode.
-_CAMPO_DO_SLOT = {"inplane": "mu_x", "axial": "Vz"}
+_SLOT_FIELD = {"inplane": "mu_x", "axial": "Vz"}
 
 
-def resolver_par_de_condicao(advance, axial, rpm: float, radius_m: float) -> tuple:
+def resolve_condition_pair(advance, axial, rpm: float, radius_m: float) -> tuple:
     """``(mu_x, Vz)`` for the pair of condition fields, in the ORDER the
     chosen unit requires.
 
@@ -413,7 +413,7 @@ def resolver_par_de_condicao(advance, axial, rpm: float, radius_m: float) -> tup
     angle measured from the SHAFT, which is what a propeller uses --
     the dependency reverses: the axial one is the known one and the
     in-plane one comes from it. Always resolving in the old order would
-    give `mu_x` from a `Vz` that has not been read yet, i.e. zero.
+    give `mu_x` from a `Vz` that has not been read yet, that is, zero.
 
     Same inversion as `bemt.resolve_advance_velocity` and
     `studies.build_factorial_conditions`; it exists here because Run
@@ -426,10 +426,10 @@ def resolver_par_de_condicao(advance, axial, rpm: float, radius_m: float) -> tup
     return mu_x, axial.vv(mu_x, rpm, radius_m)
 
 
-def aplicar_par_de_condicao(advance, axial, mu_x: float, Vz: float,
+def apply_condition_pair(advance, axial, mu_x: float, Vz: float,
                              rpm: float, radius_m: float) -> None:
     """Writes ``(mu_x, Vz)`` into the two fields -- the inverse of
-    `resolver_par_de_condicao`, used when loading a saved case.
+    `resolve_condition_pair`, used when loading a saved case.
 
     The axial one goes first: with `alpha_disk` in the in-plane field,
     it is the already-written `Vz` that gives the angle its meaning."""
@@ -440,7 +440,7 @@ def aplicar_par_de_condicao(advance, axial, mu_x: float, Vz: float,
         advance.set_mu(mu_x)
 
 
-def rotulo_e_dica_de_condicao(is_propeller: bool, slot: str) -> tuple:
+def condition_label_and_tooltip(is_propeller: bool, slot: str) -> tuple:
     """``(row label, tooltip)`` for field ``slot``
     (``"inplane"``/``"axial"``) in the current mode's convention.
 
@@ -449,18 +449,18 @@ def rotulo_e_dica_de_condicao(is_propeller: bool, slot: str) -> tuple:
     opens the tooltip: `field_help` reads it to find which field the row
     belongs to, and without it the row loses its help popup.
     """
-    rotulo, dica = nomenclature.slot_label(slot, is_propeller)
+    label, tip = nomenclature.slot_label(slot, is_propeller)
     # QToolTip renders plain text as running text, so the paragraph breaks
     # have to be HTML for them to survive the hover.
-    dica = dica.replace("\n\n", "<br><br>").replace("\n", "<br>")
-    return rotulo, f'"{_CAMPO_DO_SLOT[slot]}" — {dica}'
+    tip = tip.replace("\n\n", "<br><br>").replace("\n", "<br>")
+    return label, f'"{_SLOT_FIELD[slot]}" — {tip}'
 
 
-def definir_rotulo_de_linha(form, widget, texto: str) -> bool:
+def set_row_label(form, widget, text: str) -> bool:
     """Changes the TEXT of the row label of ``widget`` in a
     ``QFormLayout``.
 
-    Same pitfall as `definir_linha_visivel`: the field may be wrapped
+    Same pitfall as `set_row_visible`: the field may be wrapped
     by the "?" help container, and the row label may already have
     become a clickable `QToolButton` (`field_help`). Both cases are
     handled here, instead of keeping a reference to the original
@@ -468,21 +468,21 @@ def definir_rotulo_de_linha(form, widget, texto: str) -> bool:
     help was installed."""
     from PyQt6.QtWidgets import QFormLayout
 
-    alvo = getattr(widget, "_container_de_ajuda", None) or widget
-    linha, _papel = form.getWidgetPosition(alvo)
-    if linha < 0:
+    target = getattr(widget, "_help_container", None) or widget
+    row_idx, _role = form.getWidgetPosition(target)
+    if row_idx < 0:
         return False
-    item = form.itemAt(linha, QFormLayout.ItemRole.LabelRole)
-    rotulo = item.widget() if item is not None else None
-    if rotulo is None or not hasattr(rotulo, "setText"):
+    item = form.itemAt(row_idx, QFormLayout.ItemRole.LabelRole)
+    label = item.widget() if item is not None else None
+    if label is None or not hasattr(label, "setText"):
         return False
-    rotulo.setText(texto)
+    label.setText(text)
     return True
 
 
-def aplicar_largura_de_unidade_de_condicao(raiz) -> int:
+def apply_condition_unit_width(root) -> int:
     """Measures and applies the common width of the unit-label combos
-    under ``raiz`` (a tab), adjusting the simple fields' indent along
+    under ``root`` (a tab), adjusting the simple fields' indent along
     with it.
 
     Called from the tab's ``showEvent``, not from construction: it is
@@ -492,8 +492,8 @@ def aplicar_largura_de_unidade_de_condicao(raiz) -> int:
     on screens whose font/scale differs from the developer's.
 
     The simple fields (Collective/RPM) are indented up to the number
-    column by a container marked with ``_recuo_de_unidade`` (see
-    ``_com_recuo_de_unidade`` in both tabs); their indent moves along
+    column by a container marked with ``_unit_indent`` (see
+    ``_with_unit_indent`` in both tabs); their indent moves along
     with it, otherwise the values column would split in two.
 
     Returns the applied width."""
@@ -502,36 +502,36 @@ def aplicar_largura_de_unidade_de_condicao(raiz) -> int:
 
     from PyQt6.QtWidgets import QComboBox
 
-    campos = raiz.findChildren((LongitudinalInput, AxialInput))
-    combos = [c.unit_combo for c in campos if getattr(c, "unit_combo", None) is not None]
+    fields = root.findChildren((LongitudinalInput, AxialInput))
+    combos = [c.unit_combo for c in fields if getattr(c, "unit_combo", None) is not None]
     # STANDALONE unit combos (the factorial's axis rows), marked at
     # construction: they get included in the same measurement,
     # otherwise the "values:" column would land at a different x per
     # row -- "mu_x" and "alpha [deg]" have quite different natural
     # widths.
-    combos += [c for c in raiz.findChildren(QComboBox)
-               if getattr(c, "_combo_de_unidade", False)]
-    largura = largura_de_unidade_de_condicao(combos)
+    combos += [c for c in root.findChildren(QComboBox)
+               if getattr(c, "_is_unit_combo", False)]
+    width = condition_unit_width(combos)
     for combo in combos:
-        combo.setFixedWidth(largura)
-    for container in raiz.findChildren(QWidget):
-        if getattr(container, "_recuo_de_unidade", False):
+        combo.setFixedWidth(width)
+    for container in root.findChildren(QWidget):
+        if getattr(container, "_unit_indent", False):
             layout = container.layout()
             if layout is not None:
-                layout.setContentsMargins(largura + ESPACO_DE_CONDICAO, 0, 0, 0)
-        elif getattr(container, "_reserva_de_unidade", False):
+                layout.setContentsMargins(width + CONDITION_ROW_SPACING, 0, 0, 0)
+        elif getattr(container, "_unit_reserve", False):
             # Reserves the column even with the combo hidden (axis
             # "(none)"): a hidden widget takes up no width, and the
             # whole row would slide to the left.
-            container.setFixedWidth(largura)
-    return largura
+            container.setFixedWidth(width)
+    return width
 
 
 #: Clearance for the label inside a `QPushButton` (frame + theme padding).
-FOLGA_DE_BOTAO = 26
+BUTTON_MARGIN = 26
 
 
-def uniformizar_largura_de_botoes(botoes, rotulos_extras=()) -> int:
+def equalize_button_widths(buttons, extra_labels=()) -> int:
     """Gives the SAME width to a group of buttons that read together,
     and returns the applied width.
 
@@ -548,30 +548,30 @@ def uniformizar_largura_de_botoes(botoes, rotulos_extras=()) -> int:
        polish, which happens on first display -- hence this function
        being called from the tab's `showEvent`, not from construction.
 
-    ``rotulos_extras``: texts the button will still display (the
+    ``extra_labels``: texts the button will still display (the
     generate-cases one alternates between two), so it does not change
     size on the switch.
 
-    Each button gets marked with ``_largura_de_grupo``: the sweep in
+    Each button gets marked with ``_group_width``: the sweep in
     `tests/test_gui_layout.py` forbids a button much wider than its
     own text -- a sign of a missing `addStretch` -- and a short button
     in a group is exactly that, on purpose."""
-    botoes = [b for b in botoes if b is not None]
-    if not botoes:
+    buttons = [b for b in buttons if b is not None]
+    if not buttons:
         return 0
-    metrica = botoes[0].fontMetrics()
-    rotulos = [b.text() for b in botoes] + list(rotulos_extras)
-    largura = max(
-        max(metrica.horizontalAdvance(t) for t in rotulos) + FOLGA_DE_BOTAO,
-        max(b.sizeHint().width() for b in botoes),
+    metrics = buttons[0].fontMetrics()
+    labels = [b.text() for b in buttons] + list(extra_labels)
+    width = max(
+        max(metrics.horizontalAdvance(t) for t in labels) + BUTTON_MARGIN,
+        max(b.sizeHint().width() for b in buttons),
     )
-    for botao in botoes:
-        botao.setMinimumWidth(largura)
-        botao._largura_de_grupo = largura
-    return largura
+    for button in buttons:
+        button.setMinimumWidth(width)
+        button._group_width = width
+    return width
 
 
-def garantir_botoes_legiveis(raiz) -> int:
+def ensure_button_legibility(root) -> int:
     """Prevents a `QPushButton` from ending up narrower than its own
     text.
 
@@ -591,27 +591,27 @@ def garantir_botoes_legiveis(raiz) -> int:
     language changes (no pixel assertions -- see CLAUDE.md rule 3).
 
     Called once per tab, from outside, like
-    `compactar_campos_de_formulario` and
-    `field_help.instalar_popups_de_campo` -- it is window policy, and
+    `compact_form_fields` and
+    `field_help.install_field_popups` -- it is window policy, and
     a new tab obeys it without having to remember anything.
     """
     from PyQt6.QtWidgets import QPushButton
 
     #: Clearance for the frame, the theme's padding and (when present)
     #: the icon.
-    FOLGA = 26
-    ajustados = 0
-    for botao in raiz.findChildren(QPushButton):
-        texto = botao.text().replace("&", "")
-        if not texto:
+    SLACK = 26
+    adjusted = 0
+    for button in root.findChildren(QPushButton):
+        text = button.text().replace("&", "")
+        if not text:
             continue
-        preciso = botao.fontMetrics().horizontalAdvance(texto) + FOLGA
-        if botao.icon() is not None and not botao.icon().isNull():
-            preciso += botao.iconSize().width() + 6
-        if botao.minimumWidth() < preciso:
-            botao.setMinimumWidth(preciso)
-            ajustados += 1
-    return ajustados
+        needed = button.fontMetrics().horizontalAdvance(text) + SLACK
+        if button.icon() is not None and not button.icon().isNull():
+            needed += button.iconSize().width() + 6
+        if button.minimumWidth() < needed:
+            button.setMinimumWidth(needed)
+            adjusted += 1
+    return adjusted
 
 
 #: Minimum vertical spacing between rows of a `QFormLayout`.
@@ -620,53 +620,53 @@ def garantir_botoes_legiveis(raiz) -> int:
 #: one thing (seen in "Enable dynamic stall" + "Lag constant A", in
 #: the three rows of "3D rotational effects" and in "Adaptive
 #: relaxation" right above its parameter box).
-ESPACAMENTO_MINIMO_DE_LINHA = 10
+MIN_ROW_SPACING = 10
 
 #: Minimum horizontal spacing between NEIGHBORING checkboxes on the
 #: same row. A `QCheckBox` draws its indicator and label flush against
 #: its own border, so two of them side by side with the style's
-#: default spacing (~6px) read as one thing: "Coefficients" touched
+#: default spacing (approximately 6px) read as one thing: "Coefficients" touched
 #: the square of "Azimuthal loads", and the eye could not tell which
 #: box each word belonged to. The value is larger than the ordinary
 #: layout spacing on purpose -- it is the distance that separates
 #: independent CONTROLS, not parts of the same field.
-ESPACAMENTO_MINIMO_ENTRE_CAIXAS = 18
+MIN_CHECKBOX_SPACING = 18
 
 
-def arejar_formularios(raiz, minimo: int = ESPACAMENTO_MINIMO_DE_LINHA,
-                        minimo_entre_caixas: int = ESPACAMENTO_MINIMO_ENTRE_CAIXAS) -> int:
-    """Gives breathing room to the layout under ``raiz``, in two
+def ensure_row_spacing(root, min_spacing: int = MIN_ROW_SPACING,
+                        min_checkbox_spacing: int = MIN_CHECKBOX_SPACING) -> int:
+    """Gives breathing room to the layout under ``root``, in two
     directions, and returns how many layouts changed.
 
     * VERTICAL: minimum spacing between the rows of every
       ``QFormLayout`` -- a row occupied only by a `QCheckBox` is
       shorter than a field row, and the two would stick together.
     * HORIZONTAL: minimum spacing between neighboring checkboxes on
-      the same ``QHBoxLayout`` (see `ESPACAMENTO_MINIMO_ENTRE_CAIXAS`).
+      the same ``QHBoxLayout`` (see `MIN_CHECKBOX_SPACING`).
 
     WINDOW policy, applied from outside alongside
-    `compactar_campos_de_formulario` and `garantir_botoes_legiveis` --
+    `compact_form_fields` and `ensure_button_legibility` --
     for the same reason: this way a new tab is born obeying it,
     without having to remember anything. Only INCREASES: a layout that
     already explicitly asked for more space keeps what it asked for."""
     from PyQt6.QtWidgets import QFormLayout, QHBoxLayout, QCheckBox, QRadioButton
 
     ajustados = 0
-    for form in raiz.findChildren(QFormLayout):
-        if form.verticalSpacing() < minimo:
-            form.setVerticalSpacing(minimo)
+    for form in root.findChildren(QFormLayout):
+        if form.verticalSpacing() < min_spacing:
+            form.setVerticalSpacing(min_spacing)
             ajustados += 1
-    for linha in raiz.findChildren(QHBoxLayout):
-        caixas = sum(1 for i in range(linha.count())
-                     if isinstance(linha.itemAt(i).widget(), (QCheckBox, QRadioButton)))
-        if caixas >= 2 and linha.spacing() < minimo_entre_caixas:
-            linha.setSpacing(minimo_entre_caixas)
+    for row_idx in root.findChildren(QHBoxLayout):
+        checkbox_count = sum(1 for i in range(row_idx.count())
+                     if isinstance(row_idx.itemAt(i).widget(), (QCheckBox, QRadioButton)))
+        if checkbox_count >= 2 and row_idx.spacing() < min_checkbox_spacing:
+            row_idx.setSpacing(min_checkbox_spacing)
             ajustados += 1
     return ajustados
 
 
-def alinhar_rotulos_de_formulario(raiz) -> int:
-    """Left-aligns the label of every ``QFormLayout`` under ``raiz``
+def align_form_labels(root) -> int:
+    """Left-aligns the label of every ``QFormLayout`` under ``root``
     and returns how many layouts changed.
 
     The style's default on Windows is `AlignRight`: labels get
@@ -682,27 +682,27 @@ def alinhar_rotulos_de_formulario(raiz) -> int:
     with arrows) would leave the text floating above the center of the
     field it belongs to.
 
-    WINDOW policy like `arejar_formularios` and
-    `compactar_campos_de_formulario`, applied from outside for the
+    WINDOW policy like `ensure_row_spacing` and
+    `compact_form_fields`, applied from outside for the
     same reason: a new tab is born obeying it without having to
     remember anything."""
     from PyQt6.QtWidgets import QFormLayout
 
-    alvo = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+    target = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
     ajustados = 0
-    for form in raiz.findChildren(QFormLayout):
-        if form.labelAlignment() != alvo:
-            form.setLabelAlignment(alvo)
+    for form in root.findChildren(QFormLayout):
+        if form.labelAlignment() != target:
+            form.setLabelAlignment(target)
             ajustados += 1
     return ajustados
 
 
-def compactar_campos_de_formulario(raiz) -> int:
+def compact_form_fields(root) -> int:
     """Gives a readable width to numeric and enumeration fields under
-    ``raiz``. Returns how many widgets were adjusted.
+    ``root``. Returns how many widgets were adjusted.
 
     Called ONCE per tab, from outside (``app.MainWindow``), for the
-    same reason as ``field_help.instalar_popups_de_campo``: it is
+    same reason as ``field_help.install_field_popups``: it is
     visual policy for the whole window, not a per-tab decision -- and
     a new tab starts obeying it without having to remember anything.
 
@@ -719,53 +719,53 @@ def compactar_campos_de_formulario(raiz) -> int:
     from PyQt6.QtWidgets import QAbstractSpinBox, QComboBox
 
     ajustados = 0
-    for w in raiz.findChildren(QAbstractSpinBox):
-        if getattr(w, "_largura_compactada", False):
+    for w in root.findChildren(QAbstractSpinBox):
+        if getattr(w, "_width_capped", False):
             continue
-        w.setMaximumWidth(LARGURA_DE_NUMERO)
-        w._largura_compactada = True
+        w.setMaximumWidth(NUMBER_WIDTH)
+        w._width_capped = True
         ajustados += 1
-    for w in raiz.findChildren(QComboBox):
-        if getattr(w, "_largura_compactada", False):
+    for w in root.findChildren(QComboBox):
+        if getattr(w, "_width_capped", False):
             continue
         # `sizeHint` already embeds the longest option; the clearance
         # covers the dropdown arrow (styles.py) and the side padding.
-        largura = min(max(w.sizeHint().width() + 24, LARGURA_MIN_DE_ENUM),
-                      LARGURA_MAX_DE_ENUM)
+        width = min(max(w.sizeHint().width() + 24, ENUM_MIN_WIDTH),
+                    ENUM_MAX_WIDTH)
         # The cap NEVER overrides the minimum the combo itself asks
-        # for: `dialogs.ajustar_largura_de_combo` already fixes a
+        # for: `dialogs.adjust_combo_width` already fixes a
         # `minimumWidth` equal to the longest item, precisely so the
         # popup does not come out elided with "…". A cap smaller than
         # that would shrink nothing (Qt honors the minimum) and would
         # only create a misleading constraint -- and there is a real
-        # option wider than `LARGURA_MAX_DE_ENUM` ("Full range (-180°
+        # option wider than `ENUM_MAX_WIDTH` ("Full range (-180°
         # to 180°)", 354px).
-        largura = max(largura, w.minimumWidth(), w.minimumSizeHint().width())
-        w.setMaximumWidth(largura)
-        w._largura_compactada = True
+        width = max(width, w.minimumWidth(), w.minimumSizeHint().width())
+        w.setMaximumWidth(width)
+        w._width_capped = True
         ajustados += 1
     return ajustados
 
 
 #: alignments used in numeric tables (text left, number right -- so a
 #: column's decimal places line up under one another)
-ALINHAMENTO_DE_TEXTO = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-ALINHAMENTO_DE_NUMERO = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+TEXT_ALIGN = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+NUMBER_ALIGN = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
 
 
-def alinhar_cabecalhos_com_conteudo(tabela, colunas_numericas) -> None:
+def align_headers_with_content(table, numeric_columns) -> None:
     """Aligns each header like the column it sits above.
 
     Qt's default centers every header; over a column of text flush
     left (or numbers flush right) this leaves the label offset from
     what it names.
     """
-    for coluna in range(tabela.columnCount()):
-        item = tabela.horizontalHeaderItem(coluna)
+    for column in range(table.columnCount()):
+        item = table.horizontalHeaderItem(column)
         if item is None:
             continue
-        item.setTextAlignment(ALINHAMENTO_DE_NUMERO if coluna in colunas_numericas
-                              else ALINHAMENTO_DE_TEXTO)
+        item.setTextAlignment(NUMBER_ALIGN if column in numeric_columns
+                              else TEXT_ALIGN)
 
 
 def show_error(parent, title: str, exc: Exception):
@@ -783,7 +783,7 @@ def show_error(parent, title: str, exc: Exception):
 def open_help(parent=None, anchor: str | None = None):
     """Opens the documentation in the default browser.
 
-    ``anchor``: section id (e.g. ``"cap-3-2-1"``). With it, the browser
+    ``anchor``: section id (for example ``"cap-3-2-1"``). With it, the browser
     jumps straight to the field -- this is what makes the "?" next to
     each field worth more than the global "?"."""
     help_path = paths.documentation_path()
@@ -798,7 +798,7 @@ def open_help(parent=None, anchor: str | None = None):
     QDesktopServices.openUrl(url)
 
 
-class _TituloDeBlocoClicavel(QObject):
+class _ClickableBlockTitle(QObject):
     """Makes the TITLE of a QGroupBox clickable (opens the block's
     popup).
 
@@ -811,29 +811,29 @@ class _TituloDeBlocoClicavel(QObject):
     def __init__(self, groupbox, block_id: str):
         super().__init__(groupbox)
         self._gb = groupbox
-        self._bloco = block_id
+        self._block_id = block_id
         groupbox.installEventFilter(self)
 
-    def retangulo_do_titulo(self):
+    def title_rect(self):
         """Area occupied by the title text, in the groupbox's
         coordinates."""
         from PyQt6.QtWidgets import QStyle, QStyleOptionGroupBox
-        opcao = QStyleOptionGroupBox()
-        self._gb.initStyleOption(opcao)
+        option = QStyleOptionGroupBox()
+        self._gb.initStyleOption(option)
         return self._gb.style().subControlRect(
-            QStyle.ComplexControl.CC_GroupBox, opcao,
+            QStyle.ComplexControl.CC_GroupBox, option,
             QStyle.SubControl.SC_GroupBoxLabel, self._gb)
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if event.type() == QEvent.Type.MouseButtonPress:
             try:
-                ponto = event.position().toPoint()
+                pos = event.position().toPoint()
             except AttributeError:                      # pragma: no cover
                 return False
-            if self.retangulo_do_titulo().contains(ponto):
+            if self.title_rect().contains(pos):
                 from .help_popup import HelpPopup
-                HelpPopup.instancia(self._gb.window()).mostrar_bloco(
-                    self._bloco, self._gb)
+                HelpPopup.instance(self._gb.window()).show_block(
+                    self._block_id, self._gb)
                 # A "checkable" groupbox uses the title to toggle: do
                 # not swallow the click in that case, just add the
                 # help.
@@ -841,7 +841,7 @@ class _TituloDeBlocoClicavel(QObject):
         return False
 
 
-def tornar_titulo_de_bloco_clicavel(groupbox, block_id: str) -> bool:
+def make_block_title_clickable(groupbox, block_id: str) -> bool:
     """The QGroupBox title opens the block's conceptual explanation.
 
     Returns ``True`` if it was installed. Idempotent.
@@ -852,7 +852,7 @@ def tornar_titulo_de_bloco_clicavel(groupbox, block_id: str) -> bool:
         return False
     if groupbox.layout() is None:
         return False
-    if getattr(groupbox, "_ajuda_de_bloco", None) is not None:
+    if getattr(groupbox, "_block_help", None) is not None:
         return False
 
     groupbox.setStyleSheet(
@@ -862,13 +862,13 @@ def tornar_titulo_de_bloco_clicavel(groupbox, block_id: str) -> bool:
     groupbox.setToolTip(
         "Click the section title for an overview and the full physics "
         "documentation of this block.")
-    groupbox._ajuda_de_bloco = _TituloDeBlocoClicavel(groupbox, block_id)
+    groupbox._block_help = _ClickableBlockTitle(groupbox, block_id)
     return True
 
 
 # Historical name: the call stays the same, it is the "?" that stopped
 # existing.
-add_block_help_button = tornar_titulo_de_bloco_clicavel
+add_block_help_button = make_block_title_clickable
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -965,7 +965,7 @@ class PlotlyCanvasHost(QWidget):
     optional `interactive` dependency group (PyQt6-WebEngine + plotly).
 
     Known limitation: QWebEngineView hard-crashes (native crash, no
-    exception) under QT_QPA_PLATFORM=offscreen — Chromium's compositor has
+    exception) under QT_QPA_PLATFORM=offscreen. Chromium's compositor has
     no offscreen-compatible software path there. Works fine under a real
     display. Tests that instantiate this class must skip under offscreen.
     """
@@ -986,7 +986,7 @@ class PlotlyCanvasHost(QWidget):
         #: plotly.js written ONCE next to the HTML -- see `set_figure`
         self._tmp_plotly_js = Path(self._tmp_dir) / "plotly.min.js"
 
-    def _garantir_plotlyjs(self) -> None:
+    def _ensure_plotlyjs(self) -> None:
         """Writes plotly.js next to the figure, once per session.
 
         `include_plotlyjs="directory"` only WRITES that file from
@@ -1002,15 +1002,15 @@ class PlotlyCanvasHost(QWidget):
         override there would silently shadow it.
 
         plotly.js is LINKED, not inlined. With `include_plotlyjs=True`
-        every redraw wrote a ~5.5 MB page — 3.5 MB of it the library —
-        and Chromium re-parsed and re-executed the whole bundle on each
+        every redraw wrote an approximately 5.5 MB page (3.5 MB of it the
+        library), and Chromium re-parsed and re-executed the whole bundle on each
         load: changing the field of the 3D view froze the window for
         seconds. Written once beside the figure, the page drops to
-        ~0.6 MB and the browser serves the library from its own cache.
+        approximately 0.6 MB and the browser serves the library from its own cache.
         `validate=False` skips re-validating arrays that were just built
         here (another traversal of a 90x145 grid, for figures this code
         assembles itself)."""
-        self._garantir_plotlyjs()
+        self._ensure_plotlyjs()
         html = fig.to_html(include_plotlyjs="directory", full_html=True,
                             validate=False, config={"displaylogo": False})
         self._tmp_html.write_text(html, encoding="utf-8")
@@ -1031,7 +1031,7 @@ class PlotlyCanvasHost(QWidget):
 #: what stops working without it). Single source for the
 #: `require_optional_package` dialog -- a new optional feature goes
 #: here, not into a stray message inside a tab.
-PACOTES_OPCIONAIS = {
+OPTIONAL_PACKAGES = {
     "neuralfoil": ("neuralfoil", "pip install neuralfoil",
                     "generating airfoil polars with NeuralFoil"),
     "pyvista": ("pyvista", "pip install pyvista",
@@ -1041,8 +1041,8 @@ PACOTES_OPCIONAIS = {
 }
 
 
-def require_optional_package(widget: QWidget, recurso: str) -> bool:
-    """True if the optional package for ``recurso`` is installed;
+def require_optional_package(widget: QWidget, feature: str) -> bool:
+    """True if the optional package for ``feature`` is installed;
     otherwise opens a dialog with the INSTALL COMMAND and returns
     False.
 
@@ -1051,16 +1051,16 @@ def require_optional_package(widget: QWidget, recurso: str) -> bool:
     there saw only a dead button, with nothing saying a package was
     missing or which one. Now the button stays clickable and the click
     explains what to install, with the command ready to copy."""
-    modulo, comando, descricao = PACOTES_OPCIONAIS[recurso]
+    module_name, command, description = OPTIONAL_PACKAGES[feature]
     try:
-        importlib.import_module(modulo)
+        importlib.import_module(module_name)
         return True
     except ImportError:
         pass
     QMessageBox.information(
         widget, "Optional package not installed",
-        f"This feature needs the optional package '{recurso}', which is not installed, "
-        f"so {descricao} is unavailable.\n\nInstall it with:\n\n    {comando}\n\n"
+        f"This feature needs the optional package '{feature}', which is not installed, "
+        f"so {description} is unavailable.\n\nInstall it with:\n\n    {command}\n\n"
         "Then restart zBEMT.")
     return False
 
@@ -1092,7 +1092,7 @@ def restore_project_from_disk(widget: QWidget, state: AppState) -> None:
     disk (`api.open_project` -- a full re-read, not a partial "undo").
     Confirms first if there is something unsaved (`state.unsaved`);
     without this, a click would silently lose work -- same spirit as
-    the close-window warning (Q7, `app.py.trabalho_nao_salvo`)."""
+    the close-window warning (Q7, `app.py.unsaved_work`)."""
     if not require_project(widget, state):
         return
     if state.unsaved:

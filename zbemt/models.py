@@ -41,25 +41,25 @@ from . import nomenclature
 # =============================================================================
 
 #: NaN and Infinity do NOT exist in JSON. Python's `json` writes them as
-#: `NaN`/`Infinity` literals -- which it reads back itself, but which make
-#: any other reader (jq, JavaScript, a strict parser) reject the whole
+#: `NaN`/`Infinity` literals. It reads them back itself, but any other
+#: reader (jq, JavaScript, a strict parser) rejects the whole
 #: file. A `.bemt` is an interchange format, so they become strings and
 #: turn back into float on read. A NaN can genuinely land here: an
 #: imported polar point that did not converge, a numeric field left blank.
-_NAO_FINITOS = {float("inf"): "Infinity", float("-inf"): "-Infinity"}
-_NAO_FINITOS_INVERSO = {"NaN": float("nan"), "Infinity": float("inf"),
-                        "-Infinity": float("-inf")}
+_NON_FINITE = {float("inf"): "Infinity", float("-inf"): "-Infinity"}
+_NON_FINITE_REVERSE = {"NaN": float("nan"), "Infinity": float("inf"),
+                       "-Infinity": float("-inf")}
 
 
 def _float_jsonable(v: float) -> Any:
     if v != v:              # NaN is not equal to itself
         return "NaN"
-    return _NAO_FINITOS.get(v, v)
+    return _NON_FINITE.get(v, v)
 
 
 def _from_jsonable_scalar(v: Any) -> Any:
-    if isinstance(v, str) and v in _NAO_FINITOS_INVERSO:
-        return _NAO_FINITOS_INVERSO[v]
+    if isinstance(v, str) and v in _NON_FINITE_REVERSE:
+        return _NON_FINITE_REVERSE[v]
     if isinstance(v, list):
         return [_from_jsonable_scalar(x) for x in v]
     if isinstance(v, dict):
@@ -68,24 +68,25 @@ def _from_jsonable_scalar(v: Any) -> Any:
 
 
 def _to_jsonable(obj: Any, is_propeller: bool = False) -> Any:
-    """Converts dataclasses (recursively), numpy arrays, tuples etc. into
+    """Converts dataclasses (recursively), numpy arrays, tuples, and other
+    containers into
     something ``json.dump`` accepts directly.
 
     ``is_propeller`` rotates the axis letters of a `FlightCondition` into the
-    ones the user reads -- the airspeed along a propeller's shaft is written
+    ones the user reads. The airspeed along a propeller's shaft is written
     as ``Vx``, not under the engine's ``Vz``. Nothing else in the file is
     touched, and nothing in memory is: the dataclass keeps its disk-axes
     fields, and the engine never sees this. See `zbemt.nomenclature`."""
     if is_dataclass(obj) and not isinstance(obj, type):
         # `fields` + `getattr`, not `asdict`: `asdict` is DEEP, and would have
         # already flattened a nested `FlightCondition` into a plain dict by
-        # the time the recursion reached it -- so the conditions inside a
+        # the time the recursion reached it, so the conditions inside a
         # `BatchDefinition` would never get their axis letters rotated.
-        bruto = {f.name: _to_jsonable(getattr(obj, f.name), is_propeller)
-                 for f in fields(obj)}
+        raw = {f.name: _to_jsonable(getattr(obj, f.name), is_propeller)
+               for f in fields(obj)}
         if isinstance(obj, FlightCondition):
-            return nomenclature.to_display_keys(bruto, is_propeller)
-        return bruto
+            return nomenclature.to_display_keys(raw, is_propeller)
+        return raw
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, (np.floating,)):
@@ -126,8 +127,8 @@ def load_bemt(cls: type, path: str, is_propeller: bool = False) -> Any:
 
 
 def save_bemt_list(items: list, path: str, is_propeller: bool = False) -> None:
-    """Like ``save_bemt``, but for a LIST of dataclasses (e.g.
-    ``Project.airfoil_sections`` -- Phase D, multi-section airfoil). Reuses
+    """Like ``save_bemt``, but for a LIST of dataclasses (for example
+    ``Project.airfoil_sections``, the Phase D multi-section airfoil). Reuses
     the same ``_to_jsonable`` (already knows how to serialize lists of
     dataclasses)."""
     save_bemt(list(items), path, is_propeller)
@@ -145,7 +146,7 @@ def _migrate_airfoil_raw(raw: dict) -> dict:
     """Migrates an ``AirfoilDef`` dict saved under the old schema (with
     ``use_viterna_extension``/``blend_with_viterna``/``extrapolate_full_range``
     and/or ``use_compressibility``) to the current schema. See
-    docs/plano_v2.md Section 7 -- ``_from_jsonable`` already ignores
+    docs/plano_v2.md Section 7. ``_from_jsonable`` already ignores
     unknown keys and uses the default for missing ones, so it is enough to
     fill in ``extend_full_range`` with the old intent before rebuilding
     the dataclass; the old ``use_compressibility`` field (now only in
@@ -167,15 +168,15 @@ def _migrate_airfoil_raw(raw: dict) -> dict:
 
     # Previous schema (before "viterna" became a 4th stall_model option):
     # analytical/external source with extend_full_range=True expressed
-    # Viterna through that field instead of stall_model -- migrate to the
-    # current schema preserving the same physical behavior (see
+    # Viterna through that field instead of stall_model. Migrate to the
+    # current schema, preserving the same physical behavior (see
     # `models.uses_full_range_extension`).
     #
-    # The migration only applies to REALLY old files, i.e. without the
-    # `stall_model` key. It used to also run on files already in the
-    # current schema, and since the AirfoilDef default has
+    # The migration only applies to REALLY old files, that is, files
+    # without the `stall_model` key. It used to also run on files already
+    # in the current schema, and since the AirfoilDef default has
     # extend_full_range=True, ANY stall_model other than 'viterna' was
-    # silently reverted on load -- in practice the field was impossible to
+    # silently reverted on load. In practice the field was impossible to
     # change without also turning off extend_full_range, both from the GUI
     # and the CLI.
     src = migrated.get("source", "analytical")
@@ -187,11 +188,11 @@ def _migrate_airfoil_raw(raw: dict) -> dict:
     return migrated if changed else raw
 
 
-def migrar_config_raw(raw: dict) -> dict:
+def migrate_config_raw(raw: dict) -> dict:
     """Migrates a ``config.bemt`` from the old schema. Currently: the
     boolean ``use_prandtl_loss`` became the enum ``prandtl_loss_mode``
     (which distinguishes tip, root and both). Without this migration the
-    field was silently discarded -- including in the repository's
+    field was silently discarded, including in the repository's
     reference project, which stored ``use_prandtl_loss: true`` and had
     been running with the default.
 
@@ -200,31 +201,31 @@ def migrar_config_raw(raw: dict) -> dict:
     ``off | tip | root | both`` makes the engine fall back to ``"both"``,
     so a project that had the correction switched off would silently come
     back with it switched on."""
-    migrado = dict(raw)
-    if "use_prandtl_loss" in migrado:
-        antigo = bool(migrado.pop("use_prandtl_loss"))
-        migrado.setdefault("prandtl_loss_mode", "both" if antigo else "off")
-    return migrado
+    migrated = dict(raw)
+    if "use_prandtl_loss" in migrated:
+        old_value = bool(migrated.pop("use_prandtl_loss"))
+        migrated.setdefault("prandtl_loss_mode", "both" if old_value else "off")
+    return migrated
 
 
-def avisar_chaves_desconhecidas(cls: type, raw: dict, contexto: str = "") -> list[str]:
+def warn_unknown_keys(cls: type, raw: dict, context: str = "") -> list[str]:
     """Warns (``UserWarning``) about keys in the file that ``cls`` does
     not have.
 
     The previous behavior was to silently discard them: a field renamed
     between versions fell back to the default and the user only found out
-    from the wrong result. They are still discarded -- what changes is
+    from the wrong result. They are still discarded. What changes is
     that it now says so. Returns the list, for anyone who wants to handle
     it."""
     known = {f.name for f in fields(cls)}
     unknown = sorted(k for k in raw if k not in known)
     if unknown:
-        where = f" in {contexto}" if contexto else ""
+        where = f" in {context}" if context else ""
         warnings.warn(
             f"{cls.__name__}{where}: {len(unknown)} field(s) from file "
             f"do not exist in current schema and were ignored "
             f"({', '.join(unknown)}). A field renamed in a newer version "
-            f"falls back to its default -- check whether the value you "
+            f"falls back to its default. Check whether the value you "
             f"saved is still being used.", UserWarning, stacklevel=3)
     return unknown
 
@@ -236,15 +237,15 @@ def _from_jsonable(cls: type, raw: Any, is_propeller: bool = False) -> Any:
         return raw
     if cls is AirfoilDef and isinstance(raw, dict):
         raw = _migrate_airfoil_raw(raw)
-    antiga = False
+    legacy_warned = False
     if cls is FlightCondition and isinstance(raw, dict):
-        antiga = avisar_nomenclatura_antiga(raw, is_propeller)
+        legacy_warned = warn_legacy_nomenclature(raw, is_propeller)
         raw = nomenclature.from_display_keys(raw, is_propeller)
-    if isinstance(raw, dict) and not antiga:
+    if isinstance(raw, dict) and not legacy_warned:
         # Skipped when the old-nomenclature warning already fired: the leftover
         # keys are the OLD names, and a second warning calling them "fields
         # that do not exist" points away from the actual problem.
-        avisar_chaves_desconhecidas(cls, raw)
+        warn_unknown_keys(cls, raw)
     kwargs = {}
     type_hints = {f.name: f.type for f in fields(cls)}
     for f in fields(cls):
@@ -257,25 +258,25 @@ def _from_jsonable(cls: type, raw: Any, is_propeller: bool = False) -> Any:
     return cls(**kwargs)
 
 
-def avisar_nomenclatura_antiga(raw: dict, is_propeller: bool) -> bool:
+def warn_legacy_nomenclature(raw: dict, is_propeller: bool) -> bool:
     """Warns when a propeller `FlightCondition` still carries the OLD,
     disk-axes key names.
 
-    There is no back-compat by decision -- but a SILENT misread is worse than
-    a missing feature. Under the new schema a propeller file's ``Vz`` is the
-    CROSS-flow; in a file written by the previous version it was the airspeed
+    There is no back-compat by decision, because a SILENT misread is worse
+    than a missing feature. Under the new schema a propeller file's ``Vz`` is the
+    CROSS-flow. In a file written by the previous version it was the airspeed
     along the shaft. Loading it quietly would turn 65 m/s of cruise into
     65 m/s of cross-flow and solve a completely different condition, with a
     plausible-looking number at the end. Returns whether it warned."""
     if not is_propeller:
         return False
-    antigas = {"mu_x", "Vz", "J_x", "lambda_z"} & set(raw)
-    if not antigas:
+    legacy_keys = {"mu_x", "Vz", "J_x", "lambda_z"} & set(raw)
+    if not legacy_keys:
         return False
     warnings.warn(
-        f"FlightCondition: {sorted(antigas)} are the DISK-axes names this "
+        f"FlightCondition: {sorted(legacy_keys)} are the DISK-axes names this "
         f"project used before the axis-nomenclature change. A propeller "
-        f"project now stores the letters it shows -- 'Vx' for the airspeed "
+        f"project now stores the letters it shows: 'Vx' for the airspeed "
         f"along the shaft, 'mu_z' for the cross-flow. Reading this file as "
         f"is would swap the two components. Re-create the conditions, or "
         f"rename the keys in the file.", UserWarning, stacklevel=3)
@@ -305,7 +306,7 @@ def _coerce_field(ftype: Any, val: Any, is_propeller: bool = False) -> Any:
 
 
 # =============================================================================
-# 2D — everything airfoil-related (aerodynamic model + profile geometry)
+# 2D: everything airfoil-related (aerodynamic model and profile geometry)
 # =============================================================================
 
 @dataclass
@@ -322,13 +323,13 @@ class PolarSlice:
     r_norm: Optional[float] = None
     reynolds: Optional[float] = None
     mach: Optional[float] = None
-    label: str = ""   # free-form label, e.g. "root", "tip", imported file name
+    label: str = ""   # free-form label, for example "root", "tip", imported file name
 
 
 @dataclass
 class ProfileGeometry:
     """2D profile geometry (x,y coordinates). Only needed when a polar is
-    to be generated via an external engine (NeuralFoil — Phase 7); for the
+    to be generated via an external engine (NeuralFoil, Phase 7); for the
     analytical/table models it is optional/illustrative."""
     source: str = "naca4"          # "naca4" | "naca5" | "cst" | "bezier" | "imported"
     naca_code: str = "0012"
@@ -338,8 +339,9 @@ class ProfileGeometry:
     imported_path: Optional[str] = None
     n_points: int = 200
 
-    # generated coordinates (cache — does not need to be filled to save;
-    # airfoils.py recomputes them from the parameters above when needed)
+    # generated coordinates (cache. Filling it is not required to save,
+    # because airfoils.py recomputes them from the parameters above when
+    # needed)
     x: list[float] = field(default_factory=list)
     y: list[float] = field(default_factory=list)
 
@@ -348,21 +350,21 @@ class ProfileGeometry:
 class AirfoilDef:
     """Complete, unified definition of the airfoil's 2D behavior:
     aerodynamic model (analytical or table-based, with or without dynamic
-    stall) + profile geometry (for polar generation via NeuralFoil, Phase
-    7). See docs/plano.md Section 4.1 / 8.3 and docs/plano_v2.md Section
+    stall) and profile geometry (for polar generation via NeuralFoil,
+    Phase 7). See docs/plano.md Sections 4.1 and 8.3 and docs/plano_v2.md Section
     2.4.
 
     Architecture note (plano_v2 Section 2.4): this dataclass gathers the
     orthogonal axes A (source), B (analytical model/static stall), C
     (full range extension) and D (dynamic stall) of the airfoil's
     behavior. Compressibility (axis E) and reverse flow (axis F) are a
-    property of the ENGINE and live only in BEMTConfig (bemt.py) -- there
+    property of the ENGINE and live only in BEMTConfig (bemt.py). There
     is no longer an equivalent field here (plano_v2 Finding #2)."""
     name: str = "unnamed airfoil"
 
     # --- radial position of the section (Phase D — multi-section airfoil) ---
     # None = this AirfoilDef is the SINGLE airfoil for the whole blade
-    # (normal use, via Project.airfoil) -- behavior as always, unchanged.
+    # (normal use, via Project.airfoil). Behavior as always, unchanged.
     # Only becomes meaningful when this object lives inside
     # Project.airfoil_sections (2+ elements, each with r_norm MANDATORILY
     # set): in that case it represents "the airfoil AT THIS radial
@@ -382,9 +384,9 @@ class AirfoilDef:
     alpha_stall_pos_deg: float = 15.0
     alpha_stall_neg_deg: float = -6.0
     # "linear" (no stall) | "clip" (clipped stall) | "enhanced" (smoothed
-    # non-linear stall) | "viterna" (Viterna-Corrigan extension -- see note
+    # non-linear stall) | "viterna" (Viterna-Corrigan extension, see note
     # below). The 4 options are MUTUALLY EXCLUSIVE: there is no
-    # combination of "clip"/"enhanced" with Viterna -- when "viterna" is
+    # combination of "clip"/"enhanced" with Viterna. When "viterna" is
     # chosen, the PRE-stall curve used as base is always the pure linear
     # line (no clamp), extended via Viterna-Corrigan from
     # `alpha_stall_pos_deg`/`alpha_stall_neg_deg` (see
@@ -392,47 +394,47 @@ class AirfoilDef:
     # Default "viterna": matches the previous default of
     # `extend_full_range=True` (full range extension on by default, see
     # field below) and `BEMTConfig.reverse_flow_model=
-    # 'viterna_full_range'` (bemt.py Sec.6).
+    # 'viterna_full_range'` (bemt.py Section 6).
     stall_model: str = "viterna"
 
     # --- C. full range extension (-180..+180, Viterna-Corrigan) ---
     # For `source='analytical'` (or 'external'), Viterna stopped being an
     # independent toggle: it is the "viterna" option of `stall_model`
-    # above itself -- this field is ignored in that case (see
+    # above itself, and this field is ignored in that case (see
     # `models.uses_full_range_extension`, the single source of truth on
     # whether full range extension is active).
     # For `source='table'`, it remains the user's explicit choice to
     # EXTRAPOLATE the imported table beyond the last real point with
-    # Viterna-Corrigan (the table itself never has a "stall_model" -- it
-    # is data, not a model -- which is why Viterna remains a separate
+    # Viterna-Corrigan. The table itself never has a "stall_model", since
+    # it is data, not a model. That is why Viterna remains a separate
     # option here instead of merging into an enum the table does not
-    # have).
+    # have.
     # Default True: matches the default of BEMTConfig.reverse_flow_model=
-    # 'viterna_full_range' (bemt.py Sec.6) -- without this on, that engine
+    # 'viterna_full_range' (bemt.py Section 6). Without this on, that engine
     # default would fall into an invalid combination (see
     # validation.validate_config).
     extend_full_range: bool = True
 
     # Width (degrees) of the smooth (C1-continuous) transition window
-    # between the base model and the Viterna-Corrigan extrapolation -- see
+    # between the base model and the Viterna-Corrigan extrapolation. See
     # `bemt.ViternaExtendedAirfoil`. Replaces the old abrupt switch
     # exactly at alpha_stall (which produced a "kink"/slope discontinuity)
     # with a gradual blend, both for `source='analytical'` and
     # `source='table'`. For tables, CLmax/CLmin and the corresponding
     # stall angles are ALWAYS detected automatically from the table itself
-    # (argmax/argmin of Cl) -- `alpha_stall_pos_deg`/`alpha_stall_neg_deg`
+    # (argmax/argmin of Cl). `alpha_stall_pos_deg`/`alpha_stall_neg_deg`
     # above are ignored in that case (they only apply to
-    # `source='analytical'`) -- and the extrapolation only kicks in beyond
+    # `source='analytical'`). The extrapolation only kicks in beyond
     # the last real table point on each side, never overwriting existing
     # tabulated data. Note: since it is a C1-continuous (not C2)
-    # interpolation, the real Cl peak may fall slightly before alpha_stall
-    # with a value slightly above Cl_stall (~1-2% for the default) -- see
-    # the detailed note in `ViternaExtendedAirfoil`. Lower this value for a
-    # peak closer to the one defined, at the cost of a more abrupt
-    # transition.
+    # interpolation, the real Cl peak may fall slightly before alpha_stall,
+    # with a value slightly above Cl_stall (approximately 1-2% for the
+    # default). See the detailed note in `ViternaExtendedAirfoil`. Lower
+    # this value for a peak closer to the one defined, at the cost of a
+    # more abrupt transition.
     viterna_blend_width_deg: float = 4.0
 
-    # --- D. dynamic stall (Øye) -- SINGLE copy (plano_v2.md Finding #1) ---
+    # --- D. dynamic stall (Øye), SINGLE copy (plano_v2.md Finding #1) ---
     # airfoils.to_airfoil() attaches these values to the airfoil object
     # (`airfoil.dynamic_stall_params`) for the engine to read from there,
     # instead of duplicating these fields in BEMTConfig.
@@ -450,7 +452,7 @@ class AirfoilDef:
     # --- 2D profile geometry (only needed for NeuralFoil) ---
     geometry: Optional[ProfileGeometry] = None
 
-    # --- external engine (Phase 7 — see external_solvers.py) ---
+    # --- external engine (Phase 7, see external_solvers.py) ---
     external_engine: str = "none"      # "none" | "neuralfoil" (XFOIL is not supported)
     external_reynolds_list: list[float] = field(default_factory=list)
     external_mach_list: list[float] = field(default_factory=list)
@@ -468,7 +470,7 @@ def uses_full_range_extension(a: "AirfoilDef") -> bool:
     - `source='table'`: it is literally `extend_full_range` (explicit
       toggle for extrapolating the imported table).
     - any other source (`'analytical'`/`'external'`): it is
-      `stall_model == 'viterna'` -- `extend_full_range` is ignored.
+      `stall_model == 'viterna'`, and `extend_full_range` is ignored.
 
     Used by `airfoils.to_airfoil()` (decides whether to wrap the result in
     `ViternaExtendedAirfoil`) and by `validation.validate_config` (checks
@@ -481,7 +483,7 @@ def uses_full_range_extension(a: "AirfoilDef") -> bool:
 
 
 # =============================================================================
-# 3D — rotor/blade geometry
+# 3D: rotor and blade geometry
 # =============================================================================
 
 @dataclass
@@ -494,7 +496,7 @@ class RotorGeometryDef:
     twist_deg: list[float] = field(default_factory=list)
 
     origin: str = "parametric"   # "parametric" | "table" | "editor" (metadata/label only)
-    origin_params: dict = field(default_factory=dict)   # e.g.: {"kind": "tapered", "root_chord": .., "tip_chord": ..}
+    origin_params: dict = field(default_factory=dict)   # for example: {"kind": "tapered", "root_chord": .., "tip_chord": ..}
 
     n_blades: int = 2
     radius_m: float = 1.0
@@ -506,7 +508,7 @@ class RotorGeometryDef:
     #: decides the airfoil.
     #: Free-form label, metadata only (Q5): NOTHING in the engine reads
     #: this field. It has no link to `AirfoilDef.name` and does not select
-    #: any polar -- `Project.airfoil`, or `airfoil_sections` by r_norm, is
+    #: any polar. `Project.airfoil`, or `airfoil_sections` by r_norm, is
     #: what decides the airfoil. Kept because it is already stored in
     #: existing `.bemt` files.
     airfoil_name: str = ""
@@ -539,11 +541,11 @@ class BatchDefinition:
 class Results:
     """Lightweight container for the result of one case/batch. The real
     DataFrame (aggregated rows) and the 2D maps (optional) stay outside
-    the formal dataclass for I/O simplicity — this object is what
+    the formal dataclass for I/O simplicity. This object is what
     circulates in memory between api.py, studies.py, plots.py."""
     summary: dict = field(default_factory=dict)   # CT, CQ, CP, FM, H, Y, Mx, My ...
     dataframe: Any = None    # pandas.DataFrame or None
-    maps: dict = field(default_factory=dict)       # e.g.: {"CT_map": ndarray, ...}
+    maps: dict = field(default_factory=dict)       # for example: {"CT_map": ndarray, ...}
     condition_name: str = ""
 
 
@@ -551,11 +553,11 @@ class Results:
 class ResultEntry:
     """One entry in the GUI's session results history (``ResultsTab``,
     docs/plano_v3.md Part 4.1). Each execution (Run Case OR Run Batch)
-    ``append``s to ``AppState.results_history`` -- never replaces what was
+    ``append``s to ``AppState.results_history`` and never replaces what was
     already there (unlike the old single-overwrite ``last_results``). NOT
     persisted to ``.bemt`` (docs/plano_v3.md Section 4.4: computed results
     are expensive and ephemeral, the history is "per session", cleared
-    when switching/closing the project) -- lives here, and not in
+    when switching/closing the project). It lives here, and not in
     ``gui.py``, only so that ``plots.flatten_selection`` and
     ``test_plots.py``'s tests can use it without depending on PyQt6."""
     id: str
@@ -580,13 +582,13 @@ class Project:
     # Multi-section airfoil (Phase D, docs/plano.md Section 4): EMPTY list
     # (default, behavior as always) = the whole blade uses `airfoil`
     # above. 2+ elements (each with `r_norm` set) = the airfoil varies
-    # along the radius; `airfoil` above is then ignored by the engine
+    # along the radius. `airfoil` above is then ignored by the engine
     # (airfoils.to_blade_airfoil), but continues to be saved/kept as a
     # fallback in case the user switches back to "single airfoil". A list
-    # with exactly 1 element is not a valid state -- see
+    # with exactly 1 element is not a valid state. See
     # validation.validate_project.
     airfoil_sections: list[AirfoilDef] = field(default_factory=list)
-    # v3 Part 3: list of NAMED batches/cases persisted in the project --
+    # v3 Part 3: list of NAMED batches/cases persisted in the project, what
     # what the GUI ("Batches defined in this project"/"Saved cases" list)
     # and the CLI (`--from-bemt-batch`/`--from-bemt-case`) read and write.
     # The legacy singular `batch` field/`batch.bemt` file no longer
