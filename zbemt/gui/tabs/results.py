@@ -1149,7 +1149,7 @@ class ResultsTab(QWidget):
         self.disk_field_combo.setMinimumWidth(150)
         self.disk_field_combo.setToolTip(
             "'(grid with all fields)' shows every disk map at once on one screen; picking a "
-            "single field gives that one disc the whole canvas, with the colour-scale controls "
+            "single field gives that one disc the whole canvas, with the color-scale controls "
             "next to it enabled (log scale, manual min/max).")
         row1.addWidget(self.disk_field_combo)
         # Item 10: this is the ONLY home of `mask_reverse_flow_plots` in
@@ -1171,10 +1171,10 @@ class ResultsTab(QWidget):
         row1.addStretch(1)
         layout.addLayout(row1)
 
-        # COLOUR scale of the contour (not the same thing as x/y axis
+        # COLOR scale of the contour (not the same thing as x/y axis
         # zoom/scale -- that part already comes for free from
         # matplotlib's toolbar on each canvas, see
-        # `CanvasHost(with_toolbar=True)`; a `tricontourf`'s colour bar
+        # `CanvasHost(with_toolbar=True)`; a `tricontourf`'s color bar
         # does not appear in matplotlib's "Edit axis" dialog, so it needs
         # its own control here).
         # Only applies to a single field -- in the grid with all 12
@@ -1185,7 +1185,7 @@ class ResultsTab(QWidget):
         self.disk_color_scale_combo = QComboBox()
         self.disk_color_scale_combo.addItems(["linear", "log"])
         self.disk_color_scale_combo.setToolTip(
-            "How field values map to colour. A logarithmic scale spreads the "
+            "How field values map to color. A logarithmic scale spreads the "
             "low end of the range and is what makes a field whose extreme "
             "values sit in a handful of elements — a tip vortex, a reverse-flow "
             "pocket — readable instead of a single bright spot on a flat "
@@ -1196,7 +1196,7 @@ class ResultsTab(QWidget):
         self.disk_color_vmin_edit.setPlaceholderText("auto")
         self.disk_color_vmin_edit.setMaximumWidth(80)
         self.disk_color_vmin_edit.setToolTip(
-            "Value pinned to the bottom of the colour scale. Left on auto it "
+            "Value pinned to the bottom of the color scale. Left on auto it "
             "follows the data; set by hand it lets two conditions be compared "
             "on the same scale, which auto-scaling would otherwise hide.")
         row2.addWidget(self.disk_color_vmin_edit)
@@ -1205,9 +1205,9 @@ class ResultsTab(QWidget):
         self.disk_color_vmax_edit.setPlaceholderText("auto")
         self.disk_color_vmax_edit.setMaximumWidth(80)
         self.disk_color_vmax_edit.setToolTip(
-            "Value pinned to the top of the colour scale. Set it below the "
+            "Value pinned to the top of the color scale. Set it below the "
             "data maximum to keep a few extreme elements from flattening the "
-            "rest of the disc; the colour bar grows an arrow to show that the "
+            "rest of the disc; the color bar grows an arrow to show that the "
             "range was clipped.")
         row2.addWidget(self.disk_color_vmax_edit)
         color_note = QLabel("Applies to a single field; the all-fields grid scales each map on its own.")
@@ -1854,7 +1854,7 @@ class ResultsTab(QWidget):
         box = QGroupBox("3D view")
         form = QFormLayout(box)
         note = QLabel(
-            "Blades and rotor disc drawn in 3D. Colour and height are chosen "
+            "Blades and rotor disc drawn in 3D. Color and height are chosen "
             "independently below — pick the same quantity for both to read one "
             "field as relief, or two different ones to see them at once. "
             "Rotate and zoom with the mouse." + (
@@ -1872,32 +1872,32 @@ class ResultsTab(QWidget):
                                        self._dica_de_campo_de_disco(campo))
         self.field_combo.setToolTip(
             "Quantity painted on the disc in the 3D view and on the blade "
-            "surface in the 3D load export. It chooses what is coloured, not "
+            "surface in the 3D load export. It chooses what is colored, not "
             "what is computed — every field is already solved on the same mesh.")
         self.field_combo.currentTextChanged.connect(self._maybe_refresh_3d)
-        form.addRow("Colour (field on the disc):", self.field_combo)
-        # Height SEPARATE from colour (owner's request). There used to be
+        form.addRow("Color (field on the disc):", self.field_combo)
+        # Height SEPARATE from color (owner's request). There used to be
         # a single selector here plus a checkbox "raise the disc by the
         # field value": height was mandatorily the SAME quantity as the
-        # colour, and the only alternative was to turn it off.
+        # color, and the only alternative was to turn it off.
         # `build_disk_grid` always accepted separate `field=` and
         # `z_field=` -- it was only the GUI that tied the two together.
-        # Same SYMBOL combo as the colour one: the two selectors show the
+        # Same SYMBOL combo as the color one: the two selectors show the
         # same quantities, and one of them painting "F_n" while the other
         # showed raw "Fn" made the pair look like two different lists.
         self.z_field_combo = _ComboDeSimbolos()
         self.z_field_combo.adicionar(
             self._SEM_RELEVO_3D, self._SEM_RELEVO_3D,
-            "Leaves the disc flat: colour only, no relief.")
+            "Leaves the disc flat: color only, no relief.")
         for campo in self._DISK_FIELDS:
             self.z_field_combo.adicionar(campo, plots.disk_field_symbol_html(campo),
                                           self._dica_de_campo_de_disco(campo))
         self.z_field_combo.setToolTip(
             "Quantity that raises the disc out of its own plane. Leave it equal "
-            f"to the colour field to read one quantity as relief, choose another "
+            f"to the color field to read one quantity as relief, choose another "
             f"to compare two at once, or pick '{self._SEM_RELEVO_3D}' for a flat, "
-            "colour-only disc.")
-        # Default: SAME quantity as the colour -- whoever opened the tab
+            "color-only disc.")
+        # Default: SAME quantity as the color -- whoever opened the tab
         # before saw the relief of the chosen field, and keeps seeing it.
         self.z_field_combo.setCurrentText(self.field_combo.currentText())
         self.z_field_combo.currentTextChanged.connect(self._maybe_refresh_3d)
@@ -1933,7 +1933,7 @@ class ResultsTab(QWidget):
         self._maybe_refresh("3D")
 
     def _refresh_3d_preview(self):
-        """Draws the disc in THREE dimensions, coloured by the chosen field.
+        """Draws the disc in THREE dimensions, colored by the chosen field.
 
         This function used to call `plot_planform` -- the PLANFORM view, a
         2D outline of the blades -- and it still forced the matplotlib
@@ -1997,7 +1997,7 @@ class ResultsTab(QWidget):
     _CAMPO_3D_POR_ROTULO = {campo: campo for campo in _DISK_FIELDS}
 
     def _campo_3d_selecionado(self) -> str:
-        """`maps` key of the field that COLOURS the surface."""
+        """`maps` key of the field that COLORS the surface."""
         return self._CAMPO_3D_POR_ROTULO.get(self.field_combo.currentText(), "Fn")
 
     def _campo_3d_de_altura(self) -> str | None:
@@ -2016,7 +2016,7 @@ class ResultsTab(QWidget):
     @staticmethod
     def _rotulo_de_campo_3d(campo: str, desenhado: bool = True) -> str:
         """`"$\\lambda_i$ [-]"` -- SYMBOL of the field with the unit, for
-        the colour bar and the z axis.
+        the color bar and the z axis.
 
         It used to be the key's raw name (`"lambda_i [-]"`): the same
         quantity that this tab's selectors, the 2D maps and the table
@@ -2045,8 +2045,8 @@ class ResultsTab(QWidget):
                         linewidth=0, antialiased=False, shade=False)
         mapeavel = plt_cm.ScalarMappable(norm=normal, cmap="viridis")
         mapeavel.set_array(valores)
-        # Only the SYMBOL, without the word "colour": it sits right next
-        # to the colour bar itself, which already says what it is. The
+        # Only the SYMBOL, without the word "color": it sits right next
+        # to the color bar itself, which already says what it is. The
         # same applies to the z axis below -- see `_legenda_de_par_3d`.
         fig.colorbar(mapeavel, ax=ax, shrink=0.6, pad=0.08,
                      label=self._rotulo_de_campo_3d(campo))
@@ -2056,11 +2056,11 @@ class ResultsTab(QWidget):
         ax.set_xlabel("x [m]")
         ax.set_ylabel("y [m]")
         # The z axis is the HEIGHT, which can be a different quantity
-        # than the colour -- naming it is what stops the relief from
-        # being read as if it were the colour bar's field. The ticks are
+        # than the color -- naming it is what stops the relief from
+        # being read as if it were the color bar's field. The ticks are
         # omitted because `build_disk_grid` normalizes the extrusion by
         # `z_scale * R_max` (drawing metres, not the quantity's own
-        # units); whoever wants the VALUE reads the colour bar or the 2D
+        # units); whoever wants the VALUE reads the color bar or the 2D
         # map.
         ax.set_zlabel("" if relevo is None
                       else self._rotulo_de_campo_3d(relevo), labelpad=-8)
@@ -2076,21 +2076,21 @@ class ResultsTab(QWidget):
 
     def _legenda_de_par_3d(self, campo: str, relevo: str | None,
                             desenhado: bool = True) -> str:
-        """Second title line -- only when colour and height are DIFFERENT
+        """Second title line -- only when color and height are DIFFERENT
         quantities; empty otherwise.
 
         With the disc flattened and seen from above, the z axis label
         sits behind the 3D box at most angles, and then a reader who only
-        glanced at the colour bar would end up thinking the relief is the
+        glanced at the color bar would end up thinking the relief is the
         same quantity. This is the only situation where the words
-        "colour"/"height" earn their keep: when the two symbols are the
+        "color"/"height" earn their keep: when the two symbols are the
         SAME (the common case), the line just repeated a third time what
-        the colour bar and the z axis already say next to themselves.
+        the color bar and the z axis already say next to themselves.
 
         ``desenhado=False``: plain text, for Plotly."""
         if relevo is None or relevo == campo:
             return ""
-        return (f"colour: {self._rotulo_de_campo_3d(campo, desenhado)}"
+        return (f"color: {self._rotulo_de_campo_3d(campo, desenhado)}"
                 f"  ·  height: {self._rotulo_de_campo_3d(relevo, desenhado)}")
 
     def _figura_3d_plotly(self, maps: dict, campo: str, relevo: str | None):
@@ -2100,7 +2100,7 @@ class ResultsTab(QWidget):
         # `desenhado=False` everywhere: Plotly does not render matplotlib
         # mathtext -- it would print `$\lambda_i$` raw --, so the symbol
         # goes in Unicode (`plots.rotulo_em_texto`). Without the word
-        # "colour"/"height": each symbol sits right next to what it
+        # "color"/"height": each symbol sits right next to what it
         # describes.
         fig = go.Figure(data=[go.Surface(
             x=X, y=Y, z=Z, surfacecolor=valores, colorscale="Viridis",
@@ -2114,7 +2114,7 @@ class ResultsTab(QWidget):
                            x=1, y=1, z=0.45 if relevo else 0.12)),
             # No `describe_condition` here: it returns matplotlib mathtext
             # (`$\mu_x$`), which Plotly would print raw. Only the
-            # colour/height pair, and only when the two quantities differ.
+            # color/height pair, and only when the two quantities differ.
             title=dict(text=legenda),
             margin=dict(l=0, r=0, t=50 if legenda else 10, b=0))
         return fig
@@ -2351,7 +2351,7 @@ class ResultsTab(QWidget):
             "Writes the disk maps of every condition currently selected — "
             "batches and individual cases alike — to a folder. The next "
             "dialog chooses which fields (or the full grid) and how the "
-            "files are organised.",
+            "files are organized.",
             "Copy figure",
             "Copies the disk map on screen to the clipboard as an image, "
             "ready to paste into a document or a slide."),
@@ -2372,7 +2372,7 @@ class ResultsTab(QWidget):
         "3D": (
             "Export plots…",
             "Saves the 3D view for EVERY condition currently selected, one "
-            "image per case, with the colour and height fields chosen above. "
+            "image per case, with the color and height fields chosen above. "
             "Needs the optional PyVista package.",
             "Copy figure",
             "Copies the 3D view on screen to the clipboard as an image. With "

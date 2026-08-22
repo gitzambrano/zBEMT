@@ -237,7 +237,7 @@ Rules:
 8. Open each page chapter with its tab screenshot. Number the tabs 1 to 7.
 9. A field or block belonging to a tab opens a section inside that tab's
    chapter.
-10. Mark each interface with its colour: GUI blue, CLI red, `.bemt` green.
+10. Mark each interface with its color: GUI blue, CLI red, `.bemt` green.
     Wrap every mention in `<span class="gui">`, `<span class="cli">` or
     `<span class="bemt">`.
 11. Every reference to another section is a link, underlined, carrying the

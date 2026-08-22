@@ -219,7 +219,7 @@ different rule.
 ### 3.6 GUI tab behaviour
 
 - **TB-1** — The Results tab groups a batch into series by the swept variable, within a
-  numerical tolerance. Series height and colour are independent controls: a
+  numerical tolerance. Series height and color are independent controls: a
   series must never encode two quantities at once.
 - **TB-2** — A tab must reflect the project it has open. A control whose value came from
   a project that has since been closed must not remain offered.

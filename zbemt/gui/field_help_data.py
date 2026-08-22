@@ -212,7 +212,7 @@ def _salto_para_fisica(indice: int) -> str | None:
 def _melhor_secao(campo: str) -> str | None:
     """Section that explains ``field``: its own.
 
-    The documentation is organised one chapter per GUI tab, and a field's
+    The documentation is organized one chapter per GUI tab, and a field's
     section carries everything about it -- the physics, the mathematics,
     the options and how to set it in all three interfaces. So the answer
     is simply the section that DECLARES the field (the one with the

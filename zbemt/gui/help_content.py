@@ -522,7 +522,7 @@ FIELD_HELP: dict[str, dict] = {
             "viterna_full_range": (
                 "No reverse branch at all: φ = atan2(Up, Ut) is already "
                 "continuous through Ut = 0, and with a polar defined over ±180° "
-                "the standard blade-element formulas generalise on their own. "
+                "the standard blade-element formulas generalize on their own. "
                 "α_eff = α_geom wrapped into (−180°, 180°].\n\n"
                 "The most physically grounded choice — and the only one that "
                 "requires the full-range (Viterna-Corrigan) extension to be "
@@ -531,7 +531,7 @@ FIELD_HELP: dict[str, dict] = {
                 "Inside the reverse region the section is treated as a flat "
                 "plate: Cl = 0 and Cd = 1.9, with α_eff = −α_geom and the Mach "
                 "number taken from |Ut|.\n\n"
-                "Robust and idealised; discards the airfoil's own polar where it "
+                "Robust and idealized; discards the airfoil's own polar where it "
                 "applies."),
             "simple_flip": (
                 "Mirrors the incidence in the reverse region (α_eff = −α_geom, "

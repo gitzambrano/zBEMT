@@ -404,7 +404,7 @@ class TestRotulosDaVista3D(BaseDeAbaResults):
         self.assertEqual(tab._legenda_de_par_3d("lambda_i", "lambda_i"), "")
         self.assertEqual(tab._legenda_de_par_3d("Fn", None), "")
         legenda = tab._legenda_de_par_3d("Fn", "Mach")
-        self.assertIn("colour", legenda)
+        self.assertIn("color", legenda)
         self.assertIn("height", legenda)
         self.assertIn(r"$F_n$", legenda)
         self.assertIn(r"$M$", legenda)

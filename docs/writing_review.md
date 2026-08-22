@@ -4,26 +4,36 @@ This report lists the writing defects found in `docs/documentation.html` and
 in the `zbemt/` docstrings, measured against the `writing-rules` skill
 (`.claude/skills/writing-rules/SKILL.md`).
 
-**Status: applied.** The rules `G25` to `G31` of Section 8 are now in the
-skill. The revisions below were applied to the source, in these passes:
+**Status: applied.** Every one of the 85 `docs/documentation.html`
+findings and every cited docstring finding below has been verified against
+the live source: its "now" text no longer appears in the file (mechanically
+checked, not asserted). `G25` to `G32` are in the skill.
 
-- Every British spelling became American (`G31`), in the manual and in the
-  code.
-- Every Portuguese user-facing string, warning and comment became English.
-- 161 prose semicolons in `docs/documentation.html` became sentences
-  (`G14`), and its Latin abbreviations became words (`G20`).
-- The 24 bare `argparse` help strings became real instructions (`P2`).
-- The module docstrings named below were rewritten.
+An earlier pass of this work claimed a broader completion than was true.
+Two mechanical bugs let real defects survive uncaught, and this file was
+corrected once that was found:
 
-Two things were deliberately **not** done, and remain open:
+- The first semicolon-splitting pass required the letter after `; ` to be
+  lowercase, so a clause starting with an acronym or a capitalized word
+  ("...pandas; GUI...") was silently skipped. Fixed and re-run.
+- The American-spelling sweep (`G31`) covered only the words explicitly
+  listed in Section 7b. `colour`, `organise`, `optimise`, `linearise`,
+  `recognise`, `normalise`, `idealise`, `visualise`, `minimise`,
+  `generalise` and their inflections were missed, some in
+  `docs/software_requirements.md`, `CLAUDE.md` and `AGENTS.md` too. All are
+  now converted, across every file that carries the ruleset (`AGENTS.md`
+  mirrors `CLAUDE.md` and was resynced, and both skill copies were
+  re-checked for parity). One of these, `zbemt/gui/tabs/results.py`, had a
+  test that asserted the British spelling as the expected 3D-view legend
+  text (`tests/test_results_tab.py`). The assertion was updated to the
+  American spelling in the same commit as the code, per the rule in
+  Section 7a about error-string tests.
 
-- The blanket sweep of the roughly 950 ` -- ` prose dashes in the
-  docstrings. Only the dashes in the findings below were changed. A
-  mechanical sweep of the rest risks changing meaning, and needs a pass of
-  its own.
-- The 284 `&mdash;` entities in `docs/documentation.html`, for the same
-  reason. Many sit in headings, where changing the text would also mean
-  changing every cross-reference `title` that quotes it.
+Beyond the 85 numbered findings, 32 more dash instances and roughly 270
+`&mdash;` entities remain in `docs/documentation.html`. These were never
+claimed as fixed: they are outside the specific findings list, a blanket
+sweep of them risks changing meaning or breaking a cross-reference `title`,
+and they need a pass of their own if wanted.
 
 ---
 
@@ -125,7 +135,7 @@ Two things are already correct and must not be changed:
 
 **8.** Line 998, rules `G14`, `G3`, `G31` (proposed)
 
-- now: `A key that is present but not recognised is reported as unknown and ignored; it does not stop the run, but the value is not used, and the field falls back to its default.`
+- now: `A key that is present but not recognized is reported as unknown and ignored; it does not stop the run, but the value is not used, and the field falls back to its default.`
 - suggested: `zBEMT reports a key that is present but not recognized as unknown, and ignores it. The run does not stop. However, the value is not used, and the field falls back to its default.`
 
 **9.** Line 1015, rules `G14`, `G15`, `G22`
@@ -306,7 +316,7 @@ Two things are already correct and must not be changed:
 
 **43.** Lines 5705 and 5797, rule `G15`
 
-- now: `it treats the disk as a whole and carries three states — a uniform component and two first-harmonic components — governed by a linearised unsteady actuator-disk model.`
+- now: `it treats the disk as a whole and carries three states — a uniform component and two first-harmonic components — governed by a linearized unsteady actuator-disk model.`
 - suggested: `it treats the disk as a whole and carries three states. These are a uniform component and two first-harmonic components. A linearized unsteady actuator-disk model governs them.`
 
 **44.** Line 5804, rule `G14`
@@ -1273,7 +1283,7 @@ neighbour` at line 247 and `nearest-neighbor` at line 654, `behaviour` at
 line 259 and `behavior` at line 507.
 
 **214.** Convert all 60 British spellings to American, across
-`docs/documentation.html` and `zbemt/`. This includes `recognised` at
+`docs/documentation.html` and `zbemt/`. This includes `recognized` at
 `documentation.html` line 998, `labelled` at line 1324, and `behaviour` at
 line 967.
 

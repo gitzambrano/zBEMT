@@ -149,7 +149,7 @@ BLOCK_HELP: dict[str, dict] = {
     "view_3d": {
         "title": "3D view — geometry and load in space",
         "body": [
-            "The three-dimensional view paints a solved field onto the actual blade surface, which is the one representation that shows spanwise and azimuthal variation together with the blade's own shape. It is a rendering of results already computed; changing the field here re-colours, it does not re-solve.",
+            "The three-dimensional view paints a solved field onto the actual blade surface, which is the one representation that shows spanwise and azimuthal variation together with the blade's own shape. It is a rendering of results already computed; changing the field here re-colors, it does not re-solve.",
             "It answers questions the flat disk map cannot. Twist and taper are visible as geometry rather than inferred from a curve, so a loading peak can be read directly against the chord and pitch that produced it — for instance whether a high local lift coefficient is a genuinely stalled station or simply a narrow chord carrying an ordinary load.",
             "The schematic planform preview is always available. The full three-dimensional view depends on an optional rendering package; without it the export is disabled and the flat preview remains.",
         ],
