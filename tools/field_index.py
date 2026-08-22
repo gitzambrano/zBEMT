@@ -48,6 +48,11 @@ TABS = {
     # airfoil's section. A generated index that sends the reader to the wrong
     # chapter is worse than no index, so this tab is left out until the map can
     # tell the two apart.
+    #
+    # Design: absent for a different reason. Its fields are documented inline
+    # in chapter 12 of the documentation, and its persisted schema lives in
+    # `models.OptimizationDefinition`, which is not one of the collected
+    # project dataclasses -- so there is no per-field index to generate here.
     "geometria": (1, "cap-2"),
     "aerofolio": (2, "cap-3"),
     "config": (3, "cap-4"),

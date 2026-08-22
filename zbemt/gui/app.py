@@ -388,6 +388,9 @@ class MainWindow(QMainWindow):
             "2. Case queue":                         "case_queue",
             "3. Run":                                "batch_run",
             "Export":                                "batch_export",
+            # Design tab
+            "Geometry comparison":                   "geometry_comparison",
+            "Design optimization":                   "design_optimization",
             # Results tab
             "Results from this session":             "results",
             "3D view":                               "view_3d",

@@ -42,6 +42,23 @@ different rule.
   polars.
 - **SC-4** — Three synchronized interfaces (GUI, CLI, library) built on one engine,
   with GUI/CLI/`.bemt`-file parity as required by §3.3.
+- **SC-7** — Geometry comparison across labeled variants: the project's saved cases
+  run over several blade planforms with everything except the geometry held
+  fixed (same airfoil polar, mesh, inflow model and corrections), and each
+  variant is tagged by a user label in the results table, plots and exports.
+  Comparison variants are session data; they are not persisted in the
+  project.
+- **SC-8** — Persisted design-optimization studies (`inputs/optimizations.bemt`)
+  that drive one summary quantity on one flight condition through a bounded,
+  derivative-free search over parametric planform parameters (Powell or
+  Nelder-Mead). The search starts deterministically from the center of the
+  bounds, respects them throughout, and penalizes failed evaluations instead
+  of stopping.
+- **SC-9** — XFOIL as an external polar engine: polar generation may drive the
+  `xfoil` binary looked up on PATH, one script per Reynolds number, with the
+  same Prandtl-Glauert post-correction as NeuralFoil. Per PR-7, a missing
+  binary degrades only this feature, failing with a clear RuntimeError that
+  names the cause and the remedies.
 
 ### 1.2 The software must not support
 
@@ -194,7 +211,7 @@ different rule.
   help source, written in English. Every flag, module, project, batch and
   anchor it cites must exist.
 - **DC-2** — Structure: introduction (chapters 0-5), one chapter per GUI tab in tab order
-  (6-12), reference (13-14).
+  (6-13), reference (14-15).
 - **DC-3** — A GUI page gets a chapter of its own. Its sections follow the order of the
   blocks and fields on screen. A page is never documented inside a physics
   chapter.

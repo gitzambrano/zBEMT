@@ -504,7 +504,7 @@ class TestReferenciasNumericasResolvem(unittest.TestCase):
 
 
 class TestTabChaptersAreSelfContained(unittest.TestCase):
-    """Chapters 6-12 are the GUI-tab chapters, and DC-4 makes each field
+    """Chapters 6-13 are the GUI-tab chapters, and DC-4 makes each field
     section self-contained: the reader must not have to follow a link to
     understand or to set a field.
 
@@ -517,7 +517,7 @@ class TestTabChaptersAreSelfContained(unittest.TestCase):
     #: (chapter, target) pairs that are scope statements, not deferrals.
     EXCEPTIONS = {
         (8, "9"),      # "the rotor-wide settings are in the Config/Engine tab"
-        (8, "13.2"),   # the checks panel runs the validation rules of 13.2
+        (8, "14.2"),   # the checks panel runs the validation rules of 14.2
         (11, "10"),    # a batch sweeps the four quantities Run Case defines
         (11, "10.1"),  # ... and a single ad hoc condition uses its flags
     }
@@ -551,7 +551,7 @@ class TestTabChaptersAreSelfContained(unittest.TestCase):
         escapes = []
         for i, line in enumerate(lines):
             cap = chapter_of(i)
-            if cap is None or not (6 <= cap <= 12):
+            if cap is None or not (6 <= cap <= 13):
                 continue
             for m in citation.finditer(line):
                 target = m.group(1)

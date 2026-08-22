@@ -49,7 +49,8 @@ SHOTS = [
     ("run-case-rotor.png",       4, False),
     ("run-case-propeller.png",   4, True),
     ("run-batch.png",            5, False),
-    ("results.png",              6, False),
+    ("design.png",               6, False),
+    ("results.png",              7, False),
 ]
 
 

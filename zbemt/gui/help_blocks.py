@@ -415,4 +415,26 @@ BLOCK_HELP: dict[str, dict] = {
         ],
         "anchor": "cap-7",
     },
+    "geometry_comparison": {
+        "title": "Geometry comparison — one condition set, several planforms",
+        "body": [
+            "This block runs the project's saved flight conditions over several blade geometries in one pass. Everything except the blade geometry is held identical: the same airfoil polar, the same mesh, the same inflow model and the same solver settings go into every run. Any difference between two columns of results therefore has a geometric cause.",
+            "The table holds one row per geometry. The first row is <b>base</b>, the project's own planform; each cell states an override over it, and an empty cell keeps the project value. Use <b>Add variant</b> to copy the base row under a new label, edit the copy, and use <b>Remove selected</b> to delete rows. The label is what names the geometry in the results table, in the figure legend and in the exports, so give every variant a name that states its design idea.",
+            "<b>Run comparison</b> solves every saved case on every geometry. When the project has no saved cases, one hover case runs instead, built from the collective and RPM of the optimization block below. Both long jobs run on a worker thread, report progress, and can be cancelled.",
+            "The integrated table shows one column per geometry, one row per summary quantity, taken from the first condition each geometry ran. The canvas draws the overlay figure across all conditions. <b>Export report</b> writes a self-contained HTML file with the full summary, and <b>Export CSV</b> writes one row per geometry per condition, both starting in the project's outputs folder.",
+            "Comparison variants are not persisted. The table is rebuilt from the project's own geometry on every load, so a comparison worth keeping should be re-created deliberately or exported before closing.",
+        ],
+        "anchor": "cap-design-1",
+    },
+    "design_optimization": {
+        "title": "Design optimization — bounded search over the planform",
+        "body": [
+            "This block searches the parametric geometry parameters for the value that drives one summary quantity to its best found value on one flight condition. Each evaluation regenerates the blade from the current trial parameters and solves the complete condition exactly as Run Case does. No gradients are computed, and no result is interpolated: every candidate is a full solve.",
+            "The search is bounded. Every variable of the table stays between its lower and upper bound, the search starts at the center of the bounds, and the budget <b>max_evals</b> caps how many full solves may be spent. An evaluation that fails to converge is penalized, so the search walks away from regions of the bounds where the solver struggles instead of stopping there. The method is deterministic: the same definition gives the same sequence of evaluations.",
+            "Two derivative-free methods are offered. Powell works along one coordinate direction at a time and suits variables with nearly independent effects, such as root chord and tip chord. Nelder-Mead maintains a simplex of candidate points and suits variables whose effects interact. Choose the objective key first: FM for hover quality, CP or CQ for minimum power, CT for thrust, eta_prop for propulsive efficiency in cruise.",
+            "The condition fields define the single operating point every candidate must satisfy. They carry the same meaning as the four fields of the Run Case tab, and their symbols rotate with rotor and propeller mode in the same way.",
+            "<b>Save definition</b> stores the study in the project under the given name, in inputs/optimizations.bemt, replacing any entry with the same name. <b>Run optimization</b> executes it off the main thread, with progress and cancellation, and draws the convergence history as it arrives. <b>Export report</b> writes a self-contained HTML file with the history and the best parameters found.",
+        ],
+        "anchor": "cap-design-2",
+    },
 }
