@@ -180,7 +180,8 @@ def _build_parser() -> argparse.ArgumentParser:
              "comma-separated list of OTHER project folders. Each folder becomes one "
              "geometry variant, named after its folder, and the geometry of --project "
              "joins the comparison as the variant named 'base'. Every variant runs the "
-             "saved cases of --project. Writes comparison.html and comparison.csv to "
+             "saved cases of --project; when there are none, pass --rpm to compare at "
+             "one default condition. Writes comparison.html and comparison.csv to "
              "the outputs folder of --project.")
     design_group.add_argument(
         "--optimize", nargs="?", const="", default=None, metavar="NAME",
@@ -191,6 +192,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-evals", type=int, default=None, metavar="N",
         help="Evaluation limit used by --optimize, overriding the value stored in the "
              "study definition. Without this flag, the stored value is kept.")
+    # NOTE: --rpm already exists below (ad hoc condition speed). --compare
+    # reuses it when the project has no saved cases; see _run_compare.
 
     # --- ad hoc condition (used only if no --from-bemt-* is given and the
     # project has no batch.conditions) ----------------------------------
@@ -800,9 +803,22 @@ def _run_compare(project, args) -> int:
         variants[other.name] = other.geometry
     variants["base"] = project.geometry
 
-    # None lets api.compare_geometries apply its own fallback ordering;
-    # with no saved cases that fallback has no RPM and stops cleanly.
-    conditions = list(project.saved_cases) or None
+    # No saved cases: run one default hover-like case at the RPM given
+    # with --rpm. The engine has no defensible rpm default, so without
+    # the flag the command stops with a clear instruction instead of a
+    # deep traceback.
+    conditions = list(project.saved_cases)
+    if not conditions:
+        rpm_value = getattr(args, "rpm", None)
+        if not rpm_value:
+            print("Error: --compare: this project has no saved cases and "
+                  "--rpm was not given. Save a case in Run Case or pass "
+                  "--rpm R to compare at that rotational speed.",
+                  file=sys.stderr)
+            return 2
+        conditions = [FlightCondition(name="comparison",
+                                      collective_deg=8.0,
+                                      rpm=float(rpm_value))]
     try:
         results = api.compare_geometries(project, variants, conditions)
     except (RuntimeError, ValueError) as exc:

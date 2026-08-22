@@ -873,6 +873,15 @@ def compare_geometries(project: Project,
         raise ValueError("compare_geometries needs at least one variant.")
     if conditions is None:
         conditions = list(project.saved_cases) or [FlightCondition()]
+    for condition in conditions:
+        _require_rpm(condition.rpm,
+                     f"geometry comparison (condition {condition.name!r}; "
+                     f"set rpm on the saved case or pass --rpm)")
+    # Fail fast with context instead of letting the first solve die deep
+    # inside _require_rpm: every condition here must carry an rpm.
+    for condition in conditions:
+        _require_rpm(condition.rpm,
+                     f"geometry comparison (condition {condition.name!r})")
     results = []
     total = len(variants) * len(list(conditions))
     done = 0

@@ -2498,9 +2498,14 @@ def generate_report(results, path: str, *, project: Optional[Project] = None,
 
 def export_comparison_csv(results_list: list, path: str) -> Path:
     """One CSV row per (geometry variant, condition); the
-    ``geometry_label`` column rides in each summary."""
-    return export_results_tabular(results_list, str(path),
-                                  filename=Path(path).name)
+    ``geometry_label`` column rides in each summary. ``path`` is the
+    exact file path to write."""
+    target = Path(path)
+    # export_results_tabular takes an OUTDIR plus a file name WITHOUT the
+    # extension (it appends .csv itself).
+    written = export_results_tabular(results_list, str(target.parent),
+                                     filename=target.stem)
+    return Path(written)
 
 
 def generate_comparison_report(results_list, path, *,
