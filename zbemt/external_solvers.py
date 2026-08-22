@@ -1,10 +1,16 @@
 """Integrate optional external airfoil-polar generation engines.
 
-The module accepts profile geometry, Reynolds and Mach lists, angle limits, and
-engine options. It detects supported engines, validates requests, and returns
-polar slices or structured errors; it does not run BEMT or persist projects.
-``airfoils.py`` consumes successful tables, ``api.py`` exposes the operation, and the
-Airfoil GUI supplies requests. NeuralFoil is the supported engine; unsupported
+The module accepts profile geometry, Reynolds and Mach lists, angle limits,
+and engine options. It detects supported engines, validates requests, and
+returns polar slices or structured errors. It does not run BEMT, and it does
+not persist projects. ``airfoils.py`` consumes successful tables, ``api.py``
+exposes the operation, and the Airfoil GUI supplies requests.
+
+Two engines are supported. NeuralFoil runs in process through the optional
+``neuralfoil`` package. XFOIL runs out of process through the ``xfoil``
+executable: the module writes the coordinates and a command script into a
+temporary directory, calls the binary there for each Reynolds number, and
+parses the accumulated polar dump that the binary writes back. Unsupported
 engines are rejected explicitly. Returned data inherit the external engine's
 operating envelope and confidence limitations.
 """
@@ -12,24 +18,34 @@ operating envelope and confidence limitations.
 from __future__ import annotations
 
 import importlib.util
+import os
+import shutil
+import subprocess
+import tempfile
 import warnings
 
 import numpy as np
 
 from .models import ProfileGeometry, PolarSlice
 
-SUPPORTED_ENGINES = ("neuralfoil",)
+SUPPORTED_ENGINES = ("neuralfoil", "xfoil")
+
+# Wall-clock limit for one XFOIL subprocess (one Reynolds sweep).
+_XFOIL_TIMEOUT_S = 120
 
 
 def is_available(engine: str) -> bool:
     """Used by the GUI ('f) External engine' block) and by the CLI
-    (``--gen-neuralfoil``) to decide whether the corresponding
-    button or flag is enabled. Only ``True`` when ``engine == 'neuralfoil'``
-    **and** the ``neuralfoil`` package is installed in the current
-    environment (real check via ``importlib.util.find_spec``, with nothing
-    hardcoded)."""
+    (``--gen-neuralfoil``) to decide whether the corresponding button
+    or flag is enabled. ``neuralfoil`` requires the package of the same
+    name installed in the current environment (real check via
+    ``importlib.util.find_spec``, with nothing hardcoded). ``xfoil``
+    requires the ``xfoil`` executable on PATH (checked via
+    ``shutil.which``). Any other engine returns ``False``."""
     if engine not in SUPPORTED_ENGINES:
         return False
+    if engine == "xfoil":
+        return shutil.which("xfoil") is not None
     return importlib.util.find_spec("neuralfoil") is not None
 
 
@@ -51,37 +67,218 @@ def _coordinates_from_geometry(geometry: ProfileGeometry) -> np.ndarray:
     ])
 
 
+def _parse_xfoil_polar(text: str) -> tuple[list[float], list[float], list[float]]:
+    """Parse a standard XFOIL accumulated polar dump into parallel
+    (alpha_deg, cl, cd) lists. Leading '#' comment lines and the header
+    block are skipped. The data block starts below the last header line
+    whose first column name starts with 'alpha' (typical columns:
+    ``alpha CL CD CDp CM ...``), and the first three columns of each data
+    row are read as alpha, CL and CD. Rows that fail to parse or that hold
+    non-finite values are skipped, and trailing blank lines are tolerated.
+    An empty or unrecognizable dump raises ``ValueError``."""
+    if not text or not text.strip():
+        raise ValueError("XFOIL polar dump is empty.")
+    lines = text.splitlines()
+    header_index = None
+    for position in range(len(lines)):
+        tokens = lines[position].split()
+        if tokens and tokens[0].lower().startswith("alpha"):
+            # Keep scanning: a later column-name line wins, so the parser
+            # lands on the LAST header of an accumulated dump.
+            header_index = position
+    if header_index is None:
+        raise ValueError(
+            "XFOIL polar dump has no column-header line starting with "
+            "'alpha'; the content is not a recognizable polar output."
+        )
+    alpha_deg: list[float] = []
+    cl: list[float] = []
+    cd: list[float] = []
+    for line in lines[header_index + 1:]:
+        tokens = line.split()
+        if len(tokens) < 3:
+            continue
+        try:
+            alpha = float(tokens[0])
+            lift = float(tokens[1])
+            drag = float(tokens[2])
+        except ValueError:
+            continue
+        if not (np.isfinite(alpha) and np.isfinite(lift) and np.isfinite(drag)):
+            continue
+        alpha_deg.append(alpha)
+        cl.append(lift)
+        cd.append(drag)
+    if not alpha_deg:
+        raise ValueError(
+            "XFOIL polar dump contains a column header but no usable data row."
+        )
+    return alpha_deg, cl, cd
+
+
+def _mach_corrected_slices(engine_name: str, alpha_valid_deg: np.ndarray,
+                           cl_inc: np.ndarray, cd_inc: np.ndarray,
+                           mach_list: list[float], reynolds: float,
+                           label: str) -> list[PolarSlice]:
+    """Tail shared by both engines: apply the Prandtl-Glauert correction
+    per Mach (Cl_c = Cl / beta, Cd_c = Cd / beta, beta = sqrt(1 - M^2),
+    the same correction bemt.py applies per element) and build one
+    ``PolarSlice`` for each Mach that survives it. A sonic or supersonic
+    Mach emits a warning and contributes no slice."""
+    slices: list[PolarSlice] = []
+    for mach in mach_list:
+        beta = float(np.sqrt(max(0.0, 1.0 - mach ** 2)))
+        if beta < 1e-3:
+            warnings.warn(
+                f"{engine_name}: Mach={mach:.2f} is sonic or supersonic. "
+                f"Prandtl-Glauert diverges, so the slice is ignored."
+            )
+            continue
+        slices.append(PolarSlice(
+            alpha_deg=alpha_valid_deg.tolist(),
+            cl=(cl_inc / beta).tolist(),
+            cd=(cd_inc / beta).tolist(),
+            reynolds=float(reynolds),
+            mach=float(mach),
+            label=label,
+        ))
+    return slices
+
+
+def _run_polar_xfoil(geometry: ProfileGeometry,
+                     reynolds_list: list[float], mach_list: list[float],
+                     alpha_min_deg: float, alpha_max_deg: float,
+                     alpha_step_deg: float) -> list[PolarSlice]:
+    """Run the ``xfoil`` executable over ``geometry`` for each Reynolds in
+    ``reynolds_list`` over the requested alpha range. The binary runs as a
+    subprocess inside a temporary directory: the module writes the airfoil
+    coordinates there once, writes one command script per Reynolds, calls
+    the binary with the script, and parses each accumulated polar file the
+    binary leaves behind.
+
+    A Reynolds whose polar file is missing or empty is reported with a
+    warning and skipped, matching how the BEMT solver treats points that do
+    not converge. If no Reynolds produces any point, the function raises
+    ``RuntimeError``. Output is captured; nothing is printed."""
+    if shutil.which("xfoil") is None:
+        raise RuntimeError(
+            "The 'xfoil' executable was not found on PATH. Install XFOIL and make "
+            "sure the command 'xfoil' runs (alternatively: import a CSV/experimental "
+            "table instead of using an external engine)."
+        )
+
+    coordinates = _coordinates_from_geometry(geometry)
+
+    label_suffix = f" {geometry.naca_code}" if geometry.source in ("naca4", "naca5") else ""
+    label = f"xfoil:{geometry.source}{label_suffix}"
+
+    slices: list[PolarSlice] = []
+
+    with tempfile.TemporaryDirectory(prefix="zbemt_xfoil_") as tmpdir:
+        dat_path = os.path.join(tmpdir, "airfoil.dat")
+        with open(dat_path, "w", encoding="ascii") as handle:
+            for x, y in coordinates:
+                handle.write("%f %f\n" % (float(x), float(y)))
+
+        for index, reynolds in enumerate(reynolds_list):
+            polar_path = os.path.join(tmpdir, f"polar_{index}.dat")
+            script_path = os.path.join(tmpdir, f"commands_{index}.txt")
+            with open(script_path, "w", encoding="ascii") as handle:
+                handle.write(
+                    "LOAD airfoil.dat\n"
+                    "\n"
+                    "OPER\n"
+                    f"VISC {reynolds:.6g}\n"
+                    "ITER 100\n"
+                    f"ASEQ {alpha_min_deg:g} {alpha_max_deg:g} {alpha_step_deg:g}\n"
+                    "PACC\n"
+                    f"polar_{index}.dat\n"
+                    "\n"
+                    "QUIT\n"
+                )
+
+            try:
+                subprocess.run(
+                    ["xfoil", script_path],
+                    capture_output=True, text=True,
+                    timeout=_XFOIL_TIMEOUT_S, cwd=tmpdir,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                warnings.warn(f"XFOIL: no converged points for Re={reynolds:.3g}")
+                continue
+
+            text = ""
+            if os.path.isfile(polar_path):
+                with open(polar_path, "r", errors="replace") as handle:
+                    text = handle.read()
+            try:
+                alpha_vals, cl_vals, cd_vals = _parse_xfoil_polar(text)
+            except ValueError:
+                warnings.warn(f"XFOIL: no converged points for Re={reynolds:.3g}")
+                continue
+
+            slices.extend(_mach_corrected_slices(
+                engine_name="XFOIL",
+                alpha_valid_deg=np.asarray(alpha_vals, dtype=float),
+                cl_inc=np.asarray(cl_vals, dtype=float),
+                cd_inc=np.asarray(cd_vals, dtype=float),
+                mach_list=mach_list,
+                reynolds=reynolds,
+                label=label,
+            ))
+
+    if not slices:
+        raise RuntimeError(
+            "XFOIL produced no usable polar points for any Reynolds in the "
+            "requested sweep. Check the airfoil geometry and the requested "
+            "angle range, or import a CSV/experimental table instead."
+        )
+    return slices
+
+
 def run_polar(engine: str, geometry: ProfileGeometry,
               reynolds_list: list[float], mach_list: list[float],
               alpha_min_deg: float, alpha_max_deg: float,
               alpha_step_deg: float) -> list[PolarSlice]:
-    """Run NeuralFoil over ``geometry`` for each (Reynolds, Mach)
+    """Run an external engine over ``geometry`` for each (Reynolds, Mach)
     combination in ``reynolds_list`` x ``mach_list``, over the requested
     alpha range, and return a list of ``PolarSlice`` ready to be
     appended to ``AirfoilDef.table_slices`` (same structure used by
     tables imported from CSV/experimental data, because the import pipeline
     does not distinguish the origin once generated).
 
+    Supported engines: ``"neuralfoil"`` runs the NeuralFoil package in
+    process; ``"xfoil"`` drives the ``xfoil`` executable as a subprocess
+    (see ``_run_polar_xfoil``).
+
     Robustness (same pattern as ``bemt.py`` for points that do not
     converge in the inflow solver): a specific alpha point that
     NeuralFoil cannot resolve with confidence (low ``analysis_confidence``
     or NaN in Cl/Cd) is silently dropped from that slice. An aggregate
     warning is emitted at the end, but the whole sweep is not brought down
-    because of a few outlier points.
+    because of a few outlier points. XFOIL applies the same philosophy per
+    Reynolds number.
     """
     if engine not in SUPPORTED_ENGINES:
         raise ValueError(
-            f"Unknown external engine: {engine!r} (expected one of {SUPPORTED_ENGINES}). "
-            f"XFOIL is not supported in this version. Only NeuralFoil is supported."
+            f"Unknown external engine: {engine!r} (expected one of "
+            f"{SUPPORTED_ENGINES})."
         )
     if not reynolds_list or not mach_list:
         raise ValueError(
-            "run_polar('neuralfoil', ...) needs at least one value in reynolds_list "
+            f"run_polar({engine!r}, ...) needs at least one value in reynolds_list "
             "and in mach_list to define the sweep."
         )
     if alpha_step_deg <= 0:
         raise ValueError(f"alpha_step_deg must be positive (got {alpha_step_deg}).")
-    if not is_available(engine):
+
+    if engine == "xfoil":
+        return _run_polar_xfoil(geometry, reynolds_list, mach_list,
+                                alpha_min_deg, alpha_max_deg, alpha_step_deg)
+
+    # --- NeuralFoil path (in-process package), unchanged below ----------
+    if not is_available("neuralfoil"):
         raise RuntimeError(
             "The 'neuralfoil' package is not installed in this environment. "
             "Install with `pip install neuralfoil` to generate polars via NeuralFoil "
@@ -127,28 +324,17 @@ def run_polar(engine: str, geometry: ProfileGeometry,
         if not valid_base.any():
             continue
 
-        for mach in mach_list:
-            # Prandtl-Glauert correction: Cl_c = Cl / β, Cd_c = Cd / β
-            # where β = sqrt(1 - M²), same as bemt.py does in element_state.
-            # For Mach 0 or very low, β ≈ 1 and the correction is a no-op.
-            beta = float(np.sqrt(max(0.0, 1.0 - mach ** 2)))
-            if beta < 1e-3:
-                warnings.warn(
-                    f"NeuralFoil: Mach={mach:.2f} is sonic or supersonic. "
-                    f"Prandtl-Glauert diverges, so the slice is ignored."
-                )
-                continue
-            cl = cl_inc[valid_base] / beta
-            cd = cd_inc[valid_base] / beta
-
-            slices.append(PolarSlice(
-                alpha_deg=alpha_deg[valid_base].tolist(),
-                cl=cl.tolist(),
-                cd=cd.tolist(),
-                reynolds=float(reynolds),
-                mach=float(mach),
-                label=label,
-            ))
+        # Prandtl-Glauert per Mach + PolarSlice construction, shared with
+        # the XFOIL path (see _mach_corrected_slices).
+        slices.extend(_mach_corrected_slices(
+            engine_name="NeuralFoil",
+            alpha_valid_deg=alpha_deg[valid_base],
+            cl_inc=cl_inc[valid_base],
+            cd_inc=cd_inc[valid_base],
+            mach_list=mach_list,
+            reynolds=reynolds,
+            label=label,
+        ))
 
     if n_dropped:
         warnings.warn(

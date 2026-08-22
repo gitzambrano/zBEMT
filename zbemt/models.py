@@ -455,7 +455,7 @@ class AirfoilDef:
     geometry: Optional[ProfileGeometry] = None
 
     # --- external engine (Phase 7, see external_solvers.py) ---
-    external_engine: str = "none"      # "none" | "neuralfoil" (XFOIL is not supported)
+    external_engine: str = "none"      # "none" | "neuralfoil" | "xfoil"
     external_reynolds_list: list[float] = field(default_factory=list)
     external_mach_list: list[float] = field(default_factory=list)
     external_alpha_min_deg: float = -20.0

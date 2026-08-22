@@ -270,7 +270,9 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
     if config.get("is_propeller", False) and airfoil_def.external_engine != "none":
         issues.append(Issue("info",
             "is_propeller=True does not affect external polar generation "
-            "(NeuralFoil). Its only effect is on the BEMT non-dimensionalization."))
+            "(it applies to every supported external engine, NeuralFoil "
+            "and XFOIL alike). Its only effect is on the BEMT "
+            "non-dimensionalization."))
 
     return issues
 

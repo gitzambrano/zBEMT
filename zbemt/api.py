@@ -2490,3 +2490,149 @@ def generate_report(results, path: str, *, project: Optional[Project] = None,
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text("\n".join(parts), encoding="utf-8")
     return dest
+
+
+# =============================================================================
+# Design tools: comparison and optimization reports (RP-1/RP-5 pattern)
+# =============================================================================
+
+def export_comparison_csv(results_list: list, path: str) -> Path:
+    """One CSV row per (geometry variant, condition); the
+    ``geometry_label`` column rides in each summary."""
+    return export_results_tabular(results_list, str(path),
+                                  filename=Path(path).name)
+
+
+def generate_comparison_report(results_list, path, *,
+                               project: Optional[Project] = None,
+                               title: str = "Geometry Comparison",
+                               notes: Optional[str] = None,
+                               fields: Optional[list] = None) -> Path:
+    """Self-contained HTML comparing geometry variants (PR-5): summary
+    table plus the overlay figure embedded as base64. No network access,
+    no external files."""
+    from .viz import plots as plots_module
+    import time
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        fig_path = Path(tmp) / "geometry_comparison.png"
+        plots_module.plot_geometry_comparison(results_list, fields=fields,
+                                              fname=str(fig_path))
+        figures = [_embedded_figure(str(fig_path))]
+    parts = [
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+        f"<title>{title}</title><style>{_REPORT_CSS}</style></head><body>",
+        f"<h1>{title}</h1>",
+        f'<p class="sub">Generated on {time.strftime("%Y-%m-%d %H:%M")}</p>',
+        "<h2>What was run</h2>", _report_metadata(project, results_list),
+    ]
+    if notes:
+        parts += ["<h2>Notes</h2>", f'<div class="note">{notes}</div>']
+    parts += ["<h2>Summary</h2>",
+              _summary_table(results_list, propeller_mode(results_list, project)),
+              "<h2>Comparison across geometries</h2>"] + figures
+    parts += [f"<script>{_REPORT_JS}</script>", "</body></html>"]
+    dest.write_text("\n".join(parts), encoding="utf-8")
+    return dest
+
+
+def generate_optimization_report(outcome, path, *,
+                                 project: Optional[Project] = None,
+                                 definition: Optional[OptimizationDefinition] = None,
+                                 notes: Optional[str] = None) -> Path:
+    """Self-contained HTML for one design optimization: convergence,
+    best parameters and the best case's own summary. A history CSV lands
+    next to the HTML so the raw evaluations stay inspectable."""
+    from .viz import plots as plots_module
+    import csv as _csv
+    import time
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    title = f"Design Optimization - {definition.name}" if definition \
+        else "Design Optimization"
+    params_rows = "".join(
+        f"<tr><td><code>{k}</code></td><td>{v}</td></tr>"
+        for k, v in outcome.best_params.items())
+    objective_line = (
+        f"<p class=\"sub\">Objective: <b>{outcome.objective_kind} "
+        f"<code>{outcome.objective_key}</code></b>, best value "
+        f"<b>{outcome.best_value:.6g}</b> over {outcome.n_evals} "
+        f"evaluations. {outcome.message}</p>")
+    body = [
+        "<h2>Best parameters</h2>",
+        '<table class="params"><thead><tr><th>Parameter</th>'
+        "<th>Value</th></tr></thead><tbody>"
+        + (params_rows or '<tr><td colspan="2">none</td></tr>')
+        + "</tbody></table>",
+        objective_line,
+        "<h2>Convergence</h2>",
+    ]
+    if outcome.history:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            conv_path = Path(tmp) / "convergence.png"
+            plots_module.plot_optimization_convergence(
+                outcome.history, outcome.objective_key, fname=str(conv_path))
+            body.append(_embedded_figure(str(conv_path)))
+            if project is not None and outcome.best_params:
+                try:
+                    variant = studies.variant_geometry(project.geometry,
+                                                       outcome.best_params)
+                    geom_png = Path(tmp) / "best_planform.png"
+                    plots_module.plot_chord_twist_distribution(
+                        variant, fname=str(geom_png))
+                    body += ["<h2>Best planform</h2>",
+                             _embedded_figure(str(geom_png))]
+                except Exception:
+                    pass
+    else:
+        body.append('<p class="note">No finite evaluation was recorded.</p>')
+    if definition is not None:
+        variables_rows = "".join(
+            f'<tr><td><code>{v.param}</code></td><td>{v.lower}</td>'
+            f"<td>{v.upper}</td></tr>" for v in definition.variables)
+        body += ["<h2>Search definition</h2>",
+                 f'<p class="sub">method={definition.method}, '
+                 f"max_evals={definition.max_evals}</p>",
+                 '<table class="params"><thead><tr><th>Variable</th>'
+                 "<th>Lower</th><th>Upper</th></tr></thead><tbody>"
+                 + (variables_rows or '<tr><td colspan="3">none</td></tr>')
+                 + "</tbody></table>"]
+    if notes:
+        body += ["<h2>Notes</h2>", f'<div class="note">{notes}</div>']
+
+    history_path = dest.with_name(f"{dest.stem}_history.csv")
+    keys: list[str] = []
+    for row in outcome.history:
+        for k in row:
+            if k not in keys:
+                keys.append(k)
+    with history_path.open("w", newline="", encoding="utf-8") as fh:
+        writer = _csv.DictWriter(fh, fieldnames=["eval", *keys[1:]]
+                                 if "eval" in keys else keys)
+        writer.writeheader()
+        writer.writerows(outcome.history)
+
+    best_summary = ([outcome.best_results] if outcome.best_results else [])
+    parts = [
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+        f"<title>{title}</title><style>{_REPORT_CSS}</style></head><body>",
+        f"<h1>{title}</h1>",
+        f'<p class="sub">Generated on {time.strftime("%Y-%m-%d %H:%M")} | '
+        f'history: <a href="{history_path.name}">'
+        f"{history_path.name}</a></p>",
+        "<h2>What was run</h2>",
+        _report_metadata(project, best_summary),
+        *body,
+    ]
+    if outcome.best_results is not None:
+        parts += ["<h2>Summary of the best case</h2>",
+                  _summary_table([outcome.best_results],
+                                 propeller_mode([outcome.best_results],
+                                                project))]
+    parts += [f"<script>{_REPORT_JS}</script>", "</body></html>"]
+    dest.write_text("\n".join(parts), encoding="utf-8")
+    return dest

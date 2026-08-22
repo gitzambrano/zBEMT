@@ -1,13 +1,15 @@
 """Verify optional external polar-engine integration.
 
-The tests check supported-engine identification, availability detection, request
-validation, and returned polar slices when the optional package is installed. They
-also verify clear behavior when it is unavailable. Geometry and operating-point
-inputs are isolated fixtures; no project is persisted by these tests.
+The tests check supported-engine identification, availability detection, XFOIL
+polar parsing, request validation, and returned polar slices when an engine is
+installed. They also verify clear behavior when an engine is unavailable.
+Geometry and operating-point inputs are isolated fixtures; no project is
+persisted by these tests.
 """
 
-import os
+import shutil
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -19,18 +21,14 @@ NEURALFOIL_AVAILABLE = external_solvers.is_available("neuralfoil")
 
 
 class TestSupportedEngines(unittest.TestCase):
-    def test_only_neuralfoil_is_supported(self):
-        self.assertEqual(external_solvers.SUPPORTED_ENGINES, ("neuralfoil",))
+    def test_neuralfoil_and_xfoil_are_supported(self):
+        self.assertEqual(external_solvers.SUPPORTED_ENGINES, ("neuralfoil", "xfoil"))
 
-    def test_unknown_engine_raises_value_error(self):
-        with self.assertRaises(ValueError):
-            external_solvers.run_polar("bogus_engine", ProfileGeometry(), [1e6], [0.1], -10, 10, 1.0)
-
-    def test_xfoil_is_unknown_engine(self):
-        # XFOIL was deliberately removed (Phase 7) -- it is no longer a
-        # "known but not implemented" engine, it is unknown.
-        with self.assertRaises(ValueError):
-            external_solvers.run_polar("xfoil", ProfileGeometry(), [1e6], [0.1], -10, 10, 1.0)
+    def test_unknown_engine_raises_value_error_listing_supported(self):
+        with self.assertRaises(ValueError) as ctx:
+            external_solvers.run_polar("bogus", ProfileGeometry(), [1e6], [0.1], -10, 10, 1.0)
+        for engine_name in external_solvers.SUPPORTED_ENGINES:
+            self.assertIn(engine_name, str(ctx.exception))
 
 
 class TestIsAvailable(unittest.TestCase):
@@ -39,9 +37,61 @@ class TestIsAvailable(unittest.TestCase):
         expected = importlib.util.find_spec("neuralfoil") is not None
         self.assertEqual(external_solvers.is_available("neuralfoil"), expected)
 
+    def test_is_available_xfoil_reflects_real_binary_presence(self):
+        expected = shutil.which("xfoil") is not None
+        self.assertEqual(external_solvers.is_available("xfoil"), expected)
+
     def test_is_available_false_for_unknown_engine(self):
-        self.assertFalse(external_solvers.is_available("xfoil"))
         self.assertFalse(external_solvers.is_available("bogus"))
+
+
+class TestParseXfoilPolar(unittest.TestCase):
+    HEADER = (
+        "# Comment line one\n"
+        "# Comment line two\n"
+        "\n"
+        "  XFOIL         Version 6.99\n"
+        "\n"
+        "  alpha      CL        CD       CDp       CM\n"
+        "  ------  --------  --------  --------  --------\n"
+    )
+
+    def test_parses_rows_and_skips_nan_junk_and_blank_lines(self):
+        text = self.HEADER + (
+            "  -5.000   -0.5500   0.00600   0.00200   -0.0100\n"
+            "  -4.000   -0.4400     NaN     0.00210   -0.0085\n"
+            "junk row without numbers\n"
+            "  -3.000   -0.3300   0.00580   0.00190   -0.0070\n"
+            "\n"
+            "\n"
+        )
+        alpha_deg, cl, cd = external_solvers._parse_xfoil_polar(text)
+        self.assertEqual(alpha_deg, [-5.0, -3.0])
+        self.assertEqual(cl, [-0.55, -0.33])
+        self.assertEqual(cd, [0.006, 0.0058])
+
+    def test_empty_text_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            external_solvers._parse_xfoil_polar("")
+        with self.assertRaises(ValueError):
+            external_solvers._parse_xfoil_polar("\n \n")
+
+    def test_content_without_header_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            external_solvers._parse_xfoil_polar(
+                "no column header anywhere\n1.0 2.0 3.0\n"
+            )
+
+
+class TestRunPolarXfoilAvailability(unittest.TestCase):
+    def test_missing_binary_raises_runtime_error_with_clear_message(self):
+        geom = airfoils.generate_naca4("0012")
+        with mock.patch.object(external_solvers.shutil, "which", return_value=None):
+            with self.assertRaises(RuntimeError) as ctx:
+                external_solvers.run_polar("xfoil", geom, [1e6], [0.1], -10, 10, 1.0)
+        msg = str(ctx.exception)
+        self.assertIn("'xfoil' executable", msg)
+        self.assertIn("PATH", msg)
 
 
 class TestRunPolarValidation(unittest.TestCase):

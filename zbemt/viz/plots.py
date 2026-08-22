@@ -1901,3 +1901,262 @@ def plot_loads_vs_azimuth(maps: dict, r_norm_targets=(0.25, 0.5, 0.75, 0.95),
     fig.suptitle(rf"Blade loads vs azimuth — $\mu_x$={mu_x:.3f}", fontsize=12, fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, 0.96])
     return _finish_fig(fig, fname)
+
+
+# =============================================================================
+# Design tools: geometry comparison and optimization convergence
+# =============================================================================
+
+#: Default summary quantities of `plot_geometry_comparison`, in panel
+#: order. A quantity enters the figure only when at least one summary
+#: carries it, so a partial export still produces its remaining panels.
+_GEOMETRY_COMPARISON_FIELDS = ("CT", "FM", "CP", "eta_prop")
+
+
+def _summary_float(value) -> float:
+    """Coerces a summary entry to ``float``, NaN when it cannot be read."""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return np.nan
+    return value
+
+
+def _group_by_geometry_label(results_list) -> dict:
+    """Maps each ``geometry_label`` to the positions of its results in
+    ``results_list``, in input order.
+
+    The input is variant-major, the order produced by
+    ``studies.compare_geometries``. A result without a label joins no
+    series, the same policy `plot_xy` applies to a missing grouping
+    value."""
+    groups: dict = {}
+    for position, result in enumerate(results_list):
+        label = (result.summary or {}).get("geometry_label")
+        if label is None:
+            continue
+        groups.setdefault(label, []).append(position)
+    return groups
+
+
+def plot_geometry_comparison(results_list, fields=None, *,
+                             ax=None, fname=None):
+    """Overlay figure that compares geometry variants.
+
+    ``results_list`` is a flat list of ``Results`` whose summaries carry
+    ``geometry_label`` plus the normal summary keys (``CT``, ``FM``,
+    ``eta_prop`` and so on). Several conditions may exist per label. One
+    line with markers is drawn per distinct label, and the list is
+    variant-major, the order produced by ``studies.compare_geometries``.
+
+    The figure holds one panel per requested quantity. By default the
+    candidates are the entries of ``_GEOMETRY_COMPARISON_FIELDS``, kept
+    only when at least one summary carries them. When none survives, the
+    figure falls back to ``CT`` so a partial export still produces its
+    panel. Explicit ``fields`` are honored as given.
+
+    The X axis follows the data. When more than one distinct ``mu_x``
+    value exists, every curve is plotted against ``mu_x``. Otherwise,
+    every curve is plotted against the case index, and each tick names
+    its case. Tick names longer than 12 characters rotate by 30 degrees.
+
+    All panels share one color per label and one common legend. The
+    overall title states the scope read from the data, the number of
+    variants and the number of conditions.
+
+    ``ax`` hosts the drawing when a single panel results. With several
+    panels, the new axes take the slot of ``ax`` in its gridspec, the
+    same reuse performed by ``plot_convergence``. Without ``ax``, a new
+    figure is created. ``fname`` saves the figure created here, and the
+    figure of a caller is never written to. The return value is the
+    single axis, or the array of panel axes.
+    """
+    results_list = list(results_list or [])
+    groups = _group_by_geometry_label(results_list)
+
+    if fields is not None:
+        available_fields = list(fields)
+    else:
+        available_fields = [key for key in _GEOMETRY_COMPARISON_FIELDS
+                            if any(key in (r.summary or {})
+                                   for r in results_list)]
+    if not available_fields:
+        available_fields = ["CT"]
+    n_panels = len(available_fields)
+    ncols = min(2, n_panels)
+    nrows = int(np.ceil(n_panels / ncols))
+
+    if ax is None:
+        fig, axes_grid = _new_figure((4.0 * ncols, 3.0 * nrows), nrows, ncols)
+        owned_fig = fig
+    else:
+        fig = ax.figure
+        owned_fig = None   # a figure the caller owns is never saved here
+        if n_panels == 1:
+            axes_grid = [ax]
+        else:
+            # Same layout reuse as `_convergence_layout`: the supplied
+            # axis gives up its slot, and the panel grid takes the slot.
+            spec = ax.get_subplotspec()
+            ax.remove()
+            if spec is None:
+                spec = fig.add_gridspec(1, 1)[0, 0]
+            outer = spec.subgridspec(nrows, ncols)
+            axes_grid = [fig.add_subplot(outer[i]) for i in range(nrows * ncols)]
+    axes_grid = np.atleast_1d(axes_grid).ravel()
+
+    mu_values = set()
+    for result in results_list:
+        value = _summary_float((result.summary or {}).get("mu_x"))
+        if np.isfinite(value):
+            mu_values.add(value)
+    vs_mu_x = len(mu_values) > 1
+
+    # ONE color map, built before any drawing: the same label must wear
+    # the same color in every panel, or the panels cannot be compared.
+    colors = {label: f"C{k % 10}" for k, label in enumerate(groups)}
+
+    # Index mode resolves the tick names once, from the first group that
+    # reaches each position. compare_geometries runs the same ordered
+    # conditions for every variant, so position p names the same case in
+    # every group.
+    n_positions = max((len(idxs) for idxs in groups.values()), default=0)
+    tick_names = []
+    if not vs_mu_x:
+        for position in range(n_positions):
+            name = ""
+            for idxs in groups.values():
+                if position < len(idxs):
+                    candidate = str(results_list[idxs[position]].condition_name or "")
+                    if candidate:
+                        name = candidate
+                        break
+            tick_names.append(name)
+
+    any_point = False
+    for panel, field_key in zip(axes_grid, available_fields):
+        for label, idxs in groups.items():
+            xs = []
+            ys = []
+            for position, i in enumerate(idxs):
+                summary = results_list[i].summary or {}
+                xv = (_summary_float(summary.get("mu_x")) if vs_mu_x
+                      else float(position))
+                yv = _summary_float(summary.get(field_key))
+                if np.isfinite(xv) and np.isfinite(yv):
+                    xs.append(xv)
+                    ys.append(yv)
+            if not xs:
+                continue
+            order = np.argsort(np.asarray(xs, dtype=float), kind="stable")
+            panel.plot(np.asarray(xs, dtype=float)[order],
+                       np.asarray(ys, dtype=float)[order],
+                       "o-", markersize=3.5, linewidth=1.3,
+                       color=colors[label], label=label)
+            any_point = True
+        panel.axhline(0, color="0.6", linestyle=":", linewidth=0.6)
+        panel.set_ylabel(_summary_axis_label(field_key))
+        panel.grid(True, alpha=0.3)
+        if vs_mu_x:
+            panel.set_xlabel(_summary_axis_label("mu_x"))
+        else:
+            panel.set_xlabel("Case")
+            panel.set_xticks(range(n_positions))
+            panel.set_xticklabels(tick_names, fontsize=8)
+            if max((len(name) for name in tick_names), default=0) > 12:
+                for tick in panel.get_xticklabels():
+                    tick.set_rotation(30)
+                    tick.set_ha("right")
+
+    # ONE legend for the whole figure, assembled from every panel so it
+    # stays complete even when the first panel holds no data.
+    handles = []
+    seen_labels = set()
+    for panel in axes_grid:
+        for handle, label_text in zip(*panel.get_legend_handles_labels()):
+            if label_text not in seen_labels:
+                seen_labels.add(label_text)
+                handles.append(handle)
+    if handles:
+        axes_grid[0].legend(handles, [h.get_label() for h in handles],
+                            fontsize=7, title="Geometry", loc="best")
+    if not any_point:
+        message = ("No geometry-labeled results to compare" if not groups
+                   else "No valid data points for the selected fields")
+        axes_grid[0].text(0.5, 0.5, message, ha="center", va="center",
+                          fontsize=10, color="0.35",
+                          transform=axes_grid[0].transAxes)
+
+    condition_names = {str(getattr(r, "condition_name", "") or "")
+                       for r in results_list}
+    condition_names.discard("")
+    n_conditions = len(condition_names) or n_positions
+    fig.suptitle(f"Geometry comparison ({len(groups)} variants, "
+                 f"{n_conditions} conditions)", fontsize=12, fontweight="bold")
+    if owned_fig is not None:
+        fig.tight_layout(rect=[0, 0, 1, 0.94], h_pad=2.0, w_pad=1.2)
+
+    result_axes = axes_grid[0] if n_panels == 1 else axes_grid
+    return _finish(result_axes, owned_fig, fname)
+
+
+def plot_optimization_convergence(history, objective_key: str, *,
+                                  ax=None, fname=None,
+                                  mode: str = "minimize"):
+    """Convergence view of one design optimization.
+
+    ``history`` is a list of dicts with at least an integer ``"eval"``
+    entry and one entry keyed by ``objective_key``, in the format
+    recorded by ``studies.optimize_design``. Rows without the objective
+    key, and rows whose value is not finite, are skipped. A failed
+    evaluation is absent from the record, and one bad point must not
+    erase the good ones.
+
+    Every evaluation is drawn as a marker joined into a line. A step
+    line overlays the running best value. ``mode`` selects what the best
+    value means: under ``"minimize"`` the step line follows the
+    cumulative minimum, and under ``"maximize"`` it follows the
+    cumulative maximum. The default is ``"minimize"``. Pass the
+    ``objective_kind`` of the study that produced the history.
+
+    The ``ax`` and ``fname`` parameters follow the module convention
+    stated at the top of this file. The axis is returned.
+    """
+    if mode not in ("minimize", "maximize"):
+        raise ValueError(
+            f"mode must be 'minimize' or 'maximize' (got {mode!r}).")
+
+    ax, fig = _resolve_ax(ax, fname)
+
+    evals = []
+    values = []
+    for row in history or []:
+        try:
+            eval_number = int(row["eval"])
+            value = float(row[objective_key])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not np.isfinite(value):
+            continue
+        evals.append(eval_number)
+        values.append(value)
+    order = np.argsort(np.asarray(evals, dtype=float), kind="stable")
+    evals = np.asarray(evals, dtype=float)[order]
+    values = np.asarray(values, dtype=float)[order]
+
+    if evals.size:
+        ax.plot(evals, values, "o-", color="tab:blue",
+                markersize=3.5, linewidth=1.3, label="evaluation")
+        best = (np.minimum.accumulate(values) if mode == "minimize"
+                else np.maximum.accumulate(values))
+        ax.step(evals, best, where="post", color="tab:red",
+                linestyle="--", linewidth=1.4, label=f"best so far ({mode})")
+        ax.legend(fontsize=8)
+    else:
+        ax.text(0.5, 0.5, "No finite evaluation recorded", ha="center",
+                va="center", fontsize=10, color="0.35", transform=ax.transAxes)
+    ax.set_xlabel("Evaluation")
+    ax.set_ylabel(_summary_axis_label(objective_key))
+    ax.grid(True, alpha=0.3)
+    ax.set_title("Optimization convergence")
+    return _finish(ax, fig, fname)
