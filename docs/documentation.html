@@ -3673,8 +3673,17 @@ formats and limitations of each polar source.</p>
 
     <p><b>Configuration and valid range.</b> A fraction of the radius between $0$ and $1$, in practice between $0.10$
       and $0.25$ for a helicopter rotor and often larger for a propeller with a substantial spinner. The
-      default is $0.15$. The value must be smaller than the first station of the radial table, since a
+      default is $0.15$. The value must not lie above the first station of the radial table, since a
       cutout that swallows part of the table leaves those stations outside the integration.</p>
+
+    <p><b>Where the table begins.</b> The three parametric generators place the first radial station of the
+      table exactly at the cutout: the stations run from $r_{cut}$ to $1.0$ in equal steps. No station
+      exists inside the cutout and none is discarded afterwards, so the table and the integration limit
+      agree by construction, and the engine receives the same lower bound. A table entered as custom
+      geometry takes its cutout from its own innermost station. Resampling a table keeps its current
+      innermost station as the new first one. The elliptic generator scales its chord so that the value
+      at that first station equals the requested maximum chord, and it floors the tip chord at fifteen
+      per cent of that maximum so the shape never closes.</p>
 
     <p><span class="gui">GUI</span>: a field in the <i>Generate Table</i> dialog, applied to the
       table it produces.</p>
@@ -3847,6 +3856,17 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       lowers the aspect ratio. The dialog keeps them consistent while it scales the chord, scaling the
       constant chord of a rectangular blade, both chords of a tapered blade so that its taper ratio is
       preserved, and the maximum chord of an elliptic one. Root cutout and twist are unaffected.</p>
+
+    <p><b>A single source for both numbers.</b> The dialog derives solidity and aspect ratio from one
+      quantity: the planform area of one blade divided by $R^{2}$, integrated from the root cutout to the
+      tip. For a rectangular planform this area is $c_{root}\,(1-r_{cut})$. For a tapered one it is
+      $\tfrac{1}{2}(c_{root}+c_{tip})(1-r_{cut})$, which preserves the taper ratio when both chords are
+      scaled together. For an elliptic one it is the exact integral of the rescaled $\sqrt{1-r^{2}}$
+      shape over the same span, using the same peak normalization as the generator. Solidity is $N_b$
+      times this area over $\pi R^{2}$, and the aspect ratio is its reciprocal. Editing either field
+      solves this area for the chords. One consequence follows directly: moving the root cutout outward
+      shortens the loaded span, so the same pair of chords gives a higher aspect ratio and a lower
+      solidity.</p>
 
     <p>This is a way of sizing the planform, not a finite-wing correction. Higher solidity allows more
       load per unit of disk area but raises profile drag and therefore power. Higher aspect ratio tends
