@@ -272,12 +272,14 @@ class TestMountedWindowLayout(unittest.TestCase):
         from zbemt.bemt import BEMTConfig
         from zbemt.gui.field_help import _widget_field
         from zbemt.models import (AirfoilDef, BatchDefinition, FlightCondition,
+                                  OptimizationDefinition, DesignVariable,
                                   ProfileGeometry, Project, RotorGeometryDef)
 
         known: set = set(inspect.signature(
             api.run_case_trimmed).parameters)
         for cls in (BEMTConfig, AirfoilDef, RotorGeometryDef, FlightCondition,
-                    BatchDefinition, ProfileGeometry, Project):
+                    BatchDefinition, ProfileGeometry, Project,
+                    OptimizationDefinition, DesignVariable):
             known |= set(cls.__dataclass_fields__)
 
         invented = []

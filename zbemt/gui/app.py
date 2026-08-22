@@ -1,10 +1,10 @@
 """
 Main GUI window (PyQt6).
 
-Seven tabs, one per subject, in the natural work order:
+Eight tabs, one per subject, in the natural work order:
 
     Project -> Geometry -> Airfoil -> Config/Engine -> Run Case ->
-    Run Batch -> Results
+    Run Batch -> Design -> Results
 
 Each tab lives in ``zbemt/gui/tabs/``; this module only assembles them,
 wires the shortcuts and maintains the ``FlowIndicatorBar`` (the
@@ -60,6 +60,9 @@ from .tabs import (
     RunBatchTab,
     ResultsTab,
 )
+# The Design tab joins the registry through its own module: the tabs
+# package's __all__ stays untouched until the documentation pass lands.
+from .tabs.design import DesignTab
 from .common import AppState, open_help
 from .wheel_guard import install_wheel_guard, adjust_focus_policy
 
@@ -75,7 +78,8 @@ from .common import (  # noqa: F401
     require_project, confirm_run_despite_issues,
 )
 from .workers import (  # noqa: F401
-    BatchRunnerWorker, ExternalPolarWorker, launch_worker,
+    BatchRunnerWorker, ExternalPolarWorker, CompareWorker, OptimizeWorker,
+    launch_worker,
 )
 from .dialogs import GeometryGeneratorDialog  # noqa: F401
 from .widgets import LongitudinalInput, AxialInput  # noqa: F401
@@ -89,6 +93,7 @@ GUI_MODULES = (
     "zbemt.gui.tabs.project", "zbemt.gui.tabs.geometry_tab",
     "zbemt.gui.tabs.airfoil", "zbemt.gui.tabs.config",
     "zbemt.gui.tabs.run_case", "zbemt.gui.tabs.run_batch",
+    "zbemt.gui.tabs.design",
     "zbemt.gui.tabs.results",
 )
 
@@ -98,16 +103,17 @@ GUI_MODULES = (
 # =============================================================================
 
 class FlowIndicatorBar(QWidget):
-    """Project/Geometry/Airfoil/Config/Run Case/Run Batch/Results
+    """Project/Geometry/Airfoil/Config/Run Case/Run Batch/Design/Results
     markers, colored by state (gray/amber/green/red).
     Click jumps straight to the tab. It does not lock free navigation."""
 
-    _STAGES = ["Project", "Geometry", "Airfoil", "Config/Engine", "Run Case", "Run Batch", "Results"]
+    _STAGES = ["Project", "Geometry", "Airfoil", "Config/Engine", "Run Case",
+               "Run Batch", "Design", "Results"]
 
-    #: The seven pills have the SAME width, and the width is measured (not
-    #: fixed): "Project" and "Config/Engine" differ by approximately 50 px, and seven
-    #: colored pills of different sizes read as seven different things,
-    #: not as seven stages of the same flow. The measurement comes from the
+    #: The eight pills have the SAME width, and the width is measured (not
+    #: fixed): "Project" and "Config/Engine" differ by approximately 50 px, and
+    #: colored pills of different sizes read as different things,
+    #: not as stages of the same flow. The measurement comes from the
     #: real `sizeHint`, after the QSS polish -- see `showEvent`.
     STAGE_HEIGHT = 26
     VERTICAL_MARGIN = 6
@@ -225,10 +231,20 @@ class FlowIndicatorBar(QWidget):
         # means "a result exists, but the project changed after it was computed".
         STALE_MESSAGE = ("Results were computed before the current unsaved "
                          "edits. Run again to match the project as it is now.")
+        # Design tools: ready when the project carries inputs for them --
+        # saved cases to compare over or a saved optimization study. The
+        # stage does not track session runs; those surface in Results like
+        # every other run.
+        if project.saved_cases or project.optimizations:
+            self._set_status(6, "green", "Ready.")
+        else:
+            self._set_status(6, "gray",
+                             "Add a saved case or an optimization study "
+                             "to use the design tools.")
         for index, exists, empty_message in (
                 (4, has_case, "No case has been run yet."),
                 (5, has_batch, "No batch has been run yet."),
-                (6, bool(self.state.results_history),
+                (7, bool(self.state.results_history),
                  "No results to show yet.")):
             if not exists:
                 self._set_status(index, "gray", empty_message)
@@ -287,6 +303,9 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(config_tab, "Config/Engine")
         self.tabs.addTab(RunCaseTab(self.state), "Run Case")
         self.tabs.addTab(RunBatchTab(self.state), "Run Batch")
+        # Design stays BEFORE Results: Results is the terminal hub and
+        # must remain the last tab.
+        self.tabs.addTab(DesignTab(self.state), "Design")
         self.tabs.addTab(ResultsTab(self.state, geometry_tab, airfoil_tab), "Results")
         adjust_focus_policy(self)
         # Bug 1: the FlowIndicatorBar already serves as navigation between
