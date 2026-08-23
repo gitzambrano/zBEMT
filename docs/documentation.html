@@ -1213,7 +1213,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       <a href="#sec-10-run-case"><b>5. Run Case</b><br>a flight condition</a>
       <a href="#sec-11-run-batch"><b>6. Run Batch</b><br>generate, review, run</a>
       <a href="#results-section"><b>7. Results</b><br>compare and report</a>
-      <a href="#cap-designer"><b>Geometry Designer</b><br>compare blade variants. Open: main window, Tools menu, <i>Geometry Designer&hellip;</i></a>
+      <a href="#cap-designer"><b>Geometry Designer</b><br>compare blade variants. Open: the <b>Tools</b> button in the main window's top bar, next to <span class="gui">Help</span>.</a>
       <a href="#cap-metodo"><b>The method</b><br>equations and assumptions</a>
       <a href="#cap-nomenclatura-helice"><b>Propeller mode</b><br>what differs from a rotor</a>
     </nav>
@@ -1301,7 +1301,9 @@ zbemt --help     # command line</pre>
       = blocking error. Gray = not yet configured). Click any indicator to jump directly to the corresponding tab. This helps
       you resume a large project without stepping through the tabs in
       order. The <b>Help</b> button opens this document. Shortcut <b>F1</b> sits at the far
-      right of the same bar.</p>
+      right of the same bar. The <b>Tools</b> button sits immediately to the left of Help and opens
+      the Geometry Designer (<a class="xref" href="#cap-designer" title="13. Geometry Variation Studies">Chapter
+        13</a>).</p>
 
     <h4 id="cap-0-2">3.2.2 Live edits, unsaved marker, save and restore</h4>
     <p>The Geometry, Airfoil and Config/Engine tabs have no separate confirmation step. Every value you
@@ -8005,8 +8007,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>Open the Geometry Designer like this:</p>
                         <ol>
                           <li>Open the project.</li>
-                          <li>In the main window, open the <i>Tools</i> menu.</li>
-                          <li>Click <i>Geometry Designer&hellip;</i>.</li>
+                          <li>In the main window's top bar, click the <b>Tools</b>
+                            button, immediately to the left of
+                            <span class="gui">Help</span>.</li>
                         </ol>
 
                         <p>The Designer opens as its own window over the main one. The main window stays
@@ -8021,41 +8024,67 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <figure>
                           <img src="img/gui/designer.png" alt="Geometry Designer window">
-                          <figcaption>The Geometry Designer window, opened from the Tools menu of
-                            the main window. The Variants page is open, with the variation sweep
-                            builder beside the geometry table and the planform preview at the
+                          <figcaption>The Geometry Designer window, opened from the
+                            <b>Tools</b> button in the main window's top bar. The Variants
+                            page is open, with the variation sweep and the Generate block
+                            beside the geometry table and the planform preview at the
                             right.</figcaption>
                         </figure>
 
                         <h3 id="designer-variants">13.1 Variants</h3>
 
-                        <p><b>The physics.</b> A variant is one blade planform built from the
-                          project's own geometry plus a few overrides. Each row of the table states
-                          one variant, and the first row, named <code>base</code>, is the project's
-                          own planform. An empty cell keeps the project value, so a row can isolate
-                          a single parameter at a time. The first column holds the label that names
-                          the variant in the verdict strip, in the figures and in every export.
-                          Choose labels that state the difference the row carries.</p>
+                        <p><b>The physics.</b> A variant is one blade planform to compare
+                          against the others. Each row of the table states one variant, and
+                          the first row, named <code>base</code>, is the project's own
+                          planform. Most rows state a few overrides: each filled cell replaces
+                          one parameter of the session base planform, and an empty cell keeps
+                          its value, so a row can isolate a single parameter at a time. Two
+                          other kinds of row carry a complete geometry of their own instead:
+                          a blade built by the Generate block and a blade imported from
+                          another project. Such a row is compared exactly as it stands. The
+                          first column holds the label that names the variant in the verdict
+                          strip, in the figures and in every export. Choose labels that state
+                          the difference the row carries.</p>
 
-                        <p><b>The table columns.</b> A row carries the root chord and the tip chord
-                          over the radius (the column headers read <code>c/R</code>), the twist in
-                          degrees at the root and at the tip, and the blade count. The two chord
-                          cells feed the generator of the project's current geometry. A rectangular
-                          blade takes a single chord parameter, so its two chord cells state the
-                          same value, and the root cell wins when they differ. A tapered blade reads
-                          the two cells separately. An elliptic blade has no tip-chord parameter, so
-                          that cell is disabled there.</p>
+                        <p><b>The table columns.</b> The table has eleven columns. The first
+                          seven are editable and state overrides over the session base
+                          planform: the label; the root chord and the tip chord over the
+                          radius (the headers read <code>c/R</code>); the twist in degrees at
+                          the root and at the tip; the blade count; the root cutout
+                          (<code>r/R</code>); and the radius in meters. An empty cell keeps
+                          the base value. The two chord cells feed the generator of the base
+                          geometry. A rectangular blade takes a single chord parameter, so
+                          its two chord cells state the same value, and the root cell wins
+                          when they differ. A tapered blade reads the two cells separately.
+                          An elliptic blade has no tip-chord parameter, so that cell is
+                          disabled there. The root cutout and the radius are direct
+                          parameters rather than generator inputs, so their cells stay
+                          editable on every override row, and the base row shows the
+                          project's own values there.</p>
 
-                        <p><b>The <i>Extra overrides</i> column.</b> The seventh column is read-only.
-                          It lists every override of its row that has no dedicated column:
-                          <code>radius_m</code>, <code>root_cutout_norm</code>, or a chord parameter
-                          (<code>chord_norm</code>, <code>max_chord_norm</code>) when the current
-                          generator reads no dedicated chord cell for it. Each entry is written as a
-                          <code>param=value</code> fragment, and an em dash means the row carries none
-                          of them. A variation over the radius or over the root cutout therefore never
-                          fills an editable cell. It rides with its row, shows up in this column, and
-                          applies when the comparison runs. Editing any other cell refreshes the
-                          column at once.</p>
+                          <p><b>The derived columns.</b> The next two columns are read-only
+                          projections of the row's resolved planform, recomputed after every
+                          edit. With $c$ the chord distribution over $r/R$ and $N_b$ the
+                          blade count, they show the blade aspect ratio,
+                          $AR = 1/\int c\,\mathrm{d}(r/R)$, to two decimal places, and the
+                          rotor solidity, $\sigma = N_b\,\int c\,\mathrm{d}(r/R)/\pi$, to
+                          three. Both integrals run over the row's own stations. Rows that
+                          carry a complete geometry (a generated or an imported blade) show
+                          their own values here, read-only, together with their true root
+                          cutout and radius. Nothing about such a row is editable except its
+                          label.</p>
+
+                        <p><b>The <i>Extra overrides</i> column.</b> The last column is
+                          read-only. It lists every override of its row that has no dedicated
+                          column, written as a <code>param=value</code> fragment; an em dash
+                          means the row carries none of them. Only the two chord parameters
+                          can appear there, <code>max_chord_norm</code> and
+                          <code>chord_norm</code>, because every other parameter owns a
+                          column of its own. Generated rows show
+                          <code>generated (family)</code>, imported rows show
+                          <code>imported</code>, and after an imported blade replaced the
+                          base, the base row shows its origin as
+                          <code>imported: name</code>.</p>
 
                         <p><b>The variation sweep builder.</b> The panel beside the table turns one
                           geometry parameter into several rows at once. The <i>Parameter</i>
@@ -8076,21 +8105,121 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           Count whenever it holds anything. A parameter that takes whole numbers,
                           the blade count, receives rounded values with duplicates removed. The
                           bounds span from -10 to 10 with four decimals, and the count runs from 1
-                          to 50. <i>Build variants</i> checks every value against the project's own
-                          generator before it appends the row, so an unacceptable value stops the
-                          build with a message instead of leaving rows that fail only at run time.
-                          Each appended row starts as a copy of the base row, carries its value in
-                          the matching cell, and takes a label that names the parameter and the
-                          value, such as <code>tip_chord_norm=0.040</code>.</p>
+                          to 50. <i>Build variants</i> validates every value against the
+                           session base planform before it appends the row, so an
+                           unacceptable value stops the build with a message instead of
+                           leaving rows that fail only at run time.
+                           Each appended row starts as a copy of the base row, carries its value in
+                           the matching cell, and takes a label that names the parameter and the
+                           value, such as <code>tip_chord_norm=0.040</code>.</p>
+
+                        <p><b>Planform values on a base without a generator.</b> The sweep
+                          validates every value against the session base planform before it
+                          appends anything. When that blade has a parametric generator, the
+                          value regenerates the planform from its parameters, as everywhere
+                          else in this chapter. When it has none (an imported blade, or a
+                          table edited by hand), the planform parameters are applied in table
+                          space instead of failing: every geometry is a radial table, so each
+                          parameter is read as a target on that table. The root chord and the
+                          tip chord fix the two ends of the chord table, and the chord between
+                          them follows the straight line joining those ends. Requesting one
+                          end alone leaves the other end at its present value. The twist root
+                          and the twist tip treat the twist table the same way.
+                          <code>chord_norm</code> scales the chord uniformly until the mean
+                          chord equals the requested value, and <code>max_chord_norm</code>
+                          scales it uniformly until the peak chord does. The direct
+                          parameters, the blade count, the radius and the root cutout, apply
+                          to any geometry.</p>
 
                         <p><b>The row buttons and the preview.</b> <i>Add</i> copies the base row
                           under an automatic label of the form <code>variant N</code>.
                           <i>Duplicate</i> copies the selected row under
-                          a fresh label. <i>Remove</i> deletes the selected rows. The preview beside
+                          a fresh label, and copies a generated or imported blade verbatim.
+                          <i>Remove</i> deletes the selected rows. The preview beside
                           the table overlays the planform outline of every row, one color per row,
                           with a legend naming each label. It redraws shortly after the last cell
                           edit, so typing through several cells does not redraw between
                           keystrokes.</p>
+
+                        <p><b>The <i>Generate variant</i> block.</b> The second builder panel
+                          beside the table builds one blade from scratch and adds it to the
+                          comparison as a row of its own. The <i>Family</i> dropdown picks
+                          the planform family: <i>rectangular</i>, <i>tapered</i> or
+                          <i>elliptic</i>. A rectangular blade keeps one chord along the span
+                          and asks for it in <i>Chord [c/R]</i>, which starts at 0.08. A
+                          tapered blade interpolates linearly from root to tip and asks for
+                          both ends in <i>Root chord [c/R]</i> and <i>Tip chord [c/R]</i>,
+                          which start at 0.10 and 0.04. An elliptic blade peaks at the root
+                          and asks for that peak in <i>Max chord [c/R]</i>, which starts at
+                          0.10. Only the planform fields of the selected family stay on
+                          screen, and switching families hides the rest. Every family shares the
+                          remaining settings: <i>Twist root [deg]</i> and <i>Twist tip
+                          [deg]</i>, which start at 12.0 and 4.0 and interpolate linearly
+                          along the span, then <i>Radius [m]</i>, <i>Blades</i>, <i>Root
+                          cutout [r/R]</i> and <i>Stations</i>, the number of radial stations
+                          of the generated table, from 4 to 60. When a project opens, the
+                          window seeds the radius, the blade count, the root cutout and the
+                          station count from that project's own blade.</p>
+
+                        <p><b>Built rows.</b> <i>Add as variant</i> builds the blade from these
+                          fields and appends it as one row that carries the generated
+                          geometry itself, not overrides over the base. The label counts the
+                          blades built per family, so the first rectangular blade lands as
+                          <code>rectangular 1</code>. Every cell except the label stays
+                          read-only, because the row states a complete planform; the derived
+                          columns show its aspect ratio and its solidity like any other row,
+                          and <i>Duplicate</i> copies it verbatim. The generated blade
+                          inherits the airfoil of the session base, so a comparison against
+                          it isolates the planform.</p>
+
+                        <p>In the <span class="gui">GUI</span>: pick the family in the
+                          <i>Generate variant</i> panel, fill the fields it reveals, adjust
+                          the shared radius, blade count, root cutout, twist and station
+                          count if the defaults do not match the study, then press <i>Add as
+                            variant</i>.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: none. A generated
+                          variant is a row of the session table, not a project field, and it
+                          is gone when another project opens.</p>
+
+                        <p>From the <span class="cli">CLI</span>: no flag builds a single
+                          blade from a family. The command-line form of this comparison is
+                          <code>--compare PATHS</code>, whose variants are whole project
+                          folders rather than single generated rows.</p>
+
+                        <p><b><i>Import from project&hellip;</i></b> The button beside <i>Add
+                          as variant</i> brings another project's blade into this
+                          comparison. Press it and pick the folder of the other project. A
+                          folder without the project's inputs is refused: the window expects
+                          the <code>.bemt</code> files of a project inside an
+                          <code>inputs</code> subfolder, and its error message says exactly
+                          that. After the folder opens, a dialog asks what the imported
+                          blade should become. <i>Add as variant</i> appends it as one more
+                          complete-geometry row under the name of its project.
+                          <i>Replace base</i> makes it the base planform of this session:
+                          every override row now builds on it, the base row reseeds from it,
+                          and it is the reference the run ranks the others against. The
+                          substitution lives in the window only. The imported project file on
+                          disk is never modified, and opening another project drops the
+                          substitution.</p>
+
+                        <p>In the <span class="gui">GUI</span>: press <i>Import from
+                          project&hellip;</i>, pick the project folder, then choose <i>Add as
+                            variant</i> or <i>Replace base</i> in the dialog. The base row's
+                          last column names the imported origin while the substitution
+                          lasts.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: none. An imported
+                          blade exists in the session only, whichever button received it, and
+                          nothing is ever written back to the folder it came from.</p>
+
+                        <p>From the <span class="cli">CLI</span>: <code>--compare PATHS</code>
+                          accepts project folders as variants. Each comma-separated folder
+                          contributes its blade as one variant named after the project it
+                          holds, beside the variant <code>base</code> that carries the
+                          geometry of <code>--project</code>. This automates the import flow;
+                          the command always adds the folders as extra variants
+                          and never replaces its own base.</p>
 
                         <p>In the <span class="gui">GUI</span>: pick the parameter in the
                           <i>Variation sweep</i> panel, set Start, End and Count, or type explicit
@@ -8268,8 +8397,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>The ranking figure.</b> Two dropdowns above the figure decide what it
                           ranks and where. The <i>Rank by</i> dropdown lists the summary quantities
                           this run actually produced, among <code>CT</code>,
-                          <code>FM</code>, <code>CP</code>, <code>eta_prop</code> and
-                          <code>Thrust</code>. It opens on a default chosen from the run itself:
+                          <code>FM</code>, <code>CP</code>, <code>eta_prop</code>,
+                          <code>Thrust</code>, <code>aspect_ratio</code> and
+                          <code>solidity</code>. Every result of a comparison carries the
+                          aspect ratio and the solidity of its geometry, so the two shape
+                          metrics are always among the choices. In the figures they carry
+                          the symbols $AR$ [-] and $\sigma$ [-], both dimensionless. The
+                          dropdown opens on a default chosen from the run itself:
                           $\eta_{prop}$ when any result of the run is in propeller convention,
                           otherwise $FM$, otherwise the first quantity available. The
                           <i>Condition</i> dropdown lists the distinct conditions of the run, named
@@ -8296,18 +8430,22 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           change is visible.</p>
 
                         <p><b>The overlay figure.</b> The lower canvas draws one panel per summary
-                          quantity among $C_T$, $FM$, $C_P$ and $\eta_{prop}$, whichever ones the
-                          run produced. Every panel plots one curve per geometry across all the
+                          quantity among $C_T$, $FM$, $C_P$, $\eta_{prop}$, $AR$ and
+                          $\sigma$, whichever ones the run produced. Every panel plots one
+                          curve per geometry across all the
                           conditions the run covered. This is where a ranking taken at one condition
                           gets checked against the rest of the envelope: a variant that wins at the
                           reference condition but crosses another curve partway through the sweep
-                          has a limited advantage.</p>
+                          has a limited advantage. The two shape metrics stay constant per variant,
+                          so their panels compare levels rather than trends.</p>
 
                         <p><b>The exports.</b> <i>Export report</i> writes a self-contained HTML
                           report into the outputs folder of the project, with the metadata of the
                           run, the full summary table and the overlay figure embedded inside the
                           file itself.                           <i>Export CSV</i> writes one row per geometry and condition
-                          beside it. Both names start with <code>geometry_comparison_</code> and
+                          beside it, and every row carries the aspect ratio and the solidity of
+                          its geometry next to the performance columns, so shape and results can be
+                          compared in one place. Both names start with <code>geometry_comparison_</code> and
                           carry a timestamp, so a new export never silently replaces an older one.
                           Until one of the buttons is pressed, nothing reaches disk: the results
                           and the figures live in memory only.</p>

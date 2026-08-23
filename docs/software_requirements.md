@@ -48,9 +48,9 @@ different rule.
   over several blade planforms with everything except the geometry held
   fixed (same airfoil polar, mesh, inflow model and corrections). Variants
   are built as override rows over the project's own planform or generated
-   by a one-parameter variation sweep, and each variant is tagged by a user
-   label (or an auto-generated `param=value` label) in the verdicts, plots
-   and exports. After a run, the summary metric may be ranked across
+  by a one-parameter variation sweep, and each variant is tagged by a user
+  label (or an auto-generated `param=value` label) in the verdicts, plots
+  and exports. After a run, the summary metric may be ranked across
   variants at any condition of the run (not only the first), with a
   mode-aware default (propeller efficiency for propeller-convention runs,
   figure of merit otherwise), and each variant's percent change against the
@@ -64,7 +64,21 @@ different rule.
   the mode convention (RPM for propellers, collective for rotors). A variant
   whose target falls outside the search bracket raises a named error instead
   of converging outside it, and trimmed summaries record the target, the
-  solved degree of freedom and its converged value. Comparison variants are
+  solved degree of freedom and its converged value. Variants may also come
+  ready-made: the window generates blades from the three parametric families
+  (rectangular, tapered, elliptic), and imports the blade of any project
+  folder, either as one more variant or as a session-only replacement of the
+  base planform (the imported project file is only ever read). A planform
+  parameter applied to a base without a parametric generator is applied in
+  table space instead of failing: it is read as a target on the radial table,
+  with an endpoint rebuild of the chord and twist tables for the root and tip
+  chord and twist parameters, and a uniform scale to the mean chord for
+  `chord_norm` and to the peak chord for `max_chord_norm`. The variant table
+  exposes each row's root cutout, radius, aspect ratio and solidity beside
+  its overrides, and every comparison result summary carries the blade aspect
+  ratio and the rotor solidity (`studies._blade_planform_metrics`), so the
+  ranking, the overlay figure and the CSV export can compare shape next to
+  performance. Comparison variants are
   session data; they are not persisted in the project.
 - **SC-8** — Persisted design-optimization studies (`inputs/optimizations.bemt`)
   that drive one summary quantity on one flight condition through a bounded,

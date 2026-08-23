@@ -218,7 +218,8 @@ Structure:
 6-12  THE PAGES     Project · Geometry · Airfoil · Config/Engine ·
                     Run Case · Run Batch · Results
 13    TOOLS WINDOW  Geometry Variation Studies (the Geometry Designer,
-                    opened from the Tools menu)
+                    opened from the Tools button in the main window's top
+                    bar, next to Help)
 14-15 Reference     command line · limitations
 ```
 
