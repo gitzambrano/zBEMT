@@ -829,12 +829,14 @@ def _apply_table_space_planform(geom: RotorGeometryDef,
     parameters. So the planform parameters keep meaning here, read as
     targets on the table instead of generator inputs:
 
-    - ``root_chord_norm`` / ``tip_chord_norm``: affine rescale of the
-      chord distribution so its endpoints hit the requested values
-      (give only one and the other endpoint stays; a linear input stays
-      linear);
-    - ``twist_root_deg`` / ``twist_tip_deg``: affine shift of the twist
-      distribution to the requested endpoint values;
+    - ``root_chord_norm`` / ``tip_chord_norm``: SHAPE-PRESERVING endpoint
+      match — a scale factor interpolated linearly (in x) between the
+      root and tip targets rescales the chord, so the endpoints hit the
+      requested values and a non-linear distribution keeps its shape
+      (give only one target and the other endpoint keeps its factor);
+    - ``twist_root_deg`` / ``twist_tip_deg``: shape-preserving too — a
+      twist OFFSET interpolated linearly between the endpoint deltas
+      shifts the distribution without flattening it;
     - ``chord_norm``: uniform scale so the MEAN chord equals the value
       (the rectangular generator's reading);
     - ``max_chord_norm``: uniform scale so the PEAK chord equals the
@@ -844,11 +846,14 @@ def _apply_table_space_planform(geom: RotorGeometryDef,
     chord = np.asarray(geom.chord_norm, dtype=float)
     twist = np.asarray(geom.twist_deg, dtype=float)
     span = max(float(r[-1] - r[0]), 1e-9)
+    x = (r - r[0]) / span
 
     if "root_chord_norm" in overrides or "tip_chord_norm" in overrides:
         c_root = float(overrides.get("root_chord_norm", chord[0]))
         c_tip = float(overrides.get("tip_chord_norm", chord[-1]))
-        chord = c_root + (c_tip - c_root) * (r - r[0]) / span
+        f_root = c_root / chord[0] if abs(chord[0]) > 1e-12 else 1.0
+        f_tip = c_tip / chord[-1] if abs(chord[-1]) > 1e-12 else 1.0
+        chord = chord * (f_root + (f_tip - f_root) * x)
     if "chord_norm" in overrides:
         mean = max(float(np.mean(chord)), 1e-12)
         chord = chord * (float(overrides["chord_norm"]) / mean)
@@ -858,7 +863,8 @@ def _apply_table_space_planform(geom: RotorGeometryDef,
     if "twist_root_deg" in overrides or "twist_tip_deg" in overrides:
         t_root = float(overrides.get("twist_root_deg", twist[0]))
         t_tip = float(overrides.get("twist_tip_deg", twist[-1]))
-        twist = t_root + (t_tip - t_root) * (r - r[0]) / span
+        twist = twist + (t_root - twist[0]) + \
+            ((t_tip - twist[-1]) - (t_root - twist[0])) * x
     return replace(geom, chord_norm=chord.tolist(), twist_deg=twist.tolist())
 
 

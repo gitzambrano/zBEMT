@@ -777,3 +777,66 @@ class TestPlanformMetricsInComparison(unittest.TestCase):
         self.assertLess(results[-1].summary["aspect_ratio"],
                         results[0].summary["aspect_ratio"],
                         "a fatter tip means more blade area, hence lower AR")
+
+
+class TestTableSpaceOverrides(unittest.TestCase):
+    """On a base without a parametric generator, planform parameters are
+    applied IN TABLE SPACE — and shape-preservingly: an elliptic blade
+    swept in tip chord stays elliptic, with only the scale factor
+    varying linearly from root to tip."""
+
+    def _custom_elliptic(self):
+        r = np.linspace(0.2, 1.0, 15)
+        c = 0.12 * np.sqrt(np.clip(1.0 - ((r - 0.5) / 0.6) ** 2, 0.0, 1.0))
+        t = 10.0 - 6.0 * (r - 0.2) / 0.8
+        return geometry.generate_custom(r.tolist(), c.tolist(), t.tolist(),
+                                         radius_m=1.0, n_blades=4)
+
+    def test_tip_chord_target_preserves_the_shape(self):
+        base = self._custom_elliptic()
+        target_tip = 0.08
+        out = studies.variant_geometry(base, {"tip_chord_norm": target_tip})
+        new = np.asarray(out.chord_norm)
+        old = np.asarray(base.chord_norm)
+        r = np.asarray(base.r_norm)
+        x = (r - r[0]) / (r[-1] - r[0])
+        f_tip = target_tip / old[-1]
+        expected = old * (1.0 + (f_tip - 1.0) * x)
+        self.assertAlmostEqual(new[-1], target_tip, places=12)
+        np.testing.assert_allclose(new, expected, rtol=1e-12)
+
+    def test_root_and_tip_targets_match_both_endpoints(self):
+        base = self._custom_elliptic()
+        out = studies.variant_geometry(base, {"root_chord_norm": 0.15,
+                                               "tip_chord_norm": 0.05})
+        self.assertAlmostEqual(out.chord_norm[0], 0.15, places=12)
+        self.assertAlmostEqual(out.chord_norm[-1], 0.05, places=12)
+
+    def test_twist_shift_preserves_the_shape(self):
+        base = self._custom_elliptic()
+        out = studies.variant_geometry(base, {"twist_root_deg": 12.0,
+                                               "twist_tip_deg": 6.0})
+        old = np.asarray(base.twist_deg)
+        new = np.asarray(out.twist_deg)
+        self.assertAlmostEqual(new[0], 12.0, places=12)
+        self.assertAlmostEqual(new[-1], 6.0, places=12)
+        delta = new - old
+        # the offset itself is linear in x: second difference ~ 0
+        self.assertLess(float(np.max(np.abs(np.diff(delta, 2)))), 1e-12)
+
+    def test_uniform_scales_hit_mean_and_peak(self):
+        base = self._custom_elliptic()
+        out_mean = studies.variant_geometry(base, {"chord_norm": 0.09})
+        self.assertAlmostEqual(float(np.mean(out_mean.chord_norm)), 0.09, places=12)
+        out_peak = studies.variant_geometry(base, {"max_chord_norm": 0.15})
+        self.assertAlmostEqual(float(np.max(out_peak.chord_norm)), 0.15, places=12)
+
+    def test_parametric_base_still_regenerates_exactly(self):
+        base = geometry.generate_tapered(root_chord_norm=0.10,
+                                          tip_chord_norm=0.04,
+                                          twist_root_deg=8.0,
+                                          twist_tip_deg=2.0,
+                                          n_stations=10)
+        out = studies.variant_geometry(base, {"tip_chord_norm": 0.06})
+        self.assertEqual(out.origin_params.get("kind"), "tapered")
+        self.assertAlmostEqual(out.chord_norm[-1], 0.06, places=12)

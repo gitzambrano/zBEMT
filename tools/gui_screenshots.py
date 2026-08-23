@@ -12,7 +12,7 @@ tests.
 The Run Case tab is captured TWICE, in rotor and in propeller mode: that is
 the one page whose field labels rotate with the mode, and showing only one of
 them would document half the behaviour. The Geometry Designer window (Tools
-menu) is captured separately, after the tabs: it lives outside the QTabWidget.
+button) is captured separately, after the tabs: it lives outside the QTabWidget.
 
     python tools/gui_screenshots.py             # writes docs/img/gui/
     python tools/gui_screenshots.py --check     # fails if any is missing
@@ -53,7 +53,7 @@ SHOTS = [
     ("results.png",              6, False),
 ]
 
-#: The Geometry Designer window (Tools menu), captured in addition to the
+#: The Geometry Designer window (Tools button), captured in addition to the
 #: tabs above -- it lives outside the QTabWidget, so it has no index.
 DESIGNER_SHOT = "designer.png"
 
@@ -165,7 +165,7 @@ def generate(destination: Path = OUTPUT_DIR) -> list:
 
 
 def _capture_designer(app, window, project, destination: Path) -> Path:
-    """Captures the Geometry Designer window (Tools > Geometry Designer).
+    """Captures the Geometry Designer window (Tools button > Geometry Designer).
 
     MainWindow builds it eagerly and parents it to itself, so opening it
     repeats exactly what ``MainWindow.open_geometry_designer`` does.

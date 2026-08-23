@@ -8121,10 +8121,14 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           table edited by hand), the planform parameters are applied in table
                           space instead of failing: every geometry is a radial table, so each
                           parameter is read as a target on that table. The root chord and the
-                          tip chord fix the two ends of the chord table, and the chord between
-                          them follows the straight line joining those ends. Requesting one
-                          end alone leaves the other end at its present value. The twist root
-                          and the twist tip treat the twist table the same way.
+                          tip chord fix the two ends of the chord table, and a scale
+                          factor interpolated between root and tip rescales the
+                          distribution to meet them — the endpoints hit the requested
+                          values and the shape of the blade in between is preserved, so
+                          an elliptic blade stays elliptic. Requesting one end alone
+                          leaves the other end at its present scale. The twist root and
+                          the twist tip treat the twist table the same way, with an
+                          interpolated offset instead of a rebuild.
                           <code>chord_norm</code> scales the chord uniformly until the mean
                           chord equals the requested value, and <code>max_chord_norm</code>
                           scales it uniformly until the peak chord does. The direct
