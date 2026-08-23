@@ -50,7 +50,13 @@ different rule.
   are built as override rows over the project's own planform or generated
    by a one-parameter variation sweep, and each variant is tagged by a user
    label (or an auto-generated `param=value` label) in the verdicts, plots
-   and exports. Comparison variants are session data; they are not
+   and exports. After a run, the summary metric may be ranked across
+  variants at any condition of the run (not only the first), with a
+  mode-aware default (propeller efficiency for propeller-convention runs,
+  figure of merit otherwise), and each variant's percent change against the
+  base planform at that same condition is drawn alongside the ranking,
+  falling back to the absolute difference when the base value is
+  approximately zero. Comparison variants are session data; they are not
   persisted in the project.
 - **SC-8** — Persisted design-optimization studies (`inputs/optimizations.bemt`)
   that drive one summary quantity on one flight condition through a bounded,
@@ -72,7 +78,11 @@ different rule.
   biconvex) beside NACA/CST/Bézier, all reachable through one resolver
   grammar (preset nicknames and prefixed forms) shared by the GUI's
   geometry-spec field and the CLI's `--airfoil-geometry`, and stored so a
-  saved contour can be regenerated without its coordinate table.
+  saved contour can be regenerated without its coordinate table. NACA
+  (4- and 5-digit), CST, Bézier and imported contours are additionally
+  first-class entries of the GUI's contour Source dropdown, each with its
+  dedicated editor fields, serialized under the profile geometry in
+  `inputs/airfoil.bemt`.
 
 ### 1.2 The software must not support
 

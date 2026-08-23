@@ -3942,7 +3942,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       compressibility corrections (<a class="xref" href="#cap-3-5"
         title="8.5 Compressibility">Section 8.5</a>), tabulated polar ingestion (<a class="xref"
         href="#cap-3-6" title="8.6 Data import / tabulated polar">Section 8.6</a>), and 2D coordinate
-      profiling for polar generation via NeuralFoil (Sections 8.7&ndash;8.8). When multiple radial stations
+      profiling for polar generation via NeuralFoil or XFOIL (<a class="xref" href="#cap-3-7"
+        title="8.7 Profile 2D geometry">Sections 8.7</a>&ndash;<a class="xref" href="#cap-3-8"
+        title="8.8 External polar generation">8.8</a>). When multiple radial stations
       are defined (<a class="xref" href="#cap-3-1" title="8.1 Radial sections (multi-section airfoil)">Section
         8.1</a>), these settings apply independently per spanwise section.</p>
 
@@ -4121,9 +4123,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <p><b>Definition.</b> The source decides where the pair $C_l$, $C_d$ comes from at every element.
       An analytical source evaluates a closed-form expression from four scalar coefficients. A tabulated
       source interpolates supplied data. A generated source runs an external solver once over the profile
-      shape and then behaves as a tabulated source. Nothing downstream of this choice depends on it: all
-      three answer the same question at the same point in the calculation, which is what makes them
-      interchangeable.</p>
+      shape and then behaves as a tabulated source. The dropdown offers that generated source twice,
+      as <code>neuralfoil</code> and as <code>xfoil</code>, one entry per external engine. Nothing
+      downstream of this choice depends on it: every option answers the same question at the same point
+      in the calculation, which is what makes them interchangeable.</p>
 
     <p><b>The mathematics.</b> An analytical source represents attached-flow lift with the slope
       $C_{l_\alpha}$ [rad$^{-1}$] and the zero-lift angle $\alpha_0$ [rad]. With $\alpha$ the local
@@ -4167,7 +4170,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       answer with no compressible drag rise in it. The supplied condition grid must therefore bracket the
       operating envelope, root Reynolds to tip Mach.</p>
 
-    <p><b>What can be entered.</b> Three options.</p>
+    <p><b>What can be entered.</b> Four options.</p>
 
     <div class="tablewrap">
       <table>
@@ -4191,19 +4194,29 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
         </tr>
         <tr>
           <td><code>neuralfoil</code></td>
-          <td>A table generated once from the two-dimensional profile shape, then used exactly as a tabulated polar.
+          <td>A table generated once from the two-dimensional profile shape with the NeuralFoil engine, then used
+            exactly as a tabulated polar.
           </td>
-          <td>No measured data exist but the profile shape is known. It is a table-generating workflow, not a
-            constitutive relation of its own.</td>
+          <td>No measured data exist but the profile shape is known, and a fast sweep matters more than boundary-layer
+            fidelity. It is a table-generating workflow, not a constitutive relation of its own.</td>
+        </tr>
+        <tr>
+          <td><code>xfoil</code></td>
+          <td>The same table-generating workflow, run through the XFOIL binary instead. Its transition settings are
+            described in 8.8.2.
+          </td>
+          <td>No measured data exist, the profile shape is known, and the higher fidelity of the boundary-element
+            solution is worth its runtime.</td>
         </tr>
       </table>
     </div>
 
-    <p><span class="gui">GUI</span>: the <i>Aerodynamic model</i> block, field <i>Source</i>.
+    <p><span class="gui">GUI</span>: the <i>Aerodynamic model</i> block, field <i>Data source</i>.
       With <code>analytical</code> the four fields <i>Cl_alpha</i>, <i>alpha0</i>, <i>Cd0</i> and
       <i>k</i> are shown and editable. With <code>table</code> they are hidden and the imported polar is
-      used instead. With <code>neuralfoil</code> the profile and the operating points that generate the
-      table are given in the blocks below.
+      used instead. With <code>neuralfoil</code> or <code>xfoil</code> the profile and the operating points
+      that generate the table are given in the blocks below; the choice between the two engines is made
+      there, and the XFOIL-only transition settings appear while <code>xfoil</code> is selected.
     </p>
 
     <p><span class="bemt">.bemt</span>: in <code>airfoil.bemt</code>, the key
@@ -5020,7 +5033,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   The three interfaces treat that situation differently, and the difference is deliberate.</p>
 
                 <p>The <span class="gui">GUI</span> <b>freezes the field</b>. As soon as the airfoil source is
-                  <code>table</code> or <code>neuralfoil</code> and the loaded polar carries more than one Mach
+                  <code>table</code>, <code>neuralfoil</code> or <code>xfoil</code> and the loaded polar carries
+                  more than one Mach
                   value, the checkbox is cleared and greyed out, and its tooltip says how many distinct Mach slices
                   were found. Because it is the source in use that decides, switching back to an analytical airfoil
                   releases the field and restores whatever the setting was before it was frozen: the choice is
@@ -5186,14 +5200,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <tr>
                       <td id="cap-3-7-3"><code>cst</code></td>
                       <td>CST coefficients (Class-Shape Transformation) for upper/lower surface, separated by comma.
-                        <em>Not offered in the combo</em>: kept for projects that already use it, in which case the
-                        option reappears for that project alone rather than showing a wrong source over an existing
-                        contour
+                        One editor field per surface appears while this source is selected
+                        (<a class="xref" href="#cap-3-7-0" title="8.7.1 Choosing the shape">Section 8.7.1</a>)
                       </td>
                     </tr>
                     <tr>
                       <td id="cap-3-7-4"><code>bezier</code></td>
-                      <td>Bézier control points, one <code>x,y</code> per line. Same status as <code>cst</code> above
+                      <td>Bézier control points, one <code>x,y</code> per line. A multi-line editor field appears
+                        while this source is selected (<a class="xref" href="#cap-3-7-0"
+                          title="8.7.1 Choosing the shape">Section 8.7.1</a>)
                       </td>
                     </tr>
                     <tr>
@@ -5212,7 +5227,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   therefore needed when a polar is to be produced from the section itself. It is optional, and purely
                   illustrative, when the polar is analytical or already tabulated.</p>
 
-                <p><b>What can be entered.</b> Four ways to obtain the same thing, a set of contour
+                <p><b>What can be entered.</b> Five ways to obtain the same thing, a set of contour
                   coordinates.</p>
 
                 <p><b>A NACA code</b> is the quickest, and covers most conventional sections. The four-digit family
@@ -5221,12 +5236,26 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   family encodes a different camber line. The code is a string, not a number, because the leading
                   zeros carry meaning: <code>0012</code> is the symmetric twelve-per-cent section.</p>
 
-                <p><b>CST coefficients</b> describe the surfaces as a class function multiplied by a shape function,
-                  which is the usual parametrisation for optimization because a small set of numbers moves the surface
-                  smoothly. Upper and lower surfaces are given as separate lists.</p>
+                <p><b>CST coefficients</b> describe the contour in the class-shape
+                  transformation formulation. Each surface, upper and lower, is built as a class function
+                  $\sqrt{x}\,(1-x)$ multiplied by a shape function written as a Bernstein polynomial of
+                  the coefficients given:</p>
+                <div class="eqn">$$y(x) = \sqrt{x}\,(1-x)\sum_{i=0}^{n} A_i \binom{n}{i} x^{i}(1-x)^{n-i},$$</div>
+                <p>where $A_0,\ldots,A_n$ are the coefficients typed for that surface. Each coefficient
+                  raises or lowers its surface near one chordwise station: the first governs the
+                  leading-edge radius, the last shapes the trailing-edge angle. The two lists are typed
+                  separately. A negative value puts the lower surface below the chord line. At any
+                  station the gap between the two surfaces is the local thickness, and their mean is
+                  the camber. This parametrization moves the whole surface smoothly with a small set of
+                  numbers, which is why shape optimization works directly on it.</p>
 
-                <p><b>Bézier control points</b> describe the surfaces as control polygons instead, one point per
-                  line. It is the more direct way to draw a shape by hand.</p>
+                <p><b>Bézier control points</b> describe the contour as the control polygon of a
+                  Bézier curve instead, one point $x,y$ per line. The curve runs from the trailing
+                  edge over the upper surface, around the leading edge and back along the lower
+                  surface to the trailing edge. It is pulled toward each control point without passing
+                  through it, so points crowded near the nose sharpen the leading-edge radius, and
+                  points near $x=1$ set the trailing edge. It is the most direct way to draw a shape by
+                  hand.</p>
 
                 <p><b>An imported file</b> takes coordinates measured or downloaded elsewhere, in the layout
                   described below.</p>
@@ -5238,23 +5267,33 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   leading edge adequately for polar generation.</p>
 
                 <p><span class="gui">GUI</span>: the <i>Profile 2D geometry</i> block: a <i>Source</i>
-                  dropdown, the fields belonging to the chosen source, and the <i>Generate geometry</i> and
-                  <i>Import</i> buttons.
+                  dropdown offering <code>naca4</code>, <code>naca5</code>, <code>cst</code>,
+                  <code>bezier</code> and <code>imported</code>, the fields belonging to the chosen source
+                  (the NACA code, the two CST coefficient fields, or the Bézier point editor), and the
+                  <i>Generate geometry</i> and <i>Import .dat&hellip;</i> buttons.
                 </p>
 
                 <p><span class="bemt">.bemt</span>: inside <code>geometry</code> in
-                  <code>airfoil.bemt</code>: <code>airfoil.geometry.source</code>, one of <code>"naca4"</code>
+                  <code>airfoil.bemt</code>: the contour-family key
+                  (<code>airfoil.geometry.source</code>, to use its full dotted name), one of
+                  <code>"naca4"</code>
                   (default),
                   <code>"naca5"</code>, <code>"cst"</code>, <code>"bezier"</code> or <code>"imported"</code>.
-                  This key differs from the polar-source key of 8.2.1, which selects where the coefficients come from
-                  rather than what the contour is. <code>naca_code</code>, a string, default <code>"0012"</code>; <code>cst_upper</code> and
-                  <code>cst_lower</code>, lists of coefficients. <code>bezier_control_points</code>, a list of
-                  coordinate pairs. <code>imported_path</code> for a file. And <code>n_points</code>, default
+                  This key names the contour family; it differs from the polar-source key described in
+                  <a class="xref" href="#cap-3-2-1" title="8.2.1 Polar source and linear coefficients">Section
+                    8.2.1</a>, which selects where the coefficients come from rather than what the contour is.
+                  <code>naca_code</code>, a string, default <code>"0012"</code>. <code>cst_upper</code> and
+                  <code>cst_lower</code>, lists of coefficients, one per Bernstein term of each surface.
+                  <code>bezier_control_points</code>, a list of coordinate pairs in file order.
+                  <code>imported_path</code> for a file. And <code>n_points</code>, default
                   $200$.
                 </p>
 
                 <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> when generating a
-                  polar. Individual fields are set with <code>--set</code>, for example
+                  polar; its grammar carries the same families, including
+                  <code>--airfoil-geometry cst:a1,a2,a3,a4</code> and
+                  <code>--airfoil-geometry bezier:x1,y1;x2,y2;...</code>. Individual fields are set with
+                  <code>--set</code>, for example
                   <code>--set airfoil.geometry.naca_code=2412</code>.
                 </p>
 
@@ -5341,11 +5380,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><span class="bemt">.bemt</span>: the string itself is not stored. What reaches
                   <code>airfoil.bemt</code> under <code>geometry</code> is the resolved contour:
-                  the family name travels in <code>"naca4"</code>/<code>"cst"</code> style values of
-                  <code>airfoil.geometry.source</code>, and the parameters travel beside it
-                  (<code>naca_code</code>, <code>cst_upper</code>/<code>cst_lower</code>,
-                  <code>bezier_control_points</code>, <code>generator_params</code> for the three analytic
-                  families, <code>imported_path</code>), together with the coordinate lists.</p>
+                  the family name travels in the contour-family key of
+                  <a class="xref" href="#cap-3-7-0" title="8.7.1 Choosing the shape">Section 8.7.1</a>,
+                  the family's parameters travel beside it under the key names given there
+                  (<code>generator_params</code> carries them for the three analytic families),
+                  together with the coordinate lists.</p>
 
                 <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> takes the same grammars,
                   for example <code>--airfoil-geometry joukowski_t8c5</code>,
@@ -5382,7 +5421,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>Prerequisite: 2D geometry already generated/imported (<a class="xref" href="#cap-3-7"
                     title="8.7 Profile 2D geometry">Section 8.7</a>). The "Run
                   polar generation" button generates a polar for the <b>currently selected section</b> with the
-                  engine chosen in the block (neuralfoil or xfoil)
+                  engine of the polar source selected in 8.2.1, <code>neuralfoil</code> or <code>xfoil</code>
                   (<a class="xref" href="#cap-3-1-3" title="8.1.3 Radial position of a section">Section 8.1.3</a>).
                   With multiple sections, repeat the run per section. The sweep covers
                   Reynolds and Mach lists and an $\alpha$ range.</p>
@@ -5392,9 +5431,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   A wider angle range costs little to generate and avoids extrapolation later. A step of half a
                   degree resolves the stall knee adequately.</p>
 
-                <p><span class="gui">GUI</span>: the fields <i>Reynolds list</i>, <i>Mach list</i>,
-                  <i>alpha min [deg]</i>, <i>alpha max [deg]</i> and <i>step [deg]</i>, with the <i>Run
-                    polar generation</i> button beside them.
+                <p><span class="gui">GUI</span>: the fields <i>Reynolds (list, commas)</i>, <i>Mach (list,
+                    commas)</i>, <i>Minimum alpha [deg]</i>, <i>Maximum alpha [deg]</i> and <i>Alpha step
+                    [deg]</i>, the <i>Suggest from rotor</i> button that fills the two lists from the blade's
+                  operating point, and the <i>Run polar generation</i>, <i>Cancel</i> and <i>Export generated
+                    table&hellip;</i> buttons. All of them apply to both generated modes alike.
                 </p>
 
                 <p><span class="bemt">.bemt</span>: in <code>airfoil.bemt</code>, the sweep is stored as
@@ -5413,7 +5454,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   table and exits).
                 </p>
 
-                <h4 id="cap-3-8-xfoil">8.8.2 The engine choice and the XFOIL transition settings</h4>
+                <h4 id="cap-3-8-xfoil">8.8.2 The XFOIL source and the transition settings</h4>
 
                 <p><b>The physics.</b> A boundary layer that stays laminar produces less skin
                   friction than a turbulent one, so the place where the layer turns turbulent
@@ -5425,9 +5466,16 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <div class="eqn">$$A(x) = e^{N}, \qquad N = N_{crit},$$</div>
 
                 <p>where $A(x)$ is the amplification of the disturbances up to the station $x$.
-                  The generation block runs either NeuralFoil or XFOIL. The three settings below
-                  belong to XFOIL alone: NeuralFoil accepts no transition input and ignores these
-                  values.</p>
+                  NeuralFoil accepts no transition input and always works from its own trained
+                  approximation; the three settings below belong to XFOIL alone.</p>
+
+                <p><b>Choosing XFOIL.</b> XFOIL is selected in the polar <i>Data source</i> dropdown of
+                  <a class="xref" href="#cap-3-2-1" title="8.2.1 Polar source and linear coefficients">Section
+                    8.2.1</a>. With <code>xfoil</code> selected, this block behaves exactly as described in
+                  <a class="xref" href="#cap-3-8-1" title="8.8.1 Run the solver">Section 8.8.1</a>: a Reynolds
+                  list, a Mach list, an $\alpha$ range and the run, cancel and export buttons. In addition,
+                  three settings rows appear that exist only while <code>xfoil</code> is the selected source,
+                  and hide again as soon as another source is chosen.</p>
 
                 <p><b>N<sub>crit</sub>, the critical amplification factor.</b> This number is the
                   exponent $N$ of the criterion above. It measures how much disturbance growth the
@@ -5451,19 +5499,21 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><b>Finding the executable.</b> XFOIL runs as an external program. zBEMT looks
                   for it first at the path stored in the <code>ZBEMT_XFOIL_BIN</code> environment
-                  variable, then under the name <code>xfoil</code> on the system PATH. When
-                  neither leads to an executable, the run explains what is missing and how to
-                  install it, before any solver work starts.</p>
+                  variable, then under the name <code>xfoil</code> on the system PATH. The check happens
+                  when <i>Run polar generation</i> is clicked, not before. The button stays clickable in
+                  every case. When neither lookup leads to an executable, a dialog opens that names
+                  what is missing and how to install it, before any solver work starts.</p>
 
-                <p><span class="gui">GUI</span>: the fields <i>Ncrit</i>, <i>Xtr top</i> and
-                  <i>Xtr bot</i> appear in the external generation block only when that block
-                  generates with XFOIL. Set them there before <i>Run polar generation</i>. With any
-                  other engine the rows stay out of sight and the values change nothing.</p>
+                <p><span class="gui">GUI</span>: select <code>xfoil</code> in the polar <i>Data source</i>
+                  dropdown of the <i>Aerodynamic model</i> block. The fields <i>Ncrit</i>, <i>Xtr top</i>
+                  and <i>Xtr bot</i> then appear in the external generation block below. Set them there
+                  before <i>Run polar generation</i>. With any other source selected the rows stay out of
+                  sight and the values change nothing.</p>
 
                 <p><span class="bemt">.bemt</span>: in <code>airfoil.bemt</code>, the keys are
                   <code>xfoil_ncrit</code> (default 9.0), <code>xfoil_xtr_top</code> (default 1.0)
-                  and <code>xfoil_xtr_bot</code> (default 1.0). They are read only when
-                  <code>external_engine</code> holds <code>"xfoil"</code>.</p>
+                  and <code>xfoil_xtr_bot</code> (default 1.0). They reach only polar generation with XFOIL;
+                  NeuralFoil ignores them.</p>
 
                 <p><span class="cli">CLI</span>: <code>--gen-xfoil --ncrit FLOAT --xtr-top FLOAT
                     --xtr-bot FLOAT</code>. Each flag is optional; an option left out keeps its
@@ -5484,8 +5534,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <li><b>Generation.</b> One polar is produced for each combination of the Reynolds and Mach values
                     requested, over the angle sweep given. The result exists only in the session.</li>
                   <li><b>Preview and project, in one step.</b> The generated polars join the same list a manual CSV
-                    import fills, described in 8.6. The <i>Source</i> selector moves itself to
-                    <code>neuralfoil</code>; the preview of 8.9 redraws on the new curves. And the same polars become
+                    import fills, described in 8.6. The <i>Data source</i> selector stays on the generated mode
+                    that ran, <code>neuralfoil</code> or <code>xfoil</code>; the preview of 8.9 redraws on the new
+                    curves. And the same polars become
                     the polar table of the section currently selected. There is no separate confirmation to press, so
                     the generated polar is usable from Run Case immediately.
                   </li>
@@ -7651,9 +7702,18 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           blade takes a single chord parameter, so its two chord cells state the
                           same value, and the root cell wins when they differ. A tapered blade reads
                           the two cells separately. An elliptic blade has no tip-chord parameter, so
-                          that cell is disabled there. Two further parameters accept no cell: a
-                          variation over the radius or over the root cutout rides with its row and
-                          applies when the comparison runs.</p>
+                          that cell is disabled there.</p>
+
+                        <p><b>The <i>Extra overrides</i> column.</b> The seventh column is read-only.
+                          It lists every override of its row that has no dedicated column:
+                          <code>radius_m</code>, <code>root_cutout_norm</code>, or a chord parameter
+                          (<code>chord_norm</code>, <code>max_chord_norm</code>) when the current
+                          generator reads no dedicated chord cell for it. Each entry is written as a
+                          <code>param=value</code> fragment, and an em dash means the row carries none
+                          of them. A variation over the radius or over the root cutout therefore never
+                          fills an editable cell. It rides with its row, shows up in this column, and
+                          applies when the comparison runs. Editing any other cell refreshes the
+                          column at once.</p>
 
                         <p><b>The variation sweep builder.</b> The panel beside the table turns one
                           geometry parameter into several rows at once. The <i>Parameter</i>
@@ -7790,7 +7850,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           status line reports the same count, and <i>Cancel</i> stays clickable and
                           stops the run cleanly. All of it happens off the main thread, so the
                           window keeps responding while the solver works. When the run ends, the
-                          verdict strip, the ranking figure and the overlay figure fill
+                          verdict strip, the ranking figure, the delta figure and the overlay figure
+                          fill
                           themselves.</p>
 
                         <div class="eqn">$$\eta_{prop}=\frac{J_x\,C_{T,prop}}{C_{P,prop}},
@@ -7807,15 +7868,35 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           designs only where thrust does useful work along the shaft. One sentence
                           below the chips gathers the winners per design goal.</p>
 
-                        <p><b>The ranking figure.</b> The <i>Rank by</i> dropdown lists the summary
-                          quantities this run actually produced, among <code>CT</code>,
+                        <p><b>The ranking figure.</b> Two dropdowns above the figure decide what it
+                          ranks and where. The <i>Rank by</i> dropdown lists the summary quantities
+                          this run actually produced, among <code>CT</code>,
                           <code>FM</code>, <code>CP</code>, <code>eta_prop</code> and
-                          <code>Thrust</code>, and keeps <code>FM</code> as the default when it
-                          exists. The figure is one horizontal bar per variant at the reference
-                          condition. The best side of the chosen quantity sits on top, so power-type
+                          <code>Thrust</code>. It opens on a default chosen from the run itself:
+                          $\eta_{prop}$ when any result of the run is in propeller convention,
+                          otherwise $FM$, otherwise the first quantity available. The
+                          <i>Condition</i> dropdown lists the distinct conditions of the run, named
+                          as they are named everywhere else, and moves the reading point to any one
+                          of them. The first condition is selected by default, which makes it the
+                          reference condition the verdict chips read. The figure is one horizontal
+                          bar per variant at that condition. The best side of the chosen quantity
+                          sits on top, so power-type
                           quantities rank ascending and the others descending. The winning bar takes
                           the highlight color, every bar carries its numeric annotation, and the
                           title states the condition the bars were read at.</p>
+
+                        <p><b>The delta figure.</b> The panel beside the ranking is titled
+                          <i>Delta vs base (%)</i>. For the same metric and the same condition as the
+                          ranking figure, each variant is drawn as its percent change against the
+                          base planform,
+                          $$100\,\frac{v - v_{base}}{|v_{base}|},$$
+                          with an emphasized line at zero marking "equal to base". It answers directly
+                          how many per cent a variant buys or costs over the project's own geometry.
+                          The figure redraws by itself after every run and whenever either dropdown
+                          changes. When the base value at that condition is approximately zero, a
+                          percentage would divide by zero. The figure then falls back to the plain
+                          difference $v - v_{base}$ and labels the axis "(absolute)" so the unit
+                          change is visible.</p>
 
                         <p><b>The overlay figure.</b> The lower canvas draws one panel per summary
                           quantity among $C_T$, $FM$, $C_P$ and $\eta_{prop}$, whichever ones the
@@ -7836,7 +7917,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p>In the <span class="gui">GUI</span>: press <i>Run comparison</i> and wait
                           for the finished message on the status line. Read the verdict chips at
-                          the reference condition, choose a quantity in <i>Rank by</i>, and compare
+                          the reference condition, choose a quantity in <i>Rank by</i> and a case in
+                          <i>Condition</i>, read how far each variant departs from the base in the
+                          delta panel, and compare
                           the curves of the overlay figure across the conditions. Press <i>Export
                             report</i> or <i>Export CSV</i> to keep the run.</p>
 
@@ -7929,7 +8012,7 @@ zbemt --project projects/MyProject \
                             <tr>
                               <td>External polar generation (<a class="xref" href="#cap-3-8"
                                   title="8.8 External polar generation">Section 8.8</a>,
-                                <a class="xref" href="#cap-3-8-xfoil" title="8.8.2 The engine choice and the XFOIL transition settings">Section
+                                <a class="xref" href="#cap-3-8-xfoil" title="8.8.2 The XFOIL source and the transition settings">Section
                                   8.8.2</a>)</td>
                               <td><code>--gen-neuralfoil</code> | <code>--gen-xfoil</code> |
                                 <code>--airfoil-geometry SPEC</code> |
@@ -8146,7 +8229,7 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Offline external polar generation</td>
-                              <td>External solvers (for example, NeuralFoil) execute offline to produce polar tables. Coupled on-the-fly aerodynamic calls during solver iterations are not supported (<a class="xref" href="#cap-3-8" title="8.8 External solver — NeuralFoil">Section 8.8</a>).</td>
+                              <td>External solvers (for example, NeuralFoil) execute offline to produce polar tables. Coupled on-the-fly aerodynamic calls during solver iterations are not supported (<a class="xref" href="#cap-3-8" title="8.8 External polar generation">Section 8.8</a>).</td>
                             </tr>
                             <tr>
                               <td>Subsonic compressibility correction</td>
