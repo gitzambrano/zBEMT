@@ -1443,9 +1443,9 @@ _SPEC_PREFIXES = ("cst", "bezier", "parsec", "joukowski", "biconvex", "dat")
 
 def resolve_geometry_spec(spec: str, n_points: int = 200) -> ProfileGeometry:
     """Single entry point for "generate geometry from a simple string".
-    It is used by the GUI (Geometry spec field of block 'f') and by the
-    CLI (``--airfoil-geometry``, Phase 7). Accepted grammars, tried in
-    this order:
+    It is used by the CLI (``--airfoil-geometry``, Phase 7); on screen
+    each family is a Source option of the Airfoil tab instead. Accepted
+    grammars, tried in this order:
 
     1. A nickname from the `AIRFOIL_PRESETS` catalog (for example
        ``'naca0012'``, ``'parsec_default'``, ``'joukowski_t8c5'`` or

@@ -244,7 +244,7 @@ FIELD_HELP: dict[str, dict] = {
             "analytical": "Polynomial analytical model with stall transition. Fast and smooth, best for preliminary design.",
             "table": "Precomputed polar curves at fixed Reynolds and Mach slices. Accurate, but it requires data and interpolation.",
             "neuralfoil": "NeuralFoil external solver generates the polar on demand. High fidelity but slower, and it requires an external installation.",
-            "xfoil": "The XFOIL binary generates the polar on demand, with transition settings of its own (Ncrit and the two Xtr stations). Highest fidelity, but it needs the executable installed and found through ZBEMT_XFOIL_BIN or PATH. The check happens when Run is clicked."
+            "xfoil": "The XFOIL binary generates the polar on demand, with transition settings of its own (Ncrit and the two Xtr stations). Highest fidelity, but it needs the executable installed. zBEMT looks for it through ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders. Locate… remembers your pick between sessions. The check happens when Run is clicked."
         }
     },
     "cl_alpha": {
@@ -436,39 +436,34 @@ FIELD_HELP: dict[str, dict] = {
     # NeuralFoil mode, and none of them had an entry here or anchor in
     # HTML, so the "?" never appeared on the line. Section 6.7 of the
     # documentation already described them -- the link was missing.
-    "geometry_spec": {
-        "title": "Geometry Spec",
+    "generator_params": {
+        "title": "Analytic Family Parameters",
         "definition": (
-            "The complete 2D contour described in a single string, resolved by the "
-            "same engine that reads the command line's --airfoil-geometry flag. "
-            "Accepted grammars: a preset nickname (naca0012, parsec_default, "
-            "joukowski_t8c5, biconvex_t6); a raw NACA code (2412, 23012); "
-            "cst:a1,a2,... with an even number of coefficients split half into the "
-            "upper surface and half into the lower; bezier:x1,y1;x2,y2;... control "
-            "points separated by semicolons; parsec:r_le,x_up,y_up,y_xx_up,x_lo,"
-            "y_lo,y_xx_lo,th_te,beta_te_deg with nine numbers and the trailing-edge "
-            "angle last in degrees; joukowski:epsilon,camber; biconvex:thickness "
-            "(0 allowed, a slit); dat:path to a coordinate file."),
-        "unit": "—",
+            "The parameters of the analytic contour families that have no list "
+            "of their own. PARSEC takes nine numbers: r_le, x_up, y_up, "
+            "y_xx_up, x_lo, y_lo, y_xx_lo, th_te, beta_te_deg — leading-edge "
+            "radius, crest position, height and curvature of each surface, "
+            "trailing-edge thickness, and trailing-edge angle in degrees. "
+            "Joukowski takes two numbers: epsilon (thickness) and camber. "
+            "Biconvex takes one number: the thickness t at mid-chord."),
+        "unit": "-",
         "equation": (
             r"y(x) = \sum_{k=1}^{6} a_k\,x^{k-\frac{1}{2}} \quad \text{(PARSEC)},\quad "
             r"z = \zeta + \frac{1}{\zeta} \quad \text{(Joukowski)},\quad "
             r"y = \pm 2t\,x(1-x) \quad \text{(biconvex)}"),
         "effect": (
-            "When this field is non-empty it takes precedence over the Source and "
-            "NACA fields: Generate geometry resolves this string first. It is what "
-            "gives on-screen access to the analytic families (PARSEC sets crest "
-            "positions, curvatures and nose radius directly; Joukowski is a cusped "
-            "conformal-map section; biconvex is a sharp-edged thin supersonic "
-            "section) and to preset nicknames. CST, Bézier, NACA codes and .dat "
-            "files are accepted here too, though the Source dropdown already "
-            "offers those four directly.\n\n"
+            "Each Source option reveals its row; Generate geometry rebuilds the "
+            "contour from these numbers and stores them with it, so a saved "
+            "section can be regenerated and edited again without the "
+            "coordinates.\n\n"
             "Careful: the contour only reaches the engine through the polar "
-            "generated from it. Changing the string changes nothing until polar "
-            "generation runs again."),
+            "generated from it. Changing the numbers changes nothing until "
+            "polar generation runs again."),
         "range": (
-            "A single non-empty string following any grammar above; leave empty to "
-            "use the Source/NACA fields instead."),
+            "PARSEC: nine finite numbers (defaults 0.0158, 0.30, 0.0593, "
+            "-0.475, 0.35, -0.047, 0.530, 0.0025, 8.0). Joukowski: epsilon and "
+            "camber (defaults 0.08, 0.05). Biconvex: thickness (default 0.06; "
+            "0 gives a slit)."),
         "options": None
     },
     "naca_code": {

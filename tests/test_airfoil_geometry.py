@@ -85,12 +85,13 @@ class TestContourSources(_TestWindow):
         self.assertFalse(hasattr(tab, "profile_preset_combo"),
                           "the preset combo was redundant with the NACA field")
 
-    def test_all_five_contour_sources_in_the_list(self):
+    def test_all_eight_contour_sources_in_the_list(self):
         tab = self.tab
         offered = [tab.profile_source_combo.itemText(i)
                    for i in range(tab.profile_source_combo.count())]
         self.assertEqual(offered,
-                         ["naca4", "naca5", "cst", "bezier", "imported"])
+                         ["naca4", "naca5", "cst", "bezier", "parsec",
+                          "joukowski", "biconvex", "imported"])
 
     def test_legacy_project_in_cst_recovers_the_option(self):
         """Hiding an option must not mean losing data from who already used
@@ -132,7 +133,7 @@ class TestBlockHelp(unittest.TestCase):
         from zbemt.gui import help_content
         from zbemt.gui.field_help import field_anchor
         for field in ("naca_code", "cst_upper", "cst_lower", "bezier_control_points",
-                      "geometry_spec"):
+                      "generator_params"):
             with self.subTest(field=field):
                 self.assertIn(field, help_content.FIELD_HELP)
                 self.assertIsNotNone(field_anchor(field))
@@ -173,7 +174,7 @@ class TestBlockHelp(unittest.TestCase):
         derived from the SAME catalog. Only the NACA families are listed:
         the hint sits in the NACA field, and the analytic presets
         (parsec/joukowski/biconvex) carry generator parameters, not a NACA
-        code -- they are reachable through the Geometry spec field."""
+        code -- on screen they are Source options with their own rows."""
         from zbemt.gui.tabs.airfoil import NACA_CATALOG_TEXT
         tooltip = NACA_CATALOG_TEXT()
         for alias, data in airfoils.AIRFOIL_PRESETS.items():
@@ -190,52 +191,55 @@ class TestBlockHelp(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
-class TestGeometrySpecField(_TestWindow):
-    """The Geometry spec field: one string feeding the same resolver the
-    CLI uses, taking precedence over the Source/NACA fields when filled."""
+class TestAnalyticFamilyRows(_TestWindow):
+    """Every way of generating a contour is a Source option revealing its
+    own row (user rule: one dropdown, no parallel grammar field). PARSEC,
+    Joukowski and biconvex build from their rows, and the parameters
+    round-trip through the saved contour's `generator_params`."""
 
-    def test_spec_takes_precedence_over_the_combo(self):
-        tab = self.tab
-        tab.profile_source_combo.setCurrentText("naca4")
-        tab.naca_code_edit.setText("2412")
-        tab.geometry_spec_edit.setText("biconvex:0.08")
-        tab._generate_profile()
-        import numpy as np
-        y = np.asarray(tab._profile.y)
-        self.assertEqual(tab._profile.source, "biconvex")
-        # tolerance covers the cosine grid not landing exactly on x=0.5
-        self.assertAlmostEqual(float(y.max() - y.min()), 0.08, delta=1e-3)
+    _CASES = {
+        "parsec": ("parsec_edit",
+                   "0.0158, 0.30, 0.0593, -0.475, 0.35, -0.047, 0.530, "
+                   "0.0025, 8.0"),
+        "joukowski": ("joukowski_edit", "0.08, 0.05"),
+        "biconvex": ("biconvex_edit", "0.06"),
+    }
 
-    def test_empty_spec_falls_back_to_the_naca_field(self):
-        tab = self.tab
-        tab.geometry_spec_edit.clear()
-        tab.profile_source_combo.setCurrentText("naca4")
-        tab.naca_code_edit.setText("0012")
-        tab._generate_profile()
-        self.assertEqual(tab._profile.source, "naca4")
-        self.assertEqual(tab._profile.naca_code, "0012")
+    def test_each_family_builds_from_its_row(self):
+        for source, (editor, text) in self._CASES.items():
+            with self.subTest(source=source):
+                tab = self.tab
+                tab.profile_source_combo.setCurrentText(source)
+                getattr(tab, editor).setText(text)
+                tab._generate_profile()
+                self.assertEqual(tab._profile.source, source)
+                self.assertGreater(len(tab._profile.x), 10)
 
-    def test_invalid_spec_reports_an_error_and_keeps_the_previous_profile(self):
+    def test_wrong_count_reports_error_and_keeps_previous_profile(self):
         from unittest.mock import patch
         tab = self.tab
-        tab.geometry_spec_edit.setText("biconvex:0.06")
+        tab.profile_source_combo.setCurrentText("biconvex")
+        tab.biconvex_edit.setText("0.06")
         tab._generate_profile()
         before = tab._profile
+        tab.profile_source_combo.setCurrentText("parsec")
         with patch("zbemt.gui.tabs.airfoil.show_error") as err:
-            tab.geometry_spec_edit.setText("parsec:1,2,3")
+            tab.parsec_edit.setText("1, 2, 3")
             tab._generate_profile()
-        self.assertTrue(err.called, "an invalid spec must say so, not fail silently")
+        self.assertTrue(err.called, "a wrong count must say so, not fail silently")
         self.assertIs(tab._profile, before)
 
-    def test_preset_nicknames_resolve_through_the_spec_field(self):
+    def test_parameters_round_trip_through_the_loader(self):
         tab = self.tab
-        for spec, expected_source in (("parsec_default", "parsec"),
-                                      ("joukowski_t8c5", "joukowski"),
-                                      ("biconvex_t6", "biconvex")):
-            with self.subTest(spec=spec):
-                tab.geometry_spec_edit.setText(spec)
-                tab._generate_profile()
-                self.assertEqual(tab._profile.source, expected_source)
+        tab.source_combo.setCurrentText("neuralfoil")   # block becomes visible
+        tab.profile_source_combo.setCurrentText("parsec")
+        tab.parsec_edit.setText(
+            "0.02, 0.30, 0.06, -0.475, 0.35, -0.047, 0.530, 0.0025, 8.0")
+        tab._generate_profile()
+        tab._load_form_from_airfoil_def(tab._collect_airfoil_def())
+        self.assertEqual(tab.profile_source_combo.currentText(), "parsec")
+        self.assertTrue(tab.parsec_edit.text().startswith("0.02,"))
+        self.assertTrue(tab.parsec_edit.isVisibleTo(tab))
 
 
 class TestSuggestedEnvelope(unittest.TestCase):

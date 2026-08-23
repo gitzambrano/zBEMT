@@ -309,7 +309,8 @@ class ProfileSourceOptions(unittest.TestCase):
     def test_profile_source_options_in_order(self):
         tab, _ = _tab_with_project()
         self.assertEqual(self._combo_items(tab.profile_source_combo),
-                         ["naca4", "naca5", "cst", "bezier", "imported"])
+                         ["naca4", "naca5", "cst", "bezier", "parsec",
+                          "joukowski", "biconvex", "imported"])
 
 
     def test_each_contour_source_shows_only_its_editor_rows(self):

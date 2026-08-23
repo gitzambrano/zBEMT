@@ -251,7 +251,7 @@ BLOCK_HELP: dict[str, dict] = {
     "polar_generation": {
         "title": "Polar Generation (External Engines)",
         "body": [
-            "Two external engines generate the polar from the 2D contour. <b>NeuralFoil</b> is a neural network trained on a large body of XFOIL runs: given the contour and (α, Re, M) it returns Cl and Cd in milliseconds. <b>XFOIL</b> runs the classic boundary-element binary directly — higher fidelity where it converges, minutes instead of milliseconds, and it needs the executable installed (ZBEMT_XFOIL_BIN or PATH).",
+            "Two external engines generate the polar from the 2D contour. <b>NeuralFoil</b> is a neural network trained on a large body of XFOIL runs: given the contour and (α, Re, M) it returns Cl and Cd in milliseconds. <b>XFOIL</b> runs the classic boundary-element binary directly — higher fidelity where it converges, minutes instead of milliseconds, and it needs the executable installed (zBEMT looks in ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders).",
             "What comes out is an ordinary tabulated polar: one complete Cl(α), Cd(α) curve per (Re, M) pair. From that point on the engine treats it exactly like an imported table: linear interpolation in α, selection/interpolation of the slice by local Re, M and r/R.",
             "Because it is a table, the same two limits apply: nothing outside the swept α range is known (hold-edge behavior unless the Viterna full-range extension is on), and Cl_α and α₀ used by the rotational-augmentation correction are re-estimated numerically from the generated curve.",
             "Accuracy is best for conventional sections at −5° &lt; α &lt; 25°; it degrades at extreme α, very thin sections and unusual shapes. For production cases, validate one operating point against measured or XFOIL data.",
@@ -263,7 +263,7 @@ BLOCK_HELP: dict[str, dict] = {
         "body": [
             "The contour x/c ∈ [0,1] with upper/lower ordinates y/c. It is <b>not</b> the blade geometry (chord, twist, planform) — it is the shape of one section.",
             "The contour never enters the blade element equations. It matters in exactly two places: drawing, and generating a polar with NeuralFoil. Once a polar exists, the engine only ever sees Cl(α, Re, M) and Cd(α, Re, M).",
-            "Sources: NACA 4/5-digit codes, CST (class-shape transformation) coefficients, Bézier control points, the analytic PARSEC/Joukowski/biconvex families, or imported .dat coordinates (Selig/Lednicer). The Geometry spec field accepts all of them in a single string; Import in chord-normalized units — scale first if the file is in mm or inches.",
+            "Sources: NACA 4/5-digit codes, CST (class-shape transformation) coefficients, Bézier control points, the analytic PARSEC/Joukowski/biconvex families, or imported .dat coordinates (Selig/Lednicer). Each one is a Source option of its own and reveals its fields; Import in chord-normalized units — scale first if the file is in mm or inches.",
         ],
         "anchor": "cap-3-7",
     },

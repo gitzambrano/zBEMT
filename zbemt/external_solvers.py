@@ -27,6 +27,7 @@ from pathlib import Path
 
 import numpy as np
 
+from . import paths
 from .models import ProfileGeometry, PolarSlice
 
 SUPPORTED_ENGINES = ("neuralfoil", "xfoil")
@@ -34,18 +35,78 @@ SUPPORTED_ENGINES = ("neuralfoil", "xfoil")
 # Wall-clock limit for one XFOIL subprocess (one Reynolds sweep).
 _XFOIL_TIMEOUT_S = 120
 
+#: Environment variable holding a full executable path; checked first.
+XFOIL_ENV_VAR = "ZBEMT_XFOIL_BIN"
 
-def _xfoil_command() -> Optional[str]:
-    """Resolve the XFOIL executable.
+#: Key under which the GUI's "Locate…" choice is remembered in the
+#: settings store (see `paths.save_app_setting`).
+XFOIL_SETTINGS_KEY = "xfoil_binary"
 
-    Order: the ``ZBEMT_XFOIL_BIN`` environment variable (a full path to
-    ``xfoil.exe``/``xfoil``, useful when the binary is not on PATH),
-    then ``xfoil`` through ``PATH``. Returns ``None`` when neither
-    resolves to an existing executable."""
-    explicit = os.environ.get("ZBEMT_XFOIL_BIN", "").strip()
+#: Standard Windows install layouts, checked last. Each entry pairs the
+#: environment variable that holds the base folder with the tail of the
+#: official XFOIL installer's layout.
+_KNOWN_XFOIL_LOCATIONS = (
+    ("LOCALAPPDATA", ("Programs", "XFOIL", "xfoil.exe")),
+    ("ProgramFiles", ("XFOIL", "xfoil.exe")),
+)
+
+
+def known_xfoil_location_names() -> list[str]:
+    """Human-readable names of the standard install folders, for
+    messages that tell the user where zBEMT already looked."""
+    return ["%{base}%\\{tail}".format(base=base, tail="\\".join(tail))
+            for base, tail in _KNOWN_XFOIL_LOCATIONS]
+
+
+def _known_xfoil_candidates(on_windows: bool | None = None) -> list[str]:
+    """Full candidate paths inside the standard install folders.
+
+    Only Windows has these standard folders; every other platform gets an
+    empty list. ``on_windows`` lets tests simulate Windows without
+    touching the real platform; production callers omit it and the answer
+    follows ``os.name``."""
+    if on_windows is None:
+        on_windows = os.name == "nt"
+    if not on_windows:
+        return []
+    candidates = []
+    for base_var, tail in _KNOWN_XFOIL_LOCATIONS:
+        base = os.environ.get(base_var)
+        if not base:
+            continue
+        candidates.append(str(Path(base).joinpath(*tail)))
+    return candidates
+
+
+def resolve_xfoil_binary() -> Optional[str]:
+    """Resolve the XFOIL executable, or return ``None`` when no source
+    names an existing file.
+
+    ONE chain serves the engine (`_run_polar_xfoil`), the GUI
+    availability check (`is_available`) and the GUI "Locate…" flow
+    (`gui.common.require_optional_binary`). Checked in order; the first
+    existing FILE wins:
+
+    1. the ``ZBEMT_XFOIL_BIN`` environment variable;
+    2. the choice remembered from a previous "Locate…" pick in the GUI,
+       through `paths.load_app_setting`;
+    3. ``xfoil`` through ``PATH``;
+    4. the standard XFOIL install folders (Windows only)."""
+    explicit = os.environ.get(XFOIL_ENV_VAR, "").strip()
     if explicit and Path(explicit).is_file():
         return explicit
-    return shutil.which("xfoil")
+    remembered = paths.load_app_setting(XFOIL_SETTINGS_KEY)
+    if isinstance(remembered, str) and remembered.strip():
+        remembered_path = Path(remembered.strip()).expanduser()
+        if remembered_path.is_file():
+            return str(remembered_path)
+    found = shutil.which("xfoil")
+    if found:
+        return found
+    for candidate in _known_xfoil_candidates():
+        if Path(candidate).is_file():
+            return str(candidate)
+    return None
 
 
 def is_available(engine: str) -> bool:
@@ -54,13 +115,14 @@ def is_available(engine: str) -> bool:
     or flag is enabled. ``neuralfoil`` requires the package of the same
     name installed in the current environment (real check via
     ``importlib.util.find_spec``, with nothing hardcoded). ``xfoil``
-    requires the ``xfoil`` executable, found either through the
-    ``ZBEMT_XFOIL_BIN`` environment variable or on ``PATH``. Any other
+    requires the ``xfoil`` executable, resolved through the full chain
+    of `resolve_xfoil_binary` (environment variable, remembered
+    "Locate…" choice, PATH, standard install folders). Any other
     engine returns ``False``."""
     if engine not in SUPPORTED_ENGINES:
         return False
     if engine == "xfoil":
-        return _xfoil_command() is not None
+        return resolve_xfoil_binary() is not None
     return importlib.util.find_spec("neuralfoil") is not None
 
 
@@ -243,13 +305,22 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
     warning and skipped, matching how the BEMT solver treats points that
     do not converge. If no Reynolds produces any point, the function
     raises ``RuntimeError``. Output is captured; nothing is printed."""
-    command = _xfoil_command()
+    command = resolve_xfoil_binary()
     if command is None:
         raise RuntimeError(
-            "The 'xfoil' executable was not found. Install XFOIL and either add its "
-            "folder to PATH or set the ZBEMT_XFOIL_BIN environment variable to the "
-            "full path of the executable (alternatively: import a CSV/experimental "
-            "table instead of using an external engine)."
+            "The 'xfoil' executable was not found. zBEMT looked for it in four "
+            "places: (1) the ZBEMT_XFOIL_BIN environment variable; (2) the "
+            "executable path remembered from a previous 'Locate…' pick in the "
+            f"Airfoil tab ({paths.settings_file()}); (3) the system PATH, entry "
+            "'xfoil'; (4) the standard install folders "
+            "('%LOCALAPPDATA%\\Programs\\XFOIL' and '%ProgramFiles%\\XFOIL', "
+            "Windows only). To fix this: download XFOIL free from "
+            "https://web.mit.edu/drela/Public/web/xfoil/ and install it. Then "
+            "click 'Locate…' in the Airfoil tab and pick the executable there "
+            "(zBEMT remembers the choice), or add the XFOIL folder to PATH, or "
+            "set ZBEMT_XFOIL_BIN to the full path of the executable. "
+            "Alternatively, import a CSV/experimental table instead of using an "
+            "external engine."
         )
 
     coordinates = _coordinates_from_geometry(geometry)

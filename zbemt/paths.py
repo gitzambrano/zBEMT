@@ -11,7 +11,9 @@ paths.py
 ========
 
 Resolves where the data that is NOT code lives: embedded documentation,
-user projects, and the output folder.
+user projects, the output folder, and one small JSON file of remembered
+user choices (`load_app_setting` / `save_app_setting`, for example the
+executable path picked in the GUI's "Locate…" dialog).
 
 The resolver distinguishes editable and installed layouts and returns the
 same logical resource locations in both cases.
@@ -21,6 +23,7 @@ paths are platform-aware and callers must handle missing optional resources."""
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -81,6 +84,56 @@ def outputs_dir(create: bool = False) -> Path:
     if create:
         out.mkdir(parents=True, exist_ok=True)
     return out
+
+
+def settings_file() -> Path:
+    """The single JSON file that remembers small user choices between
+    sessions (for example the XFOIL executable picked in the GUI's
+    "Locate…" dialog).
+
+    Lives inside `user_data_dir()` (``ZBEMT_HOME`` > ``~/.zbemt``), so a
+    test or an isolated session redirects the whole store by setting one
+    environment variable."""
+    return user_data_dir() / "settings.json"
+
+
+def load_app_setting(key: str, default=None):
+    """Return the value stored under ``key``, or ``default``.
+
+    The store is one JSON object. A missing file, a corrupt file, or a
+    missing key all return ``default``; nothing raises to the caller."""
+    try:
+        with open(settings_file(), "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return default
+    if not isinstance(data, dict):
+        return default
+    return data.get(key, default)
+
+
+def save_app_setting(key: str, value) -> None:
+    """Write ``value`` under ``key``, keeping every other stored key.
+
+    The new content is written to a temporary file first. The temporary
+    file then replaces the real file, so an interrupted write cannot
+    leave half of the old and half of the new content behind. A previous
+    corrupt or missing store is simply overwritten."""
+    path = settings_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = {}
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            loaded = json.load(handle)
+        if isinstance(loaded, dict):
+            data = loaded
+    except (OSError, ValueError):
+        pass
+    data[key] = value
+    tmp_path = path.with_suffix(".json.tmp")
+    with open(tmp_path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    os.replace(tmp_path, path)
 
 
 def documentation_path() -> Path | None:

@@ -185,6 +185,15 @@ class TestMountedWindowLayout(unittest.TestCase):
                                                       w.minimumSizeHint().width()):
                     stretched.append(f"{tab_name}: number field {w.width()}px")
             for w in tab.findChildren(QComboBox):
+                # Deliberate exemption (vertical-alignment rule): a combo
+                # flagged `_form_width_stretch` shares the column edges of
+                # the free-text editors around it (the Airfoil Source
+                # dropdowns). There the strip look is the POINT -- the user
+                # reported the short combo as the defect -- so the enum
+                # heuristic stands down, exactly like
+                # `common.compact_form_fields` already does.
+                if w.property("_form_width_stretch"):
+                    continue
                 # The floor is the minimum the combo itself requests: a
                 # combo whose longest option does not fit in
                 # `ENUM_MAX_WIDTH` asks for more (see

@@ -20,6 +20,7 @@ import os
 import sys
 import time
 import unittest
+from pathlib import Path
 
 from tests import helpers
 import unittest.mock
@@ -865,9 +866,8 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
 
     def test_run_with_xfoil_requires_the_binary_before_running(self):
         """`require_optional_binary` gates the xfoil path: without the
-        executable (and without ZBEMT_XFOIL_BIN), no worker is dispatched
-        and the dialog explains how to install."""
-        from pathlib import Path
+        executable anywhere in the lookup chain, no worker is dispatched
+        and the actionable dialog opens (Locate… / download link)."""
         from zbemt.gui import common
         from zbemt import airfoils
         state = self.gui.AppState()
@@ -875,14 +875,17 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
         tab.source_combo.setCurrentText("neuralfoil")
         tab._profile = airfoils.generate_naca4("0012")
         tab.engine_combo.setCurrentText("xfoil")
-        env = {k: "" for k in ("ZBEMT_XFOIL_BIN",)}
-        with unittest.mock.patch.dict(os.environ, env):
-            with unittest.mock.patch.object(common.shutil, "which", return_value=None):
-                with helpers.patch_message_box_everywhere("QMessageBox") as mb:
-                    tab._run_external()
-        mb.information.assert_called_once()
-        texto = mb.information.call_args[0][2]
-        self.assertIn("ZBEMT_XFOIL_BIN", texto)
+        opened = []
+        def fake_exec(dialog):
+            opened.append(dialog)
+            return 0  # closed without locating anything
+        with unittest.mock.patch.object(common, "resolve_xfoil_binary",
+                                        return_value=None):
+            with unittest.mock.patch.object(common.MissingBinaryDialog,
+                                            "exec", fake_exec):
+                tab._run_external()
+        self.assertEqual(len(opened), 1, "the missing-binary dialog must open once")
+        self.assertIn("ZBEMT_XFOIL_BIN", opened[0].message_label.text())
         self.assertIsNone(tab._ext_worker, "no worker should be dispatched without the binary")
 
     def test_require_optional_binary_found_through_env_var(self):
@@ -899,8 +902,130 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
                     ok = common.require_optional_binary(
                         tab, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
                         download_hint="Install XFOIL.")
+                    self.assertEqual(mb.information.call_count, 0)
         self.assertTrue(ok)
-        mb.information.assert_not_called()
+
+    def _fake_executable(self, tmp: str) -> str:
+        exe = Path(tmp) / ("xfoil.exe" if os.name == "nt" else "xfoil")
+        exe.write_bytes(b"stub binary")
+        return str(exe)
+
+    def test_no_dialog_when_the_binary_resolves_at_entry(self):
+        """A hit anywhere in the chain returns True before any dialog:
+        today's users whose XFOIL sits in the standard install folder
+        stop seeing the box at all."""
+        import tempfile
+        from zbemt.gui import common
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = self._fake_executable(tmp)
+            with unittest.mock.patch.object(common, "resolve_xfoil_binary",
+                                            return_value=fake):
+                with unittest.mock.patch.object(
+                        common.MissingBinaryDialog, "exec") as exec_mock:
+                    ok = common.require_optional_binary(
+                        tab, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                        download_hint="Install XFOIL.")
+        self.assertTrue(ok)
+        exec_mock.assert_not_called()
+
+    def test_locate_flow_saves_the_choice_and_returns_true(self):
+        """Picking a valid executable stores it (`paths.save_app_setting`)
+        and closes the request as satisfied, without restarting the
+        flow or needing a restart of zBEMT."""
+        import tempfile
+        from zbemt.gui import common
+        from zbemt import paths as paths_mod
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        with tempfile.TemporaryDirectory() as home, \
+                tempfile.TemporaryDirectory() as pick_dir:
+            fake = self._fake_executable(pick_dir)
+            def fake_exec(dialog):
+                dialog.chosen_path = fake
+                return 1  # Accepted
+            with unittest.mock.patch.dict(os.environ,
+                                          {"ZBEMT_HOME": home,
+                                           "ZBEMT_XFOIL_BIN": ""}):
+                with unittest.mock.patch.object(common, "resolve_xfoil_binary",
+                                                return_value=None):
+                    with unittest.mock.patch.object(common.MissingBinaryDialog,
+                                                    "exec", fake_exec):
+                        ok = common.require_optional_binary(
+                            tab, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                            download_hint="Install XFOIL.")
+                self.assertTrue(ok)
+                self.assertEqual(
+                    paths_mod.load_app_setting(common.XFOIL_SETTINGS_KEY),
+                    fake)
+
+    def test_cancel_leaves_the_settings_store_unchanged(self):
+        import tempfile
+        from pathlib import Path
+        from zbemt.gui import common
+        from zbemt import paths as paths_mod
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        with tempfile.TemporaryDirectory() as home:
+            with unittest.mock.patch.dict(os.environ,
+                                          {"ZBEMT_HOME": home,
+                                           "ZBEMT_XFOIL_BIN": ""}):
+                with unittest.mock.patch.object(common, "resolve_xfoil_binary",
+                                                return_value=None):
+                    with unittest.mock.patch.object(
+                            common.MissingBinaryDialog, "exec",
+                            return_value=0):  # rejected, nothing picked
+                        ok = common.require_optional_binary(
+                            tab, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                            download_hint="Install XFOIL.")
+                self.assertFalse(ok)
+                self.assertIsNone(
+                    paths_mod.load_app_setting(common.XFOIL_SETTINGS_KEY))
+                self.assertFalse(
+                    Path(home, "settings.json").exists(),
+                    "a cancelled dialog must not write the store")
+
+    def test_invalid_pick_reports_inline_and_dialog_stays_open(self):
+        """A pick that fails the existence check never satisfies the
+        gate: inline feedback appears and Locate… keeps being offered."""
+        import tempfile
+        from PyQt6.QtWidgets import QDialog
+        from zbemt.gui import common
+        dialog = common.MissingBinaryDialog(None, feature="XFOIL",
+                                            env_var="ZBEMT_XFOIL_BIN")
+        with tempfile.TemporaryDirectory() as tmp:
+            real_pick = self._fake_executable(tmp)
+            ghost = str(Path(tmp, "ghost", "xfoil.exe"))
+            with unittest.mock.patch.object(
+                    common.QFileDialog, "getOpenFileName",
+                    return_value=(ghost, "")):
+                dialog._on_locate()
+            self.assertTrue(dialog._feedback.isVisibleTo(dialog))
+            self.assertIn("does not exist", dialog._feedback.text())
+            self.assertIsNone(dialog.chosen_path)
+            self.assertNotEqual(dialog.result(), QDialog.DialogCode.Accepted)
+            # A valid pick on the second try goes through.
+            with unittest.mock.patch.object(
+                    common.QFileDialog, "getOpenFileName",
+                    return_value=(real_pick, "")):
+                dialog._on_locate()
+            self.assertEqual(dialog.chosen_path, real_pick)
+            self.assertEqual(dialog.result(), QDialog.DialogCode.Accepted)
+
+    def test_dialog_lists_the_four_places_and_both_options(self):
+        from zbemt.gui import common
+        dialog = common.MissingBinaryDialog(None, feature="XFOIL",
+                                            env_var="ZBEMT_XFOIL_BIN")
+        text = dialog.message_label.text()
+        for expected in ("ZBEMT_XFOIL_BIN", "(not set)",
+                         "Remembered 'Locate…' choice",
+                         "PATH", "Standard install folders",
+                         "1. Already installed?",
+                         "2. Not installed?",
+                         "https://web.mit.edu/drela/Public/web/xfoil/",
+                         "The choice is remembered"):
+            self.assertIn(expected, text)
 
     def test_run_button_stays_clickable_without_the_optional_package(self):
         """Before the button was DISABLED when `neuralfoil` was missing, and the

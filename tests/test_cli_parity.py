@@ -805,26 +805,32 @@ class TestDesignToolsFlags(unittest.TestCase):
             self.assertIn("--airfoil-geometry", buf.getvalue())
 
     def test_gen_xfoil_without_binary_fails_with_clear_message(self):
-        """Patched BEFORE invoking main: BOTH resolution sources are
-        covered (ZBEMT_XFOIL_BIN emptied, PATH lookup mocked to None),
-        so the failure happens no matter what is installed here."""
+        """Patched BEFORE invoking main: ALL resolution sources are
+        covered (ZBEMT_XFOIL_BIN emptied, remembered choice pointed at an
+        empty settings home, PATH lookup mocked to None, standard folders
+        mocked away), so the failure happens no matter what is installed
+        here."""
         from zbemt import external_solvers
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "proj")
             self._fast_project(path, "proj")
             out_csv = os.path.join(d, "out.csv")
             err = io.StringIO()
-            with mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": ""}):
+            with mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": "",
+                                              "ZBEMT_HOME": d}):
                 with mock.patch.object(external_solvers.shutil, "which",
                                        return_value=None):
-                    with contextlib.redirect_stderr(err):
-                        code = main_batch.main([
-                            "--project", path, "--gen-xfoil",
-                            "--airfoil-geometry", "naca0012",
-                            "--reynolds", "1e6", "--mach", "0.1",
-                            "--alpha-range", "-6:6:2.0",
-                            "--export-table", out_csv,
-                        ])
+                    with mock.patch.object(external_solvers,
+                                           "_known_xfoil_candidates",
+                                           return_value=[]):
+                        with contextlib.redirect_stderr(err):
+                            code = main_batch.main([
+                                "--project", path, "--gen-xfoil",
+                                "--airfoil-geometry", "naca0012",
+                                "--reynolds", "1e6", "--mach", "0.1",
+                                "--alpha-range", "-6:6:2.0",
+                                "--export-table", out_csv,
+                            ])
             self.assertEqual(code, 1)
             self.assertIn("'xfoil' executable", err.getvalue())
             self.assertNotIn("Traceback", err.getvalue())

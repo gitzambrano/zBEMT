@@ -43,6 +43,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
     QProgressBar,
     QSlider,
+    QSizePolicy,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QTimer
 
@@ -122,7 +123,7 @@ def NACA_CATALOG_TEXT() -> str:
     `--airfoil-geometry`) appears here on its own. Only the NACA families
     are listed: this text sits in the NACA field's help, and the analytic
     presets (parsec/joukowski/biconvex) carry generator parameters, not a
-    NACA code -- they are reachable through the Geometry spec field below."""
+    NACA code -- on screen they are Source options with their own rows."""
     return "; ".join(
         f"{preset['code']} ({preset['note'].split('--')[0].strip().rstrip('.').lower()})"
         for _alias, preset in sorted(airfoils.AIRFOIL_PRESETS.items())
@@ -183,6 +184,22 @@ class AirfoilTab(QWidget):
     #: splitter; the initial value gives some slack above that.
     _FORM_MIN_WIDTH = 520
     _FORM_INITIAL_WIDTH = 600
+
+    @staticmethod
+    def _stretch_to_form_width(combo) -> None:
+        """Vertical alignment rule: every field in a form column must
+        share the same left and right edges. A QLineEdit grabs the form's
+        spare width -- its horizontal size policy is Expanding -- while a
+        bare QComboBox only takes what its content needs, so next to line
+        edits it stayed short and broke the column's alignment."""
+        policy = combo.sizePolicy()
+        policy.setHorizontalPolicy(QSizePolicy.Policy.Expanding)
+        policy.setHorizontalStretch(1)
+        combo.setSizePolicy(policy)
+        # Tells common.compact_form_fields to skip the enum-width cap:
+        # capping this combo would defeat the policy above and break
+        # the column's shared edges again.
+        combo.setProperty("_form_width_stretch", True)
 
     def __init__(self, state: AppState):
         super().__init__()
@@ -590,13 +607,16 @@ class AirfoilTab(QWidget):
         self.source_combo = QComboBox()
         self.source_combo.addItems(["analytical", "table", "neuralfoil", "xfoil"])
         self.source_combo.setMinimumWidth(150)
+        self._stretch_to_form_width(self.source_combo)
         self.source_combo.setToolTip(
             '"airfoil.source" — "analytical": analytical curves; '
             '"table": imported CSV; "neuralfoil": generate the table via '
             'NeuralFoil; "xfoil": generate the table via the XFOIL binary.\n\n'
-            '"xfoil" needs XFOIL installed and reachable through ZBEMT_XFOIL_BIN '
-            "or PATH. The check happens when you click Run. Without the binary, "
-            "a dialog opens and explains how to install it.")
+            '"xfoil" needs the XFOIL executable. zBEMT looks in four places: '
+            "the ZBEMT_XFOIL_BIN variable, your remembered Locate… choice, PATH, "
+            "and the standard install folders. The check happens when you click "
+            "Run; without the binary, a dialog opens and offers Locate…, which "
+            "remembers the pick between sessions.")
         form.addRow("Data source:", self.source_combo)
 
         self.cl_alpha = QDoubleSpinBox(); self.cl_alpha.setRange(0.1, 10.0); self.cl_alpha.setValue(2 * np.pi); self.cl_alpha.setDecimals(3)
@@ -1051,46 +1071,49 @@ class AirfoilTab(QWidget):
         "The points are used exactly as given: no reordering, no closing of "
         "the trailing edge, no rescaling. x should span 0 to 1.")
 
-    #: CONTOUR sources offered on screen. CST and Bézier are first-class
-    #: options again (user decision reversing the earlier request that had
-    #: removed them from this dropdown): the generators
-    #: (`airfoils.generate_cst`/`generate_bezier`) and their editor fields
-    #: below never left the code -- only the list here hid them.
-    _PROFILE_SOURCES = ("naca4", "naca5", "cst", "bezier", "imported")
+    #: CONTOUR sources offered on screen. EVERY way of generating a
+    #: contour is one option here, each revealing its own fields below
+    #: (user rule: one dropdown, no parallel text-grammar field -- the
+    #: old "Geometry spec" string was removed for exactly that reason;
+    #: the CLI keeps the `--airfoil-geometry` grammar for scripting).
+    _PROFILE_SOURCES = ("naca4", "naca5", "cst", "bezier", "parsec",
+                        "joukowski", "biconvex", "imported")
 
     def _build_geometry_box(self) -> QGroupBox:
         box = QGroupBox("2D Profile Geometry")
         self.geometry_box = box
         form = QFormLayout(box)
 
-        # Full geometry specification in one string, resolved by
-        # `airfoils.resolve_geometry_spec` -- the SAME entry point the CLI's
-        # `--airfoil-geometry` uses. When non-empty it takes precedence over
-        # the Source/NACA fields above, which is what gives on-screen access
-        # to the analytic families (parsec/joukowski/biconvex), to CST and
-        # Bezier, and to the presets catalog.
-        self.geometry_spec_edit = QLineEdit()
-        self.geometry_spec_edit.setToolTip(
-            '"geometry_spec" — complete description of the 2D contour in a single '
-            "string, resolved by the same engine as the CLI's --airfoil-geometry "
-            "flag. Accepted grammars:\n\n"
-            "• preset nickname — naca0012, naca23012, naca4412, parsec_default, "
-            "joukowski_t8c5, biconvex_t6;\n"
-            "• NACA code — naca2412 or just 2412 (4 digits), naca23012 or 23012 "
-            "(5 digits);\n"
-            "• cst:a1,a2,... — CST coefficients, an even count (4 or more), split "
-            "half into the upper surface and half into the lower;\n"
-            "• bezier:x1,y1;x2,y2;... — control points as x,y pairs separated by "
-            "semicolons;\n"
-            "• parsec:r_le,x_up,y_up,y_xx_up,x_lo,y_lo,y_xx_lo,th_te,beta_te_deg — "
-            "nine numbers, the trailing-edge angle last and in degrees;\n"
-            "• joukowski:epsilon,camber — two numbers;\n"
-            "• biconvex:thickness — one number, 0 allowed (a slit);\n"
-            "• dat:path/to/file.dat — reads the contour from a coordinate file.\n\n"
-            "When this field is non-empty it takes precedence over the Source and "
-            "NACA fields: 'Generate geometry' resolves THIS string first. Leave it "
-            "empty to use the fields above.")
-        form.addRow("Geometry spec:", self.geometry_spec_edit)
+        # Analytic families without a dedicated field of their own store
+        # their parameters in `ProfileGeometry.generator_params` (the
+        # generator's own keyword dictionary), so a saved contour can be
+        # regenerated without the coordinates. One row per family.
+        self.parsec_edit = QLineEdit()
+        self.parsec_edit.setToolTip(
+            '"generator_params" — PARSEC geometric parameters, nine numbers '
+            "separated by commas:\n"
+            "r_le, x_up, y_up, y_xx_up, x_lo, y_lo, y_xx_lo, th_te, beta_te_deg.\n"
+            "Leading-edge radius, crest position/height/curvature of each "
+            "surface, trailing-edge thickness and trailing-edge angle in "
+            "degrees. Defaults: 0.0158, 0.30, 0.0593, -0.475, 0.35, -0.047, "
+            "0.530, 0.0025, 8.0.")
+        form.addRow("PARSEC (9 values):", self.parsec_edit)
+
+        self.joukowski_edit = QLineEdit()
+        self.joukowski_edit.setToolTip(
+            '"generator_params" — Joukowski parameters, two numbers separated '
+            "by a comma:\n"
+            "epsilon, camber. Epsilon shapes the thickness, camber the "
+            "camber of the conformal-map section. Defaults: 0.08, 0.05.")
+        form.addRow("Joukowski (eps, camber):", self.joukowski_edit)
+
+        self.biconvex_edit = QLineEdit()
+        self.biconvex_edit.setToolTip(
+            '"generator_params" — Biconvex thickness t: the section is two '
+            "symmetric parabolic arcs y = ±2t·x·(1−x), sharp edges, maximum "
+            "thickness t at mid-chord. One number; 0 gives a slit. "
+            "Default: 0.06.")
+        form.addRow("Biconvex (thickness):", self.biconvex_edit)
 
         # No "typical preset" combo: the NACA entries of
         # `airfoils.AIRFOIL_PRESETS` are all NACA codes (0009, 0012,
@@ -1100,13 +1123,13 @@ class AirfoilTab(QWidget):
         # the preset added was the NOTE ("what is typical of what"), and
         # it moved to the NACA field's help, where it is read at the
         # moment the code is typed. The catalog keeps existing for the CLI
-        # (`--airfoil-geometry naca0012`) and for scripts, and every
-        # family -- including the analytic presets -- is reachable on
-        # screen through the Geometry spec field above.
+        # (`--airfoil-geometry naca0012`) and for scripts; on screen every
+        # family is a Source option with its own fields instead.
         self.profile_source_combo = QComboBox()
         for source_name in self._PROFILE_SOURCES:
             self.profile_source_combo.addItem(source_name)
         self.profile_source_combo.setMinimumWidth(130)
+        self._stretch_to_form_width(self.profile_source_combo)
         # No quoted token on purpose: the field is called `source`, the
         # same name as the POLAR's source, and `field_help._campo_do_widget`
         # only looks at the last segment -- the help would land on the
@@ -1115,7 +1138,19 @@ class AirfoilTab(QWidget):
             "How the 2D contour of the profile is described. The contour "
             "feeds the drawing and the external solver; it does not feed the "
             "engine directly, which reads lift and drag from the polar.")
-        form.addRow("Source:", self.profile_source_combo)
+        # The combo goes in wrapped in a stretch container, exactly like
+        # the wrapped line edits of this form: a bare QComboBox inside a
+        # QFormLayout took the row's leftover width inconsistently (it
+        # stayed ~180px short of the editors whenever a long-label row
+        # above was visible), breaking the column's shared edges. The
+        # container makes the row behave like every other field row.
+        src_row = QWidget()
+        src_lay = QHBoxLayout(src_row)
+        src_lay.setContentsMargins(0, 0, 0, 0)
+        src_lay.setSpacing(0)
+        src_lay.addWidget(self.profile_source_combo, 1)
+        src_lay.addStretch(0)
+        form.addRow("Source:", src_row)
         # Progressive reveal must follow the combo LIVE: without this
         # connection the editor rows only matched the selection at build
         # time and on project load, and picking another source left the
@@ -1202,8 +1237,9 @@ class AirfoilTab(QWidget):
         # compatibility with `_collect_airfoil_def` /
         # `_load_form_from_airfoil_def`, which read it as the persisted
         # `external_engine`.
-        # 'xfoil' runs the XFOIL binary; the GUI checks for it (ZBEMT_XFOIL_BIN
-        # or PATH) at the moment the user clicks Run.
+        # 'xfoil' runs the XFOIL binary; the GUI checks for it at the
+        # moment the user clicks Run, through the four-place lookup
+        # (ZBEMT_XFOIL_BIN, remembered choice, PATH, standard folders).
         self.engine_combo = QComboBox()
         self.engine_combo.addItems(["none", "neuralfoil", "xfoil"])
 
@@ -1298,8 +1334,9 @@ class AirfoilTab(QWidget):
         # stated the reason in a tooltip.
         self.btn_run_external.setToolTip(
             "Generates a Cl/Cd×α polar for each Reynolds×Mach combination with the "
-            "selected external engine (neuralfoil: neural network; xfoil: XFOIL binary "
-            "found via ZBEMT_XFOIL_BIN or PATH)")
+            "selected external engine (neuralfoil: neural network; xfoil: XFOIL "
+            "binary, looked up through ZBEMT_XFOIL_BIN, your remembered Locate… "
+            "choice, PATH, and the standard install folders)")
         self.btn_run_external.clicked.connect(self._run_external)
         self.btn_cancel_external = QPushButton("Cancel")
         self.btn_cancel_external.setVisible(False)
@@ -1603,6 +1640,9 @@ class AirfoilTab(QWidget):
         set_row_visible(form, self.cst_upper_edit, source == "cst")
         set_row_visible(form, self.cst_lower_edit, source == "cst")
         set_row_visible(form, self.bezier_points_edit, source == "bezier")
+        set_row_visible(form, self.parsec_edit, source == "parsec")
+        set_row_visible(form, self.joukowski_edit, source == "joukowski")
+        set_row_visible(form, self.biconvex_edit, source == "biconvex")
 
     # --- Embedded preview canvas (docs/plano_v3.md Part 5) ---------------
     # "Polar" tab (Cl/Cd x alpha, navigated slice + overlay from block d/e)
@@ -2184,20 +2224,6 @@ class AirfoilTab(QWidget):
         self._update_profile_fields(combo.currentText())
 
     def _generate_profile(self):
-        # The Geometry spec string, when non-empty, takes precedence over
-        # the Source/NACA fields (see the field's tooltip). It resolves
-        # through the same entry point as the CLI's --airfoil-geometry.
-        spec = self.geometry_spec_edit.text().strip()
-        if spec:
-            try:
-                self._profile = airfoils.resolve_geometry_spec(spec)
-            except Exception as exc:
-                show_error(self, "Error generating profile geometry", exc)
-                return
-            self._apply_to_project()
-            self._schedule_preview_refresh()
-            return
-
         source = self.profile_source_combo.currentText()
         try:
             if source == "naca4":
@@ -2217,6 +2243,24 @@ class AirfoilTab(QWidget):
                     x_str, y_str = line.split(",")
                     pts.append([float(x_str), float(y_str)])
                 self._profile = airfoils.generate_bezier(pts)
+            elif source == "parsec":
+                vals = [float(v) for v in self.parsec_edit.text().split(",") if v.strip()]
+                if len(vals) != 9:
+                    raise ValueError(
+                        "PARSEC needs nine numbers: r_le, x_up, y_up, y_xx_up, "
+                        "x_lo, y_lo, y_xx_lo, th_te, beta_te_deg.")
+                self._profile = airfoils.generate_parsec(*vals)
+            elif source == "joukowski":
+                vals = [float(v) for v in self.joukowski_edit.text().split(",") if v.strip()]
+                if len(vals) != 2:
+                    raise ValueError("Joukowski needs two numbers: epsilon, camber.")
+                self._profile = airfoils.generate_joukowski(*vals)
+            elif source == "biconvex":
+                vals = [float(v) for v in self.biconvex_edit.text().split(",") if v.strip()]
+                if len(vals) != 1:
+                    raise ValueError(
+                        "Biconvex needs one number: the thickness t at mid-chord.")
+                self._profile = airfoils.generate_biconvex(vals[0])
             else:
                 QMessageBox.information(self, "Import", "Use the 'Import .dat…' button for this source.")
                 return
@@ -2252,8 +2296,9 @@ class AirfoilTab(QWidget):
         engine = self.engine_combo.currentText()
         # Availability is checked HERE, per engine, at the moment of the
         # click: neuralfoil needs the Python package, xfoil needs the
-        # binary (ZBEMT_XFOIL_BIN or PATH). The dialog says what to
-        # install; the button never goes dead.
+        # binary (four-place lookup: ZBEMT_XFOIL_BIN, remembered choice,
+        # PATH, standard folders). The dialog offers Locate… and says
+        # how to install; the button never goes dead.
         if engine == "neuralfoil":
             if not require_optional_package(self, "neuralfoil"):
                 return
@@ -2465,6 +2510,30 @@ class AirfoilTab(QWidget):
         self._populate_slices_list()
         self._profile = a.geometry
         self._sync_profile_source(a.geometry)
+        self._load_generator_params(a.geometry)
+
+    def _load_generator_params(self, profile) -> None:
+        """Fills the three analytic-family rows from
+        ``ProfileGeometry.generator_params`` -- the generator's own keyword
+        dictionary, saved with the contour so it can be edited again."""
+        params = dict(getattr(profile, "generator_params", {}) or {})
+        source = (getattr(profile, "source", "") or "").strip()
+
+        def fmt(value) -> str:
+            try:
+                return f"{float(value):.6g}"
+            except (TypeError, ValueError):
+                return str(value) if value != "" else ""
+
+        if source == "parsec":
+            keys = ("r_le", "x_up", "y_up", "y_xx_up", "x_lo", "y_lo",
+                    "y_xx_lo", "th_te", "beta_te_deg")
+            self.parsec_edit.setText(", ".join(fmt(params.get(k, "")) for k in keys))
+        elif source == "joukowski":
+            self.joukowski_edit.setText(
+                ", ".join(fmt(params.get(k, "")) for k in ("epsilon", "camber")))
+        elif source == "biconvex":
+            self.biconvex_edit.setText(fmt(params.get("thickness", "")))
 
     def _refresh_from_project(self):
         if self.state.project is None:
