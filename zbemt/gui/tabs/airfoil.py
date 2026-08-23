@@ -48,14 +48,13 @@ from PyQt6.QtCore import Qt, pyqtSignal, QThread, QTimer
 
 from ... import api
 from ... import airfoils
-from ... import external_solvers
 from ... import validation
 from ...viz import plots
 from ...models import AirfoilDef, ProfileGeometry, PolarSlice, uses_full_range_extension
 from ...bemt import BEMTConfig
 
 from ..common import (parse_list, AppState, show_error, CanvasHost, set_row_visible,
-                      require_optional_package)
+                      require_optional_package, require_optional_binary)
 from ..dialogs import adjust_combo_width
 from ..workers import ExternalPolarWorker, launch_worker
 
@@ -120,10 +119,52 @@ def NACA_CATALOG_TEXT() -> str:
     code is typed.
 
     Derived, not copied: a new catalog entry (which the CLI also accepts in
-    `--airfoil-geometry`) appears here on its own."""
+    `--airfoil-geometry`) appears here on its own. Only the NACA families
+    are listed: this text sits in the NACA field's help, and the analytic
+    presets (parsec/joukowski/biconvex) carry generator parameters, not a
+    NACA code -- they are reachable through the Geometry spec field below."""
     return "; ".join(
         f"{preset['code']} ({preset['note'].split('--')[0].strip().rstrip('.').lower()})"
-        for _alias, preset in sorted(airfoils.AIRFOIL_PRESETS.items()))
+        for _alias, preset in sorted(airfoils.AIRFOIL_PRESETS.items())
+        if preset["family"] in ("naca4", "naca5"))
+
+
+class _XfoilPolarWorker(ExternalPolarWorker):
+    """``ExternalPolarWorker`` carrying the XFOIL-dedicated adjustment
+    inputs (ncrit, xtr_top, xtr_bot).
+
+    ``workers.ExternalPolarWorker`` keeps one engine-neutral signature;
+    this subclass adds the three XFOIL-only transition inputs and forwards
+    them to ``api.run_external_polar_from_geometry``, which passes them on
+    to the binary only on the xfoil path. Threading, cancellation and the
+    finished/failed protocol stay exactly the worker's own."""
+
+    def __init__(self, profile: ProfileGeometry, *, reynolds_list: list,
+                 mach_list: list, alpha_min_deg: float, alpha_max_deg: float,
+                 alpha_step_deg: float, ncrit: float, xtr_top: float,
+                 xtr_bot: float):
+        super().__init__(
+            profile, engine="xfoil",
+            reynolds_list=reynolds_list, mach_list=mach_list,
+            alpha_min_deg=alpha_min_deg, alpha_max_deg=alpha_max_deg,
+            alpha_step_deg=alpha_step_deg)
+        self.ncrit = ncrit
+        self.xtr_top = xtr_top
+        self.xtr_bot = xtr_bot
+
+    def run(self):
+        try:
+            slices = api.run_external_polar_from_geometry(
+                self.profile, engine="xfoil",
+                reynolds_list=self.reynolds_list, mach_list=self.mach_list,
+                alpha_min_deg=self.alpha_min_deg, alpha_max_deg=self.alpha_max_deg,
+                alpha_step_deg=self.alpha_step_deg,
+                ncrit=self.ncrit, xtr_top=self.xtr_top, xtr_bot=self.xtr_bot,
+            )
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            return
+        self.finished.emit(slices)
 
 
 # =============================================================================
@@ -1012,15 +1053,46 @@ class AirfoilTab(QWidget):
         self.geometry_box = box
         form = QFormLayout(box)
 
-        # No "typical preset" combo: the six entries of
-        # `airfoils.AIRFOIL_PRESETS` are ALL NACA codes (0009, 0012,
+        # Full geometry specification in one string, resolved by
+        # `airfoils.resolve_geometry_spec` -- the SAME entry point the CLI's
+        # `--airfoil-geometry` uses. When non-empty it takes precedence over
+        # the Source/NACA fields above, which is what gives on-screen access
+        # to the analytic families (parsec/joukowski/biconvex), to CST and
+        # Bezier, and to the presets catalog.
+        self.geometry_spec_edit = QLineEdit()
+        self.geometry_spec_edit.setToolTip(
+            '"geometry_spec" — complete description of the 2D contour in a single '
+            "string, resolved by the same engine as the CLI's --airfoil-geometry "
+            "flag. Accepted grammars:\n\n"
+            "• preset nickname — naca0012, naca23012, naca4412, parsec_default, "
+            "joukowski_t8c5, biconvex_t6;\n"
+            "• NACA code — naca2412 or just 2412 (4 digits), naca23012 or 23012 "
+            "(5 digits);\n"
+            "• cst:a1,a2,... — CST coefficients, an even count (4 or more), split "
+            "half into the upper surface and half into the lower;\n"
+            "• bezier:x1,y1;x2,y2;... — control points as x,y pairs separated by "
+            "semicolons;\n"
+            "• parsec:r_le,x_up,y_up,y_xx_up,x_lo,y_lo,y_xx_lo,th_te,beta_te_deg — "
+            "nine numbers, the trailing-edge angle last and in degrees;\n"
+            "• joukowski:epsilon,camber — two numbers;\n"
+            "• biconvex:thickness — one number, 0 allowed (a slit);\n"
+            "• dat:path/to/file.dat — reads the contour from a coordinate file.\n\n"
+            "When this field is non-empty it takes precedence over the Source and "
+            "NACA fields: 'Generate geometry' resolves THIS string first. Leave it "
+            "empty to use the fields above.")
+        form.addRow("Geometry spec:", self.geometry_spec_edit)
+
+        # No "typical preset" combo: the NACA entries of
+        # `airfoils.AIRFOIL_PRESETS` are all NACA codes (0009, 0012,
         # 0015, 0018, 23012, 4412), so the preset and the "NACA code"
         # field right below were two controls for a single decision --
         # choosing in the combo just wrote the code into the field. What
         # the preset added was the NOTE ("what is typical of what"), and
         # it moved to the NACA field's help, where it is read at the
         # moment the code is typed. The catalog keeps existing for the CLI
-        # (`--airfoil-geometry naca0012`) and for scripts.
+        # (`--airfoil-geometry naca0012`) and for scripts, and every
+        # family -- including the analytic presets -- is reachable on
+        # screen through the Geometry spec field above.
         self.profile_source_combo = QComboBox()
         for source_name in self._PROFILE_SOURCES:
             self.profile_source_combo.addItem(source_name)
@@ -1102,16 +1174,17 @@ class AirfoilTab(QWidget):
         return box
 
     def _build_external_box(self) -> QGroupBox:
-        box = QGroupBox("Polar Generation via NeuralFoil")
+        box = QGroupBox("Polar Generation via External Engine")
         self.external_box = box
         form = QFormLayout(box)
-        available = external_solvers.is_available("neuralfoil")
 
         # `engine_combo` is not displayed — its value is controlled by
         # `_update_source_visibility`. Kept for compatibility with
         # `_collect_airfoil_def` / `_load_form_from_airfoil_def`.
+        # 'xfoil' runs the XFOIL binary; the GUI checks for it (ZBEMT_XFOIL_BIN
+        # or PATH) at the moment the user clicks Run.
         self.engine_combo = QComboBox()
-        self.engine_combo.addItems(["none", "neuralfoil"])
+        self.engine_combo.addItems(["none", "neuralfoil", "xfoil"])
 
         self.re_list_edit = QLineEdit("1e5, 2e5, 5e5, 1e6")
         self.re_list_edit.setToolTip('"airfoil.external_reynolds_list" — Reynolds values suggested automatically based on the blade\'s typical envelope')
@@ -1145,20 +1218,72 @@ class AirfoilTab(QWidget):
         form.addRow("Maximum alpha [deg]:", self.ext_alpha_max)
         form.addRow("Alpha step [deg]:", self.ext_alpha_step)
 
+        # XFOIL-dedicated adjustment inputs (AirfoilDef.xfoil_ncrit /
+        # xfoil_xtr_top / xfoil_xtr_bot). The rows appear only when the
+        # engine is xfoil (see _update_xfoil_visibility); the values are
+        # collected and loaded like the sibling external_* fields, so they
+        # round-trip through airfoil.bemt even while hidden.
+        self.ext_ncrit = QDoubleSpinBox()
+        self.ext_ncrit.setRange(1.0, 15.0)
+        self.ext_ncrit.setDecimals(2)
+        self.ext_ncrit.setValue(9.0)
+        self.ext_ncrit.setSingleStep(0.5)
+        self.ext_ncrit.setToolTip(
+            '"xfoil_ncrit" — critical amplification factor N of the '
+            'e<sup>N</sup> transition criterion. The boundary layer turns '
+            'turbulent where the amplification of small disturbances reaches '
+            'e<sup>N</sup>. A lower N predicts earlier transition and higher '
+            'drag; 9 approximates a clean flow (typical range: 1 to 15). This '
+            'input reaches only the XFOIL binary; NeuralFoil ignores it.')
+        form.addRow("Ncrit:", self.ext_ncrit)
+
+        self.ext_xtr_top = QDoubleSpinBox()
+        self.ext_xtr_top.setRange(0.01, 1.0)
+        self.ext_xtr_top.setDecimals(2)
+        self.ext_xtr_top.setValue(1.0)
+        self.ext_xtr_top.setSingleStep(0.05)
+        self.ext_xtr_top.setToolTip(
+            '"xfoil_xtr_top" — chord fraction where transition is FORCED on '
+            'the upper surface, in (0,&nbsp;1]. XFOIL fixes transition at that '
+            'station instead of predicting it; 1 leaves free transition on the '
+            'whole surface. This input reaches only the XFOIL binary; NeuralFoil '
+            'ignores it.')
+        form.addRow("Xtr top:", self.ext_xtr_top)
+
+        self.ext_xtr_bot = QDoubleSpinBox()
+        self.ext_xtr_bot.setRange(0.01, 1.0)
+        self.ext_xtr_bot.setDecimals(2)
+        self.ext_xtr_bot.setValue(1.0)
+        self.ext_xtr_bot.setSingleStep(0.05)
+        self.ext_xtr_bot.setToolTip(
+            '"xfoil_xtr_bot" — chord fraction where transition is FORCED on '
+            'the lower surface, in (0,&nbsp;1]. XFOIL fixes transition at that '
+            'station instead of predicting it; 1 leaves free transition on the '
+            'whole surface. This input reaches only the XFOIL binary; NeuralFoil '
+            'ignores it.')
+        form.addRow("Xtr bot:", self.ext_xtr_bot)
+        #: stored to hide the three rows above as a unit
+        #: (see `_update_xfoil_visibility`)
+        self._external_form = form
+        self.engine_combo.currentTextChanged.connect(self._update_xfoil_visibility)
+        self._update_xfoil_visibility()
+
         row = QHBoxLayout()
-        self.btn_run_external = QPushButton("Run NeuralFoil")
-        # Stays CLICKABLE even without the package: `_run_external` calls
-        # `require_optional_package`, which opens a dialog with the
-        # install command. A disabled button only stated the reason in a
-        # tooltip.
+        self.btn_run_external = QPushButton("Run polar generation")
+        # Stays CLICKABLE even without the package or the binary: the
+        # click opens a dialog explaining what is missing
+        # (`require_optional_package` for neuralfoil,
+        # `require_optional_binary` for xfoil). A disabled button only
+        # stated the reason in a tooltip.
         self.btn_run_external.setToolTip(
-            "Generates a Cl/Cd×α polar for each Reynolds×Mach combination via NeuralFoil (neural network)"
-            if available else "Requires the optional 'neuralfoil' package — click for install instructions")
+            "Generates a Cl/Cd×α polar for each Reynolds×Mach combination with the "
+            "selected external engine (neuralfoil: neural network; xfoil: XFOIL binary "
+            "found via ZBEMT_XFOIL_BIN or PATH)")
         self.btn_run_external.clicked.connect(self._run_external)
         self.btn_cancel_external = QPushButton("Cancel")
         self.btn_cancel_external.setVisible(False)
         self.btn_cancel_external.setToolTip(
-            "NeuralFoil cannot be interrupted mid-point (α) once it's already computing -- "
+            "The engine cannot be interrupted mid-point (α) once it's already computing -- "
             "cancel only discards the result when it finishes, instead of applying it.")
         self.btn_cancel_external.clicked.connect(self._cancel_external)
         self.btn_export_external = QPushButton("Export generated table…")
@@ -1170,11 +1295,21 @@ class AirfoilTab(QWidget):
         form.addRow(row)
         self.progress_external = QProgressBar()
         self.progress_external.setVisible(False)
-        self.progress_external.setRange(0, 0)  # indeterminate: NeuralFoil does not report per-point progress
+        self.progress_external.setRange(0, 0)  # indeterminate: the engine does not report per-point progress
         self.status_label_external = QLabel("")
         form.addRow(self.progress_external)
         form.addRow(self.status_label_external)
         return box
+
+    def _update_xfoil_visibility(self, *_args):
+        """Progressive disclosure: Ncrit and the two Xtr inputs describe
+        transition options of the XFOIL binary alone, so their rows appear
+        only when `engine_combo` is 'xfoil'. The rows hide through
+        `set_row_visible` so the label never stays on screen pointing at
+        nothing; the values themselves keep round-tripping while hidden."""
+        show = self.engine_combo.currentText() == "xfoil"
+        for w in (self.ext_ncrit, self.ext_xtr_top, self.ext_xtr_bot):
+            set_row_visible(self._external_form, w, show)
 
     #: RPM used in the item 15 estimate when the project has no saved
     #: case -- the same default as `cli.DEFAULT_RPM` and the RPM field in
@@ -1809,6 +1944,9 @@ class AirfoilTab(QWidget):
             external_alpha_min_deg=self.ext_alpha_min.value(),
             external_alpha_max_deg=self.ext_alpha_max.value(),
             external_alpha_step_deg=self.ext_alpha_step.value(),
+            xfoil_ncrit=self.ext_ncrit.value(),
+            xfoil_xtr_top=self.ext_xtr_top.value(),
+            xfoil_xtr_bot=self.ext_xtr_bot.value(),
         )
 
     def preview_options(self) -> dict:
@@ -2037,6 +2175,20 @@ class AirfoilTab(QWidget):
         self._update_profile_fields(combo.currentText())
 
     def _generate_profile(self):
+        # The Geometry spec string, when non-empty, takes precedence over
+        # the Source/NACA fields (see the field's tooltip). It resolves
+        # through the same entry point as the CLI's --airfoil-geometry.
+        spec = self.geometry_spec_edit.text().strip()
+        if spec:
+            try:
+                self._profile = airfoils.resolve_geometry_spec(spec)
+            except Exception as exc:
+                show_error(self, "Error generating profile geometry", exc)
+                return
+            self._apply_to_project()
+            self._schedule_preview_refresh()
+            return
+
         source = self.profile_source_combo.currentText()
         try:
             if source == "naca4":
@@ -2082,13 +2234,25 @@ class AirfoilTab(QWidget):
         self._schedule_preview_refresh()
 
     def _run_external(self):
-        """C4 (production-plan.md): NeuralFoil runs in ``ExternalPolarWorker``
-        on a ``QThread`` (same pattern as ``BatchRunnerWorker``/
-        ``launch_worker`` used by RunCaseTab/RunBatchTab), no longer
-        synchronous on the GUI thread -- before it froze the window ("Not
-        responding") for minutes on a modest Reynolds×Mach×alpha sweep."""
-        if not require_optional_package(self, "neuralfoil"):
-            return
+        """C4 (production-plan.md): the external engine runs in
+        ``ExternalPolarWorker`` on a ``QThread`` (same pattern as
+        ``BatchRunnerWorker``/``launch_worker`` used by RunCaseTab/
+        RunBatchTab), no longer synchronous on the GUI thread -- before it
+        froze the window ("Not responding") for minutes on a modest
+        Reynolds×Mach×alpha sweep."""
+        engine = self.engine_combo.currentText()
+        # Availability is checked HERE, per engine, at the moment of the
+        # click: neuralfoil needs the Python package, xfoil needs the
+        # binary (ZBEMT_XFOIL_BIN or PATH). The dialog says what to
+        # install; the button never goes dead.
+        if engine == "neuralfoil":
+            if not require_optional_package(self, "neuralfoil"):
+                return
+        elif engine == "xfoil":
+            if not require_optional_binary(
+                    self, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                    download_hint="Install XFOIL and set ZBEMT_XFOIL_BIN or add it to PATH."):
+                return
         if self._profile is None:
             QMessageBox.warning(self, "No geometry", "Generate or import the profile geometry (block 'f') first.")
             return
@@ -2098,7 +2262,7 @@ class AirfoilTab(QWidget):
             reynolds_list = [float(v) for v in self.re_list_edit.text().split(",") if v.strip()]
             mach_list = [float(v) for v in self.mach_list_edit.text().split(",") if v.strip()]
         except Exception as exc:
-            show_error(self, "Error running NeuralFoil", exc)
+            show_error(self, "Error running polar generation", exc)
             return
 
         self._ext_reynolds_list = reynolds_list
@@ -2108,15 +2272,25 @@ class AirfoilTab(QWidget):
         self.btn_cancel_external.setEnabled(True)
         self.progress_external.setVisible(True)
         self.status_label_external.setText(
-            f"Running NeuralFoil ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach)…")
+            f"Running {engine} ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach)…")
 
-        worker = ExternalPolarWorker(
-            self._profile, engine="neuralfoil",
-            reynolds_list=reynolds_list, mach_list=mach_list,
-            alpha_min_deg=self.ext_alpha_min.value(),
-            alpha_max_deg=self.ext_alpha_max.value(),
-            alpha_step_deg=self.ext_alpha_step.value(),
-        )
+        if engine == "xfoil":
+            worker = _XfoilPolarWorker(
+                self._profile,
+                reynolds_list=reynolds_list, mach_list=mach_list,
+                alpha_min_deg=self.ext_alpha_min.value(),
+                alpha_max_deg=self.ext_alpha_max.value(),
+                alpha_step_deg=self.ext_alpha_step.value(),
+                ncrit=self.ext_ncrit.value(), xtr_top=self.ext_xtr_top.value(),
+                xtr_bot=self.ext_xtr_bot.value())
+        else:
+            worker = ExternalPolarWorker(
+                self._profile, engine=engine,
+                reynolds_list=reynolds_list, mach_list=mach_list,
+                alpha_min_deg=self.ext_alpha_min.value(),
+                alpha_max_deg=self.ext_alpha_max.value(),
+                alpha_step_deg=self.ext_alpha_step.value(),
+            )
         self._ext_worker = worker
         worker.finished.connect(self._on_external_finished)
         worker.failed.connect(self._on_external_failed)
@@ -2127,14 +2301,16 @@ class AirfoilTab(QWidget):
             self._ext_worker.cancel()
             self.btn_cancel_external.setEnabled(False)
             self.status_label_external.setText(
-                "Canceling… (NeuralFoil cannot interrupt a point mid-calculation; "
+                "Canceling… (the engine cannot interrupt a point mid-calculation; "
                 "result will be discarded when it finishes)")
 
     def _reset_external_run_ui(self):
         self.progress_external.setVisible(False)
         self.btn_cancel_external.setVisible(False)
         self.btn_cancel_external.setEnabled(True)
-        self.btn_run_external.setEnabled(external_solvers.is_available("neuralfoil"))
+        # Clickable again, whatever the availability: a click explains
+        # what is missing instead of leaving a dead button.
+        self.btn_run_external.setEnabled(True)
         self._ext_thread = None
         self._ext_worker = None
 
@@ -2144,12 +2320,13 @@ class AirfoilTab(QWidget):
         self.status_label_external.setText("")
         if cancelled:
             return
-        show_error(self, "Error running NeuralFoil", RuntimeError(message))
+        show_error(self, "Error running polar generation", RuntimeError(message))
 
     def _on_external_finished(self, slices: list):
         cancelled = self._ext_worker.cancel_requested if self._ext_worker is not None else False
         reynolds_list = getattr(self, "_ext_reynolds_list", [])
         mach_list = getattr(self, "_ext_mach_list", [])
+        engine = self.engine_combo.currentText() or "external engine"
         self._reset_external_run_ui()
         self.status_label_external.setText("")
         if cancelled:
@@ -2158,7 +2335,7 @@ class AirfoilTab(QWidget):
 
         if not slices:
             QMessageBox.warning(self, "No points converged",
-                                 "NeuralFoil did not return any alpha points with sufficient confidence "
+                                 f"{engine} did not return any alpha points with sufficient confidence "
                                  "for this geometry/range.")
             return
 
@@ -2182,7 +2359,7 @@ class AirfoilTab(QWidget):
         self._apply_to_project()
         self._schedule_preview_refresh()
         QMessageBox.information(
-            self, "NeuralFoil completed",
+            self, f"{engine} completed",
             f"{len(slices)} polar(s) generated ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach). "
             # There is no 'Apply' button anymore: the line above already wrote
             # the slices to the project in memory. What's left for the user to
@@ -2194,14 +2371,14 @@ class AirfoilTab(QWidget):
     def _export_external_table(self):
         slices = getattr(self, "_generated_external_slices", None)
         if not slices:
-            QMessageBox.warning(self, "Nothing to export", "Run NeuralFoil first.")
+            QMessageBox.warning(self, "Nothing to export", "Run polar generation first.")
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Export NeuralFoil table", "", "CSV (*.csv)")
+        path, _ = QFileDialog.getSaveFileName(self, "Export generated table", "", "CSV (*.csv)")
         if not path:
             return
         try:
             out = api.export_polar_table(slices, path)
-            QMessageBox.information(self, "Exported", f"NeuralFoil table exported to {out}")
+            QMessageBox.information(self, "Exported", f"Generated table exported to {out}")
         except Exception as exc:
             show_error(self, "Error exporting table", exc)
 
@@ -2219,10 +2396,11 @@ class AirfoilTab(QWidget):
 
     def _load_form_from_airfoil_def(self, a: AirfoilDef):
         self.airfoil_name_edit.setText(a.name)
-        # Old projects with external_engine="xfoil" (engine removed in this
-        # version -- Phase 7) fall back to "none"; the original value stays in
-        # the .bemt until the user re-applies via GUI/CLI.
-        engine = a.external_engine if a.external_engine in ("none", "neuralfoil") else "none"
+        # Unknown/legacy engine values fall back to "none"; the original
+        # value stays in the .bemt until the user re-applies via GUI/CLI.
+        # "xfoil" is a first-class option again (the GUI offers it and
+        # checks for the binary at run time).
+        engine = a.external_engine if a.external_engine in ("none", "neuralfoil", "xfoil") else "none"
         # Item 6: 'neuralfoil' is reconstructed here from
         # source='table' + external_engine='neuralfoil' -- see
         # `_collect_airfoil_def` for the inverse mapping.
@@ -2262,6 +2440,9 @@ class AirfoilTab(QWidget):
         self.ext_alpha_min.setValue(a.external_alpha_min_deg)
         self.ext_alpha_max.setValue(a.external_alpha_max_deg)
         self.ext_alpha_step.setValue(a.external_alpha_step_deg)
+        self.ext_ncrit.setValue(a.xfoil_ncrit)
+        self.ext_xtr_top.setValue(a.xfoil_xtr_top)
+        self.ext_xtr_bot.setValue(a.xfoil_xtr_bot)
         self._imported_slices = list(a.table_slices)
         self._populate_slices_list()
         self._profile = a.geometry

@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import tempfile
 import warnings
+from pathlib import Path
 
 import numpy as np
 
@@ -34,18 +35,32 @@ SUPPORTED_ENGINES = ("neuralfoil", "xfoil")
 _XFOIL_TIMEOUT_S = 120
 
 
+def _xfoil_command() -> Optional[str]:
+    """Resolve the XFOIL executable.
+
+    Order: the ``ZBEMT_XFOIL_BIN`` environment variable (a full path to
+    ``xfoil.exe``/``xfoil``, useful when the binary is not on PATH),
+    then ``xfoil`` through ``PATH``. Returns ``None`` when neither
+    resolves to an existing executable."""
+    explicit = os.environ.get("ZBEMT_XFOIL_BIN", "").strip()
+    if explicit and Path(explicit).is_file():
+        return explicit
+    return shutil.which("xfoil")
+
+
 def is_available(engine: str) -> bool:
     """Used by the GUI ('f) External engine' block) and by the CLI
     (``--gen-neuralfoil``) to decide whether the corresponding button
     or flag is enabled. ``neuralfoil`` requires the package of the same
     name installed in the current environment (real check via
     ``importlib.util.find_spec``, with nothing hardcoded). ``xfoil``
-    requires the ``xfoil`` executable on PATH (checked via
-    ``shutil.which``). Any other engine returns ``False``."""
+    requires the ``xfoil`` executable, found either through the
+    ``ZBEMT_XFOIL_BIN`` environment variable or on ``PATH``. Any other
+    engine returns ``False``."""
     if engine not in SUPPORTED_ENGINES:
         return False
     if engine == "xfoil":
-        return shutil.which("xfoil") is not None
+        return _xfoil_command() is not None
     return importlib.util.find_spec("neuralfoil") is not None
 
 
@@ -145,25 +160,95 @@ def _mach_corrected_slices(engine_name: str, alpha_valid_deg: np.ndarray,
     return slices
 
 
+def _validate_xfoil_adjustments(ncrit: float, xtr_top: float,
+                                xtr_bot: float) -> None:
+    """Validates the XFOIL-dedicated transition inputs before any process
+    starts (a pure check: no binary resolution, no subprocess).
+
+    ``ncrit`` accepts any finite number greater than zero; XFOIL's usual
+    range is approximately 1 to 15. ``xtr_top``/``xtr_bot`` are chord
+    fractions and accept the half-open interval (0, 1], where 1.0 means
+    free transition over the whole surface."""
+    if not (np.isfinite(ncrit) and ncrit > 0):
+        raise ValueError(
+            f"ncrit must be a finite number greater than 0 (got {ncrit}).")
+    for name, value in (("xtr_top", xtr_top), ("xtr_bot", xtr_bot)):
+        if not (np.isfinite(value) and 0.0 < value <= 1.0):
+            raise ValueError(
+                f"{name} must be a finite chord fraction in (0, 1], where "
+                f"1.0 means free transition (got {value}).")
+
+
+def _xfoil_script(reynolds: float, alpha_min_deg: float, alpha_max_deg: float,
+                  alpha_step_deg: float, ncrit: float, xtr_top: float,
+                  xtr_bot: float,
+                  polar_name: str = "polar.dat") -> str:
+    """Builds ONE XFOIL command script as text (pure function: no I/O and
+    no subprocess).
+
+    The XFOIL-dedicated adjustment inputs ride right behind ``VISC``:
+    ``VPAR`` opens the boundary-layer parameter submenu, ``N`` sets the
+    critical e^N amplification factor, and ``XTR`` forces transition at
+    the two chord fractions (top then bottom); the empty line returns to
+    OPER. These spellings are the ones XFOIL 6.99 recognizes. The
+    ``NCRIT``/``XTRTOP``/``XTRBOT`` words do NOT exist in that binary:
+    typed anywhere, they draw "command not recognized" and the run
+    continues with the baseline transition, silently.
+
+    Accumulation opens BEFORE the alpha sweep (the first PACC names the
+    save file) and closes AFTER it (the second PACC writes the file);
+    without that explicit close the process dies inside the .OPERv
+    submenu and the rows are lost. ``polar_name`` is the accumulated dump
+    filename; one distinct name per Reynolds prevents a later sweep from
+    appending into an earlier sweep's rows."""
+    return (
+        "LOAD airfoil.dat\n"
+        "\n"
+        "OPER\n"
+        f"VISC {reynolds:.6g}\n"
+        "VPAR\n"
+        f"N {ncrit:.4g}\n"
+        f"XTR {xtr_top:.4g} {xtr_bot:.4g}\n"
+        "\n"
+        "ITER 100\n"
+        "PACC\n"
+        f"{polar_name}\n"
+        "\n"
+        f"ASEQ {alpha_min_deg:g} {alpha_max_deg:g} {alpha_step_deg:g}\n"
+        "PACC\n"
+        f"{polar_name}\n"
+        "\n"
+        ".\n"
+        "QUIT\n"
+    )
+
+
 def _run_polar_xfoil(geometry: ProfileGeometry,
                      reynolds_list: list[float], mach_list: list[float],
                      alpha_min_deg: float, alpha_max_deg: float,
-                     alpha_step_deg: float) -> list[PolarSlice]:
-    """Run the ``xfoil`` executable over ``geometry`` for each Reynolds in
-    ``reynolds_list`` over the requested alpha range. The binary runs as a
-    subprocess inside a temporary directory: the module writes the airfoil
-    coordinates there once, writes one command script per Reynolds, calls
-    the binary with the script, and parses each accumulated polar file the
-    binary leaves behind.
+                     alpha_step_deg: float,
+                     ncrit: float = 9.0, xtr_top: float = 1.0,
+                     xtr_bot: float = 1.0) -> list[PolarSlice]:
+    """Run XFOIL over ``geometry`` for each Reynolds in ``reynolds_list``.
+
+    For each Reynolds the function writes one command script built by
+    `_xfoil_script` (``LOAD`` / ``OPER`` / ``VISC`` / ``VPAR`` with the
+    ``N``/``XTR`` adjustment inputs / ``ITER 100`` / ``ASEQ`` / ``PACC``
+    / ``QUIT``), executes the binary with the script, and parses each
+    accumulated polar file the binary leaves behind. ``ncrit``,
+    ``xtr_top`` and ``xtr_bot`` are the XFOIL-dedicated adjustment inputs
+    (see `_validate_xfoil_adjustments`); other engines ignore them.
 
     A Reynolds whose polar file is missing or empty is reported with a
-    warning and skipped, matching how the BEMT solver treats points that do
-    not converge. If no Reynolds produces any point, the function raises
-    ``RuntimeError``. Output is captured; nothing is printed."""
-    if shutil.which("xfoil") is None:
+    warning and skipped, matching how the BEMT solver treats points that
+    do not converge. If no Reynolds produces any point, the function
+    raises ``RuntimeError``. Output is captured; nothing is printed."""
+    command = _xfoil_command()
+    if command is None:
         raise RuntimeError(
-            "The 'xfoil' executable was not found on PATH. Install XFOIL and make "
-            "sure the command 'xfoil' runs (alternatively: import a CSV/experimental "
+            "The 'xfoil' executable was not found. Install XFOIL and either add its "
+            "folder to PATH or set the ZBEMT_XFOIL_BIN environment variable to the "
+            "full path of the executable (alternatively: import a CSV/experimental "
             "table instead of using an external engine)."
         )
 
@@ -183,27 +268,25 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
         for index, reynolds in enumerate(reynolds_list):
             polar_path = os.path.join(tmpdir, f"polar_{index}.dat")
             script_path = os.path.join(tmpdir, f"commands_{index}.txt")
-            with open(script_path, "w", encoding="ascii") as handle:
-                handle.write(
-                    "LOAD airfoil.dat\n"
-                    "\n"
-                    "OPER\n"
-                    f"VISC {reynolds:.6g}\n"
-                    "ITER 100\n"
-                    f"ASEQ {alpha_min_deg:g} {alpha_max_deg:g} {alpha_step_deg:g}\n"
-                    "PACC\n"
-                    f"polar_{index}.dat\n"
-                    "\n"
-                    "QUIT\n"
-                )
+            script_text = _xfoil_script(
+                reynolds, alpha_min_deg, alpha_max_deg, alpha_step_deg,
+                ncrit, xtr_top, xtr_bot, polar_name=f"polar_{index}.dat")
+            with open(script_path, "w", encoding="ascii", newline="\r\n") as handle:
+                handle.write(script_text)
 
             try:
-                subprocess.run(
-                    ["xfoil", script_path],
-                    capture_output=True, text=True,
-                    timeout=_XFOIL_TIMEOUT_S, cwd=tmpdir,
-                    check=False,
-                )
+                # XFOIL reads its command stream from STDIN; the script
+                # is piped in rather than passed as an argument.
+                with open(script_path, "rb") as script_handle:
+                    subprocess.run(
+                        [command],
+                        stdin=script_handle,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        timeout=_XFOIL_TIMEOUT_S,
+                        cwd=tmpdir,
+                        check=False,
+                    )
             except (OSError, subprocess.TimeoutExpired):
                 warnings.warn(f"XFOIL: no converged points for Re={reynolds:.3g}")
                 continue
@@ -232,15 +315,15 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
         raise RuntimeError(
             "XFOIL produced no usable polar points for any Reynolds in the "
             "requested sweep. Check the airfoil geometry and the requested "
-            "angle range, or import a CSV/experimental table instead."
+            "Reynolds/alpha ranges."
         )
     return slices
-
 
 def run_polar(engine: str, geometry: ProfileGeometry,
               reynolds_list: list[float], mach_list: list[float],
               alpha_min_deg: float, alpha_max_deg: float,
-              alpha_step_deg: float) -> list[PolarSlice]:
+              alpha_step_deg: float, *, ncrit: float = 9.0,
+              xtr_top: float = 1.0, xtr_bot: float = 1.0) -> list[PolarSlice]:
     """Run an external engine over ``geometry`` for each (Reynolds, Mach)
     combination in ``reynolds_list`` x ``mach_list``, over the requested
     alpha range, and return a list of ``PolarSlice`` ready to be
@@ -251,6 +334,13 @@ def run_polar(engine: str, geometry: ProfileGeometry,
     Supported engines: ``"neuralfoil"`` runs the NeuralFoil package in
     process; ``"xfoil"`` drives the ``xfoil`` executable as a subprocess
     (see ``_run_polar_xfoil``).
+
+    Keyword-only adjustment inputs (XFOIL-dedicated): ``ncrit`` is the
+    critical e^N amplification factor of the transition criterion, and
+    ``xtr_top``/``xtr_bot`` force transition at a chord fraction (1.0 =
+    free transition). They reach only the XFOIL binary; the NeuralFoil
+    path ignores them. All three are validated here, before any process
+    starts: an invalid value raises ``ValueError``.
 
     Robustness (same pattern as ``bemt.py`` for points that do not
     converge in the inflow solver): a specific alpha point that
@@ -272,10 +362,12 @@ def run_polar(engine: str, geometry: ProfileGeometry,
         )
     if alpha_step_deg <= 0:
         raise ValueError(f"alpha_step_deg must be positive (got {alpha_step_deg}).")
+    _validate_xfoil_adjustments(ncrit, xtr_top, xtr_bot)
 
     if engine == "xfoil":
         return _run_polar_xfoil(geometry, reynolds_list, mach_list,
-                                alpha_min_deg, alpha_max_deg, alpha_step_deg)
+                                alpha_min_deg, alpha_max_deg, alpha_step_deg,
+                                ncrit=ncrit, xtr_top=xtr_top, xtr_bot=xtr_bot)
 
     # --- NeuralFoil path (in-process package), unchanged below ----------
     if not is_available("neuralfoil"):

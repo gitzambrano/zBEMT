@@ -382,6 +382,142 @@ class TestCstBezier(unittest.TestCase):
         self.assertLess(i_le, 100)
 
 
+class TestParsecJoukowskiBiconvex(unittest.TestCase):
+    """The three analytic families added to the catalog: PARSEC (crest-
+    controlled polynomial surfaces), Joukowski (conformal map) and the
+    parabolic biconvex section."""
+
+    # --- PARSEC ---------------------------------------------------------
+
+    def test_parsec_crest_lands_where_the_parameters_say(self):
+        import numpy as np
+        geom = airfoils.generate_parsec(n_points=160)
+        self.assertEqual(geom.source, "parsec")
+        x = np.asarray(geom.x)
+        y = np.asarray(geom.y)
+        i_le = int(np.argmin(x))
+        up_x, up_y = x[:i_le + 1], y[:i_le + 1]
+        j = int(np.argmax(up_y))
+        self.assertAlmostEqual(up_y[j], 0.0593, delta=2e-3)   # y_up
+        self.assertAlmostEqual(up_x[j], 0.30, delta=0.03)     # x_up
+
+    def test_parsec_chord_normalized_and_closed_trailing_edge(self):
+        import numpy as np
+        geom = airfoils.generate_parsec(th_te=0.004, n_points=120)
+        x = np.asarray(geom.x)
+        y = np.asarray(geom.y)
+        self.assertAlmostEqual(x.min(), 0.0, places=9)
+        self.assertAlmostEqual(x.max(), 1.0, places=9)
+        # blunt but CLOSED trailing edge: first point is the upper TE half,
+        # last point the lower one, both at x=1 and +-th_te/2 apart
+        self.assertAlmostEqual(x[0], 1.0, places=9)
+        self.assertAlmostEqual(x[-1], 1.0, places=9)
+        self.assertAlmostEqual(y[0] - y[-1], 0.004, places=9)
+
+    def test_parsec_out_of_range_parameters_raise(self):
+        with self.assertRaises(ValueError):
+            airfoils.generate_parsec(r_le=-0.01)
+        with self.assertRaises(ValueError):
+            airfoils.generate_parsec(r_le=0.0)
+        with self.assertRaises(ValueError):
+            airfoils.generate_parsec(y_up=-0.05)     # upper crest below the chord
+        with self.assertRaises(ValueError):
+            airfoils.generate_parsec(y_lo=+0.04)     # lower crest above the chord
+        with self.assertRaises(ValueError):
+            airfoils.generate_parsec(x_up=1.4)
+        with self.assertRaises(ValueError):
+            airfoils.generate_parsec(beta_te_deg=95.0)
+        with self.assertRaises(ValueError):
+            airfoils.generate_parsec(th_te=-0.001)
+
+    # --- Joukowski ------------------------------------------------------
+
+    def test_joukowski_thickness_is_approximately_one_point_three_epsilon(self):
+        import numpy as np
+        geom = airfoils.generate_joukowski(epsilon=0.08, camber=0.05, n_points=400)
+        y = np.asarray(geom.y)
+        thickness = float(y.max() - y.min())
+        self.assertAlmostEqual(thickness, 1.3 * 0.08, delta=0.15 * 1.3 * 0.08)
+
+    def test_joukowski_trailing_edge_is_a_cusp(self):
+        """The signature of the family: the two branches LEAVE the
+        trailing edge in the same direction (tangent-continuous), instead
+        of meeting at a finite angle."""
+        import numpy as np
+        geom = airfoils.generate_joukowski(n_points=400)
+        x = np.asarray(geom.x)
+        y = np.asarray(geom.y)
+        self.assertAlmostEqual(x[0], 1.0, places=9)
+        self.assertAlmostEqual(y[0], 0.0, places=9)
+        v_out = np.array([x[4] - x[1], y[4] - y[1]])     # one branch leaving the TE
+        v_in = np.array([x[-1] - x[-4], y[-1] - y[-4]])  # the other, seen from the TE
+        cosine = abs(float(np.dot(v_out, v_in))
+                      / (np.linalg.norm(v_out) * np.linalg.norm(v_in)))
+        self.assertGreater(cosine, 0.999)
+
+    def test_joukowski_positive_camber_bows_the_mean_line_up(self):
+        import numpy as np
+        geom = airfoils.generate_joukowski(camber=0.05)
+        y = np.asarray(geom.y)
+        self.assertGreater(float(y.max()), abs(float(y.min())))
+
+    def test_joukowski_invalid_inputs_raise(self):
+        with self.assertRaises(ValueError):
+            airfoils.generate_joukowski(epsilon=0.0)
+        with self.assertRaises(ValueError):
+            airfoils.generate_joukowski(epsilon=-0.08)
+        with self.assertRaises(ValueError):
+            airfoils.generate_joukowski(epsilon=float("nan"))
+
+    # --- biconvex -------------------------------------------------------
+
+    def test_biconvex_max_thickness_equals_t_at_midchord(self):
+        import numpy as np
+        t = 0.06
+        geom = airfoils.generate_biconvex(thickness=t, n_points=100)
+        self.assertEqual(geom.source, "biconvex")
+        x = np.asarray(geom.x)
+        y = np.asarray(geom.y)
+        j = int(np.argmax(y))
+        # tolerance covers the cosine grid not landing exactly on x=0.5
+        self.assertAlmostEqual(y[j] - y.min(), t, delta=1e-3)
+        self.assertAlmostEqual(x[j], 0.5, delta=0.02)
+        # sharp leading and trailing edges: both contour ENDS sit on the chord
+        # (upper TE first, lower TE last) and so does the leading edge
+        i_le = int(np.argmin(x))
+        self.assertAlmostEqual(y[i_le], 0.0, places=9)
+        self.assertAlmostEqual(y[0], 0.0, places=9)
+        self.assertAlmostEqual(y[-1], 0.0, places=9)
+
+    def test_biconvex_zero_thickness_is_a_slit_not_an_error(self):
+        import numpy as np
+        geom = airfoils.generate_biconvex(thickness=0.0, n_points=60)
+        self.assertTrue(np.allclose(np.asarray(geom.y), 0.0))
+
+    def test_biconvex_negative_thickness_raises(self):
+        with self.assertRaises(ValueError):
+            airfoils.generate_biconvex(thickness=-0.01)
+
+    # --- shared contract ------------------------------------------------
+
+    def test_new_sources_normalize_and_resample_round_trip(self):
+        """normalize/resample must accept every new source like they accept
+        naca/imported contours: same chord span, plausible shape kept."""
+        import numpy as np
+        for geom in (airfoils.generate_parsec(),
+                     airfoils.generate_joukowski(),
+                     airfoils.generate_biconvex()):
+            before_span = max(geom.y) - min(geom.y)
+            out = airfoils.resample_profile(airfoils.normalize_profile(geom), 80)
+            with self.subTest(source=out.source):
+                self.assertEqual(out.n_points, 80)
+                self.assertEqual(len(out.x), 80)
+                self.assertAlmostEqual(min(out.x), min(geom.x), places=6)
+                self.assertAlmostEqual(max(out.x), max(geom.x), places=6)
+                after_span = max(out.y) - min(out.y)
+                self.assertAlmostEqual(after_span, before_span, delta=0.15 * before_span)
+
+
 class TestProfileFileIO(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -602,6 +738,94 @@ class TestAirfoilPresetsAndGeometrySpec(unittest.TestCase):
             airfoils.resolve_geometry_spec("clark_y_super_secreto")
         msg = str(ctx.exception)
         self.assertIn("naca0012", msg)  # list of presets appears in the message
+        # the error enumerates every accepted grammar
+        for grammar in ("cst:", "bezier:", "parsec:", "joukowski:", "biconvex:", "dat:"):
+            with self.subTest(grammar=grammar):
+                self.assertIn(grammar, msg)
+
+    def test_all_presets_dispatch_to_their_family_generator(self):
+        expected = {"parsec_default": "parsec", "joukowski_t8c5": "joukowski",
+                     "biconvex_t6": "biconvex"}
+        for key, source in expected.items():
+            with self.subTest(preset=key):
+                geom = airfoils.generate_preset(key)
+                self.assertEqual(geom.source, source)
+                self.assertTrue(geom.generator_params,
+                                "an analytic preset carries its parameters")
+
+    def test_spec_cst_prefix_splits_half_upper_half_lower(self):
+        geom = airfoils.resolve_geometry_spec("cst:0.17,0.16,-0.12,-0.10")
+        self.assertEqual(geom.source, "cst")
+        self.assertEqual(geom.cst_upper, [0.17, 0.16])
+        self.assertEqual(geom.cst_lower, [-0.12, -0.10])
+
+    def test_spec_cst_pipe_form_separates_the_groups_explicitly(self):
+        """Preferred grammar: '|' says where the upper group ends -- no
+        counting commas to find the middle, and the two sides may carry
+        different counts (independent Bernstein degrees per surface)."""
+        geom = airfoils.resolve_geometry_spec("cst:0.17, 0.16, -0.12| -0.10, 0.05")
+        self.assertEqual(geom.source, "cst")
+        self.assertEqual(geom.cst_upper, [0.17, 0.16, -0.12])
+        self.assertEqual(geom.cst_lower, [-0.10, 0.05])
+        # a single coefficient on either side is below the minimum
+        with self.assertRaises(ValueError):
+            airfoils.resolve_geometry_spec("cst:0.17|-0.1")
+        # only one '|' exists: between the upper and the lower group
+        with self.assertRaises(ValueError):
+            airfoils.resolve_geometry_spec("cst:0.17|0.16|-0.1")
+
+    def test_spec_cst_prefix_rejects_odd_and_short_lists(self):
+        for spec in ("cst:0.1", "cst:0.1,0.2,0.3"):
+            with self.subTest(spec=spec):
+                with self.assertRaises(ValueError):
+                    airfoils.resolve_geometry_spec(spec)
+
+    def test_spec_bezier_prefix_parses_control_points(self):
+        geom = airfoils.resolve_geometry_spec("bezier:1,0;0.5,0.12;0,0;-0.5,-0.06")
+        self.assertEqual(geom.source, "bezier")
+        self.assertEqual(geom.bezier_control_points[:2], [[1.0, 0.0], [0.5, 0.12]])
+
+    def test_spec_bezier_prefix_needs_at_least_two_points(self):
+        with self.assertRaises(ValueError):
+            airfoils.resolve_geometry_spec("bezier:1,0")
+
+    def test_spec_parsec_prefix_passes_nine_numbers_in_order(self):
+        spec = "parsec:0.0158,0.30,0.0593,-0.475,0.35,-0.047,0.530,0.0025,8.0"
+        geom = airfoils.resolve_geometry_spec(spec)
+        self.assertEqual(geom.source, "parsec")
+        params = geom.generator_params
+        self.assertAlmostEqual(params["beta_te_deg"], 8.0)
+        self.assertAlmostEqual(params["y_xx_lo"], 0.530)
+        self.assertAlmostEqual(params["r_le"], 0.0158)
+
+    def test_spec_parsec_prefix_requires_exactly_nine_numbers(self):
+        with self.assertRaises(ValueError):
+            airfoils.resolve_geometry_spec("parsec:0.0158,0.3,0.06")
+
+    def test_spec_joukowski_and_biconvex_prefixes(self):
+        geom = airfoils.resolve_geometry_spec("joukowski:0.08,0.05")
+        self.assertEqual(geom.source, "joukowski")
+        self.assertEqual(geom.generator_params["epsilon"], 0.08)
+        geom = airfoils.resolve_geometry_spec("biconvex:0.0")
+        self.assertEqual(geom.source, "biconvex")
+        self.assertEqual(geom.generator_params["thickness"], 0.0)
+
+    def test_spec_dat_prefix_reads_a_coordinate_file(self):
+        import tempfile
+        from pathlib import Path
+        path = Path(tempfile.mkdtemp()) / "contour.dat"
+        path.write_text("1.0 0.001\n0.0 0.0\n1.0 -0.001\n", encoding="utf-8")
+        geom = airfoils.resolve_geometry_spec(f"dat:{path}")
+        self.assertEqual(geom.source, "imported")
+        self.assertEqual(geom.n_points, 3)
+
+    def test_spec_prefix_is_case_insensitive_but_keeps_the_path(self):
+        import tempfile
+        from pathlib import Path
+        path = Path(tempfile.mkdtemp()) / "Contour.dat"
+        path.write_text("1.0 0.0\n0.0 0.0\n", encoding="utf-8")
+        geom = airfoils.resolve_geometry_spec(f"DAT:{path}")
+        self.assertEqual(geom.imported_path, str(path))
 
 
 if __name__ == "__main__":

@@ -149,7 +149,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--gen-xfoil", action="store_true",
         help="Generate a polar table via XFOIL for --airfoil-geometry and exit "
              "(does not run BEMT). Shares every option of this group with "
-             "--gen-neuralfoil; only the engine differs. Stops with a clear error "
+             "--gen-neuralfoil; only the engine differs. The three transition "
+             "options below apply to XFOIL only. Stops with a clear error "
              "when XFOIL support is not available.")
     polar_group.add_argument(
         "--airfoil-geometry", metavar="SPEC", default=None,
@@ -169,6 +170,22 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Write the generated polar table to PATH (CSV, import format). "
              "If omitted, the table is appended to project.airfoil.table_slices and the project "
              "is saved (equivalent to applying directly from GUI).")
+    polar_group.add_argument(
+        "--ncrit", type=float, metavar="FLOAT", default=None,
+        help="XFOIL only (--gen-xfoil): critical amplification factor N of the "
+             "e^N transition criterion. A lower N predicts earlier transition and "
+             "a more conservative drag level (default: 9). Rejected with "
+             "--gen-neuralfoil.")
+    polar_group.add_argument(
+        "--xtr-top", type=float, metavar="FLOAT", default=None,
+        help="XFOIL only (--gen-xfoil): chord fraction where transition is forced "
+             "on the UPPER surface, in (0, 1]. 1 leaves free transition (default: 1). "
+             "Rejected with --gen-neuralfoil.")
+    polar_group.add_argument(
+        "--xtr-bot", type=float, metavar="FLOAT", default=None,
+        help="XFOIL only (--gen-xfoil): chord fraction where transition is forced "
+             "on the LOWER surface, in (0, 1]. 1 leaves free transition (default: 1). "
+             "Rejected with --gen-neuralfoil.")
 
     # --- Design tools: geometry comparison and saved optimization
     # studies. Same early-exit pattern as the group above: they never
@@ -724,8 +741,15 @@ def _parse_float_list(text: str, flag: str) -> list[float]:
 def _run_gen_polar(project, project_path, args, engine: str) -> int:
     """Shared handler for every --gen-* polar flag: only ``engine``
     differs between them (same required flags, same export/apply
-    behavior)."""
+    behavior). The three XFOIL transition options are the one exception:
+    they exist for --gen-xfoil only."""
     flag = _GEN_POLAR_FLAGS[engine]
+    if engine != "xfoil" and any(
+            value is not None
+            for value in (args.ncrit, args.xtr_top, args.xtr_bot)):
+        print("Error: --ncrit/--xtr-top/--xtr-bot apply to --gen-xfoil.",
+              file=sys.stderr)
+        return 2
     if not args.airfoil_geometry:
         print(f"Error: {flag} requires --airfoil-geometry (NACA4/5 code or preset).",
               file=sys.stderr)
@@ -744,11 +768,23 @@ def _run_gen_polar(project, project_path, args, engine: str) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
 
+    # Defaults come from the library; each option is forwarded only when
+    # given on the command line.
+    xfoil_kwargs = {}
+    if engine == "xfoil":
+        if args.ncrit is not None:
+            xfoil_kwargs["ncrit"] = args.ncrit
+        if args.xtr_top is not None:
+            xfoil_kwargs["xtr_top"] = args.xtr_top
+        if args.xtr_bot is not None:
+            xfoil_kwargs["xtr_bot"] = args.xtr_bot
+
     try:
         slices = api.run_external_polar_from_geometry(
             geom, engine=engine,
             reynolds_list=reynolds_list, mach_list=mach_list,
             alpha_min_deg=float(lo_s), alpha_max_deg=float(hi_s), alpha_step_deg=float(step_s),
+            **xfoil_kwargs,
         )
     except (RuntimeError, ValueError) as exc:
         # Clear message (not a raw traceback). It covers the common case of

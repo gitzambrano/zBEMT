@@ -750,29 +750,109 @@ class TestDesignToolsFlags(unittest.TestCase):
             self.assertIn("--airfoil-geometry", buf.getvalue())
 
     def test_gen_xfoil_without_binary_fails_with_clear_message(self):
-        """Patched BEFORE invoking main: the availability lookup goes
-        through external_solvers.shutil.which inside run_polar, so the
-        failure happens no matter what is installed here."""
+        """Patched BEFORE invoking main: BOTH resolution sources are
+        covered (ZBEMT_XFOIL_BIN emptied, PATH lookup mocked to None),
+        so the failure happens no matter what is installed here."""
         from zbemt import external_solvers
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "proj")
             self._fast_project(path, "proj")
             out_csv = os.path.join(d, "out.csv")
             err = io.StringIO()
-            with mock.patch.object(external_solvers.shutil, "which",
-                                   return_value=None):
-                with contextlib.redirect_stderr(err):
-                    code = main_batch.main([
-                        "--project", path, "--gen-xfoil",
-                        "--airfoil-geometry", "naca0012",
-                        "--reynolds", "1e6", "--mach", "0.1",
-                        "--alpha-range", "-6:6:2.0",
-                        "--export-table", out_csv,
-                    ])
+            with mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": ""}):
+                with mock.patch.object(external_solvers.shutil, "which",
+                                       return_value=None):
+                    with contextlib.redirect_stderr(err):
+                        code = main_batch.main([
+                            "--project", path, "--gen-xfoil",
+                            "--airfoil-geometry", "naca0012",
+                            "--reynolds", "1e6", "--mach", "0.1",
+                            "--alpha-range", "-6:6:2.0",
+                            "--export-table", out_csv,
+                        ])
             self.assertEqual(code, 1)
             self.assertIn("'xfoil' executable", err.getvalue())
             self.assertNotIn("Traceback", err.getvalue())
             self.assertFalse(os.path.exists(out_csv))
+
+    def test_gen_xfoil_forwards_given_adjustments_to_run_polar(self):
+        """--ncrit/--xtr-top/--xtr-bot reach external_solvers.run_polar as
+        keyword arguments; an option omitted on the command line falls
+        back to the library default instead of being invented here."""
+        from zbemt import external_solvers
+        from zbemt.models import PolarSlice
+        fake = PolarSlice(alpha_deg=[0.0], cl=[0.5], cd=[0.01],
+                          reynolds=1e6, mach=0.1, label="x")
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            out_csv = os.path.join(d, "out.csv")
+            with mock.patch.object(external_solvers, "run_polar",
+                                   return_value=[fake]) as run_mock:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = main_batch.main([
+                        "--project", path, "--gen-xfoil",
+                        "--airfoil-geometry", "naca0012",
+                        "--reynolds", "1e6", "--mach", "0.1",
+                        "--alpha-range", "-4:4:2.0",
+                        "--export-table", out_csv,
+                        "--ncrit", "12", "--xtr-top", "0.7",
+                    ])
+            self.assertEqual(code, 0)
+            self.assertEqual(run_mock.call_count, 1)
+            kwargs = run_mock.call_args.kwargs
+            self.assertEqual(kwargs["engine"], "xfoil")
+            self.assertEqual(kwargs["ncrit"], 12.0)
+            self.assertEqual(kwargs["xtr_top"], 0.7)
+            # Not given: the library's own default flows through.
+            self.assertEqual(kwargs["xtr_bot"], 1.0)
+            self.assertTrue(os.path.exists(out_csv))
+
+    def test_gen_xfoil_without_adjustment_flags_uses_library_defaults(self):
+        from zbemt import external_solvers
+        from zbemt.models import PolarSlice
+        fake = PolarSlice(alpha_deg=[0.0], cl=[0.5], cd=[0.01],
+                          reynolds=1e6, mach=0.1, label="x")
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            out_csv = os.path.join(d, "out.csv")
+            with mock.patch.object(external_solvers, "run_polar",
+                                   return_value=[fake]) as run_mock:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = main_batch.main([
+                        "--project", path, "--gen-xfoil",
+                        "--airfoil-geometry", "naca0012",
+                        "--reynolds", "1e6", "--mach", "0.1",
+                        "--alpha-range", "-4:4:2.0",
+                        "--export-table", out_csv,
+                    ])
+            self.assertEqual(code, 0)
+            kwargs = run_mock.call_args.kwargs
+            self.assertEqual(kwargs["ncrit"], 9.0)
+            self.assertEqual(kwargs["xtr_top"], 1.0)
+            self.assertEqual(kwargs["xtr_bot"], 1.0)
+
+    def test_xfoil_adjustment_flags_are_rejected_with_gen_neuralfoil(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main([
+                    "--project", path, "--gen-neuralfoil",
+                    "--airfoil-geometry", "naca0012",
+                    "--reynolds", "1e6", "--mach", "0.1",
+                    "--export-table", os.path.join(d, "out.csv"),
+                    "--ncrit", "12",
+                ])
+            self.assertEqual(code, 2)
+            self.assertIn("--ncrit/--xtr-top/--xtr-bot apply to --gen-xfoil",
+                          err.getvalue())
+            self.assertFalse(os.path.exists(os.path.join(d, "out.csv")))
 
     def test_design_tool_modes_are_mutually_exclusive(self):
         with tempfile.TemporaryDirectory() as d:

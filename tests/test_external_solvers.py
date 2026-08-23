@@ -7,8 +7,11 @@ Geometry and operating-point inputs are isolated fixtures; no project is
 persisted by these tests.
 """
 
+import os
 import shutil
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
@@ -38,8 +41,21 @@ class TestIsAvailable(unittest.TestCase):
         self.assertEqual(external_solvers.is_available("neuralfoil"), expected)
 
     def test_is_available_xfoil_reflects_real_binary_presence(self):
-        expected = shutil.which("xfoil") is not None
-        self.assertEqual(external_solvers.is_available("xfoil"), expected)
+        # The resolver checks ZBEMT_XFOIL_BIN first, then PATH; mirror
+        # both sources so the assertion holds on machines where the
+        # environment variable is set to a real executable.
+        with mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": ""}):
+            expected = shutil.which("xfoil") is not None
+            self.assertEqual(external_solvers.is_available("xfoil"), expected)
+
+    def test_is_available_xfoil_honors_zbemt_xfoil_bin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / ("xfoil.exe" if os.name == "nt" else "xfoil")
+            fake.write_bytes(b"stub")
+            with mock.patch.dict(os.environ,
+                                 {"ZBEMT_XFOIL_BIN": str(fake)}):
+                self.assertTrue(external_solvers.is_available("xfoil"))
+                self.assertEqual(external_solvers._xfoil_command(), str(fake))
 
     def test_is_available_false_for_unknown_engine(self):
         self.assertFalse(external_solvers.is_available("bogus"))
@@ -83,15 +99,104 @@ class TestParseXfoilPolar(unittest.TestCase):
             )
 
 
+class TestXfoilScript(unittest.TestCase):
+    """The pure script builder: the three XFOIL-dedicated adjustment
+    values reach the binary through the spellings XFOIL 6.99 recognizes
+    (`VPAR`, then `N` for Ncrit and `XTR top bot`), and the accumulation
+    order that is verified working stays intact (PACC opens BEFORE ASEQ,
+    closes AFTER it, and the script ends with the dot that leaves .OPER
+    plus QUIT)."""
+
+    def test_contains_adjustment_lines_with_the_given_numbers(self):
+        text = external_solvers._xfoil_script(2e5, -4, 8, 2, 9.5, 0.8, 1.0)
+        self.assertIn("VPAR\n", text)
+        self.assertIn("\nN 9.5\n", text)
+        self.assertIn("XTR 0.8 1\n", text)
+
+    def test_adjustment_lines_come_after_visc_inside_oper(self):
+        # The transition parameters live in .VPAR, a submenu that exists
+        # only after VISC enables viscous mode; before it they are
+        # unknown commands and the binary runs with its own baseline.
+        text = external_solvers._xfoil_script(2e5, -4, 8, 2, 12.0, 0.6, 0.6)
+        oper = text.index("OPER\n")
+        visc = text.index("VISC ")
+        vpar = text.index("VPAR\n")
+        ncrit = text.index("\nN ")
+        xtr = text.index("\nXTR ")
+        back_to_oper = text.index("\n\nITER")
+        self.assertLess(oper, visc)
+        self.assertLess(visc, vpar)
+        self.assertLess(vpar, ncrit)
+        self.assertLess(ncrit, xtr)
+        self.assertLess(xtr, back_to_oper)
+
+    def test_keeps_accumulation_open_before_aseq_and_closed_after(self):
+        text = external_solvers._xfoil_script(1e6, -10, 10, 1.0, 9.0, 1.0, 1.0)
+        first_pacc = text.index("PACC")
+        aseq = text.index("ASEQ")
+        last_pacc = text.rindex("PACC")
+        self.assertLess(first_pacc, aseq)
+        self.assertLess(aseq, last_pacc)
+
+    def test_ends_with_dot_and_quit(self):
+        text = external_solvers._xfoil_script(1e6, -10, 10, 1.0, 9.0, 1.0, 1.0)
+        self.assertTrue(text.endswith(".\nQUIT\n"))
+
+    def test_alpha_and_reynolds_reach_their_commands(self):
+        text = external_solvers._xfoil_script(2e5, -4, 8, 2, 9.0, 1.0, 1.0)
+        self.assertIn("VISC 200000\n", text)
+        self.assertIn("ASEQ -4 8 2\n", text)
+
+
+class TestXfoilAdjustmentValidation(unittest.TestCase):
+    """Out-of-range adjustment inputs are rejected with ValueError BEFORE
+    any subprocess starts (a pure check), so an invalid value costs no
+    process spawn and never reaches the binary."""
+
+    def _geom(self):
+        return airfoils.generate_naca4("0012")
+
+    def test_non_positive_or_nan_ncrit_raises_value_error_before_subprocess(self):
+        for bad in (0.0, -3.0, float("nan")):
+            with self.subTest(ncrit=bad):
+                with mock.patch.object(external_solvers.subprocess, "run") as run_mock:
+                    with self.assertRaises(ValueError):
+                        external_solvers.run_polar(
+                            "xfoil", self._geom(), [1e6], [0.1], -10, 10, 1.0,
+                            ncrit=bad)
+                run_mock.assert_not_called()
+
+    def test_xtr_outside_zero_one_raises_value_error_before_subprocess(self):
+        for name, bad in (("xtr_top", 0.0), ("xtr_top", 1.5),
+                          ("xtr_bot", 0.0), ("xtr_bot", 2.0)):
+            with self.subTest(name=name, value=bad):
+                kwargs = {name: bad}
+                with mock.patch.object(external_solvers.subprocess, "run") as run_mock:
+                    with self.assertRaises(ValueError):
+                        external_solvers.run_polar(
+                            "xfoil", self._geom(), [1e6], [0.1], -10, 10, 1.0,
+                            **kwargs)
+                run_mock.assert_not_called()
+
+    def test_boundary_values_are_accepted_by_the_validator(self):
+        # No exception: finite ncrit > 0 and xtr in (0, 1].
+        external_solvers._validate_xfoil_adjustments(15.0, 1.0, 0.05)
+
+
 class TestRunPolarXfoilAvailability(unittest.TestCase):
     def test_missing_binary_raises_runtime_error_with_clear_message(self):
         geom = airfoils.generate_naca4("0012")
-        with mock.patch.object(external_solvers.shutil, "which", return_value=None):
-            with self.assertRaises(RuntimeError) as ctx:
-                external_solvers.run_polar("xfoil", geom, [1e6], [0.1], -10, 10, 1.0)
+        # Cover BOTH resolution sources: an empty ZBEMT_XFOIL_BIN and a
+        # PATH lookup that finds nothing.
+        with mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": ""}):
+            with mock.patch.object(external_solvers.shutil, "which",
+                                   return_value=None):
+                with self.assertRaises(RuntimeError) as ctx:
+                    external_solvers.run_polar(
+                        "xfoil", geom, [1e6], [0.1], -10, 10, 1.0)
         msg = str(ctx.exception)
         self.assertIn("'xfoil' executable", msg)
-        self.assertIn("PATH", msg)
+        self.assertIn("ZBEMT_XFOIL_BIN", msg)
 
 
 class TestRunPolarValidation(unittest.TestCase):

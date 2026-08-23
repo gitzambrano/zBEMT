@@ -2100,6 +2100,83 @@ def plot_geometry_comparison(results_list, fields=None, *,
     return _finish(result_axes, owned_fig, fname)
 
 
+#: Summary keys whose LOWER value wins a ranking. Every other key ranks
+#: with the largest value first. The set stays local to this module: it
+#: describes how a quantity is READ in a comparison, not how it is
+#: produced.
+_RANKING_LOWER_IS_BETTER = frozenset({"CP", "Power", "CQ"})
+
+
+def plot_geometry_ranking(results_list, field: str, *,
+                          ax=None, fname=None, ref_index: int = 0):
+    """Horizontal bar ranking of the geometry variants for ONE summary
+    quantity.
+
+    ``results_list`` is the variant-major list produced by
+    ``studies.compare_geometries``: every variant runs the same ordered
+    conditions. ``ref_index`` selects which case of that ordered list
+    supplies the ranked value (0, the default, ranks at the reference
+    condition, that is, the first case each variant ran).
+
+    ``field`` is a ``Results.summary`` key (``"FM"``, ``"CT"``,
+    ``"eta_prop"`` and so on). Variants without a finite value for the
+    field leave the ranking and do not draw a bar. The best side of the
+    quantity comes first: descending for most coefficients, ascending for
+    power-type keys (see ``_RANKING_LOWER_IS_BETTER``), so the top bar of
+    the figure always carries the winner. The winner bar receives the
+    highlight color; every bar receives its numeric annotation.
+
+    The ``ax`` and ``fname`` parameters follow the module convention
+    stated at the top of this file. The axis is returned.
+    """
+    results_list = list(results_list or [])
+    ax, fig = _resolve_ax(ax, fname, figsize=(6, 4))
+    groups = _group_by_geometry_label(results_list)
+
+    entries = []
+    for label, idxs in groups.items():
+        position = int(min(max(int(ref_index), 0), len(idxs) - 1))
+        result = results_list[idxs[position]]
+        value = _summary_float((result.summary or {}).get(field))
+        if np.isfinite(value):
+            entries.append((str(label), float(value), idxs[position]))
+
+    if not entries:
+        ax.set_axis_off()
+        message = ("No geometry-labeled results to rank" if not groups
+                   else f"No finite {field} value to rank")
+        ax.text(0.5, 0.5, message, ha="center", va="center",
+                fontsize=10, color="0.35", transform=ax.transAxes)
+        return _finish(ax, fig, fname)
+
+    lower_is_better = field in _RANKING_LOWER_IS_BETTER
+    entries.sort(key=lambda entry: entry[1], reverse=not lower_is_better)
+    winner_label, winner_value, _ = entries[0]
+
+    # `barh` draws the first name at the BOTTOM, so the reversed order
+    # puts the winner (first after the sort) at the TOP of the figure.
+    names = [entry[0] for entry in entries][::-1]
+    values = [entry[1] for entry in entries][::-1]
+    colors = ["#1a7f37" if name == winner_label else "tab:blue"
+              for name in names]
+    bars = ax.barh(names, values, color=colors, alpha=0.9)
+    ax.margins(x=0.15)
+    for bar_rect, value in zip(bars, values):
+        ax.text(bar_rect.get_width(), bar_rect.get_y() + bar_rect.get_height() / 2,
+                f"{value:.4g}", va="center", ha="left", fontsize=8)
+    ax.set_xlabel(_summary_axis_label(field))
+    ax.grid(True, axis="x", alpha=0.3)
+
+    direction = "lowest" if lower_is_better else "highest"
+    condition_name = str(getattr(results_list[entries[0][2]],
+                                 "condition_name", "") or "")
+    title = f"Geometry ranking ({condition_name})" if condition_name \
+        else "Geometry ranking"
+    ax.set_title(f"{title} — {direction} {_summary_axis_label(field)} "
+                 f"wins: {winner_label}", fontsize=10)
+    return _finish(ax, fig, fname)
+
+
 def plot_optimization_convergence(history, objective_key: str, *,
                                   ax=None, fname=None,
                                   mode: str = "minimize"):

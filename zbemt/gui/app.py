@@ -1,10 +1,14 @@
 """
 Main GUI window (PyQt6).
 
-Eight tabs, one per subject, in the natural work order:
+Seven tabs, one per subject, in the natural work order:
 
     Project -> Geometry -> Airfoil -> Config/Engine -> Run Case ->
-    Run Batch -> Design -> Results
+    Run Batch -> Results
+
+The geometry-comparison tool (the former Design tab) lives in its own
+window, opened from the Tools menu ("Geometry Designer"); design
+optimization stays available through the CLI and the library only.
 
 Each tab lives in ``zbemt/gui/tabs/``; this module only assembles them,
 wires the shortcuts and maintains the ``FlowIndicatorBar`` (the
@@ -60,9 +64,9 @@ from .tabs import (
     RunBatchTab,
     ResultsTab,
 )
-# The Design tab joins the registry through its own module: the tabs
-# package's __all__ stays untouched until the documentation pass lands.
-from .tabs.design import DesignTab
+# The geometry-comparison tool lives in its own window, not in a tab:
+# it is wired by this module (Tools > Geometry Designer).
+from .tabs.designer_window import GeometryDesignerWindow
 from .common import AppState, open_help
 from .wheel_guard import install_wheel_guard, adjust_focus_policy
 
@@ -78,7 +82,7 @@ from .common import (  # noqa: F401
     require_project, confirm_run_despite_issues,
 )
 from .workers import (  # noqa: F401
-    BatchRunnerWorker, ExternalPolarWorker, CompareWorker, OptimizeWorker,
+    BatchRunnerWorker, ExternalPolarWorker, CompareWorker,
     launch_worker,
 )
 from .dialogs import GeometryGeneratorDialog  # noqa: F401
@@ -93,7 +97,7 @@ GUI_MODULES = (
     "zbemt.gui.tabs.project", "zbemt.gui.tabs.geometry_tab",
     "zbemt.gui.tabs.airfoil", "zbemt.gui.tabs.config",
     "zbemt.gui.tabs.run_case", "zbemt.gui.tabs.run_batch",
-    "zbemt.gui.tabs.design",
+    "zbemt.gui.tabs.designer_window",
     "zbemt.gui.tabs.results",
 )
 
@@ -103,14 +107,14 @@ GUI_MODULES = (
 # =============================================================================
 
 class FlowIndicatorBar(QWidget):
-    """Project/Geometry/Airfoil/Config/Run Case/Run Batch/Design/Results
+    """Project/Geometry/Airfoil/Config/Run Case/Run Batch/Results
     markers, colored by state (gray/amber/green/red).
     Click jumps straight to the tab. It does not lock free navigation."""
 
     _STAGES = ["Project", "Geometry", "Airfoil", "Config/Engine", "Run Case",
-               "Run Batch", "Design", "Results"]
+               "Run Batch", "Results"]
 
-    #: The eight pills have the SAME width, and the width is measured (not
+    #: The seven pills have the SAME width, and the width is measured (not
     #: fixed): "Project" and "Config/Engine" differ by approximately 50 px, and
     #: colored pills of different sizes read as different things,
     #: not as stages of the same flow. The measurement comes from the
@@ -231,20 +235,10 @@ class FlowIndicatorBar(QWidget):
         # means "a result exists, but the project changed after it was computed".
         STALE_MESSAGE = ("Results were computed before the current unsaved "
                          "edits. Run again to match the project as it is now.")
-        # Design tools: ready when the project carries inputs for them --
-        # saved cases to compare over or a saved optimization study. The
-        # stage does not track session runs; those surface in Results like
-        # every other run.
-        if project.saved_cases or project.optimizations:
-            self._set_status(6, "green", "Ready.")
-        else:
-            self._set_status(6, "gray",
-                             "Add a saved case or an optimization study "
-                             "to use the design tools.")
         for index, exists, empty_message in (
                 (4, has_case, "No case has been run yet."),
                 (5, has_batch, "No batch has been run yet."),
-                (7, bool(self.state.results_history),
+                (6, bool(self.state.results_history),
                  "No results to show yet.")):
             if not exists:
                 self._set_status(index, "gray", empty_message)
@@ -303,9 +297,6 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(config_tab, "Config/Engine")
         self.tabs.addTab(RunCaseTab(self.state), "Run Case")
         self.tabs.addTab(RunBatchTab(self.state), "Run Batch")
-        # Design stays BEFORE Results: Results is the terminal hub and
-        # must remain the last tab.
-        self.tabs.addTab(DesignTab(self.state), "Design")
         self.tabs.addTab(ResultsTab(self.state, geometry_tab, airfoil_tab), "Results")
         adjust_focus_policy(self)
         # Bug 1: the FlowIndicatorBar already serves as navigation between
@@ -368,7 +359,7 @@ class MainWindow(QMainWindow):
             "Reverse flow":                          "reverse_flow",
             "Compressibility":                       "compressibility",
             "Data import / tabulated polar":         "table_import",
-            "Polar Generation via NeuralFoil":       "polar_generation",
+            "Polar Generation via External Engine":  "polar_generation",
             "2D Profile Geometry":                   "profile_2d",
             # Config tab
             "Mesh and atmospheric conditions":       "mesh_atmosphere",
@@ -388,9 +379,9 @@ class MainWindow(QMainWindow):
             "2. Case queue":                         "case_queue",
             "3. Run":                                "batch_run",
             "Export":                                "batch_export",
-            # Design tab
+            # Geometry Designer window (opened from the Tools menu; not
+            # a tab, but its groupbox titles resolve through this map)
             "Geometry comparison":                   "geometry_comparison",
-            "Design optimization":                   "design_optimization",
             # Results tab
             "Results from this session":             "results",
             "3D view":                               "view_3d",
@@ -401,6 +392,26 @@ class MainWindow(QMainWindow):
                 block_id = _title_block(_BLOCKS, gb.title())
                 if block_id:
                     make_block_title_clickable(gb, block_id)
+
+        # The Geometry Designer is a separate top-level window, but it
+        # belongs to the same help system: its groupbox titles resolve
+        # through the SAME _BLOCKS map, so a block that moved into the
+        # window ("Geometry comparison") keeps its popup.
+        self.geometry_designer = GeometryDesignerWindow(self.state, parent=self)
+        for gb in self.geometry_designer.findChildren(_QGB):
+            block_id = _title_block(_BLOCKS, gb.title())
+            if block_id:
+                make_block_title_clickable(gb, block_id)
+        from .common import (compact_form_fields as _compact,
+                             ensure_button_legibility as _legible,
+                             ensure_row_spacing as _spacing,
+                             align_form_labels as _align,
+                             show_all_options_in as _all_options)
+        _compact(self.geometry_designer)
+        _legible(self.geometry_designer)
+        _spacing(self.geometry_designer)
+        _align(self.geometry_designer)
+        _all_options(self.geometry_designer)
 
         # kept for the closing prompt (Q7): these are the tabs that know
         # how to distinguish "edited in the form" from "applied to the project"
@@ -477,10 +488,26 @@ class MainWindow(QMainWindow):
                        activated=lambda i=i: self.tabs.setCurrentIndex(i))
         # F1 -- same destination as the FlowIndicatorBar's "?" button (docs/documentation.html).
         QShortcut(QKeySequence("F1"), self, activated=lambda: open_help(self))
+        # Conventional "Tools" menu -- the entry point of the dedicated
+        # design windows that do not live in a tab.
+        tools_menu = self.menuBar().addMenu("Tools")
+        action = tools_menu.addAction("Geometry Designer…")
+        action.setToolTip(
+            "Opens the geometry-comparison window: blade variants, "
+            "conditions, and the ranked comparison results.")
+        action.triggered.connect(self.open_geometry_designer)
         # Conventional "Help" menu -- redundant with the "?"/F1 button, but it is
         # where users accustomed to desktop apps expect to find help.
         help_menu = self.menuBar().addMenu("Help")
         help_menu.addAction("Open documentation (F1)", lambda: open_help(self))
+
+    def open_geometry_designer(self):
+        """Shows the non-modal Geometry Designer window, parented to
+        this window so it stays on top of it while it is open."""
+        window = self.geometry_designer
+        window.show()
+        window.raise_()
+        window.activateWindow()
 
     def _shortcut_save(self):
         w = self.tabs.widget(0)   # ProjectTab

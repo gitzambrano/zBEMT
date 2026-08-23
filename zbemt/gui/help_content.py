@@ -435,6 +435,39 @@ FIELD_HELP: dict[str, dict] = {
     # NeuralFoil mode, and none of them had an entry here or anchor in
     # HTML, so the "?" never appeared on the line. Section 6.7 of the
     # documentation already described them -- the link was missing.
+    "geometry_spec": {
+        "title": "Geometry Spec",
+        "definition": (
+            "The complete 2D contour described in a single string, resolved by the "
+            "same engine that reads the command line's --airfoil-geometry flag. "
+            "Accepted grammars: a preset nickname (naca0012, parsec_default, "
+            "joukowski_t8c5, biconvex_t6); a raw NACA code (2412, 23012); "
+            "cst:a1,a2,... with an even number of coefficients split half into the "
+            "upper surface and half into the lower; bezier:x1,y1;x2,y2;... control "
+            "points separated by semicolons; parsec:r_le,x_up,y_up,y_xx_up,x_lo,"
+            "y_lo,y_xx_lo,th_te,beta_te_deg with nine numbers and the trailing-edge "
+            "angle last in degrees; joukowski:epsilon,camber; biconvex:thickness "
+            "(0 allowed, a slit); dat:path to a coordinate file."),
+        "unit": "—",
+        "equation": (
+            r"y(x) = \sum_{k=1}^{6} a_k\,x^{k-\frac{1}{2}} \quad \text{(PARSEC)},\quad "
+            r"z = \zeta + \frac{1}{\zeta} \quad \text{(Joukowski)},\quad "
+            r"y = \pm 2t\,x(1-x) \quad \text{(biconvex)}"),
+        "effect": (
+            "When this field is non-empty it takes precedence over the Source and "
+            "NACA fields: Generate geometry resolves this string first. It is what "
+            "gives on-screen access to the analytic families (PARSEC sets crest "
+            "positions, curvatures and nose radius directly; Joukowski is a cusped "
+            "conformal-map section; biconvex is a sharp-edged thin supersonic "
+            "section) and to CST/Bezier without leaving the tab.\n\n"
+            "Careful: the contour only reaches the engine through the polar "
+            "generated from it. Changing the string changes nothing until polar "
+            "generation runs again."),
+        "range": (
+            "A single non-empty string following any grammar above; leave empty to "
+            "use the Source/NACA fields instead."),
+        "options": None
+    },
     "naca_code": {
         "title": "NACA Code",
         "definition": (
@@ -689,6 +722,64 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\Delta\alpha",
         "effect": "Decreasing the step size increases polar resolution and computation time; finer steps reduce interpolation error.",
         "range": "0.5–5°",
+        "options": None
+    },
+    "xfoil_ncrit": {
+        "title": "XFOIL Ncrit",
+        "definition": (
+            "Critical amplification factor N of the e<sup>N</sup> transition "
+            "criterion, used only by the XFOIL engine.\n\n"
+            "The boundary layer turns turbulent where small disturbances inside "
+            "it have grown by the factor e<sup>N</sup>. A lower N stands for a "
+            "flow with many disturbances and predicts earlier transition with "
+            "higher drag; a higher N lets the layer stay laminar longer.\n\n"
+            "NeuralFoil ignores this input."),
+        "unit": "—",
+        "equation": r"A(x) = e^{N}, \quad N = N_{crit}",
+        "effect": (
+            "Lowering Ncrit predicts earlier transition and a drag level nearer "
+            "the fully turbulent one. Raising it extends laminar flow and lowers "
+            "predicted skin friction.\n\n"
+            "The value reaches only the XFOIL binary; other engines ignore it."),
+        "range": "1–15 (default 9, a clean flow)",
+        "options": None
+    },
+    "xfoil_xtr_top": {
+        "title": "XFOIL Xtr Top",
+        "definition": (
+            "Chord fraction x/c where transition is FORCED on the upper "
+            "surface, used only by the XFOIL engine.\n\n"
+            "XFOIL fixes the laminar-to-turbulent transition at that station "
+            "instead of predicting it. The default 1 leaves free transition on "
+            "the whole surface.\n\n"
+            "NeuralFoil ignores this input."),
+        "unit": "x/c",
+        "equation": r"x_{tr}/c \in (0,\ 1]",
+        "effect": (
+            "A value below 1 pins transition there, so everything downstream "
+            "turns turbulent at once: drag rises toward the fully turbulent "
+            "level. This models a trip strip or reproduces a measurement with "
+            "fixed transition."),
+        "range": "(0, 1] (default 1 = free transition)",
+        "options": None
+    },
+    "xfoil_xtr_bot": {
+        "title": "XFOIL Xtr Bottom",
+        "definition": (
+            "Chord fraction x/c where transition is FORCED on the lower "
+            "surface, used only by the XFOIL engine.\n\n"
+            "XFOIL fixes the laminar-to-turbulent transition at that station "
+            "instead of predicting it. The default 1 leaves free transition on "
+            "the whole surface.\n\n"
+            "NeuralFoil ignores this input."),
+        "unit": "x/c",
+        "equation": r"x_{tr}/c \in (0,\ 1]",
+        "effect": (
+            "A value below 1 pins transition there, so everything downstream "
+            "turns turbulent at once: drag rises toward the fully turbulent "
+            "level. This models a trip strip or reproduces a measurement with "
+            "fixed transition."),
+        "range": "(0, 1] (default 1 = free transition)",
         "options": None
     },
     "table_slices": {

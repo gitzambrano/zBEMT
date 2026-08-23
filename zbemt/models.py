@@ -333,11 +333,16 @@ class ProfileGeometry:
     """2D profile geometry (x,y coordinates). Only needed when a polar is
     to be generated via an external engine (NeuralFoil, Phase 7); for the
     analytical/table models it is optional/illustrative."""
-    source: str = "naca4"          # "naca4" | "naca5" | "cst" | "bezier" | "imported"
+    source: str = "naca4"          # "naca4" | "naca5" | "cst" | "bezier" | "parsec" | "joukowski" | "biconvex" | "imported"
     naca_code: str = "0012"
     cst_upper: list[float] = field(default_factory=list)
     cst_lower: list[float] = field(default_factory=list)
     bezier_control_points: list[list[float]] = field(default_factory=list)
+    #: Parameters of the analytic families that have no dedicated fields
+    # ("parsec", "joukowski", "biconvex"): the exact keyword dictionary
+    # accepted by the generator of the same name in airfoils.py, so a
+    # saved contour can be regenerated without the coordinates.
+    generator_params: dict = field(default_factory=dict)
     imported_path: Optional[str] = None
     n_points: int = 200
 
@@ -461,6 +466,16 @@ class AirfoilDef:
     external_alpha_min_deg: float = -20.0
     external_alpha_max_deg: float = 20.0
     external_alpha_step_deg: float = 0.5
+
+    # --- XFOIL-only adjustment inputs, read only when
+    # external_engine == "xfoil" (see external_solvers._run_polar_xfoil).
+    # xfoil_ncrit is the critical amplification factor N of the e^N
+    # transition criterion; xfoil_xtr_top/xfoil_xtr_bot force transition
+    # at a chord fraction, where 1.0 leaves free transition. Serialized by
+    # airfoil.bemt automatically. NeuralFoil ignores them.
+    xfoil_ncrit: float = 9.0
+    xfoil_xtr_top: float = 1.0
+    xfoil_xtr_bot: float = 1.0
 
 
 def uses_full_range_extension(a: "AirfoilDef") -> bool:

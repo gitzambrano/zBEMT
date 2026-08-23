@@ -804,11 +804,101 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
         from zbemt.gui import app as gui
         cls.gui = gui
 
-    def test_engine_combo_has_no_xfoil_option(self):
+    def test_engine_combo_offers_none_neuralfoil_and_xfoil(self):
+        """XFOIL returned as a first-class engine: the combo offers it and
+        the binary is required only when a run with it is requested."""
         state = self.gui.AppState()
         tab = self.gui.AirfoilTab(state)
         items = [tab.engine_combo.itemText(i) for i in range(tab.engine_combo.count())]
-        self.assertEqual(items, ["none", "neuralfoil"])
+        self.assertEqual(items, ["none", "neuralfoil", "xfoil"])
+
+    def test_xfoil_adjustment_fields_exist_and_follow_engine_visibility(self):
+        """The three XFOIL-dedicated adjustment inputs exist, start hidden
+        for engines that ignore them, and appear only when the engine is
+        xfoil."""
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        tab.show()
+        tab.source_combo.setCurrentText("neuralfoil")
+        tab.engine_combo.setCurrentText("neuralfoil")
+        self.assertFalse(tab.ext_ncrit.isVisible())
+        self.assertFalse(tab.ext_xtr_top.isVisible())
+        self.assertFalse(tab.ext_xtr_bot.isVisible())
+        tab.engine_combo.setCurrentText("xfoil")
+        self.assertTrue(tab.ext_ncrit.isVisible())
+        self.assertTrue(tab.ext_xtr_top.isVisible())
+        self.assertTrue(tab.ext_xtr_bot.isVisible())
+
+    def test_xfoil_adjustment_fields_have_ranges_defaults_and_keyed_tooltips(self):
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        self.assertEqual((tab.ext_ncrit.minimum(), tab.ext_ncrit.maximum()), (1.0, 15.0))
+        self.assertEqual(tab.ext_ncrit.value(), 9.0)
+        for widget in (tab.ext_xtr_top, tab.ext_xtr_bot):
+            self.assertEqual(widget.minimum(), 0.01)
+            self.assertEqual(widget.maximum(), 1.0)
+            self.assertEqual(widget.value(), 1.0)
+        self.assertTrue(tab.ext_ncrit.toolTip().startswith('"xfoil_ncrit"'))
+        self.assertTrue(tab.ext_xtr_top.toolTip().startswith('"xfoil_xtr_top"'))
+        self.assertTrue(tab.ext_xtr_bot.toolTip().startswith('"xfoil_xtr_bot"'))
+
+    def test_xfoil_adjustment_values_round_trip_through_airfoil_def(self):
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        a = AirfoilDef(source="table", external_engine="xfoil",
+                       xfoil_ncrit=11.5, xfoil_xtr_top=0.7, xfoil_xtr_bot=0.3)
+        tab._load_form_from_airfoil_def(a)
+        collected = tab._collect_airfoil_def()
+        self.assertAlmostEqual(collected.xfoil_ncrit, 11.5)
+        self.assertAlmostEqual(collected.xfoil_xtr_top, 0.7)
+        self.assertAlmostEqual(collected.xfoil_xtr_bot, 0.3)
+
+    def test_external_block_labels_are_engine_neutral(self):
+        """The block no longer promises NeuralFoil: with 'xfoil' selectable,
+        title and button say what they do, not which engine does it."""
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        self.assertEqual(tab.external_box.title(), "Polar Generation via External Engine")
+        self.assertEqual(tab.btn_run_external.text(), "Run polar generation")
+
+    def test_run_with_xfoil_requires_the_binary_before_running(self):
+        """`require_optional_binary` gates the xfoil path: without the
+        executable (and without ZBEMT_XFOIL_BIN), no worker is dispatched
+        and the dialog explains how to install."""
+        from pathlib import Path
+        from zbemt.gui import common
+        from zbemt import airfoils
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        tab.source_combo.setCurrentText("neuralfoil")
+        tab._profile = airfoils.generate_naca4("0012")
+        tab.engine_combo.setCurrentText("xfoil")
+        env = {k: "" for k in ("ZBEMT_XFOIL_BIN",)}
+        with unittest.mock.patch.dict(os.environ, env):
+            with unittest.mock.patch.object(common.shutil, "which", return_value=None):
+                with helpers.patch_message_box_everywhere("QMessageBox") as mb:
+                    tab._run_external()
+        mb.information.assert_called_once()
+        texto = mb.information.call_args[0][2]
+        self.assertIn("ZBEMT_XFOIL_BIN", texto)
+        self.assertIsNone(tab._ext_worker, "no worker should be dispatched without the binary")
+
+    def test_require_optional_binary_found_through_env_var(self):
+        import tempfile
+        from pathlib import Path
+        from zbemt.gui import common
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / ("xfoil.exe" if os.name == "nt" else "xfoil")
+            fake.write_bytes(b"stub")
+            with unittest.mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": str(fake)}):
+                with helpers.patch_message_box_everywhere("QMessageBox") as mb:
+                    ok = common.require_optional_binary(
+                        tab, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                        download_hint="Install XFOIL.")
+        self.assertTrue(ok)
+        mb.information.assert_not_called()
 
     def test_run_button_stays_clickable_without_the_optional_package(self):
         """Before the button was DISABLED when `neuralfoil` was missing, and the

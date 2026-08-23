@@ -131,7 +131,8 @@ class TestBlockHelp(unittest.TestCase):
         not appear in the row and the user got no explanation at all."""
         from zbemt.gui import help_content
         from zbemt.gui.field_help import field_anchor
-        for field in ("naca_code", "cst_upper", "cst_lower", "bezier_control_points"):
+        for field in ("naca_code", "cst_upper", "cst_lower", "bezier_control_points",
+                      "geometry_spec"):
             with self.subTest(field=field):
                 self.assertIn(field, help_content.FIELD_HELP)
                 self.assertIsNotNone(field_anchor(field))
@@ -169,12 +170,72 @@ class TestBlockHelp(unittest.TestCase):
     def test_naca_catalog_enters_the_field_hint(self):
         """The note for each preset ("what is typical for") was the only
         content the removed combo added -- it survives in the field help,
-        derived from the SAME catalog."""
+        derived from the SAME catalog. Only the NACA families are listed:
+        the hint sits in the NACA field, and the analytic presets
+        (parsec/joukowski/biconvex) carry generator parameters, not a NACA
+        code -- they are reachable through the Geometry spec field."""
         from zbemt.gui.tabs.airfoil import NACA_CATALOG_TEXT
         tooltip = NACA_CATALOG_TEXT()
-        for data in airfoils.AIRFOIL_PRESETS.values():
+        for alias, data in airfoils.AIRFOIL_PRESETS.items():
+            if data["family"] not in ("naca4", "naca5"):
+                continue
             with self.subTest(code=data["code"]):
                 self.assertIn(data["code"], tooltip)
+
+    def test_every_analytic_preset_is_named_by_a_catalog_entry(self):
+        """The new analytic families are first-class: each one has a preset
+        entry that `generate_preset` dispatches by family key."""
+        families = {data["family"] for data in airfoils.AIRFOIL_PRESETS.values()}
+        self.assertLessEqual({"parsec", "joukowski", "biconvex"}, families)
+
+
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestGeometrySpecField(_TestWindow):
+    """The Geometry spec field: one string feeding the same resolver the
+    CLI uses, taking precedence over the Source/NACA fields when filled."""
+
+    def test_spec_takes_precedence_over_the_combo(self):
+        tab = self.tab
+        tab.profile_source_combo.setCurrentText("naca4")
+        tab.naca_code_edit.setText("2412")
+        tab.geometry_spec_edit.setText("biconvex:0.08")
+        tab._generate_profile()
+        import numpy as np
+        y = np.asarray(tab._profile.y)
+        self.assertEqual(tab._profile.source, "biconvex")
+        # tolerance covers the cosine grid not landing exactly on x=0.5
+        self.assertAlmostEqual(float(y.max() - y.min()), 0.08, delta=1e-3)
+
+    def test_empty_spec_falls_back_to_the_naca_field(self):
+        tab = self.tab
+        tab.geometry_spec_edit.clear()
+        tab.profile_source_combo.setCurrentText("naca4")
+        tab.naca_code_edit.setText("0012")
+        tab._generate_profile()
+        self.assertEqual(tab._profile.source, "naca4")
+        self.assertEqual(tab._profile.naca_code, "0012")
+
+    def test_invalid_spec_reports_an_error_and_keeps_the_previous_profile(self):
+        from unittest.mock import patch
+        tab = self.tab
+        tab.geometry_spec_edit.setText("biconvex:0.06")
+        tab._generate_profile()
+        before = tab._profile
+        with patch("zbemt.gui.tabs.airfoil.show_error") as err:
+            tab.geometry_spec_edit.setText("parsec:1,2,3")
+            tab._generate_profile()
+        self.assertTrue(err.called, "an invalid spec must say so, not fail silently")
+        self.assertIs(tab._profile, before)
+
+    def test_preset_nicknames_resolve_through_the_spec_field(self):
+        tab = self.tab
+        for spec, expected_source in (("parsec_default", "parsec"),
+                                      ("joukowski_t8c5", "joukowski"),
+                                      ("biconvex_t6", "biconvex")):
+            with self.subTest(spec=spec):
+                tab.geometry_spec_edit.setText(spec)
+                tab._generate_profile()
+                self.assertEqual(tab._profile.source, expected_source)
 
 
 class TestSuggestedEnvelope(unittest.TestCase):

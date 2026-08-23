@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import shutil
 import traceback
 from pathlib import Path
 
@@ -1062,6 +1063,32 @@ def require_optional_package(widget: QWidget, feature: str) -> bool:
         f"This feature needs the optional package '{feature}', which is not installed, "
         f"so {description} is unavailable.\n\nInstall it with:\n\n    {command}\n\n"
         "Then restart zBEMT.")
+    return False
+
+
+def require_optional_binary(widget: QWidget, feature: str,
+                             env_var: str, download_hint: str) -> bool:
+    """True if the external executable for ``feature`` can be found;
+    otherwise opens a dialog with the installation hint and returns
+    False.
+
+    Mirror of `require_optional_package` for programs instead of Python
+    packages. Resolution order matches the engine's own resolver (for
+    example ``external_solvers._xfoil_command``): first the environment
+    variable ``env_var`` pointing at a full executable path, then the
+    program name on ``PATH``. The dialog is informational on purpose --
+    same pattern as its package sibling: the button stays clickable and
+    the click explains what is missing."""
+    explicit = os.environ.get(env_var, "").strip()
+    if explicit and Path(explicit).is_file():
+        return True
+    if shutil.which(feature.lower()):
+        return True
+    QMessageBox.information(
+        widget, f"{feature} executable not found",
+        f"This feature runs the external program '{feature.lower()}', which was not found "
+        f"on this system.\n\nEither set the {env_var} environment variable to the full path "
+        f"of the executable, or make sure '{feature.lower()}' is on PATH.\n\n{download_hint}")
     return False
 
 
