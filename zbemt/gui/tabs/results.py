@@ -2160,10 +2160,18 @@ class ResultsTab(QWidget):
             return
         # The result already contains the aggregated diagnostics even when
         # the per-iteration history was not requested. So the absence of
-        # `collect_history` must not stop the user from opening the plot.
+        # `collect_history` must not stop the user from opening the plot:
         # `plot_convergence` draws these diagnostics as a summary when
-        # there are no time series.
-        self.btn_enable_history.setVisible(False)
+        # there are no time series. What absence DOES change is what the
+        # panel can show -- with history off there are no per-iteration
+        # series, only the summary cards -- so the enable button stays
+        # reachable until the project records them (PR-2: a real control
+        # that still has something to offer stays visible). It used to be
+        # hidden in BOTH branches here, which made the affordance the
+        # constructor promises unreachable.
+        history_on = bool(result.summary.get(
+            "cfg_collect_history", self._project_collects_history()))
+        self.btn_enable_history.setVisible(not history_on)
         # No `ax=`: `plot_convergence` assembles the figure in the format
         # it itself demands (landscape ~11x4.4 when there is disk+history,
         # shorter when there is only the card strip). Handing it a ready
@@ -2175,6 +2183,14 @@ class ResultsTab(QWidget):
             ("convergence", self._selection_signature(),
              result.summary.get("convergence_pct"),
              result.summary.get("mean_iter")), _build_figure)
+
+    def _project_collects_history(self) -> bool:
+        """Fallback for results that predate the cfg_ echo: read the open
+        project's own config."""
+        project = self.state.project
+        if project is None:
+            return False
+        return bool(project.config.get("collect_history", False))
 
     def _habilitar_historico_de_convergencia(self):
         if self.state.project is None:

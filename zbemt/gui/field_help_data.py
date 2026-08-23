@@ -36,6 +36,19 @@ _FIELD_INDEX_BLOCK = re.compile(
 _BEMT_MARK = 'class="bemt"'
 _GUI_MARK = 'class="gui"'
 
+#: Sections that cite a field WITHOUT being its section, as
+#: ``(field, anchor)`` pairs excluded from `_best_section`.
+#:
+#: The map is keyed on the bare name, so any section that prints
+#: ``<code>field</code>`` competes with the field's own section --
+#: including lists that merely name it among others. §8.8.4 ("Export
+#: without committing the project to disk") lists ``r_norm`` among the
+#: columns of the exported CSV; its body is shorter than the radial
+#: station's own §8.1.3, so the tie-break handed the help link to the
+#: export section. Extend this table only when another bare name gains
+#: a citation that is a list, never an explanation.
+_NOT_THE_FIELDS_SECTION = frozenset({("r_norm", "cap-3-8-3")})
+
 #: chapters whose subject is physics/math, not widget description
 _PHYSICS_CHAPTERS = frozenset({
     "physics-fundamentals",   # 2. Physics fundamentals
@@ -224,7 +237,8 @@ def _best_section(field: str) -> str | None:
     reader AWAY from the explanation instead of toward it.
     """
     sections = documentation_sections()
-    candidates = [s for s in sections if _cites_field(s, field)]
+    candidates = [s for s in sections if _cites_field(s, field)
+                  and (field, s.anchor) not in _NOT_THE_FIELDS_SECTION]
     if not candidates:
         return None
     best = max(candidates,

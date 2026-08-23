@@ -209,6 +209,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-evals", type=int, default=None, metavar="N",
         help="Evaluation limit used by --optimize, overriding the value stored in the "
              "study definition. Without this flag, the stored value is kept.")
+    design_group.add_argument(
+        "--trim", choices=["none", "thrust", "CT"], default="none",
+        help="Loading held constant across the --compare variants, so efficiency "
+             "compares fairly. 'thrust' or 'CT' reads the target from the FIRST "
+             "variant (the reference: the geometry of --project, named 'base') and, "
+             "at every condition, trims each other variant to it -- propellers "
+             "solve RPM, rotors solve collective. Trimmed summaries record "
+             "trim_target/trim_dof/trim_dof_value; each trimmed case bisects one "
+             "control and costs roughly ten times a direct solve. Default none: "
+             "every variant runs the same controls.")
     # NOTE: --rpm already exists below (ad hoc condition speed). --compare
     # reuses it when the project has no saved cases; see _run_compare.
 
@@ -856,7 +866,8 @@ def _run_compare(project, args) -> int:
                                       collective_deg=8.0,
                                       rpm=float(rpm_value))]
     try:
-        results = api.compare_geometries(project, variants, conditions)
+        results = api.compare_geometries(project, variants, conditions,
+                                          trim=args.trim)
     except (RuntimeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

@@ -858,6 +858,7 @@ def compare_geometries(project: Project,
                        variants: dict,
                        conditions: Optional[Sequence[FlightCondition]] = None,
                        *,
+                       trim: str = "none",
                        on_case_done=None,
                        should_cancel=None) -> list:
     """Run the same flight conditions across several geometries.
@@ -868,34 +869,102 @@ def compare_geometries(project: Project,
     case). Returns a flat ``list[Results]`` in variant order; each summary
     carries ``geometry_label`` so plots, tables and reports can group the
     series. Results stay in memory (AR-2).
+
+    ``trim`` extends the comparison from equal CONTROLS to equal LOADING:
+    ``"thrust"`` (or ``"CT"``) holds the absolute thrust (or the
+    coefficient) CONSTANT across every variant, which is the fair basis
+    for comparing efficiency. The FIRST variant label is the reference:
+    it runs every condition untrimmed, and its ``Thrust``/``CT`` at each
+    condition becomes the target every other variant must hit.
+    ``run_case_trimmed`` supplies the mechanics: bisection over ONE degree
+    of freedom, chosen automatically from the project convention --
+    ``solve_rpm`` for propellers (fixed-pitch machines throttle with rpm),
+    ``solve_collective`` for rotors (rpm governed, collective free). A
+    variant whose target lies outside the default bracket raises
+    ``ValueError`` naming the variant, the condition and the remedy
+    instead of converging outside the plausible interval. Trimmed
+    summaries record what was traded: ``trim_target``, ``trim_dof`` and
+    ``trim_dof_value``; reference summaries carry ``trim_reference``.
+    Trimming multiplies the cost of every non-reference case by the
+    bisection iteration count (typically ~10--20 solves).
     """
     if not variants:
         raise ValueError("compare_geometries needs at least one variant.")
     if conditions is None:
         conditions = list(project.saved_cases) or [FlightCondition()]
-    for condition in conditions:
-        _require_rpm(condition.rpm,
-                     f"geometry comparison (condition {condition.name!r}; "
-                     f"set rpm on the saved case or pass --rpm)")
+    conditions = list(conditions)
+    if trim != "none" and trim not in _TRIM_TARGET_KINDS:
+        raise ValueError(
+            f"compare_geometries: trim must be 'none', 'thrust' or 'CT' "
+            f"(got {trim!r}).")
     # Fail fast with context instead of letting the first solve die deep
     # inside _require_rpm: every condition here must carry an rpm.
     for condition in conditions:
         _require_rpm(condition.rpm,
                      f"geometry comparison (condition {condition.name!r})")
-    results = []
-    total = len(variants) * len(list(conditions))
+
+    summary_key = "Thrust" if trim == "thrust" else "CT"
+    labels = list(variants)
+    total = len(labels) * len(conditions)
     done = 0
-    for label in variants:
+
+    def _emit(res) -> None:
+        nonlocal done
+        done += 1
+        if on_case_done is not None:
+            on_case_done(done, total, res)
+
+    def _tag(res, label: str, condition: FlightCondition) -> None:
+        res.summary["geometry_label"] = label
+        res.condition_name = condition.name
+
+    # Reference pass: the first label defines, per condition, the
+    # thrust/CT every other variant is trimmed to. Its own results ARE
+    # the final ones -- they are never re-run.
+    base_label = labels[0]
+    base_project = replace(project, geometry=variants[base_label])
+    targets: dict[int, float] = {}
+    trim_mode: Optional[str] = None
+    results: list[Results] = []
+    for index, condition in enumerate(conditions):
+        res = run_single_case(base_project, condition,
+                              should_cancel=should_cancel)
+        _tag(res, base_label, condition)
+        if trim != "none":
+            res.summary["trim_reference"] = True
+            targets[index] = float(res.summary[summary_key])
+            if trim_mode is None:
+                propeller = bool(res.summary.get("cfg_is_propeller"))
+                trim_mode = "solve_rpm" if propeller else "solve_collective"
+        results.append(res)
+        _emit(res)
+
+    for label in labels[1:]:
         variant_project = replace(project, geometry=variants[label])
-        for condition in conditions:
-            res = run_single_case(variant_project, condition,
-                                  should_cancel=should_cancel)
-            res.summary["geometry_label"] = label
-            res.condition_name = condition.name
+        for index, condition in enumerate(conditions):
+            if trim == "none":
+                res = run_single_case(variant_project, condition,
+                                      should_cancel=should_cancel)
+            else:
+                try:
+                    res = run_case_trimmed(
+                        variant_project, condition,
+                        trim_mode=trim_mode, target_kind=trim,
+                        target_value=targets[index],
+                        should_cancel=should_cancel)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Geometry comparison trimmed to constant "
+                        f"{summary_key}: variant {label!r} at condition "
+                        f"{condition.name!r} could not reach the reference "
+                        f"{summary_key}={targets[index]!r}. {exc}") from exc
+                dof = "rpm" if trim_mode == "solve_rpm" else "collective_deg"
+                res.summary["trim_target"] = targets[index]
+                res.summary["trim_dof"] = dof
+                res.summary["trim_dof_value"] = float(res.summary[dof])
+            _tag(res, label, condition)
             results.append(res)
-            done += 1
-            if on_case_done is not None:
-                on_case_done(done, total, res)
+            _emit(res)
     return results
 
 

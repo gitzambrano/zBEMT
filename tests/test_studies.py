@@ -656,3 +656,89 @@ class TestRunCaseTrimmed(unittest.TestCase):
             studies.run_case_trimmed(
                 self.project, cond, trim_mode="solve_collective",
                 target_kind="thrust", target_value=50.0, should_cancel=cancelar_logo)
+
+
+class TestCompareGeometriesTrim(unittest.TestCase):
+    """`compare_geometries(trim=...)` holds Thrust/CT CONSTANT across the
+    variants: the first label is the reference, and every other variant is
+    bisected onto its per-condition target by `run_case_trimmed`. The
+    degree of freedom follows the project convention (propeller -> rpm,
+    rotor -> collective)."""
+
+    def setUp(self):
+        self.project = _make_project()
+
+    def _variants(self):
+        fat = studies.variant_geometry(
+            self.project.geometry,
+            {"root_chord_norm": 0.16, "tip_chord_norm": 0.08})
+        return {"base": self.project.geometry, "fat": fat}
+
+    def test_thrust_trim_matches_reference_per_condition(self):
+        conditions = [FlightCondition(name="hover", mu_x=0.0, rpm=600.0),
+                      FlightCondition(name="edge", mu_x=0.1, rpm=600.0)]
+        results = studies.compare_geometries(
+            self.project, self._variants(), conditions, trim="thrust")
+        self.assertEqual(len(results), 4)
+        by_label = {}
+        for res in results:
+            by_label.setdefault(res.summary["geometry_label"], []).append(res)
+        for base_res, fat_res in zip(by_label["base"], by_label["fat"]):
+            self.assertEqual(fat_res.condition_name, base_res.condition_name)
+            target = base_res.summary["Thrust"]
+            self.assertAlmostEqual(fat_res.summary["Thrust"], target,
+                                   delta=abs(target) * 2e-3 + 1e-9)
+            self.assertEqual(fat_res.summary["trim_dof"], "collective_deg")
+            self.assertAlmostEqual(fat_res.summary["trim_target"], target, places=9)
+            self.assertGreaterEqual(fat_res.summary["trim_dof_value"], -10.0)
+        for res in by_label["base"]:
+            self.assertTrue(res.summary.get("trim_reference"))
+            self.assertNotIn("trim_target", res.summary)
+
+    def test_ct_trim_matches_coefficient(self):
+        results = studies.compare_geometries(
+            self.project, self._variants(),
+            [FlightCondition(name="hover", mu_x=0.0, rpm=600.0)], trim="CT")
+        base, fat = results[0], results[-1]
+        self.assertAlmostEqual(fat.summary["CT"], base.summary["CT"],
+                               delta=abs(base.summary["CT"]) * 2e-3 + 1e-12)
+
+    def test_invalid_trim_rejected_before_any_solve(self):
+        with unittest.mock.patch.object(studies, "run_single_case") as spy:
+            with self.assertRaises(ValueError):
+                studies.compare_geometries(
+                    self.project, self._variants(),
+                    [FlightCondition(name="c", mu_x=0.0, rpm=600.0)],
+                    trim="lift")
+            spy.assert_not_called()
+
+    def test_unreachable_target_error_names_variant_and_condition(self):
+        conditions = [FlightCondition(name="hover", mu_x=0.0, rpm=600.0)]
+        boom = ValueError("not bracketed between collective_deg=-10.0 and 30.0")
+        with unittest.mock.patch.object(studies, "run_case_trimmed",
+                                        side_effect=boom):
+            with self.assertRaises(ValueError) as ctx:
+                studies.compare_geometries(
+                    self.project, self._variants(), conditions, trim="thrust")
+        message = str(ctx.exception)
+        for fragment in ("fat", "hover", "Thrust"):
+            self.assertIn(fragment, message)
+
+    def test_propeller_convention_solves_rpm(self):
+        """cfg_is_propeller in the reference summary selects solve_rpm."""
+        recorded = {}
+
+        def fake_trimmed(project, condition, *, trim_mode, target_kind,
+                         target_value, **kwargs):
+            recorded["trim_mode"] = trim_mode
+            return studies.run_single_case(project, condition)
+
+        project = replace(self.project)
+        project.config = dict(self.project.config, is_propeller=True)
+        with unittest.mock.patch.object(studies, "run_case_trimmed",
+                                        side_effect=fake_trimmed):
+            studies.compare_geometries(
+                project, self._variants(),
+                [FlightCondition(name="cruise", mu_x=0.1, rpm=600.0)],
+                trim="thrust")
+        self.assertEqual(recorded["trim_mode"], "solve_rpm")

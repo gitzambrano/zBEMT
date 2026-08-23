@@ -138,18 +138,21 @@ class CompareWorker(QObject):
     show a determinate bar. ``cancel()`` asks for an interruption between
     cases; the flag reaches the engine through the ``should_cancel``
     closure. When the engine reports the cancellation,
-    ``finished`` arrives with an empty list."""
+    ``finished`` arrives with an empty list. ``trim`` ("none"/"thrust"/
+    "CT") holds the loading constant across variants; the FIRST variant
+    is the reference every other one is trimmed to."""
     finished = pyqtSignal(list)
     failed = pyqtSignal(str)
     # (cases done, total cases) -- emitted after EACH case.
     progress = pyqtSignal(int, int)
 
     def __init__(self, project: Project, variants: dict,
-                 conditions=None):
+                 conditions=None, *, trim: str = "none"):
         super().__init__()
         self.project = project
         self.variants = variants
         self.conditions = list(conditions) if conditions is not None else None
+        self.trim = trim
         self.cancel_requested = False
 
     def cancel(self):
@@ -159,6 +162,7 @@ class CompareWorker(QObject):
         try:
             results = api.compare_geometries(
                 self.project, self.variants, self.conditions,
+                trim=self.trim,
                 on_case_done=lambda done, total, _res: self.progress.emit(done, total),
                 should_cancel=lambda: self.cancel_requested)
         except SolveCancelled:

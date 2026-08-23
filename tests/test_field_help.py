@@ -63,6 +63,16 @@ class TestFieldMap(unittest.TestCase):
                 f"{field} fell into the field table ({mapping[field]}) instead of "
                 "an explanation section")
 
+    def test_r_norm_opens_its_own_section_not_the_exported_csv_one(self):
+        """Audit F8: the bare key `r_norm` is cited both by §8.8.4 (the
+        exported-CSV column list) and by its own §8.1.3 "Radial position
+        of a section". The tie-break preferred the shorter export body,
+        so the Airfoil tab's radial station opened the wrong section."""
+        from zbemt.gui.field_help import field_anchor
+        anchor = field_anchor("r_norm")
+        self.assertEqual(anchor, "cap-3-1-3")
+        self.assertNotEqual(anchor, "cap-3-8-3")
+
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
 class TestButtonsInTheWindow(unittest.TestCase):

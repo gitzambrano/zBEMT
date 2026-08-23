@@ -372,6 +372,68 @@ if _HAS_QT:
             self.assertEqual(conditions[0].rpm, window.rpm_spin.value())
 
     @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestThrustMatching(DesignerWindowBase):
+        """The Conditions-page trim selector reaches the comparison run."""
+
+        def test_combo_offers_exactly_the_three_choices(self):
+            window = self._window_for(_make_project())
+            combo = window.trim_combo
+            self.assertEqual(
+                [combo.itemText(i) for i in range(combo.count())],
+                ["(off)", "Thrust", "CT"])
+            self.assertEqual(combo.currentText(), "(off)")
+
+        def test_combo_tooltip_states_the_session_only_nature(self):
+            window = self._window_for(_make_project())
+            tooltip = window.trim_combo.toolTip()
+            # Session-only choice: no .bemt key exists, and the tooltip
+            # must say so instead of inventing one.
+            self.assertIn(".bemt", tooltip)
+            self.assertIn("reference", tooltip.lower())
+
+        def _trim_reaching_the_worker(self, choice):
+            from zbemt.gui.tabs import designer_window
+            window = self._window_for(_make_project())
+            self._build_tip_sweep(window)
+            window.trim_combo.setCurrentText(choice)
+            with unittest.mock.patch.object(
+                    designer_window, "CompareWorker") as worker_cls, \
+                    unittest.mock.patch.object(designer_window,
+                                                "launch_worker"), \
+                    helpers.patch_message_box_everywhere("QMessageBox"):
+                try:
+                    window._run_comparison()
+                finally:
+                    window._reset_compare_ui()
+            return worker_cls.call_args.kwargs.get("trim")
+
+        def test_thrust_choice_reaches_the_worker_as_trim_thrust(self):
+            self.assertEqual(self._trim_reaching_the_worker("Thrust"),
+                             "thrust")
+
+        def test_ct_choice_reaches_the_worker_as_trim_ct(self):
+            self.assertEqual(self._trim_reaching_the_worker("CT"), "CT")
+
+        def test_off_is_the_default_sent_to_the_worker(self):
+            self.assertEqual(self._trim_reaching_the_worker("(off)"),
+                             "none")
+
+        def test_selector_is_disabled_while_a_run_is_in_flight(self):
+            window = self._window_for(_make_project())
+            window._set_compare_running(True)
+            self.assertFalse(window.trim_combo.isEnabled())
+            window._set_compare_running(False)
+            self.assertTrue(window.trim_combo.isEnabled())
+
+        def test_estimate_extends_while_trim_is_active(self):
+            window = self._window_for(_make_project())
+            self._build_tip_sweep(window)
+            window.trim_combo.setCurrentText("Thrust")
+            self.assertIn("(trim)", window.summary_label.text())
+            window.trim_combo.setCurrentText("(off)")
+            self.assertNotIn("(trim)", window.summary_label.text())
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
     class TestVerdictStrip(DesignerWindowBase):
         """Best-in-class badges; eta_prop only in propeller summaries."""
 

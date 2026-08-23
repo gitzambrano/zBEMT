@@ -693,6 +693,61 @@ class TestDesignToolsFlags(unittest.TestCase):
             self.assertIn(ghost, err.getvalue())
             self.assertNotIn("Traceback", err.getvalue())
 
+    def _compare_capturing_trim(self, extra_args):
+        """Runs --compare over two fast projects with
+        api.compare_geometries wrapped in a spy that forwards to the real
+        function and records the ``trim`` kwarg the CLI passed."""
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            other_path = os.path.join(d, "other_rotor")
+            self._fast_project(base_path, "base_rotor")
+            self._fast_project(other_path, "other_rotor")
+            captured = {}
+            real = main_batch.api.compare_geometries
+
+            def spy(project, variants, conditions=None, **kwargs):
+                captured["trim"] = kwargs.get("trim")
+                return real(project, variants, conditions, **kwargs)
+
+            buf = io.StringIO()
+            with mock.patch.object(main_batch.api, "compare_geometries",
+                                    side_effect=spy), \
+                    contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", base_path,
+                                         "--compare", other_path]
+                                        + list(extra_args))
+            self.assertEqual(code, 0)
+            return captured["trim"]
+
+    def test_compare_trim_thrust_is_forwarded_to_the_engine(self):
+        trim = self._compare_capturing_trim(["--trim", "thrust"])
+        self.assertEqual(trim, "thrust")
+
+    def test_compare_trim_ct_is_forwarded_to_the_engine(self):
+        trim = self._compare_capturing_trim(["--trim", "CT"])
+        self.assertEqual(trim, "CT")
+
+    def test_compare_without_the_flag_sends_none(self):
+        trim = self._compare_capturing_trim([])
+        self.assertEqual(trim, "none")
+
+    def test_compare_rejects_an_unknown_trim_value(self):
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            other_path = os.path.join(d, "other_rotor")
+            self._fast_project(base_path, "base_rotor")
+            self._fast_project(other_path, "other_rotor")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err), \
+                    self.assertRaises(SystemExit) as ctx:
+                main_batch.main(["--project", base_path,
+                                  "--compare", other_path,
+                                  "--trim", "lift"])
+            self.assertEqual(ctx.exception.code, 2)
+            self.assertIn("invalid choice", err.getvalue())
+            self.assertIn("lift", err.getvalue())
+
     def test_optimize_runs_saved_definition_and_writes_report(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "proj")

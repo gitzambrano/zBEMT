@@ -103,6 +103,13 @@ class GeometryDesignerWindow(QWidget):
     #: Fields of the full overlay figure, in panel order.
     _OVERLAY_FIELDS = ("CT", "FM", "CP", "eta_prop")
 
+    #: "Thrust matching" choices of the Conditions page, as shown,
+    #: mapped to the ``trim`` argument ``api.compare_geometries``
+    #: understands. The first variant of the table is the reference
+    #: every other one is trimmed to; this is a choice of the run, not
+    #: a stored project field, so it has no .bemt key.
+    _TRIM_CHOICES = {"(off)": "none", "Thrust": "thrust", "CT": "CT"}
+
     def __init__(self, state: AppState, parent: QWidget | None = None):
         super().__init__(parent)
         # A separate top-level window that still belongs to the main
@@ -771,6 +778,32 @@ class GeometryDesignerWindow(QWidget):
             lambda checked: self._show_conditions_panel(2 if checked else None))
         vbox.addWidget(self.conditions_stack)
 
+        # Applies to every conditions mode: it changes WHAT one case
+        # solves (a trimmed solve), never WHICH cases run.
+        trim_row = QHBoxLayout()
+        self.trim_label = QLabel("Thrust matching:")
+        trim_row.addWidget(self.trim_label)
+        self.trim_combo = QComboBox()
+        for choice in self._TRIM_CHOICES:
+            self.trim_combo.addItem(choice)
+        self.trim_combo.setCurrentText("(off)")
+        self.trim_combo.setToolTip(
+            "Holds the loading constant across every variant, so "
+            "efficiency compares fairly.\n\n"
+            "Thrust or CT is read from the FIRST variant of the table "
+            "(the base row), which is the reference: at every condition, "
+            "each other variant re-solves one control to hit that "
+            "target. Propellers solve RPM; rotors solve collective. "
+            "This is a choice of this run only -- it is not stored in "
+            "the project and has no .bemt key.\n\n"
+            "Each trimmed case bisects its control, multiplying the "
+            "runtime roughly tenfold per non-reference case.")
+        self.trim_combo.currentIndexChanged.connect(
+            lambda _index: self._update_summary_label())
+        trim_row.addWidget(self.trim_combo)
+        trim_row.addStretch(1)
+        vbox.addLayout(trim_row)
+
         vbox.addStretch(1)
 
         summary_row = QHBoxLayout()
@@ -945,6 +978,11 @@ class GeometryDesignerWindow(QWidget):
             rpm=rpm,
         )]
 
+    def _selected_trim(self) -> str:
+        """The ``trim`` argument of the next comparison, read from the
+        "Thrust matching" combo at run start."""
+        return self._TRIM_CHOICES.get(self.trim_combo.currentText(), "none")
+
     def _update_summary_label(self):
         """States the resulting case count, the variant count and the
         total number of solves the Run button would start."""
@@ -962,9 +1000,14 @@ class GeometryDesignerWindow(QWidget):
         mode_name = ("saved cases" if self.radio_saved_cases.isChecked()
                      else "sweep" if self.radio_sweep.isChecked()
                      else "single condition")
-        self.summary_label.setText(
-            f"{mode_name}: {n_variants} variants × {n_cases} cases = "
-            f"{total} solves")
+        text = (f"{mode_name}: {n_variants} variants × {n_cases} cases = "
+                f"{total} solves")
+        # A trimmed case bisects its control (~15 engine solves), so the
+        # wall-clock estimate is a multiple of the case count. The base
+        # row runs untrimmed; this is the rough ceiling.
+        if self._selected_trim() != "none":
+            text += f" · ≈ {total} solves × ~15 (trim)"
+        self.summary_label.setText(text)
 
     # --- mode reactivity -------------------------------------------------
 
@@ -1131,7 +1174,8 @@ class GeometryDesignerWindow(QWidget):
         self.compare_status.setText(f"Running comparison: 0/{total}…")
         self.compare_progress.setRange(0, max(total, 1))
         self.compare_progress.setValue(0)
-        worker = CompareWorker(self.state.project, variants, conditions)
+        worker = CompareWorker(self.state.project, variants, conditions,
+                               trim=self._selected_trim())
         worker.progress.connect(self._on_compare_progress)
         worker.finished.connect(self._on_compare_finished)
         worker.failed.connect(self._on_compare_failed)
@@ -1171,6 +1215,9 @@ class GeometryDesignerWindow(QWidget):
         self.btn_add_variant.setEnabled(not running)
         self.btn_duplicate_variant.setEnabled(not running)
         self.btn_remove_variant.setEnabled(not running)
+        # The trim choice is read once, at run start; changing it while
+        # a run is in flight would suggest it still applies.
+        self.trim_combo.setEnabled(not running)
         # The ranking reads the results of the LAST run; both of its
         # combos wait until the new run has replaced them.
         self.ranking_field_combo.setEnabled(not running)
