@@ -497,6 +497,30 @@ class TestEnableHistoryButton(ResultsTabBase):
         self.assertFalse(tab.btn_enable_history.isVisible())
 
 
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+class TestAxisCombosFollowPr2(ResultsTabBase):
+    """The X/Y quantity dropdowns are empty until a result exists.
+    PR-2: empty means DISABLED, not enabled-but-useless."""
+
+    def test_xy_combos_disabled_without_results(self):
+        win, tab = self._window_on_results_tab()
+        tab._populate_xy_combos()
+        self.app.processEvents()
+        self.assertEqual(tab.xy_x_combo.count(), 0)
+        self.assertFalse(tab.xy_x_combo.isEnabled())
+        self.assertFalse(tab.xy_y_combo.isEnabled())
+        # group-by always carries "(none)": something to choose, stays on
+        self.assertTrue(tab.xy_group_combo.isEnabled())
+
+    def test_xy_combos_enabled_once_results_exist(self):
+        win, tab = self._with_result()
+        tab._populate_xy_combos()
+        self.app.processEvents()
+        self.assertGreater(tab.xy_x_combo.count(), 0)
+        self.assertTrue(tab.xy_x_combo.isEnabled())
+        self.assertTrue(tab.xy_y_combo.isEnabled())
+
+
 if __name__ == "__main__":   # pragma: no cover
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     unittest.main()

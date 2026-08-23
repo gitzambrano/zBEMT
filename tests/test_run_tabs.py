@@ -175,6 +175,42 @@ class TestRunCaseResultsTable(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestUnitCombosFollowPr2(unittest.TestCase):
+    """An axis row's unit dropdown is progressive disclosure: hidden while
+    the axis sits at "(none)", and alive (visible, populated, enabled) as
+    soon as a quantity is chosen. PR-2 forbids the middle state this once
+    had -- visible and empty."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _tab(self):
+        from zbemt.gui.common import AppState
+        from zbemt.gui.tabs.run_batch import RunBatchTab
+        state = AppState()
+        state.project = helpers.make_studies_project()
+        tab = RunBatchTab(state)
+        self.addCleanup(tab.deleteLater)
+        tab.show()
+        for _ in range(5):
+            self.app.processEvents()
+        return tab
+
+    def test_unit_combo_hidden_until_slot_chosen_then_alive(self):
+        tab = self._tab()
+        slot, unit = tab.axis_rows[0][0], tab.axis_rows[0][1]
+        if slot.currentIndex() == 0:   # "(none)"
+            self.assertFalse(unit.isVisibleTo(tab),
+                             "no quantity chosen: the unit row must stay hidden")
+        slot.setCurrentIndex(1)
+        self.app.processEvents()
+        self.assertTrue(unit.isVisibleTo(tab))
+        self.assertGreater(unit.count(), 0)
+        self.assertTrue(unit.isEnabled())
+
+
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
 class TestRunBatchFixedValuesBox(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

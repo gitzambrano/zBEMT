@@ -1443,6 +1443,11 @@ class ResultsTab(QWidget):
         # reproduced in isolation with faulthandler before this change.
         mode_row = QHBoxLayout()
         self.axis_mode_xy_check = QCheckBox("Custom X-Y (instead of coefficient grid)")
+        self.axis_mode_xy_check.setToolTip(
+            "Swaps the fixed coefficient grid for one free plot: choose any "
+            "two summary quantities as X and Y, optionally splitting the "
+            "points into one curve per a third quantity. Session-only "
+            "display choice; nothing is written to the project.")
         self.axis_mode_xy_check.toggled.connect(self._on_axis_mode_changed)
         mode_row.addWidget(self.axis_mode_xy_check)
         mode_row.addStretch(1)
@@ -1599,6 +1604,9 @@ class ResultsTab(QWidget):
                 combo.add_item(k, html, tip, data=k)
         for combo in (self.xy_x_combo, self.xy_y_combo, self.xy_group_combo):
             combo.blockSignals(False)
+            # PR-2: without any result the X/Y lists are empty; disabled
+            # says "nothing to choose yet" instead of looking broken.
+            combo.setEnabled(combo.count() > 0)
 
         def _restore(combo, prev_key, fallback_idx):
             if prev_key is not None:

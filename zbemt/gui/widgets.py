@@ -125,6 +125,10 @@ def configure_unit_combo(combo: QComboBox, pairs: list[tuple[str, str]]) -> None
     tooltip."""
     combo.setItemDelegate(_UnitComboDelegate(combo))
     combo.clear()
+    # PR-2: an empty dropdown has nothing to offer yet (a batch axis row
+    # before its quantity is chosen). It stays visible but DISABLED until
+    # a population gives it options -- enabled-but-empty reads as broken.
+    combo.setEnabled(bool(pairs))
     for label, variable in pairs:
         combo.addItem(label)
         index = combo.count() - 1
