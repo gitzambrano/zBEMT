@@ -735,12 +735,13 @@
 </ol></li>
 <li><a href="#sec-11-run-batch">11. Run Batch</a>
 <ol>
-<li><a href="#cap-6-1">11.1 Sweep axes</a></li>
-<li><a href="#cap-6-2">11.2 Fixed values</a></li>
-<li><a href="#cap-6-3">11.3 The condition queue</a></li>
-<li><a href="#cap-6-4">11.4 Saved batches</a></li>
-<li><a href="#cap-6-5">11.5 Where the results are written</a></li>
-<li><a href="#cap-6-6">11.6 Reports</a></li>
+<li><a href="#cap-6-trim">11.1 Run mode and trim target</a></li>
+<li><a href="#cap-6-1">11.2 Sweep axes</a></li>
+<li><a href="#cap-6-2">11.3 Fixed values</a></li>
+<li><a href="#cap-6-3">11.4 The condition queue</a></li>
+<li><a href="#cap-6-4">11.5 Saved batches</a></li>
+<li><a href="#cap-6-5">11.6 Where the results are written</a></li>
+<li><a href="#cap-6-6">11.7 Reports</a></li>
 </ol></li>
 <li><a href="#results-section">12. Results</a>
 <ol>
@@ -1552,8 +1553,8 @@ zbemt --help     # command line</pre>
     <pre>zbemt --project projects/starter_rotor --list-batches
 zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pre>
     <p>The <code>--report</code> writes a self-contained HTML with the summary table, graphs and
-      record of the mesh, solver, and rotor used (<a class="xref" href="#cap-6-6" title="11.6 Reports">Section
-        11.6</a>).</p>
+record of the mesh, solver, and rotor used (<a class="xref" href="#cap-6-6" title="11.7 Reports">Section
+11.7</a>).</p>
 
     <p>To start from your own rotor instead of an example, begin with the Project tab and follow
       the tabs in order. Each of the seven has a chapter of its own, in the same order.</p>
@@ -3926,7 +3927,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <!-- INDICE-DE-CAMPOS:aerofolio -->
 <div class="boxed">
 <b>Fields in this tab, in the order they appear on screen</b> (34). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>geometry_spec</code> &rarr; <a href="#cap-3-7-8">8.7.3</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-8-3">8.8.4</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
+<ol class="indice-de-campos"><li><code>geometry_spec</code> &rarr; <a href="#cap-3-7-8">8.7.3</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-1-3">8.1.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:aerofolio -->
     <p class="boxed"><b>Editorial scope.</b> Each field section below is self-contained. It gives the
@@ -5495,7 +5496,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   where it falls. Any smaller value pins the transition at that station and
                   everything downstream of it turns turbulent at once. This models a trip strip or
                   a rough leading edge, and it is how a measurement in which transition was fixed
-                  at a known station is reproduced.</p>
+                  at a known station is reproduced. In the <span class="gui">GUI</span>, the two
+                  fields start at 0.01 and move in steps of 0.05, so a value closer to zero needs
+                  the file or the command line.</p>
 
                 <p><b>Finding the executable.</b> XFOIL runs as an external program. zBEMT looks
                   for it first at the path stored in the <code>ZBEMT_XFOIL_BIN</code> environment
@@ -5578,9 +5581,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 </p>
                 <h3 id="cap-3-9">8.9 Preview of the polar and the profile</h3>
 
-                <p><b>What it shows.</b> Four panels on the right of the tab, always visible, redrawn shortly after
-                  every edit to the form. They draw the polar the project currently holds in memory, so what is on
-                  screen is what a run started now would use. The four are the lift curve $C_l(\alpha)$, the drag
+                <p><b>What it shows.</b> Four views on the right of the tab, held by one preview
+                  area and always visible, redrawn shortly after every edit to the form. They draw
+                  the polar the project currently holds in memory, so what is on screen is what a
+                  run started now would use. The four are the lift curve $C_l(\alpha)$, the drag
                   curve $C_d(\alpha)$, the drag polar $C_d(C_l)$ and the profile contour.</p>
 
                 <p><b>How to read them.</b> $C_l(\alpha)$ shows where the linear region ends and what the chosen
@@ -5593,10 +5597,34 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>Each panel carries the standard plot controls: zoom, pan, and an axis dialog for setting
                   limits or switching an axis between linear and logarithmic.</p>
 
-                <p><b>The Mach comparison.</b> The field <i>Mach for comparison in preview</i> overlays the lift and
-                  drag curves at several Mach numbers on the same axes, so the effect of compressibility on the
-                  section can be seen at a glance. It is a drawing aid only: it does not reproduce the correction the
-                  solver applies during a run, which is described in 8.5, and changing it alters no result.</p>
+                <p><b>The drawing-aid strip above the canvas.</b> Four controls sit in a compact
+                  strip above the preview panels. They decide how the curves are drawn; none of them
+                  changes a result or a stored value.</p>
+
+                <ul>
+                  <li><b><i>Alpha</i></b> sets the angle-of-attack span the polar curves are computed
+                    over: Typical ($-30^\circ$ to $30^\circ$), Extended ($-90^\circ$ to $90^\circ$)
+                    or Full range ($-180^\circ$ to $180^\circ$). It recomputes the curves over the
+                    chosen span, which zooming the axes never does, so Full range is the only way to
+                    see what the full-range extension built. When that extension is active, the
+                    control follows it to Full range unless it was last set by hand.</li>
+                  <li><b><i>Auto-fit Y</i></b>, checked by default, lets each axis fit its own
+                    curves. Unchecked, $C_l$ and $C_d$ keep fixed spans, so two previews stay
+                    comparable instead of each one filling its own frame.</li>
+                  <li><b><i>Reverse-flow branch</i></b>, checked by default, overlays the curve the
+                    engine actually uses where the section sees reverse flow ($U_t &lt; 0$), as
+                    selected by the Reverse flow model of the form
+                    (<a class="xref" href="#cap-3-4-1" title="8.4.1 Reverse flow model">Section
+                      8.4.1</a>). For the thin-plate blend the two branches coincide by
+                    construction, because that blend depends on $|\alpha|$ alone and not on the sign
+                    of $U_t$.</li>
+                  <li><b><i>Machs</i></b> takes a comma-separated list of Mach numbers and overlays
+                    one curve per value on the lift and drag axes, so the effect of compressibility
+                    on the section can be seen at a glance. It is a drawing aid only: it does not
+                    reproduce the correction the solver applies during a run, described in
+                    <a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>,
+                    and changing it alters no result.</li>
+                </ul>
 
                 <p><b>The checks panel.</b> Below the preview, a panel lists the findings of the validation rules
                   of <a class="xref" href="#cap-8-3" title="14.2 Validation rules">Section 14.2</a> that concern the
@@ -5605,7 +5633,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   never stale.</p>
 
                 <p><span class="gui">GUI</span>: the preview panels on the right of the <i>Airfoil</i> tab,
-                  with the <i>Preview options</i> block below them holding the Mach comparison field.</p>
+                  with the drawing-aid strip above them holding <i>Alpha</i>, <i>Auto-fit Y</i>,
+                  <i>Reverse-flow branch</i> and <i>Machs</i>.</p>
 
                 <p><span class="bemt">.bemt</span>: none. The preview is a view of the airfoil definition
                   and stores nothing of its own.</p>
@@ -5850,8 +5879,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   enough for the stored
                   history to be a burden, accepting that the convergence plots are then unavailable for that run.</p>
 
-                <p><span class="gui">GUI</span>: not shown as a field. The history is always collected for
-                  runs started from the <span class="gui">GUI</span>, because the Results tab draws it.</p>
+                <p><span class="gui">GUI</span>: no field of this tab. The Convergence view of the
+                  Results tab carries an <i>Enable convergence history</i> button, which writes
+                  <code>collect_history=true</code> into the open project; run the case again
+                  afterwards to record a history, and save the project to keep the setting. Nothing
+                  turns the switch on by itself for a run started from the <span class="gui">GUI</span>.</p>
 
                 <p><span class="bemt">.bemt</span>: the key <code>collect_history</code> in
                   <code>config.bemt</code>, a switch, default <code>true</code>.
@@ -6816,7 +6848,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           queue before generating. Leaving it unchecked adds to what is already there.</li>
                         <li>Fill the <b>fixed values</b>. These are the quantities not chosen as axes, and they are held
                           at these values for every condition in the queue. They change the answer, so choose them
-                          deliberately (<a class="xref" href="#cap-6-2" title="11.2 Fixed values">Section 11.2</a>).
+                          deliberately (<a class="xref" href="#cap-6-2" title="11.3 Fixed values">Section 11.3</a>).
                         </li>
                         <li>Review the <b>queue</b>. Individual rows can be removed and the whole queue cleared. A queue
                           worth repeating can be saved under a name before it is run.</li>
@@ -6830,7 +6862,72 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       </ol>
                     </div>
 
-                    <h3 id="cap-6-1">11.1 Sweep axes</h3>
+                    <h3 id="cap-6-trim">11.1 Run mode and trim target</h3>
+
+                    <p><b>The physics.</b> A batch normally runs every generated condition exactly as
+                      assembled: the collective and the rotational speed entered on the axes and in
+                      the fixed fields are the controls of every solve. The alternative prescribes
+                      the load instead: a trim loop solves one control per condition until the
+                      condition reaches a given thrust, or a given thrust coefficient $C_T$. This is
+                      the right experiment when the question is how the rotor responds while it must
+                      keep delivering one load, for example a thrust requirement held fixed while the
+                      advance ratio is swept. It also removes loading as a confounder between
+                      configurations: a rotor making more thrust always draws more power, so a sweep
+                      that lets the load drift can mistake the extra loading for a worse design.</p>
+
+                    <p><b>The mathematics.</b> The trim loop wraps the whole element solve. It adjusts
+                      the one control left free and re-solves until</p>
+
+                    <div class="eqn">$$T = T_{target} \qquad \text{or} \qquad C_T =
+                        C_{T,target}.$$</div>
+
+                    <p>Every condition in the queue is trimmed independently against the same target,
+                      and no solution is carried over from one condition to the next, so the queue
+                      stays a set of well-defined operating points.</p>
+
+                    <p><b>The three run modes.</b> The <i>Run mode</i> dropdown offers them:</p>
+
+                    <ul>
+                      <li><b>Fixed collective &amp; RPM</b>, the default. Direct run, no trim loop;
+                        every quantity is exactly as entered.</li>
+                      <li><b>Fixed RPM, target thrust/CT</b>. The loop solves the collective; the
+                        rotational speed keeps its entered value.</li>
+                      <li><b>Fixed collective, target thrust/CT</b>. The loop solves the rotational
+                        speed; the collective keeps its entered value.</li>
+                    </ul>
+
+                    <p>With either solving mode, <i>Target is</i> chooses whether the target is a
+                      dimensional thrust in newtons or the dimensionless $C_T$, and <i>Target</i>
+                      carries its value, from -1000000000 to 1000000000 with six decimals and a
+                      default of 0.1. While a solving mode is active, the quantity being solved stops
+                      being offered as an input: its fixed-value row hides, and an axis pointed at it
+                      returns to <code>(none)</code>, because sweeping precisely the quantity the
+                      loop overwrites would produce a queue whose swept values are discarded. A
+                      solved condition costs several complete solves, because the loop bisects, so a
+                      trimmed batch multiplies the runtime by roughly ten.</p>
+
+                    <p>In the <span class="gui">GUI</span>: set the three rows at the top of the
+                      <i>Factorial sweep</i> block, before the axes. The target rows stay hidden
+                      while the mode solves nothing, and the status line at run time states the
+                      active mode and target. The setting governs the whole run, including a queue
+                      that mixes generated and hand-entered conditions.</p>
+
+                    <p>In the <span class="bemt">.bemt</span> file, the setting rides with the batch
+                      inside <code>sweep_params</code> of <code>batches.bemt</code>, under the key
+                      <code>trim</code>, which holds <code>trim_mode</code>
+                      (<code>solve_collective</code> or <code>solve_rpm</code>),
+                      <code>target_kind</code> (<code>thrust</code> or <code>CT</code>) and
+                      <code>target_value</code>. A batch without a <code>trim</code> entry runs
+                      untrimmed, which is the default.</p>
+
+                    <p>From the <span class="cli">CLI</span>, <code>--trim-mode
+                        {solve_collective,solve_rpm}</code> turns trimming on for the batch, together
+                      with exactly one of <code>--trim-target-thrust N</code> and
+                      <code>--trim-target-ct N</code>. Every queued condition is trimmed
+                      independently. Without <code>--trim-mode</code>, every condition runs as
+                      entered.</p>
+
+                    <h3 id="cap-6-1">11.2 Sweep axes</h3>
 
                     <p><b>The physics.</b> A factorial sweep answers the question "how does the rotor respond to these
                       variables", and each axis is one variable allowed to change. Four quantities can be swept: the
@@ -6883,15 +6980,23 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       Start with a coarse sweep to see the shape of the answer, then refine the range that matters:
                       a batch is cheap to define and expensive to run.</p>
 
-                    <p>In the <span class="gui">GUI</span>, the <i>Factorial sweep</i> block shows one row per axis, each
-                      with a checkbox to use it as an axis, a unit dropdown, and the list of values.</p>
+                    <p>In the <span class="gui">GUI</span>, the <i>Factorial sweep</i> block shows
+                      one row per axis, each with a quantity dropdown that also switches the axis off
+                      with <code>(none)</code>, a unit dropdown for the two flow quantities, and the
+                      list of values. Beside each list, three small fields (<i>from</i>, <i>to</i>,
+                      <i>step</i>) and a <i>fill</i> button generate an evenly spaced list into it:
+                      pressing <i>fill</i> replaces the list with every value from <i>from</i> to
+                      <i>to</i>, spaced by <i>step</i>, both bounds included. The three fields
+                      retune to a plausible range for whichever quantity the row is set to, so a
+                      fill written for an advance ratio is not offered to a sweep in degrees or in
+                      rev/min.</p>
 
                     <p>In the <span class="bemt">.bemt</span> file, a generated queue is stored as ordinary conditions, not
                       as a formula. Each entry of <code>conditions</code> in <code>batches.bemt</code> is a complete
                       flight condition with the same keys as a saved case, so a batch introduces no new keys. How the
                       list was produced is recorded alongside it in <code>sweep_kind</code> and
-                      <code>sweep_params</code> (<a class="xref" href="#cap-6-4" title="11.4 Saved batches">Section
-                        11.4</a>).
+                      <code>sweep_params</code> (<a class="xref" href="#cap-6-4" title="11.5 Saved batches">Section
+                        11.5</a>).
                     </p>
 
                     <p>From the <span class="cli">CLI</span>, there are no flags for the sweep axes. A factorial sweep is
@@ -6901,7 +7006,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       project and exits.
                     </p>
 
-                    <h3 id="cap-6-2">11.2 Fixed values</h3>
+                    <h3 id="cap-6-2">11.3 Fixed values</h3>
 
                     <p><b>The physics.</b> The quantities not chosen as axes are held at the values given in the
                       <i>Fixed</i> block. These are not administrative details: every batch answers the question "how
@@ -6961,7 +7066,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                             class="xref" href="#cap-5-1" title="10.1 In-plane flow — the first row">Section 10.1</a>
                           instead.</p>
 
-                        <h3 id="cap-6-3">11.3 The condition queue</h3>
+                        <h3 id="cap-6-3">11.4 The condition queue</h3>
 
                         <p><b>Definition.</b> The queue is the list of conditions that will actually be solved, and it
                           is
@@ -7003,7 +7108,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>batches.bemt</code> directly.
                         </p>
 
-                        <h3 id="cap-6-4">11.4 Saved batches</h3>
+                        <h3 id="cap-6-4">11.5 Saved batches</h3>
 
                         <p><b>Definition.</b> A saved batch is a named queue kept with the project, together with a
                           record
@@ -7041,7 +7146,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>From the <span class="cli">CLI</span>, <code>--list-batches</code> prints the names and exits. <code>--from-bemt-batch NAME</code> runs one.
                         </p>
 
-                        <h3 id="cap-6-5">11.5 Where the results are written</h3>
+                        <h3 id="cap-6-5">11.6 Where the results are written</h3>
 
                         <p><b>Definition.</b> A batch produces one row of results per condition, and optionally a set of
                           figures. This section sets where those files go and which figures are drawn.</p>
@@ -7071,7 +7176,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           dedicated condition subdirectories.
                         </p>
 
-                        <h3 id="cap-6-6">11.6 Reports</h3>
+                        <h3 id="cap-6-6">11.7 Reports</h3>
 
                         <p>A report gathers a batch into a single HTML file: the summary table for every condition, the
                           mesh, solver, rotor and polar that were used, and the figures embedded inside the file itself,
@@ -7131,6 +7236,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                               inputs.</li>
                             <li><b>3D</b> is for spatial inspection and export. It is another view of the same solved
                               loads, not a higher-fidelity solve.</li>
+                            <li><b>Convergence</b> answers whether the solve itself can be trusted. Select one
+                              case and read how the residual fell; if the run stored no history, turn recording on
+                              from the same strip and run the case again.</li>
                           </ul>
                           <p>The summary table is the global integral. For a rotor, read $C_T$ together with $C_Q$ and
                             $FM$;
@@ -7339,7 +7447,56 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           condition, like every spatial view: it shows where the blade is loaded now, not how that
                           changes as
                           the condition moves.</p>
-                        <h4 id="cap-7-5">12.1.5 Export and Report</h4>
+                        <h4 id="cap-7-convergence">12.1.5 Convergence</h4>
+                        <p>This view needs exactly one run selected. It draws how the inflow solve
+                          behaved rather than what it produced: the fraction of the mesh that
+                          converged within the iteration limit, and the maximum residual left by
+                          each solver iteration. A case whose residual falls several orders of
+                          magnitude within a few iterations reads differently from one that ground
+                          against the limit, and a plausible thrust read beside an unconverged mesh
+                          stops being a result and becomes a warning.</p>
+
+                        <p>When the run recorded no per-iteration history, the view still opens: it
+                          then shows the summary diagnostics of the final state instead of the
+                          iteration curves. The strip above the figure carries the <i>Enable
+                            convergence history</i> button for that situation. Pressing it turns the
+                          recording switch (<code>collect_history</code>) on in the open project; the
+                          next run of the case then fills in the per-iteration curves. The switch is
+                          documented in the Config/Engine chapter, and nothing turns it on by itself
+                          for a run started from the <span class="gui">GUI</span>.</p>
+
+                        <p><b>Limits.</b> A flat residual line proves only that the inflow iteration
+                          settled. It says nothing about mesh resolution or about the airfoil model,
+                          which converge no further by iterating.</p>
+
+                        <p><span class="bemt">.bemt</span>: none. The view reads results that already
+                          exist in memory; only the recording switch behind it is project data.</p>
+
+                        <p><span class="cli">CLI</span>: none for the view itself. The batch export
+                          reaches the same curves through its plots choice, described in the Run
+                          Batch chapter.</p>
+
+                        <h4 id="cap-7-backend">12.1.6 Plot backend</h4>
+                        <p>The dropdown at the left end of the bottom strip chooses what renders the
+                          plots of every view. <i>Matplotlib</i>, the default, draws a static figure.
+                          <i>Plotly</i> draws an interactive one: zoom, pan, values on hover, and a
+                          legend entry that hides its curve when clicked.</p>
+
+                        <p>Plotly needs an optional package. Selecting it without the package
+                          installed opens a dialog that states what is missing and shows the command
+                          that installs it; the dropdown then returns to Matplotlib by itself. No
+                          plot is lost and nothing else changes.</p>
+
+                        <p><span class="gui">GUI</span>: the <i>Plot backend</i> dropdown beside the
+                          export buttons at the bottom of the tab.</p>
+
+                        <p><span class="bemt">.bemt</span>: none. The backend is a preference of the
+                          session and stores nothing.</p>
+
+                        <p><span class="cli">CLI</span>: none. Figures written by a command-line run
+                          are static files.</p>
+
+                        <h4 id="cap-7-5">12.1.7 Export and Report</h4>
 
                         <p><b>Definition.</b> The views above answer questions on screen. This block turns what is on
                           screen, or the whole selection behind it, into files: images, a numeric table, or one
@@ -7347,15 +7504,19 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           that
                           already exist in the session history.</p>
 
-                        <p><b>Selecting a condition inside a batch.</b> The spatial views (the disk map, the
-                          azimuth and radius cuts, and the three-dimensional view) each show one flight
-                          condition.
-                          When the selection is exactly one batch, an extra <i>Batch condition</i> selector appears and
-                          chooses which of the batch's conditions those views display. The sweep view is unaffected,
-                          since it
-                          plots the whole batch at once by construction.</p>
+                        <p><b>Selecting a condition among many.</b> The spatial views (the disk map,
+                          the azimuth and radius cuts, the three-dimensional view and the
+                          convergence view) each show one flight condition. Whenever the current
+                          selection spans more than one condition, whether it holds a single batch,
+                          several single cases, or a mix of both, an extra <i>Choose condition to
+                            plot</i> selector appears and picks which of those conditions the views
+                          display; each entry keeps the name it carries everywhere else, so picking
+                          which batch condition to draw needs no re-running. The sweep view and the
+                          table are unaffected, since they show the whole selection by
+                          construction.</p>
 
-                        <p><b>What can be produced.</b></p>
+                        <p><b>What can be produced.</b> The three buttons at the bottom of the tab
+                          take their names from the view on screen.</p>
 
                         <div class="tablewrap">
                           <table>
@@ -7365,27 +7526,50 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                               <th>When it is available</th>
                             </tr>
                             <tr>
-                              <td><i>Export disk maps in batch</i></td>
-                              <td>One image per selected field per condition, into a folder chosen at the time. The
-                                dialog offers which fields to draw, how to organize the folders and how to name the
-                                files.</td>
-                              <td>Whenever the selection includes at least one batch.</td>
+                              <td><i>Export plots&hellip;</i>, or <i>Export table&hellip;</i> in Table
+                                mode</td>
+                              <td>The output the current view shows, under a folder or file chosen at
+                                the time. The disk map writes one image per selected field per
+                                condition, with the dialog offering which fields to draw and how to
+                                organize the files. The sweep view saves its whole panel grid as one
+                                image. The azimuth and radius cuts, the three-dimensional view and
+                                the convergence view write one file per selected condition. In Table
+                                mode the same button becomes <i>Export table&hellip;</i> and writes
+                                the displayed summary table as CSV or TSV, chosen by the extension in
+                                the save dialog.</td>
+                              <td>Whenever at least one entry is selected.</td>
                             </tr>
                             <tr>
                               <td><i>Generate report</i></td>
-                              <td>A single HTML file holding the summary table, the figures that apply to the current
-                                selection, and a record of the mesh, solver, rotor and polar that produced them. Disk
-                                maps of a selected batch are appended at the end.</td>
+                              <td>A single HTML file holding the summary table, the figures that apply
+                                to the current selection, and a record of the mesh, solver, rotor and
+                                polar that produced them. Disk maps of a selected batch are appended
+                                at the end. The figure groups to embed and their resolution are asked
+                                in a dialog first, described below.</td>
                               <td>Always, for any non-empty selection.</td>
                             </tr>
                             <tr>
-                              <td><i>Copy table</i></td>
-                              <td>Puts the numeric table currently displayed on the clipboard, tab-separated, ready to
-                                paste into a spreadsheet.</td>
-                              <td>Always.</td>
+                              <td><i>Copy figure</i>, or <i>Copy table</i> in Table mode</td>
+                              <td>Puts what is on screen on the clipboard: in the plot modes the
+                                figure as an image, ready to paste into a document or a slide; in
+                                Table mode the summary table tab-separated, ready to paste into a
+                                spreadsheet.</td>
+                              <td>Whenever at least one entry is selected.</td>
                             </tr>
                           </table>
                         </div>
+
+                        <p><b>The report settings dialog.</b> After the destination file is chosen,
+                          a settings dialog opens. Its resolution dropdown sets the DPI of the
+                          embedded figures, from 72 to 300, with 150 preselected. Seven checkboxes
+                          choose which figure groups travel inside the file: blade geometry, airfoil
+                          polars, performance coefficients, loads along azimuth, loads along blade
+                          span, disk maps, and convergence. Two defaults adapt to the size of the
+                          selection: performance coefficients arrives checked when more than one case
+                          is selected, and disk maps arrives unchecked when more than twelve are,
+                          because thirteen figures per case grow quickly. Everything else starts
+                          checked. The report itself is assembled off the main thread behind a
+                          progress window, so the interface stays usable while it is written.</p>
 
                         <p><b>The report and its format.</b> A report is one file with every figure embedded inside it,
                           so
@@ -7396,28 +7580,30 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           the
                           main page stays quick to open. Nothing is left out of it either way.</p>
 
-                        <p><b>The relationship to the loose image files.</b> The images written by <i>Export disk maps
-                            in
-                            batch</i> and the figures embedded in the report are chosen independently. Exporting no
-                          images does
-                          not empty the report, and generating a report writes no loose images. The first controls what
-                          sits
+                        <p><b>The relationship to the loose image files.</b> The images written by
+                          <i>Export plots&hellip;</i> and the figures embedded in the report are
+                          chosen independently. Exporting no images does not empty the report, and
+                          generating a report writes no loose images. The first controls what sits
                           on disk as PNG files, the second what travels inside the HTML.</p>
 
                         <p><b>Reading the plots before exporting them.</b> Every plot in this tab carries the standard
                           controls (zoom, pan, and an axis dialog for limits and for switching an axis between
                           linear
-                          and logarithmic) in all four view modes. Those settings affect what is on screen. An
+                          and logarithmic) in every view mode. Those settings affect what is on screen. An
                           exported figure is drawn afresh.</p>
 
-                        <p>In the <span class="gui">GUI</span>, the buttons <i>Export disk maps in batch</i>,
-                          <i>Generate report</i> and <i>Copy table</i>, below the results panel, with the <i>Batch
-                            condition</i> selector appearing beside them when a single batch is selected.
+                        <p>In the <span class="gui">GUI</span>, the buttons <i>Export
+                            plots&hellip;</i>/<i>Export table&hellip;</i>, <i>Generate report</i> and
+                          <i>Copy figure</i>/<i>Copy table</i>, below the results panel, with the
+                          <i>Plot backend</i> dropdown at their left
+                          (<a class="xref" href="#cap-7-backend" title="12.1.6 Plot backend">Section
+                            12.1.6</a>) and the condition selector appearing above whenever the
+                          selection spans more than one condition.
                         </p>
 
                         <p>In the <span class="bemt">.bemt</span> file, a batch may carry its own output folder and its own
                           list
-                          of figure kinds, described in 11.5. Nothing in this block is otherwise stored: a report is an
+                          of figure kinds, described in 11.6. Nothing in this block is otherwise stored: a report is an
                           output, not part of the project definition.</p>
 
                         <p>From the <span class="cli">CLI</span>, <code>--report</code> writes
@@ -7820,10 +8006,65 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           ratio or <code>theta=8.00</code> for the collective, and those names
                           identify the conditions downstream.</p>
 
+                        <h4 id="designer-trim">13.2.1 Thrust matching</h4>
+
+                        <p><b>The physics.</b> A comparison at equal controls does not, by itself,
+                          compare efficiency fairly: a planform that happens to make more thrust
+                          also draws more power, so an ordinary ranking rewards whichever variant
+                          loads its blade most heavily. Holding the loading constant removes that
+                          advantage. With <i>Thrust matching</i> set to <i>Thrust</i> or to
+                          <i>CT</i>, every variant of the run produces the same thrust, or the same
+                          thrust coefficient $C_T$, at every condition of the run. The comparison
+                          then answers one question only: which planform delivers that loading for
+                          the least power, the best figure of merit, or the best propeller
+                          efficiency.</p>
+
+                        <p><b>The mathematics.</b> The target comes from the reference, which is the
+                          first row of the variant table, the base row of
+                          <a class="xref" href="#designer-variants" title="13.1 Variants">Section
+                            13.1</a>. The reference runs untrimmed, and its own result at each
+                          condition fixes the target of that condition:</p>
+
+                        <div class="eqn">$$T_{target} = T_{base}, \qquad C_{T,target} =
+                            C_{T,base} \qquad \text{(evaluated at each condition).}$$</div>
+
+                        <p>Every other variant then re-solves one control until it reaches the
+                          target. Which control is solved follows automatically from the project
+                          convention: a propeller solves RPM, because a fixed-pitch machine throttles
+                          with rotational speed, while a rotor solves the collective, because a
+                          rotor's rotational speed stays governed.</p>
+
+                        <p><b>Options, cost, and failure.</b> The dropdown offers <i>(off)</i>,
+                          <i>Thrust</i> and <i>CT</i>, and starts at <i>(off)</i>, which runs every
+                          variant with the same entered controls. A trimmed case bisects its control
+                          instead of solving once, so each case outside the base row costs roughly
+                          ten direct solves, about 10 to 20 engine solves in practice; the estimate
+                          line extends with that factor when trimming is on. A variant whose target
+                          lies outside the plausible bracket stops the run with an error naming the
+                          variant, the condition and the remedy, instead of returning a solution
+                          outside it. Trimmed results record what was traded: the columns
+                          <code>trim_target</code>, <code>trim_dof</code> and
+                          <code>trim_dof_value</code> appear in the exported CSV and in the report
+                          table, and the reference rows carry the mark <code>trim_reference</code>.</p>
+
+                        <p>In the <span class="gui">GUI</span>: choose <i>(off)</i>, <i>Thrust</i>
+                          or <i>CT</i> in the <i>Thrust matching</i> dropdown below the three
+                          conditions panels. It applies to all three modes at once, because it
+                          changes what one case solves, never which cases run.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: none. Thrust matching is a
+                          choice of the run, like the variant table itself, and stores nothing in
+                          the project.</p>
+
+                        <p>From the <span class="cli">CLI</span>: <code>--trim {none,thrust,CT}</code>
+                          on the <code>--compare</code> flow selects the same behavior, with
+                          <code>none</code> as the default.</p>
+
                         <p>In the <span class="gui">GUI</span>: check one of the three radio
-                          buttons at the top of the page. Fill the panel that appears below it, and
-                          read the estimate line to confirm the number of solves before moving
-                          on.</p>
+                          buttons at the top of the page. Fill the panel that appears below it, choose
+                          the <i>Thrust matching</i> option if the variants must be compared at equal
+                          loading, and read the estimate line to confirm the number of solves before
+                          moving on.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: the saved cases are real
                           project data and live in <code>inputs/saved_cases.bemt</code>. The single
@@ -8004,7 +8245,7 @@ zbemt --project projects/MyProject \
                             <tr>
                               <td>Saved cases/batches (Sections <a class="xref" href="#cap-5-6"
                                   title="10.6 Saved cases">10.6</a> and <a class="xref" href="#cap-6-4"
-                                  title="11.4 Saved batches">11.4</a>)</td>
+                                  title="11.5 Saved batches">11.5</a>)</td>
                               <td><code>--list-batches</code> | <code>--list-cases</code> |
                                 <code>--from-bemt-batch NAME</code> | <code>--from-bemt-case NAME</code>
                               </td>
@@ -8025,7 +8266,10 @@ zbemt --project projects/MyProject \
                             <tr>
                               <td>Geometry variation studies (<a class="xref" href="#cap-designer" title="13. Geometry Variation Studies">Chapter
                                   13</a>)</td>
-                              <td><code>--compare PROJECTS</code></td>
+                              <td><code>--compare PROJECTS</code> |
+                                <code>--trim {none,thrust,CT}</code> (loading held constant across the
+                                variants; default <code>none</code>)
+                              </td>
                             </tr>
                             <tr>
                               <td>Design optimization, command line only (<a class="xref" href="#sec-15-outside-the-gui"
@@ -8079,7 +8323,7 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Export (<a class="xref" href="#cap-6-5"
-                                  title="11.5 Where the results are written">Section 11.5</a>)</td>
+                                  title="11.6 Where the results are written">Section 11.6</a>)</td>
                               <td><code>--outdir PATH</code> | <code>--plots [performance] [disk_map]</code> |
                                 <code>--no-csv</code> | <code>--export-layout {flat,per_case}</code> |
                                 <code>--report [FILE]</code> | <code>--report-notes TEXT</code>

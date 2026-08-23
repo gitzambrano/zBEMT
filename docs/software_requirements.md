@@ -56,8 +56,16 @@ different rule.
   figure of merit otherwise), and each variant's percent change against the
   base planform at that same condition is drawn alongside the ranking,
   falling back to the absolute difference when the base value is
-  approximately zero. Comparison variants are session data; they are not
-  persisted in the project.
+  approximately zero. The comparison may instead hold the loading constant
+  across variants (constant thrust or constant `CT`): the first variant is
+  the reference and runs untrimmed, its thrust or `CT` at each condition
+  becomes that condition's target, and every other variant reaches the
+  target by bisection over one degree of freedom chosen automatically from
+  the mode convention (RPM for propellers, collective for rotors). A variant
+  whose target falls outside the search bracket raises a named error instead
+  of converging outside it, and trimmed summaries record the target, the
+  solved degree of freedom and its converged value. Comparison variants are
+  session data; they are not persisted in the project.
 - **SC-8** — Persisted design-optimization studies (`inputs/optimizations.bemt`)
   that drive one summary quantity on one flight condition through a bounded,
   derivative-free search over parametric planform parameters (Powell or
