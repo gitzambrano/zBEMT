@@ -742,3 +742,38 @@ class TestCompareGeometriesTrim(unittest.TestCase):
                 [FlightCondition(name="cruise", mu_x=0.1, rpm=600.0)],
                 trim="thrust")
         self.assertEqual(recorded["trim_mode"], "solve_rpm")
+
+
+class TestPlanformMetricsInComparison(unittest.TestCase):
+    """Every comparison result carries the classic planform metrics of
+    its geometry (AR = 1/∫c d(r/R), solidity σ = n·I/π) so the ranking,
+    overlays and CSV can compare SHAPE, not only operating points."""
+
+    def test_metrics_match_the_trapezoid_integral(self):
+        geom = geometry.generate_tapered(root_chord_norm=0.10,
+                                          tip_chord_norm=0.04,
+                                          twist_root_deg=8.0,
+                                          twist_tip_deg=2.0,
+                                          radius_m=1.0, n_blades=3,
+                                          n_stations=12)
+        metrics = studies._blade_planform_metrics(geom)
+        r = np.asarray(geom.r_norm)
+        c = np.asarray(geom.chord_norm)
+        trapz = getattr(np, "trapezoid", np.trapz)
+        integral = float(trapz(c, r))
+        self.assertAlmostEqual(metrics["aspect_ratio"], 1.0 / integral, places=9)
+        self.assertAlmostEqual(metrics["solidity"], 3 * integral / np.pi, places=9)
+
+    def test_compare_geometries_summaries_carry_metrics(self):
+        project = _make_project()
+        base = project.geometry
+        fat = studies.variant_geometry(base, {"tip_chord_norm": 0.12})
+        results = studies.compare_geometries(
+            project, {"base": base, "fat": fat},
+            [FlightCondition(name="hover", mu_x=0.0, rpm=600.0)])
+        for res in results:
+            self.assertIn("aspect_ratio", res.summary)
+            self.assertIn("solidity", res.summary)
+        self.assertLess(results[-1].summary["aspect_ratio"],
+                        results[0].summary["aspect_ratio"],
+                        "a fatter tip means more blade area, hence lower AR")

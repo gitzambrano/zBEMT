@@ -1014,9 +1014,14 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
             self.assertEqual(dialog.result(), QDialog.DialogCode.Accepted)
 
     def test_dialog_lists_the_four_places_and_both_options(self):
+        import os
+        from unittest import mock
         from zbemt.gui import common
-        dialog = common.MissingBinaryDialog(None, feature="XFOIL",
-                                            env_var="ZBEMT_XFOIL_BIN")
+        # Hermetic: a machine with ZBEMT_XFOIL_BIN set globally (this
+        # dev machine) would show a resolved path instead of "(not set)".
+        with mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": ""}):
+            dialog = common.MissingBinaryDialog(None, feature="XFOIL",
+                                                env_var="ZBEMT_XFOIL_BIN")
         text = dialog.message_label.text()
         for expected in ("ZBEMT_XFOIL_BIN", "(not set)",
                          "Remembered 'Locate…' choice",
@@ -1091,7 +1096,8 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
         alphas = [-6.0, -4.0, -2.0, 0.0, 2.0, 4.0, 6.0]
 
         def fake_run_polar(engine, geometry, reynolds_list, mach_list,
-                            alpha_min_deg, alpha_max_deg, alpha_step_deg):
+                            alpha_min_deg, alpha_max_deg, alpha_step_deg,
+                            **_kwargs):   # diagnostics etc.
             return [
                 PolarSlice(alpha_deg=list(alphas), cl=[0.1 * a for a in alphas],
                            cd=[0.01] * len(alphas), reynolds=re, mach=ma)
@@ -1128,3 +1134,45 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+class TestToolsButton(unittest.TestCase):
+    """The QMenuBar hid itself against the dark theme strip (dark-gray
+    text on black), so the entry point of the dedicated design windows
+    was invisible. The Tools BUTTON next to Help -- same pill, same
+    size -- is the entry point now, and the menu bar is gone."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _window(self):
+        from zbemt.gui import app as gui
+        win = gui.MainWindow()
+        win.resize(1500, 900)
+        win.show()
+        for _ in range(6):
+            self.app.processEvents()
+        self.addCleanup(win.hide)
+        self.addCleanup(win.deleteLater)
+        return win
+
+    def test_menu_bar_is_gone_and_tools_sits_beside_help(self):
+        win = self._window()
+        self.assertEqual(len(win.menuBar().actions()), 0,
+                         "the invisible menu bar must not come back")
+        bar = win.flow_bar
+        self.assertTrue(bar.btn_tools.isVisible())
+        self.assertLessEqual(
+            abs(bar.btn_tools.width() - bar.btn_help.width()), 2,
+            "Tools and Help must share the same pill size")
+
+    def test_tools_click_opens_the_geometry_designer(self):
+        win = self._window()
+        self.assertFalse(win.geometry_designer.isVisible())
+        win.flow_bar.btn_tools.click()
+        for _ in range(6):
+            self.app.processEvents()
+        self.assertTrue(win.geometry_designer.isVisible())
+        win.geometry_designer.close()

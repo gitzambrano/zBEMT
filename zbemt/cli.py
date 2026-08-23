@@ -789,11 +789,13 @@ def _run_gen_polar(project, project_path, args, engine: str) -> int:
         if args.xtr_bot is not None:
             xfoil_kwargs["xtr_bot"] = args.xtr_bot
 
+    diagnostics: list = []
     try:
         slices = api.run_external_polar_from_geometry(
             geom, engine=engine,
             reynolds_list=reynolds_list, mach_list=mach_list,
             alpha_min_deg=float(lo_s), alpha_max_deg=float(hi_s), alpha_step_deg=float(step_s),
+            diagnostics=diagnostics,
             **xfoil_kwargs,
         )
     except (RuntimeError, ValueError) as exc:
@@ -801,6 +803,11 @@ def _run_gen_polar(project, project_path, args, engine: str) -> int:
         # the engine's package or executable not being available here.
         print(f"Error: {exc}", file=sys.stderr)
         return 1
+
+    # Partial results (a Reynolds that produced no points, dropped alpha
+    # points) must never pass silently on the command line either.
+    for line in diagnostics:
+        print(f"Warning: {line}", file=sys.stderr)
 
     print(f"{_GEN_POLAR_NAMES[engine]}: {len(slices)} polar(s) generated "
           f"for {args.airfoil_geometry!r} "

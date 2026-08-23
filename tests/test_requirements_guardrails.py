@@ -222,6 +222,10 @@ class TestMissingBinaryErrorIsActionable(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home:
             old = os.environ.get("ZBEMT_HOME")
             os.environ["ZBEMT_HOME"] = home
+            # Hermetic: a machine WITH XFOIL configured (env var or
+            # standard folder) must still exercise the not-found path.
+            old_bin = os.environ.get("ZBEMT_XFOIL_BIN")
+            os.environ["ZBEMT_XFOIL_BIN"] = ""
             try:
                 with unittest.mock.patch.object(external_solvers.shutil,
                                                 "which", return_value=None):
@@ -238,14 +242,16 @@ class TestMissingBinaryErrorIsActionable(unittest.TestCase):
                     os.environ.pop("ZBEMT_HOME", None)
                 else:
                     os.environ["ZBEMT_HOME"] = old
+                if old_bin is None:
+                    os.environ.pop("ZBEMT_XFOIL_BIN", None)
+                else:
+                    os.environ["ZBEMT_XFOIL_BIN"] = old_bin
         message = str(ctx.exception)
         for token in ("ZBEMT_XFOIL_BIN", "PATH", "Locate", "download"):
             self.assertIn(token, message,
                           f"error must tell the user HOW: missing {token!r}")
 
     def test_standard_folder_finds_a_real_install(self):
-        """On machines with XFOIL in the standard folder the chain must
-        resolve WITHOUT any configuration (the reported case)."""
         path = external_solvers.resolve_xfoil_binary()
         if path is None:
             raise unittest.SkipTest("no XFOIL in standard folders here")
@@ -294,6 +300,26 @@ class TestMissingBinaryDialogOffersAWayOut(_WindowBase):
                       "dialog must offer the Locate… remedy")
         self.assertIn("http", text.lower(),
                       "dialog must link the download page")
+
+    def test_show_error_prints_the_passed_exception(self):
+        from zbemt.gui import common
+        exc = ValueError("Table has no alpha points at all")
+        try:
+            raise exc
+        except ValueError:
+            pass
+        # The call happens OUTSIDE the except block above. This is what
+        # a worker-captured error looks like when the GUI surfaces it
+        # later: the ambient context is empty. The dialog must print the
+        # PASSED exception's own traceback, never "NoneType: None".
+        with unittest.mock.patch.object(common.QMessageBox, "critical",
+                                        return_value=None) as critical:
+            common.show_error(self.win, "Error running case", exc)
+        text = critical.call_args.args[2]
+        self.assertIn("Table has no alpha points", text)
+        self.assertIn("ValueError", text)
+        self.assertNotIn("NoneType", text,
+                         "the ambient-context artifact must stay gone")
 
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not installed")

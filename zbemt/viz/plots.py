@@ -1435,6 +1435,7 @@ _SUMMARY_KEY_LABELS = {
     "Y": r"$Y$ [N]", "Mx": r"$M_x$ [N$\cdot$m]", "My": r"$M_y$ [N$\cdot$m]",
     # --- coefficients, rotor convention -----------------------------------
     "CT": r"$C_T$ [-]", "CQ": r"$C_Q$ [-]", "CP": r"$C_P$ [-]",
+    "aspect_ratio": r"$AR$ [-]", "solidity": r"$\sigma$ [-]",
     "CPi": r"$C_{Pi}$ [-]", "CPp": r"$C_{Pp}$ [-]",
     "CH": r"$C_H$ [-]", "CHi": r"$C_{Hi}$ [-]", "CHp": r"$C_{Hp}$ [-]",
     "CY": r"$C_Y$ [-]", "CMx": r"$C_{Mx}$ [-]", "CMy": r"$C_{My}$ [-]",

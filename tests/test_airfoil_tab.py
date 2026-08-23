@@ -488,5 +488,22 @@ class GeometryGenerationPopup(unittest.TestCase):
         self.assertEqual(tab.state.project.geometry.n_blades, 6)
 
 
+class TestPolarGenerationStatus(unittest.TestCase):
+    """The one-line summary under the Run button must say what the sweep
+    ACTUALLY produced -- "2 of 3 Reynolds converged", with the failures
+    named -- instead of leaving the drop invisible."""
+
+    def test_all_converged(self):
+        from zbemt.gui.tabs.airfoil import _polar_generation_status
+        self.assertEqual(_polar_generation_status(3, []),
+                         "3 of 3 Reynolds converged.")
+
+    def test_partial_convergence_names_the_failures(self):
+        from zbemt.gui.tabs.airfoil import _polar_generation_status
+        text = _polar_generation_status(3, ["Re=5e+05: no converged points"])
+        self.assertIn("2 of 3", text)
+        self.assertIn("Re=5e+05", text)
+
+
 if __name__ == "__main__":
     unittest.main()

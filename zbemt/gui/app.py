@@ -49,7 +49,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QSizePolicy,
 )
-from PyQt6.QtCore import QLocale, QCoreApplication, Qt
+from PyQt6.QtCore import QLocale, QCoreApplication, Qt, pyqtSignal
 from PyQt6.QtGui import QShortcut, QKeySequence
 
 from .. import validation
@@ -111,6 +111,13 @@ class FlowIndicatorBar(QWidget):
     markers, colored by state (gray/amber/green/red).
     Click jumps straight to the tab. It does not lock free navigation."""
 
+    #: Emitted by the Tools button (next to Help). The dedicated design
+    #: windows live OUTSIDE the tab flow, and the old QMenuBar entry
+    #: point rendered nearly invisible under the dark theme (dark-gray
+    #: text on the black strip), so the menu is gone: the button IS the
+    #: entry point now.
+    tools_requested = pyqtSignal()
+
     _STAGES = ["Project", "Geometry", "Airfoil", "Config/Engine", "Run Case",
                "Run Batch", "Results"]
 
@@ -143,6 +150,20 @@ class FlowIndicatorBar(QWidget):
             layout.addWidget(btn, 0, Qt.AlignmentFlag.AlignVCenter)
             self._buttons.append(btn)
         layout.addStretch(1)
+
+        # Tools: same pill style and size as Help, immediately to its
+        # left. Opens the dedicated design window directly -- no menu
+        # bar (it hid itself against the dark strip; a dead entry point
+        # is worse than none).
+        self.btn_tools = QPushButton("Tools")
+        self.btn_tools.setFlat(True)
+        self.btn_tools.setMinimumWidth(54)
+        self.btn_tools.setToolTip(
+            "Tools: opens the Geometry Designer (compare blade variants)")
+        self.btn_tools.setStyleSheet(
+            "QPushButton { font-weight: bold; border: 1px solid #888; border-radius: 14px; }")
+        self.btn_tools.clicked.connect(self.tools_requested.emit)
+        layout.addWidget(self.btn_tools)
 
         # Global access to the documentation: explicit text, without the
         # ambiguous question-mark affordance. Fields and block titles
@@ -488,18 +509,11 @@ class MainWindow(QMainWindow):
                        activated=lambda i=i: self.tabs.setCurrentIndex(i))
         # F1 -- same destination as the FlowIndicatorBar's "?" button (docs/documentation.html).
         QShortcut(QKeySequence("F1"), self, activated=lambda: open_help(self))
-        # Conventional "Tools" menu -- the entry point of the dedicated
-        # design windows that do not live in a tab.
-        tools_menu = self.menuBar().addMenu("Tools")
-        action = tools_menu.addAction("Geometry Designer…")
-        action.setToolTip(
-            "Opens the geometry-comparison window: blade variants, "
-            "conditions, and the ranked comparison results.")
-        action.triggered.connect(self.open_geometry_designer)
-        # Conventional "Help" menu -- redundant with the "?"/F1 button, but it is
-        # where users accustomed to desktop apps expect to find help.
-        help_menu = self.menuBar().addMenu("Help")
-        help_menu.addAction("Open documentation (F1)", lambda: open_help(self))
+        # The Tools BUTTON (FlowIndicatorBar, next to Help) replaced the
+        # old QMenuBar: under the dark theme the menu bar's dark-gray text
+        # on the black strip was effectively invisible, hiding the entry
+        # point of the dedicated design windows.
+        self.flow_bar.tools_requested.connect(self.open_geometry_designer)
 
     def open_geometry_designer(self):
         """Shows the non-modal Geometry Designer window, parented to

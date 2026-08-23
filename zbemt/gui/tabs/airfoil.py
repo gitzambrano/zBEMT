@@ -143,12 +143,12 @@ class _XfoilPolarWorker(ExternalPolarWorker):
     def __init__(self, profile: ProfileGeometry, *, reynolds_list: list,
                  mach_list: list, alpha_min_deg: float, alpha_max_deg: float,
                  alpha_step_deg: float, ncrit: float, xtr_top: float,
-                 xtr_bot: float):
+                 xtr_bot: float, diagnostics: list | None = None):
         super().__init__(
             profile, engine="xfoil",
             reynolds_list=reynolds_list, mach_list=mach_list,
             alpha_min_deg=alpha_min_deg, alpha_max_deg=alpha_max_deg,
-            alpha_step_deg=alpha_step_deg)
+            alpha_step_deg=alpha_step_deg, diagnostics=diagnostics)
         self.ncrit = ncrit
         self.xtr_top = xtr_top
         self.xtr_bot = xtr_bot
@@ -161,11 +161,26 @@ class _XfoilPolarWorker(ExternalPolarWorker):
                 alpha_min_deg=self.alpha_min_deg, alpha_max_deg=self.alpha_max_deg,
                 alpha_step_deg=self.alpha_step_deg,
                 ncrit=self.ncrit, xtr_top=self.xtr_top, xtr_bot=self.xtr_bot,
+                diagnostics=self.diagnostics,
             )
         except Exception as exc:
             self.failed.emit(str(exc))
             return
         self.finished.emit(slices)
+
+
+def _polar_generation_status(total_reynolds: int, diagnostics: list) -> str:
+    """One line stating what the polar sweep ACTUALLY produced.
+
+    The engine skips a Reynolds whose polar came back empty and used to
+    say so only through a stderr warning the windowed GUI never shows:
+    the user asked for three Reynolds, got two, and nobody said why.
+    This summary goes to the status label under the Run button."""
+    ok = total_reynolds - len(diagnostics)
+    text = f"{ok} of {total_reynolds} Reynolds converged."
+    if diagnostics:
+        text += " Failed: " + "; ".join(diagnostics)
+    return text
 
 
 # =============================================================================
@@ -2328,6 +2343,8 @@ class AirfoilTab(QWidget):
         self.status_label_external.setText(
             f"Running {engine} ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach)…")
 
+        diagnostics: list = []
+        self._ext_diagnostics = diagnostics
         if engine == "xfoil":
             worker = _XfoilPolarWorker(
                 self._profile,
@@ -2336,7 +2353,7 @@ class AirfoilTab(QWidget):
                 alpha_max_deg=self.ext_alpha_max.value(),
                 alpha_step_deg=self.ext_alpha_step.value(),
                 ncrit=self.ext_ncrit.value(), xtr_top=self.ext_xtr_top.value(),
-                xtr_bot=self.ext_xtr_bot.value())
+                xtr_bot=self.ext_xtr_bot.value(), diagnostics=diagnostics)
         else:
             worker = ExternalPolarWorker(
                 self._profile, engine=engine,
@@ -2344,7 +2361,7 @@ class AirfoilTab(QWidget):
                 alpha_min_deg=self.ext_alpha_min.value(),
                 alpha_max_deg=self.ext_alpha_max.value(),
                 alpha_step_deg=self.ext_alpha_step.value(),
-            )
+                diagnostics=diagnostics)
         self._ext_worker = worker
         worker.finished.connect(self._on_external_finished)
         worker.failed.connect(self._on_external_failed)
@@ -2396,6 +2413,18 @@ class AirfoilTab(QWidget):
         self._generated_external_slices = slices
         self.btn_export_external.setEnabled(True)
         self._imported_slices = list(slices)
+        # Say what the sweep ACTUALLY produced: a Reynolds that came back
+        # empty used to vanish into a stderr warning the GUI never shows.
+        diagnostics = list(getattr(self, "_ext_diagnostics", []))
+        status = _polar_generation_status(len(reynolds_list), diagnostics)
+        alphas = [a for s in slices for a in (s.alpha_deg or [])]
+        if alphas and (max(alphas) <= 1e-9 or min(alphas) >= -1e-9):
+            status += (" Warning: the table covers only ONE side of alpha=0; "
+                       "the full-range extension mirrors the stall anchor on "
+                       "the empty side. Regenerate with a wider alpha range "
+                       "for real data on both sides.")
+        self.status_label_external.setText(status)
+        self.status_label_external.setWordWrap(True)
         # The result becomes the active table immediately. This keeps the
         # generated-table mode (NeuralFoil or XFOIL) and the generated
         # slices together in the Project, allowing the case to run without

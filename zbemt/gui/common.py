@@ -782,7 +782,14 @@ def align_headers_with_content(table, numeric_columns) -> None:
 
 
 def show_error(parent, title: str, exc: Exception):
-    QMessageBox.critical(parent, title, f"{exc}\n\n{traceback.format_exc(limit=3)}")
+    # Format the PASSED exception's own traceback. The previous
+    # `traceback.format_exc()` reads the AMBIENT exception context: called
+    # outside the `except` block that produced `exc` (the usual case for
+    # errors captured in a worker and surfaced later), it found nothing
+    # and printed the useless "NoneType: None" under the message.
+    detail = "".join(traceback.format_exception(
+        type(exc), exc, exc.__traceback__, limit=3))
+    QMessageBox.critical(parent, title, f"{exc}\n\n{detail}")
 
 
 # =============================================================================

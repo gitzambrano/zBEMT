@@ -290,7 +290,8 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
                      alpha_min_deg: float, alpha_max_deg: float,
                      alpha_step_deg: float,
                      ncrit: float = 9.0, xtr_top: float = 1.0,
-                     xtr_bot: float = 1.0) -> list[PolarSlice]:
+                     xtr_bot: float = 1.0,
+                     diagnostics: Optional[list] = None) -> list[PolarSlice]:
     """Run XFOIL over ``geometry`` for each Reynolds in ``reynolds_list``.
 
     For each Reynolds the function writes one command script built by
@@ -360,6 +361,8 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
                     )
             except (OSError, subprocess.TimeoutExpired):
                 warnings.warn(f"XFOIL: no converged points for Re={reynolds:.3g}")
+                if diagnostics is not None:
+                    diagnostics.append(f"Re={reynolds:.3g}: no converged points")
                 continue
 
             text = ""
@@ -370,6 +373,8 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
                 alpha_vals, cl_vals, cd_vals = _parse_xfoil_polar(text)
             except ValueError:
                 warnings.warn(f"XFOIL: no converged points for Re={reynolds:.3g}")
+                if diagnostics is not None:
+                    diagnostics.append(f"Re={reynolds:.3g}: no converged points")
                 continue
 
             slices.extend(_mach_corrected_slices(
@@ -394,7 +399,8 @@ def run_polar(engine: str, geometry: ProfileGeometry,
               reynolds_list: list[float], mach_list: list[float],
               alpha_min_deg: float, alpha_max_deg: float,
               alpha_step_deg: float, *, ncrit: float = 9.0,
-              xtr_top: float = 1.0, xtr_bot: float = 1.0) -> list[PolarSlice]:
+              xtr_top: float = 1.0, xtr_bot: float = 1.0,
+              diagnostics: Optional[list] = None) -> list[PolarSlice]:
     """Run an external engine over ``geometry`` for each (Reynolds, Mach)
     combination in ``reynolds_list`` x ``mach_list``, over the requested
     alpha range, and return a list of ``PolarSlice`` ready to be
@@ -420,6 +426,12 @@ def run_polar(engine: str, geometry: ProfileGeometry,
     warning is emitted at the end, but the whole sweep is not brought down
     because of a few outlier points. XFOIL applies the same philosophy per
     Reynolds number.
+
+    ``diagnostics``: optional list that receives one human-readable line
+    per partial result (a Reynolds that produced no points, dropped alpha
+    points). The GUI surfaces it next to the progress bar and the CLI
+    prints it, so "I asked for 3 Reynolds and got 2" never happens
+    silently again.
     """
     if engine not in SUPPORTED_ENGINES:
         raise ValueError(
@@ -438,7 +450,8 @@ def run_polar(engine: str, geometry: ProfileGeometry,
     if engine == "xfoil":
         return _run_polar_xfoil(geometry, reynolds_list, mach_list,
                                 alpha_min_deg, alpha_max_deg, alpha_step_deg,
-                                ncrit=ncrit, xtr_top=xtr_top, xtr_bot=xtr_bot)
+                                ncrit=ncrit, xtr_top=xtr_top, xtr_bot=xtr_bot,
+                                diagnostics=diagnostics)
 
     # --- NeuralFoil path (in-process package), unchanged below ----------
     if not is_available("neuralfoil"):
@@ -504,4 +517,7 @@ def run_polar(engine: str, geometry: ProfileGeometry,
             f"NeuralFoil: {n_dropped} of {n_total} alpha points did not converge "
             f"with sufficient confidence and were omitted."
         )
+        if diagnostics is not None:
+            diagnostics.append(
+                f"NeuralFoil: {n_dropped} of {n_total} alpha points dropped")
     return slices

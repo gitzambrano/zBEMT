@@ -421,14 +421,16 @@ def alpha_deg_from_vv(Vz: float, mu_x: float, rpm: float, radius_m: float) -> fl
 # External polar generation via NeuralFoil (Phase 7, see external_solvers.py)
 # =============================================================================
 
-def run_external_polar(airfoil_def: AirfoilDef) -> list[PolarSlice]:
-    """Runs the external engine configured in ``airfoil_def`` (today only
-    ``"neuralfoil"`` is supported) over the geometry already defined in
-    ``airfoil_def.geometry``, using the Reynolds/Mach/alpha sweep also
-    already configured in ``airfoil_def.external_*``. When the engine is
-    ``"xfoil"``, the XFOIL-dedicated adjustment inputs ``airfoil_def.
-    xfoil_ncrit``/``xfoil_xtr_top``/``xfoil_xtr_bot`` go through as well;
-    other engines ignore them."""
+def run_external_polar(airfoil_def: AirfoilDef,
+                       diagnostics: Optional[list] = None) -> list[PolarSlice]:
+    """Runs the external engine configured in ``airfoil_def`` over the
+    geometry already defined in ``airfoil_def.geometry``, using the
+    Reynolds/Mach/alpha sweep also already configured in
+    ``airfoil_def.external_*``. When the engine is ``"xfoil"``, the
+    XFOIL-dedicated adjustment inputs ``airfoil_def.xfoil_ncrit``/
+    ``xfoil_xtr_top``/``xfoil_xtr_bot`` go through as well; other engines
+    ignore them. ``diagnostics`` (optional list) collects one line per
+    partial result so the caller can surface them."""
     if airfoil_def.geometry is None:
         raise ValueError("AirfoilDef.geometry not defined — generate or import a profile geometry first.")
     extra = {}
@@ -444,6 +446,7 @@ def run_external_polar(airfoil_def: AirfoilDef) -> list[PolarSlice]:
         alpha_min_deg=airfoil_def.external_alpha_min_deg,
         alpha_max_deg=airfoil_def.external_alpha_max_deg,
         alpha_step_deg=airfoil_def.external_alpha_step_deg,
+        diagnostics=diagnostics,
         **extra,
     )
 
@@ -453,7 +456,8 @@ def run_external_polar_from_geometry(geometry: ProfileGeometry, *, engine: str =
                                       alpha_min_deg: float, alpha_max_deg: float,
                                       alpha_step_deg: float,
                                       ncrit: float = 9.0, xtr_top: float = 1.0,
-                                      xtr_bot: float = 1.0) -> list[PolarSlice]:
+                                      xtr_bot: float = 1.0,
+                                      diagnostics: Optional[list] = None) -> list[PolarSlice]:
     """'Direct' variant of ``run_external_polar`` that does not require
     an open ``AirfoilDef`` or project. Used by the CLI (``--gen-neuralfoil``
     and ``--gen-xfoil``, Phase 7) and by the GUI's polar worker to generate
@@ -461,7 +465,8 @@ def run_external_polar_from_geometry(geometry: ProfileGeometry, *, engine: str =
 
     ``ncrit``/``xtr_top``/``xtr_bot`` are the XFOIL-dedicated adjustment
     inputs and reach ``external_solvers.run_polar`` only when ``engine``
-    is ``"xfoil"``; other engines ignore them."""
+    is ``"xfoil"``; other engines ignore them. ``diagnostics`` (optional
+    list) collects one line per partial result."""
     extra = {}
     if engine == "xfoil":
         extra = {"ncrit": ncrit, "xtr_top": xtr_top, "xtr_bot": xtr_bot}
@@ -469,7 +474,7 @@ def run_external_polar_from_geometry(geometry: ProfileGeometry, *, engine: str =
         engine=engine, geometry=geometry,
         reynolds_list=list(reynolds_list), mach_list=list(mach_list),
         alpha_min_deg=alpha_min_deg, alpha_max_deg=alpha_max_deg,
-        alpha_step_deg=alpha_step_deg,
+        alpha_step_deg=alpha_step_deg, diagnostics=diagnostics,
         **extra,
     )
 

@@ -444,5 +444,40 @@ class TestRunPolarComputation(unittest.TestCase):
         self.assertIsInstance(slices, list)
 
 
+class TestPartialSweepDiagnostics(unittest.TestCase):
+    """"I asked for 3 Reynolds and got 2" must never be silent again:
+    every Reynolds the engine drops leaves one line in `diagnostics`,
+    which the GUI shows next to the progress bar and the CLI prints."""
+
+    def test_dropped_reynolds_land_in_diagnostics(self):
+        geom = airfoils.generate_naca4("0012")
+        diag = []
+        # The resolution must succeed with a dummy path, so the flow
+        # always reaches the patched subprocess call. Without this pin
+        # the test depends on the machine: without a real XFOIL the
+        # early RuntimeError leaves `diag` empty.
+        with mock.patch.object(external_solvers, "resolve_xfoil_binary",
+                               return_value="xfoil-dummy"):
+            with mock.patch.object(external_solvers.subprocess, "run",
+                                   side_effect=OSError("boom")):
+                with self.assertRaises(RuntimeError):
+                    external_solvers.run_polar(
+                        "xfoil", geom, [1e5, 2e5], [0.1], -4, 4, 2.0,
+                        diagnostics=diag)
+        self.assertEqual(len(diag), 2)
+        self.assertEqual(diag[0], "Re=1e+05: no converged points")
+        self.assertEqual(diag[1], "Re=2e+05: no converged points")
+
+    def test_diagnostics_is_optional(self):
+        geom = airfoils.generate_naca4("0012")
+        with mock.patch.object(external_solvers, "resolve_xfoil_binary",
+                               return_value="xfoil-dummy"):
+            with mock.patch.object(external_solvers.subprocess, "run",
+                                   side_effect=OSError("boom")):
+                with self.assertRaises(RuntimeError):
+                    external_solvers.run_polar(
+                        "xfoil", geom, [1e5], [0.1], -4, 4, 2.0)
+
+
 if __name__ == "__main__":
     unittest.main()

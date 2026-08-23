@@ -11,6 +11,8 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
+import numpy as np
+
 from tests import helpers
 
 try:
@@ -44,6 +46,45 @@ def _make_project(path: str = "", **cfg_overrides):
 def _result(label, name, **summary):
     return Results(summary={"geometry_label": label, **summary}, maps={},
                     condition_name=name)
+
+
+def _assert_same_geometry(testcase, a, b):
+    """Field-by-field equality of two radial tables (RotorGeometryDef)."""
+    testcase.assertEqual(a.n_blades, b.n_blades)
+    testcase.assertAlmostEqual(a.radius_m, b.radius_m, places=9)
+    testcase.assertAlmostEqual(a.root_cutout_norm, b.root_cutout_norm,
+                                places=9)
+    testcase.assertEqual(len(a.r_norm), len(b.r_norm))
+    for attr in ("r_norm", "chord_norm", "twist_deg"):
+        for value_a, value_b in zip(getattr(a, attr), getattr(b, attr)):
+            testcase.assertAlmostEqual(value_a, value_b, places=9)
+
+
+def _save_other_project(tmpdir):
+    """Writes a small on-disk project distinct from ``_make_project``
+    (rectangular, 3 blades, radius 1.2 m) and returns (path, project)."""
+    from zbemt import api, geometry
+    from zbemt.models import AirfoilDef, Project
+    geom = geometry.generate_rectangular(chord_norm=0.09,
+                                          twist_root_deg=10.0,
+                                          twist_tip_deg=3.0, radius_m=1.2,
+                                          n_blades=3, n_stations=10)
+    airfoil = AirfoilDef(source="analytical", stall_model="clip")
+    project = Project(name="other_rotor",
+                      path=str(Path(tmpdir) / "other_rotor"),
+                      geometry=geom, airfoil=airfoil,
+                      config=dict(Ne=6, Npsi=8, solver="fixed_point",
+                                  max_iter=80))
+    api.save_project(project)
+    return project.path, project
+
+
+def _snapshot_files(root):
+    """Byte snapshot of every file under ``root``, keyed by relative
+    path -- equality of two snapshots proves nothing was rewritten."""
+    root = Path(root)
+    return {str(p.relative_to(root)): p.read_bytes()
+            for p in sorted(root.rglob("*")) if p.is_file()}
 
 
 if _HAS_QT:
@@ -115,7 +156,13 @@ if _HAS_QT:
             window = self._window_for(_make_project())
             cells = [window.variants_table.item(0, c).text()
                      for c in range(window.variants_table.columnCount())]
+            geom = window._session_base_geometry()
+            integral = float(np.trapezoid(geom.chord_norm, x=geom.r_norm))
             self.assertEqual(cells, ["base", "0.1", "0.04", "14", "2", "2",
+                                     f"{geom.root_cutout_norm:.3f}",
+                                     f"{geom.radius_m:.3f}",
+                                     f"{1.0 / integral:.2f}",
+                                     f"{int(geom.n_blades) * integral / np.pi:.3f}",
                                      "—"])
 
     @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
@@ -158,15 +205,16 @@ if _HAS_QT:
                              ["n_blades=3", "n_blades=4"])
             self.assertEqual(table.item(1, 5).text(), "3")
 
-        def test_parameter_without_a_column_rides_in_row_data(self):
+        def test_radius_sweep_fills_its_own_column_cell(self):
             window = self._window_for(_make_project())
             window.vsweep_param_combo.setCurrentText("radius_m")
             window.vsweep_values_edit.setText("1.2")
             with helpers.patch_message_box_everywhere("QMessageBox"):
                 window.btn_build_sweep.click()
-            label_item = window.variants_table.item(1, 0)
-            self.assertEqual(label_item.data(Qt.ItemDataRole.UserRole),
-                             {"radius_m": 1.2})
+            table = window.variants_table
+            self.assertEqual(table.item(1, 7).text(), "1.2")
+            label_item = table.item(1, 0)
+            self.assertIsNone(label_item.data(Qt.ItemDataRole.UserRole))
             label, overrides = window._row_overrides(1)
             self.assertEqual(label, "radius_m=1.200")
             self.assertEqual(overrides.get("radius_m"), 1.2)
@@ -196,30 +244,34 @@ if _HAS_QT:
         def test_column_exists_and_is_read_only(self):
             window = self._window_for(_make_project())
             table = window.variants_table
-            self.assertEqual(table.columnCount(), 7)
-            self.assertEqual(table.horizontalHeaderItem(6).text(),
+            self.assertEqual(table.columnCount(), 11)
+            self.assertEqual(table.horizontalHeaderItem(10).text(),
                              "Extra overrides")
-            flags = table.item(0, 6).flags()
+            flags = table.item(0, 10).flags()
             self.assertFalse(flags & Qt.ItemFlag.ItemIsEditable)
 
-        def test_radius_sweep_shows_fragments_and_base_dash(self):
+        def test_radius_sweep_fills_its_own_column_and_extra_stays_empty(self):
             window = self._window_for(_make_project())
             window.vsweep_param_combo.setCurrentText("radius_m")
             window.vsweep_values_edit.setText("1.2, 1.4, 1.6")
             with helpers.patch_message_box_everywhere("QMessageBox"):
                 window.btn_build_sweep.click()
             table = window.variants_table
-            self.assertEqual(table.item(0, 6).text(), "—")
-            texts = [table.item(r, 6).text() for r in (1, 2, 3)]
-            for text in texts:
-                self.assertIn("radius_m=", text)
-            self.assertEqual(texts, ["radius_m=1.200", "radius_m=1.400",
-                                     "radius_m=1.600"])
-            # A duplicated row carries its overrides and their summary.
+            self.assertEqual(table.item(0, 10).text(), "—")
+            # Radius owns an editable column now: the swept values land
+            # there, and the Extra projection stays empty.
+            self.assertEqual([table.item(r, 7).text() for r in (1, 2, 3)],
+                             ["1.2", "1.4", "1.6"])
+            self.assertEqual([table.item(r, 10).text() for r in (1, 2, 3)],
+                             ["—", "—", "—"])
+            # A duplicated row carries its override and its summary.
             table.selectRow(1)
             with helpers.patch_message_box_everywhere("QMessageBox"):
                 window.btn_duplicate_variant.click()
-            self.assertEqual(table.item(4, 6).text(), "radius_m=1.200")
+            self.assertEqual(table.item(4, 7).text(), "1.2")
+            self.assertEqual(table.item(4, 10).text(), "—")
+            _label, overrides = window._row_overrides(4)
+            self.assertEqual(overrides.get("radius_m"), 1.2)
 
         def test_cell_edits_recompute_the_projection(self):
             from zbemt import geometry
@@ -235,9 +287,181 @@ if _HAS_QT:
             table = window.variants_table
             # The rectangular generator drives chord_norm, which has no
             # dedicated column: the base row names it.
-            self.assertEqual(table.item(0, 6).text(), "chord_norm=0.080")
+            self.assertEqual(table.item(0, 10).text(), "chord_norm=0.080")
             table.item(0, 1).setText("0.12")
-            self.assertEqual(table.item(0, 6).text(), "chord_norm=0.120")
+            self.assertEqual(table.item(0, 10).text(), "chord_norm=0.120")
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestRichTableColumns(DesignerWindowBase):
+        """Root cutout, Radius, Aspect ratio and Solidity columns."""
+
+        @staticmethod
+        def _expected_texts(geom):
+            """(cutout, radius, AR, solidity) texts of one geometry."""
+            integral = float(np.trapezoid(geom.chord_norm, x=geom.r_norm))
+            return (f"{float(geom.root_cutout_norm):.3f}",
+                    f"{float(geom.radius_m):.3f}",
+                    f"{1.0 / integral:.2f}",
+                    f"{int(geom.n_blades) * integral / np.pi:.3f}")
+
+        def test_header_order_and_column_count(self):
+            window = self._window_for(_make_project())
+            table = window.variants_table
+            self.assertEqual(table.columnCount(), 11)
+            headers = [table.horizontalHeaderItem(c).text()
+                       for c in range(table.columnCount())]
+            self.assertEqual(
+                headers,
+                ["Label", "Root chord c/R", "Tip chord c/R",
+                 "Twist root [deg]", "Twist tip [deg]", "Blades",
+                 "Root cutout [r/R]", "Radius [m]", "Aspect ratio",
+                 "Solidity", "Extra overrides"])
+
+        def test_integral_helper_matches_trapezoid_within_tolerance(self):
+            from zbemt.gui.tabs.designer_window import _planform_integral
+            window = self._window_for(_make_project())
+            geom = window._session_base_geometry()
+            expected = float(np.trapezoid(geom.chord_norm, x=geom.r_norm))
+            self.assertAlmostEqual(_planform_integral(geom) / expected,
+                                    1.0, places=6)
+
+        def test_base_row_shows_its_own_direct_and_derived_values(self):
+            window = self._window_for(_make_project())
+            table = window.variants_table
+            cutout, radius, ar, sigma = self._expected_texts(
+                window._session_base_geometry())
+            self.assertEqual(table.item(0, 6).text(), cutout)
+            self.assertEqual(table.item(0, 7).text(), radius)
+            self.assertEqual(table.item(0, 8).text(), ar)
+            self.assertEqual(table.item(0, 9).text(), sigma)
+            # Root cutout and Radius are direct parameters: they stay
+            # editable on the base row, like Blades.
+            for col in (6, 7):
+                flags = table.item(0, col).flags()
+                self.assertTrue(flags & Qt.ItemFlag.ItemIsEditable)
+            for col in (8, 9):
+                flags = table.item(0, col).flags()
+                self.assertFalse(flags & Qt.ItemFlag.ItemIsEditable)
+
+        def test_blade_edit_scales_solidity_exactly(self):
+            from zbemt import geometry
+            from zbemt.models import Project
+            geom = geometry.generate_rectangular(chord_norm=0.50,
+                                                  radius_m=1.0,
+                                                  n_blades=2, n_stations=8)
+            airfoil = AirfoilDef(source="analytical", stall_model="clip")
+            project = Project(name="fat", geometry=geom, airfoil=airfoil,
+                               config=dict(Ne=6, Npsi=8,
+                                           solver="fixed_point",
+                                           max_iter=80))
+            window = self._window_for(project)
+            table = window.variants_table
+            sigma_before = float(table.item(0, 9).text())
+            table.item(0, 5).setText("4")
+            sigma_after = float(table.item(0, 9).text())
+            # The display rounds to three decimals; the ratio holds to
+            # well within that rounding.
+            self.assertAlmostEqual(sigma_after / sigma_before, 2.0,
+                                    delta=0.01)
+            # Exactness against the same integral the window derives.
+            *_, sigma_expected = self._expected_texts(
+                window._row_resolved(0)[1])
+            self.assertEqual(table.item(0, 9).text(), sigma_expected)
+
+        def test_root_cutout_override_lands_in_its_column(self):
+            window = self._window_for(_make_project())
+            table = window.variants_table
+            window.vsweep_param_combo.setCurrentText("root_cutout_norm")
+            window.vsweep_values_edit.setText("0.25")
+            with helpers.patch_message_box_everywhere("QMessageBox"):
+                window.btn_build_sweep.click()
+            self.assertEqual(table.rowCount(), 2)
+            self.assertEqual(table.item(1, 6).text(), "0.25")
+            label, overrides = window._row_overrides(1)
+            self.assertEqual(label, "root_cutout_norm=0.250")
+            self.assertEqual(overrides.get("root_cutout_norm"), 0.25)
+            # The parameter owns a column now: nothing leaks into the
+            # Extra overrides projection.
+            self.assertNotIn("root_cutout", table.item(1, 10).text())
+            # Editing the cell re-reads as the override, resolves into
+            # the row's geometry, and moves the derived columns.
+            table.item(1, 6).setText("0.3")
+            _label, overrides = window._row_overrides(1)
+            self.assertEqual(overrides.get("root_cutout_norm"), 0.3)
+            _, geom = window._row_resolved(1)
+            self.assertAlmostEqual(geom.root_cutout_norm, 0.3, places=9)
+            _, _, ar, sigma = self._expected_texts(geom)
+            self.assertEqual(table.item(1, 8).text(), ar)
+            self.assertEqual(table.item(1, 9).text(), sigma)
+
+        def test_generated_row_derives_from_its_own_geometry(self):
+            window = self._window_for(_make_project())
+            table = window.variants_table
+            window.btn_add_generated.click()
+            cutout = float(window.gen_cutout_spin.value())
+            r = np.linspace(cutout, 1.0,
+                            int(window.gen_stations_spin.value()))
+            c = np.full(len(r), float(window.gen_chord_spin.value()))
+            integral = float(np.trapezoid(c, x=r))
+            blades = int(window.gen_blades_spin.value())
+            self.assertEqual(table.item(1, 6).text(), f"{cutout:.3f}")
+            self.assertEqual(
+                table.item(1, 7).text(),
+                f"{float(window.gen_radius_spin.value()):.3f}")
+            self.assertEqual(table.item(1, 8).text(),
+                             f"{1.0 / integral:.2f}")
+            self.assertEqual(table.item(1, 9).text(),
+                             f"{blades * integral / np.pi:.3f}")
+            # The carried geometry fills the direct cells of a payload
+            # row read-only.
+            for col in (6, 7):
+                flags = table.item(1, col).flags()
+                self.assertFalse(flags & Qt.ItemFlag.ItemIsEditable)
+            marker = table.item(1, 10).text()
+            self.assertIn("generated", marker)
+            self.assertNotIn("root_cutout", marker)
+
+        def test_derived_cells_are_read_only_on_every_row(self):
+            window = self._window_for(_make_project())
+            self._build_tip_sweep(window)          # one override row
+            window.btn_add_generated.click()       # one payload row
+            table = window.variants_table
+            self.assertEqual(table.rowCount(), 3)
+            for row in range(table.rowCount()):
+                for col in (8, 9, 10):
+                    flags = table.item(row, col).flags()
+                    self.assertFalse(flags & Qt.ItemFlag.ItemIsEditable,
+                                     f"row {row}, column {col}")
+
+        def test_ranking_and_overlay_offer_the_derived_metrics(self):
+            window = self._window_for(_make_project())
+            results = [_result("base", "hover", FM=0.70, Thrust=10.0,
+                                aspect_ratio=16.81, solidity=0.038),
+                       _result("v1", "hover", FM=0.72, Thrust=11.0,
+                                aspect_ratio=18.20, solidity=0.035)]
+            window._fill_ranking_combo(results)
+            texts = [window.ranking_field_combo.itemText(i)
+                     for i in range(window.ranking_field_combo.count())]
+            self.assertEqual(texts, ["(none)", "FM", "Thrust",
+                                     "aspect_ratio", "solidity"])
+            overlay_results = [_result("base", "hover",
+                                        aspect_ratio=16.81,
+                                        solidity=0.038),
+                               _result("v1", "hover",
+                                        aspect_ratio=18.20,
+                                        solidity=0.035)]
+            from matplotlib.figure import Figure
+            from zbemt.gui.tabs import designer_window
+            fig = Figure()
+            ax = fig.add_subplot(111)
+            with unittest.mock.patch.object(
+                    designer_window.plots, "plot_geometry_comparison",
+                    return_value=ax) as plot_call, \
+                    unittest.mock.patch.object(window.overlay_canvas,
+                                                "show_figure"):
+                window._draw_overlay(overlay_results)
+            self.assertEqual(plot_call.call_args.kwargs.get("fields"),
+                             ("aspect_ratio", "solidity"))
 
     @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
     class TestDefaultRankingMetric(DesignerWindowBase):
@@ -584,6 +808,242 @@ if _HAS_QT:
                 self.assertEqual(len(reports), 1)
                 self.assertEqual(len(csvs), 1)
                 self.assertGreater(reports[0].stat().st_size, 1000)
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestGenerateVariantBlock(DesignerWindowBase):
+        """The family dropdown builds rows carrying a COMPLETE geometry."""
+
+        def test_family_combo_reveals_exactly_its_own_fields(self):
+            window = self._window_for(_make_project())
+            form = window._generate_form
+
+            def visible(widget):
+                return bool(form.isRowVisible(widget))
+
+            window.gen_family_combo.setCurrentText("rectangular")
+            self.assertTrue(visible(window.gen_chord_spin))
+            self.assertFalse(visible(window.gen_root_chord_spin))
+            self.assertFalse(visible(window.gen_tip_chord_spin))
+            self.assertFalse(visible(window.gen_max_chord_spin))
+            self.assertTrue(visible(window.gen_twist_root_spin))
+            self.assertTrue(visible(window.gen_twist_tip_spin))
+            window.gen_family_combo.setCurrentText("tapered")
+            self.assertFalse(visible(window.gen_chord_spin))
+            self.assertTrue(visible(window.gen_root_chord_spin))
+            self.assertTrue(visible(window.gen_tip_chord_spin))
+            self.assertFalse(visible(window.gen_max_chord_spin))
+            window.gen_family_combo.setCurrentText("elliptic")
+            self.assertFalse(visible(window.gen_chord_spin))
+            self.assertFalse(visible(window.gen_root_chord_spin))
+            self.assertFalse(visible(window.gen_tip_chord_spin))
+            self.assertTrue(visible(window.gen_max_chord_spin))
+            self.assertTrue(visible(window.gen_twist_root_spin))
+
+        def test_rectangular_defaults_append_a_generated_row(self):
+            from zbemt import geometry
+            window = self._window_for(_make_project())
+            table = window.variants_table
+            self.assertEqual(int(window.gen_stations_spin.value()),
+                              len(window.state.project.geometry.r_norm))
+            window.btn_add_generated.click()
+            self.assertEqual(table.rowCount(), 2)
+            self.assertEqual(table.item(1, 0).text(), "rectangular 1")
+            marker = table.item(1, 10).text()
+            self.assertIn("generated", marker)
+            self.assertIn("rectangular", marker)
+            expected = geometry.generate_rectangular(
+                chord_norm=window.gen_chord_spin.value(),
+                twist_root_deg=window.gen_twist_root_spin.value(),
+                twist_tip_deg=window.gen_twist_tip_spin.value(),
+                radius_m=window.gen_radius_spin.value(),
+                n_blades=int(window.gen_blades_spin.value()),
+                root_cutout_norm=window.gen_cutout_spin.value(),
+                n_stations=int(window.gen_stations_spin.value()))
+            _assert_same_geometry(
+                self, window._collect_variants()["rectangular 1"], expected)
+
+        def test_labels_are_numbered_per_family(self):
+            window = self._window_for(_make_project())
+            table = window.variants_table
+            window.btn_add_generated.click()
+            window.gen_family_combo.setCurrentText("tapered")
+            window.btn_add_generated.click()
+            window.gen_family_combo.setCurrentText("rectangular")
+            window.btn_add_generated.click()
+            labels = [table.item(r, 0).text() for r in (1, 2, 3)]
+            self.assertEqual(labels,
+                             ["rectangular 1", "tapered 1",
+                              "rectangular 2"])
+
+        def test_duplicate_of_a_generated_row_carries_the_geometry(self):
+            from zbemt import geometry
+            window = self._window_for(_make_project())
+            table = window.variants_table
+            window.btn_add_generated.click()
+            expected = geometry.generate_rectangular(
+                chord_norm=window.gen_chord_spin.value(),
+                twist_root_deg=window.gen_twist_root_spin.value(),
+                twist_tip_deg=window.gen_twist_tip_spin.value(),
+                radius_m=window.gen_radius_spin.value(),
+                n_blades=int(window.gen_blades_spin.value()),
+                root_cutout_norm=window.gen_cutout_spin.value(),
+                n_stations=int(window.gen_stations_spin.value()))
+            table.selectRow(1)
+            window.btn_duplicate_variant.click()
+            self.assertEqual([table.item(r, 0).text() for r in (1, 2)],
+                             ["rectangular 1", "rectangular 1 copy"])
+            variants = window._collect_variants()
+            _assert_same_geometry(self, variants["rectangular 1"], expected)
+            _assert_same_geometry(self, variants["rectangular 1 copy"],
+                                   expected)
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestImportFromProject(DesignerWindowBase):
+        """Bringing another project's blade in as variant or base.
+
+        The message-box patch here is scoped to the two modules that can
+        open a dialog on these paths (`designer_window` itself and
+        `common.show_error`): the shared all-modules helper imports
+        `zbemt.gui.app`, whose health is another work stream's concern.
+        """
+
+        def _click_import(self, window, path, choice):
+            import unittest.mock
+            with unittest.mock.patch(
+                    "zbemt.gui.tabs.designer_window.QFileDialog"
+                    ".getExistingDirectory",
+                    return_value=path) as dialog, \
+                    unittest.mock.patch.object(window,
+                                                "_ask_import_choice",
+                                                return_value=choice):
+                window.btn_import_project.click()
+            dialog.assert_called_once()
+
+        def test_add_as_variant_appends_a_row_labeled_with_the_project(self):
+            import tempfile
+            from zbemt import api
+            with tempfile.TemporaryDirectory() as tmp:
+                path, _saved = _save_other_project(tmp)
+                opened = api.open_project(path)
+                window = self._window_for(_make_project())
+                self._click_import(window, path, "variant")
+                table = window.variants_table
+                self.assertEqual(table.rowCount(), 2)
+                self.assertEqual(table.item(1, 0).text(), "other_rotor")
+                got = window._collect_variants()["other_rotor"]
+                _assert_same_geometry(self, got, opened.geometry)
+
+        def test_replace_base_swaps_the_session_base_without_touching_disk(self):
+            import tempfile
+            from zbemt import api
+            with tempfile.TemporaryDirectory() as tmp:
+                path, saved = _save_other_project(tmp)
+                opened = api.open_project(path)
+                window = self._window_for(_make_project())
+                original = window.state.project.geometry
+                before = _snapshot_files(path)
+                self._click_import(window, path, "base")
+                table = window.variants_table
+                self.assertEqual(table.item(0, 0).text(), "base")
+                variants = window._collect_variants()
+                _assert_same_geometry(self, variants["base"],
+                                       opened.geometry)
+                note = table.item(0, 10).text()
+                self.assertTrue(note.startswith("imported:"))
+                self.assertIn("other_rotor", note)
+                # The seeded columns now describe the imported blade.
+                self.assertEqual(table.item(0, 1).text(), "0.09")
+                self.assertEqual(table.item(0, 5).text(), "3")
+                # Nothing on disk moved, and the open project neither.
+                self.assertEqual(_snapshot_files(path), before)
+                reopened = api.open_project(path)
+                _assert_same_geometry(self, reopened.geometry,
+                                       saved.geometry)
+                _assert_same_geometry(self, original,
+                                       window.state.project.geometry)
+
+        def test_invalid_folder_reports_what_a_project_folder_is(self):
+            import tempfile
+            import unittest.mock
+            with tempfile.TemporaryDirectory() as tmp:
+                empty = Path(tmp) / "empty"
+                empty.mkdir()
+                window = self._window_for(_make_project())
+                with unittest.mock.patch(
+                        "zbemt.gui.tabs.designer_window.QMessageBox"), \
+                        unittest.mock.patch(
+                            "zbemt.gui.common.QMessageBox") as box, \
+                        unittest.mock.patch(
+                            "zbemt.gui.tabs.designer_window.QFileDialog"
+                            ".getExistingDirectory",
+                            return_value=str(empty)):
+                    window.btn_import_project.click()
+                self.assertEqual(window.variants_table.rowCount(), 1)
+                self.assertFalse(box.critical.call_args is None)
+                message = box.critical.call_args[0][2]
+                self.assertIn(".bemt", message)
+                self.assertIn("inputs", message)
+
+        def test_opening_another_project_clears_the_imported_base(self):
+            import tempfile
+            with tempfile.TemporaryDirectory() as tmp:
+                path, _saved = _save_other_project(tmp)
+                window = self._window_for(_make_project())
+                self._click_import(window, path, "base")
+                self.assertIsNotNone(window._base_override)
+                window.state.set_project(_make_project())
+                self.assertIsNone(window._base_override)
+                table = window.variants_table
+                self.assertEqual(table.item(0, 10).text(), "—")
+                self.assertEqual(table.item(0, 1).text(), "0.1")
+                self.assertEqual(table.item(0, 5).text(), "2")
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestTableOriginSweepRegression(DesignerWindowBase):
+        """A planform sweep over a non-parametric base builds rows.
+
+        Before table-space overrides landed in `studies.variant_geometry`,
+        any planform parameter over such a base stopped the build with
+        "need a parametric generator"; the endpoint value must now come
+        out exactly where the sweep asked for it.
+        """
+
+        def _table_origin_window(self):
+            import numpy as np
+            from zbemt import geometry
+            from zbemt.models import Project
+            r = np.linspace(0.15, 1.0, 8).tolist()
+            chord = np.linspace(0.10, 0.04, 8).tolist()
+            twist = np.linspace(14.0, 2.0, 8).tolist()
+            geom = geometry.generate_custom(r, chord, twist, radius_m=1.0,
+                                             n_blades=2)
+            airfoil = AirfoilDef(source="analytical", stall_model="clip")
+            project = Project(name="tbl", geometry=geom, airfoil=airfoil,
+                               config=dict(Ne=6, Npsi=8,
+                                           solver="fixed_point",
+                                           max_iter=80))
+            return self._window_for(project)
+
+        def test_planform_sweep_builds_on_a_table_origin_base(self):
+            window = self._table_origin_window()
+            table = window.variants_table
+            window.vsweep_param_combo.setCurrentText("tip_chord_norm")
+            window.vsweep_values_edit.setText("0.06")
+            with unittest.mock.patch(
+                    "zbemt.gui.tabs.designer_window.QMessageBox") as box:
+                window.btn_build_sweep.click()
+            self.assertEqual(table.rowCount(), 2)
+            box.warning.assert_not_called()
+            self.assertEqual(table.item(1, 0).text(),
+                              "tip_chord_norm=0.060")
+            got = window._collect_variants()["tip_chord_norm=0.060"]
+            self.assertAlmostEqual(got.chord_norm[-1], 0.06, places=9)
+
+        def test_sweep_tooltip_names_the_table_space_fallback(self):
+            window = self._table_origin_window()
+            tooltip = window.vsweep_param_combo.toolTip()
+            self.assertIn("table space", tooltip)
+
 
 if __name__ == "__main__":
     unittest.main()

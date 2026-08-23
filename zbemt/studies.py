@@ -801,17 +801,83 @@ _PARAMETRIC_KINDS = ("rectangular", "tapered", "elliptic")
 _OPTIMIZATION_METHODS = ("powell", "nelder-mead")
 
 
+def _blade_planform_metrics(geometry: RotorGeometryDef) -> dict:
+    """Classic planform comparison metrics from the radial table.
+
+    With c(x) the chord distribution in units of R over x = r/R, the
+    blade integral is I = ∫c dx; the blade aspect ratio (alongamento)
+    is AR = 1/I and the rotor solidity is σ = n_blades·I/π. Every
+    geometry is a table, so these apply to generated, imported and
+    edited blades alike.
+    """
+    r = np.asarray(geometry.r_norm, dtype=float)
+    c = np.asarray(geometry.chord_norm, dtype=float)
+    trapezoid = getattr(np, "trapezoid", None)
+    integral = float(trapezoid(c, r)) if (trapezoid is not None and r.size >= 2) else 0.0
+    aspect = 1.0 / integral if integral > 1e-9 else float("nan")
+    return {"aspect_ratio": float(aspect),
+            "solidity": float(geometry.n_blades * integral / np.pi)}
+
+
+def _apply_table_space_planform(geom: RotorGeometryDef,
+                                overrides: dict) -> RotorGeometryDef:
+    """Applies planform overrides IN TABLE SPACE to a geometry that has
+    no parametric generator (origin 'table'/'editor'/'imported').
+
+    Every geometry, however it was born, IS a radial table (r_norm,
+    chord_norm, twist_deg) -- generators merely produce that table from
+    parameters. So the planform parameters keep meaning here, read as
+    targets on the table instead of generator inputs:
+
+    - ``root_chord_norm`` / ``tip_chord_norm``: affine rescale of the
+      chord distribution so its endpoints hit the requested values
+      (give only one and the other endpoint stays; a linear input stays
+      linear);
+    - ``twist_root_deg`` / ``twist_tip_deg``: affine shift of the twist
+      distribution to the requested endpoint values;
+    - ``chord_norm``: uniform scale so the MEAN chord equals the value
+      (the rectangular generator's reading);
+    - ``max_chord_norm``: uniform scale so the PEAK chord equals the
+      value.
+    """
+    r = np.asarray(geom.r_norm, dtype=float)
+    chord = np.asarray(geom.chord_norm, dtype=float)
+    twist = np.asarray(geom.twist_deg, dtype=float)
+    span = max(float(r[-1] - r[0]), 1e-9)
+
+    if "root_chord_norm" in overrides or "tip_chord_norm" in overrides:
+        c_root = float(overrides.get("root_chord_norm", chord[0]))
+        c_tip = float(overrides.get("tip_chord_norm", chord[-1]))
+        chord = c_root + (c_tip - c_root) * (r - r[0]) / span
+    if "chord_norm" in overrides:
+        mean = max(float(np.mean(chord)), 1e-12)
+        chord = chord * (float(overrides["chord_norm"]) / mean)
+    if "max_chord_norm" in overrides:
+        peak = max(float(np.max(chord)), 1e-12)
+        chord = chord * (float(overrides["max_chord_norm"]) / peak)
+    if "twist_root_deg" in overrides or "twist_tip_deg" in overrides:
+        t_root = float(overrides.get("twist_root_deg", twist[0]))
+        t_tip = float(overrides.get("twist_tip_deg", twist[-1]))
+        twist = t_root + (t_tip - t_root) * (r - r[0]) / span
+    return replace(geom, chord_norm=chord.tolist(), twist_deg=twist.tolist())
+
+
 def variant_geometry(base_geometry: RotorGeometryDef,
                      overrides: dict) -> RotorGeometryDef:
     """Build one geometry variant by applying named parameter overrides.
 
     Planform parameters (``root_chord_norm``, ``tip_chord_norm``,
     ``twist_root_deg``, ``twist_tip_deg``, ``max_chord_norm``,
-    ``chord_norm``) are generator inputs: they regenerate the parametric
-    table from ``origin_params`` and keep the station count. The direct
-    fields ``n_blades``, ``radius_m`` and ``root_cutout_norm`` are applied
-    to any geometry, including imported tables. Unknown parameters raise
-    ``ValueError``.
+    ``chord_norm``) are generator inputs for PARAMETRIC origins: they
+    regenerate the parametric table from ``origin_params`` and keep the
+    station count. For a geometry WITHOUT a generator (origin 'table',
+    'editor', an imported blade), the SAME parameters are applied in
+    TABLE SPACE instead -- every geometry is a radial table, so the
+    parameters are read as targets on that table (endpoint rescale for
+    chord/twist, uniform scale for chord_norm/max_chord_norm; see
+    `_apply_table_space_planform`). The direct fields ``n_blades``,
+    ``radius_m`` and ``root_cutout_norm`` apply to any geometry.
+    Unknown parameters raise ``ValueError``.
     """
     unknown = sorted(set(overrides) - set(GEOMETRY_PARAMS))
     if unknown:
@@ -824,12 +890,10 @@ def variant_geometry(base_geometry: RotorGeometryDef,
               if k in _DIRECT_GEOMETRY_PARAMS}
     kind = str(base_geometry.origin_params.get("kind", ""))
     if planform and kind not in _PARAMETRIC_KINDS:
-        raise ValueError(
-            f"Planform parameter(s) {sorted(planform)} need a parametric "
-            f"generator, but this geometry origin is {base_geometry.origin!r} "
-            f"(kind={kind!r}). Only n_blades/radius_m/root_cutout_norm apply.")
-    geom = replace(base_geometry)
-    if planform:
+        geom = _apply_table_space_planform(base_geometry, planform)
+    else:
+        geom = replace(base_geometry)
+    if planform and kind in _PARAMETRIC_KINDS:
         gen_kwargs = dict(base_geometry.origin_params)
         gen_kwargs.update(planform)
         gen_kwargs["n_stations"] = len(base_geometry.r_norm)
@@ -930,6 +994,7 @@ def compare_geometries(project: Project,
         res = run_single_case(base_project, condition,
                               should_cancel=should_cancel)
         _tag(res, base_label, condition)
+        res.summary.update(_blade_planform_metrics(variants[base_label]))
         if trim != "none":
             res.summary["trim_reference"] = True
             targets[index] = float(res.summary[summary_key])
@@ -963,6 +1028,7 @@ def compare_geometries(project: Project,
                 res.summary["trim_dof"] = dof
                 res.summary["trim_dof_value"] = float(res.summary[dof])
             _tag(res, label, condition)
+            res.summary.update(_blade_planform_metrics(variants[label]))
             results.append(res)
             _emit(res)
     return results

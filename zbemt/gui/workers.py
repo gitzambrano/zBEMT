@@ -100,7 +100,8 @@ class ExternalPolarWorker(QObject):
 
     def __init__(self, profile: ProfileGeometry, *, engine: str,
                  reynolds_list: list[float], mach_list: list[float],
-                 alpha_min_deg: float, alpha_max_deg: float, alpha_step_deg: float):
+                 alpha_min_deg: float, alpha_max_deg: float, alpha_step_deg: float,
+                 diagnostics: Optional[list] = None):
         super().__init__()
         self.profile = profile
         self.engine = engine
@@ -109,6 +110,11 @@ class ExternalPolarWorker(QObject):
         self.alpha_min_deg = alpha_min_deg
         self.alpha_max_deg = alpha_max_deg
         self.alpha_step_deg = alpha_step_deg
+        # Filled BY the engine with one line per partial result (a
+        # Reynolds that produced no points, dropped alphas); the tab
+        # reads it when `finished` arrives and tells the user what the
+        # sweep actually produced.
+        self.diagnostics = diagnostics if diagnostics is not None else []
         self.cancel_requested = False
 
     def cancel(self):
@@ -121,6 +127,7 @@ class ExternalPolarWorker(QObject):
                 reynolds_list=self.reynolds_list, mach_list=self.mach_list,
                 alpha_min_deg=self.alpha_min_deg, alpha_max_deg=self.alpha_max_deg,
                 alpha_step_deg=self.alpha_step_deg,
+                diagnostics=self.diagnostics,
             )
         except Exception as exc:
             self.failed.emit(str(exc))

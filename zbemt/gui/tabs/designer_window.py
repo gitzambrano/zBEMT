@@ -14,7 +14,10 @@ Project I/O and solver execution cross the
 window never freezes (PR-11). The Variants page leads with a variation
 sweep builder -- one geometry parameter through several values, one
 table row per value -- because comparing generated variants is the tool's
-main use; manual rows stay available around it.
+main use; beside it, a Generate block builds one blade from a planform
+family and an Import button brings another project's blade in, either as
+a row of its own or as this session's base. Manual override rows stay
+available around both.
 
 Block titles are plain text for now: block help popups for this window
 are wired by a later documentation pass.
@@ -47,6 +50,7 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QAbstractItemView,
     QLineEdit,
+    QFileDialog,
     QMessageBox,
     QProgressBar,
     QStackedWidget,
@@ -56,8 +60,10 @@ from PyQt6.QtWidgets import (
 from matplotlib.lines import Line2D
 
 from ... import api
+from ... import geometry
 from ... import nomenclature
-from ...models import FlightCondition, GEOMETRY_PARAMS, INTEGER_PARAMS
+from ...models import (FlightCondition, GEOMETRY_PARAMS, INTEGER_PARAMS,
+                        default_project_paths)
 from ...viz import plots
 
 from ..common import (
@@ -67,9 +73,48 @@ from ..common import (
     parse_list,
     require_project,
     set_row_label,
+    set_row_visible,
     show_error,
 )
 from ..workers import CompareWorker, launch_worker
+
+
+class _AbsoluteRowGeometry:
+    """A COMPLETE geometry carried by one variant row.
+
+    A variant row holds either overrides over the base planform (table
+    cells plus a dict on the label item) or one of these payloads: a
+    ``RotorGeometryDef`` built elsewhere -- generated from a family
+    dropdown or imported from another project -- used exactly as given
+    at collect time. The projection columns read this payload too:
+    aspect ratio and solidity derive from it, and its root cutout and
+    radius fill the empty cells of the row. ``marker`` is the short
+    text the read-only "Extra overrides" column shows instead of an
+    override summary."""
+
+    __slots__ = ("geometry", "marker")
+
+    def __init__(self, geometry_obj, marker: str):
+        self.geometry = geometry_obj
+        self.marker = marker
+
+
+# Same alias as bemt.py: numpy 2 renames trapz to trapezoid.
+_trapz = getattr(np, "trapezoid", None) or np.trapz
+
+
+def _planform_integral(geom) -> float:
+    """∫c d(r/R) of one geometry, over its own stations.
+
+    The trapezoidal rule integrates the chord table against the r/R
+    table as given. Returns ``0.0`` when the table holds fewer than
+    two stations or the two arrays differ in length; callers render
+    that case as an em dash."""
+    r = np.asarray(getattr(geom, "r_norm", None) or [], dtype=float)
+    c = np.asarray(getattr(geom, "chord_norm", None) or [], dtype=float)
+    if r.size < 2 or c.size != r.size:
+        return 0.0
+    return float(_trapz(c, x=r))
 
 
 class GeometryDesignerWindow(QWidget):
@@ -77,31 +122,58 @@ class GeometryDesignerWindow(QWidget):
 
     #: Columns of the variant table. The first column holds the label
     #: that names the geometry in results, plots and reports; "base" is
-    #: the project's own planform. The last column is a read-only
-    #: projection of the overrides without a dedicated column.
+    #: the project's own planform. Root cutout and Radius are DIRECT
+    #: geometry parameters with editable cells of their own, exactly
+    #: like Blades; the base row and the rows carrying a complete
+    #: geometry display their geometry's values there. "Aspect ratio"
+    #: and "Solidity" are read-only derivations of the row's resolved
+    #: planform. The last column is a read-only projection of the
+    #: remaining overrides.
     _VARIANT_COLUMNS = ["Label", "Root chord c/R", "Tip chord c/R",
                         "Twist root [deg]", "Twist tip [deg]", "Blades",
-                        "Extra overrides"]
+                        "Root cutout [r/R]", "Radius [m]", "Aspect ratio",
+                        "Solidity", "Extra overrides"]
     _COL_LABEL, _COL_ROOT_CHORD, _COL_TIP_CHORD = 0, 1, 2
     _COL_TWIST_ROOT, _COL_TWIST_TIP, _COL_BLADES = 3, 4, 5
-    _COL_EXTRA_OVERRIDES = 6
+    _COL_ROOT_CUTOUT, _COL_RADIUS = 6, 7
+    _COL_ASPECT_RATIO, _COL_SOLIDITY = 8, 9
+    _COL_EXTRA_OVERRIDES = 10
 
     #: Geometry parameters with a dedicated column of their own, mapped
-    #: to that column's index.
+    #: to that column's index. Every other parameter of
+    #: ``GEOMETRY_PARAMS`` surfaces in the "Extra overrides" column.
     _COLUMN_MAPPED_PARAMS = {
         "root_chord_norm": _COL_ROOT_CHORD,
         "tip_chord_norm": _COL_TIP_CHORD,
         "twist_root_deg": _COL_TWIST_ROOT,
         "twist_tip_deg": _COL_TWIST_TIP,
         "n_blades": _COL_BLADES,
+        "root_cutout_norm": _COL_ROOT_CUTOUT,
+        "radius_m": _COL_RADIUS,
+    }
+
+    #: Tooltip each read-only projection column receives when the
+    #: refresh materializes its item for the first time.
+    _PROJECTION_TOOLTIPS = {
+        _COL_ASPECT_RATIO:
+            "Derived from this row's planform: AR = 1/∫c d(r/R); "
+            "solidity σ = n·∫c d(r/R)/π.",
+        _COL_SOLIDITY:
+            "Derived from this row's planform: AR = 1/∫c d(r/R); "
+            "solidity σ = n·∫c d(r/R)/π.",
+        _COL_EXTRA_OVERRIDES:
+            "Parameters without a dedicated column, overridden by "
+            "this row.",
     }
 
     #: Ranking fields offered after a run, in display order; the combo
     #: keeps only the ones present in at least one summary.
-    _RANKING_FIELDS = ("CT", "FM", "CP", "eta_prop", "Thrust")
+    _RANKING_FIELDS = ("CT", "FM", "CP", "eta_prop", "Thrust",
+                       "aspect_ratio", "solidity")
 
     #: Fields of the full overlay figure, in panel order.
-    _OVERLAY_FIELDS = ("CT", "FM", "CP", "eta_prop")
+    _OVERLAY_FIELDS = ("CT", "FM", "CP", "eta_prop",
+                       "aspect_ratio", "solidity")
 
     #: "Thrust matching" choices of the Conditions page, as shown,
     #: mapped to the ``trim`` argument ``api.compare_geometries``
@@ -126,9 +198,10 @@ class GeometryDesignerWindow(QWidget):
         self._seeding = False
         # Reentrancy guard for the project rebuild itself.
         self._refreshing_from_project = False
-        # Reentrancy guard for the "Extra overrides" projection, whose
-        # own writes would otherwise retrigger it through cellChanged.
-        self._refreshing_extra = False
+        # Reentrancy guard for the derived-cell projection (the
+        # read-only columns), whose own writes would otherwise
+        # retrigger it through cellChanged.
+        self._refreshing_derived = False
 
         # One worker/thread pair; both stay None between runs.
         self._compare_thread: QThread | None = None
@@ -139,6 +212,18 @@ class GeometryDesignerWindow(QWidget):
         self._comparison_results: list | None = None
 
         self._variant_counter = 0
+
+        # Per-family counters of the Generate block ("rectangular 1",
+        # "rectangular 2", ...), reset whenever the table is reseeded.
+        self._generate_counters: dict = {}
+
+        # Session base override: the geometry imported through "Replace
+        # base", which stands in for the project's own planform until
+        # another project opens. The project file itself is never
+        # touched; ``_imported_base_name`` only feeds the note shown in
+        # the base row's "Extra overrides" cell.
+        self._base_override = None
+        self._imported_base_name = ""
 
         # Debounce for the planform preview: one redraw 400 ms after the
         # last cell edit, never one per keystroke.
@@ -185,7 +270,13 @@ class GeometryDesignerWindow(QWidget):
             "cells name the same value and the root cell wins when they "
             "differ. The elliptic generator has no tip-chord parameter, "
             "which is why that cell stays disabled there. Blades accepts "
-            "a whole number.\n\n"
+            "a whole number. Root cutout and Radius are direct "
+            "parameters of every row: an empty cell keeps the session "
+            "base value, and the base row shows the base's own values."
+            "\n\n"
+            "Aspect ratio and Solidity are read-only derivations: "
+            "AR = 1/I and σ = n_blades·I/π, with I = ∫c d(r/R) over the "
+            "row's own stations.\n\n"
             "Extra overrides summarizes, read-only, every override of "
             "the row that has no column of its own.")
         self.variants_table.horizontalHeader().setSectionResizeMode(
@@ -218,7 +309,11 @@ class GeometryDesignerWindow(QWidget):
         button_row.addWidget(self.btn_remove_variant)
         button_row.addStretch(1)
         table_column.addLayout(button_row)
-        inner.addWidget(self._build_sweep_box())
+        builder_column = QVBoxLayout()
+        builder_column.addWidget(self._build_sweep_box())
+        builder_column.addWidget(self._build_generate_box())
+        builder_column.addStretch(1)
+        inner.addLayout(builder_column)
         inner.addLayout(table_column, stretch=3)
 
         preview_column = QVBoxLayout()
@@ -254,8 +349,12 @@ class GeometryDesignerWindow(QWidget):
         self.vsweep_param_combo = QComboBox()
         self.vsweep_param_combo.setToolTip(
             "Geometry parameter varied across the generated rows. Each "
-            "value is validated against the project's own generator and "
-            "becomes one new table row.")
+            "value is validated against the base planform and becomes "
+            "one new table row. On a base without a parametric generator "
+            "(an imported blade, a hand-edited table) the planform "
+            "parameters are applied in table space: the chord and twist "
+            "distributions are rescaled so their endpoints hit the "
+            "requested values.")
         for name in GEOMETRY_PARAMS:
             self.vsweep_param_combo.addItem(name, userData=name)
         self.vsweep_param_combo.setCurrentText("tip_chord_norm")
@@ -299,6 +398,350 @@ class GeometryDesignerWindow(QWidget):
         self.btn_build_sweep.clicked.connect(self._build_sweep_variants)
         form.addRow(self.btn_build_sweep)
         return box
+
+    # --- generate variant block ---------------------------------------------
+
+    #: Planform families offered by the Generate block, in display
+    #: order. Same list as ``studies.variant_geometry``'s builders and
+    #: ``geometry``'s generators; a new generator lands in all three
+    #: places or not at all.
+    _GENERATE_FAMILIES = ("rectangular", "tapered", "elliptic")
+
+    #: Which families expose which planform field. The twist pair, the
+    #: radius, the blade count, the root cutout and the station count
+    #: are shared by every family and always visible.
+    _GENERATE_FIELD_FAMILIES = {
+        "gen_chord_spin": ("rectangular",),
+        "gen_root_chord_spin": ("tapered",),
+        "gen_tip_chord_spin": ("tapered",),
+        "gen_max_chord_spin": ("elliptic",),
+    }
+
+    def _build_generate_box(self) -> QFrame:
+        """The Generate block: pick a planform family, fill its fields,
+        add the built blade as one row carrying the GENERATED geometry.
+
+        Same framed-panel pattern as the variation-sweep builder (see
+        its docstring for why not a ``QGroupBox``), and the same
+        progressive-reveal pattern as the Airfoil tab's contour Source
+        dropdown: one combo decides which family fields are on screen,
+        with `set_row_visible` so no label is ever orphaned."""
+        box = QFrame()
+        box.setFrameShape(QFrame.Shape.StyledPanel)
+        vbox = QVBoxLayout(box)
+        heading = QLabel("Generate variant")
+        heading.setStyleSheet("font-weight: bold;")
+        vbox.addWidget(heading)
+        inner = QWidget()
+        form = QFormLayout(inner)
+        form.setContentsMargins(0, 0, 0, 0)
+        vbox.addWidget(inner)
+        self._generate_form = form
+
+        self.gen_family_combo = QComboBox()
+        self.gen_family_combo.addItems(list(self._GENERATE_FAMILIES))
+        self.gen_family_combo.setToolTip(
+            "Planform family of the generated blade: rectangular keeps "
+            "one chord along the span, tapered interpolates root to tip "
+            "chord, elliptic peaks at the root.")
+        form.addRow("Family:", self.gen_family_combo)
+
+        def add_chord_spin(attr, label, default):
+            spin = QDoubleSpinBox()
+            spin.setRange(0.001, 5.0)
+            spin.setDecimals(3)
+            spin.setSingleStep(0.005)
+            spin.setValue(default)
+            form.addRow(label, spin)
+            setattr(self, attr, spin)
+            return spin
+
+        add_chord_spin("gen_chord_spin", "Chord [c/R]:", 0.08).setToolTip(
+            '"chord_norm" — Constant chord of the rectangular blade, '
+            "as c/R.")
+        add_chord_spin("gen_root_chord_spin", "Root chord [c/R]:",
+                        0.10).setToolTip(
+            '"root_chord_norm" — Chord at the root station, as c/R; the '
+            "tip chord interpolates linearly toward it.")
+        add_chord_spin("gen_tip_chord_spin", "Tip chord [c/R]:",
+                        0.04).setToolTip(
+            '"tip_chord_norm" — Chord at the tip station, as c/R.')
+        add_chord_spin("gen_max_chord_spin", "Max chord [c/R]:",
+                        0.10).setToolTip(
+            '"max_chord_norm" — Peak chord of the elliptic planform, '
+            "reached at the root, as c/R.")
+
+        self.gen_twist_root_spin = QDoubleSpinBox()
+        self.gen_twist_root_spin.setRange(-30.0, 30.0)
+        self.gen_twist_root_spin.setDecimals(1)
+        self.gen_twist_root_spin.setSingleStep(0.5)
+        self.gen_twist_root_spin.setValue(12.0)
+        self.gen_twist_root_spin.setToolTip(
+            '"twist_root_deg" — Pitch angle at the root station of the '
+            "generated blade.")
+        form.addRow("Twist root [deg]:", self.gen_twist_root_spin)
+
+        self.gen_twist_tip_spin = QDoubleSpinBox()
+        self.gen_twist_tip_spin.setRange(-30.0, 30.0)
+        self.gen_twist_tip_spin.setDecimals(1)
+        self.gen_twist_tip_spin.setSingleStep(0.5)
+        self.gen_twist_tip_spin.setValue(4.0)
+        self.gen_twist_tip_spin.setToolTip(
+            '"twist_tip_deg" — Pitch angle at the tip station; the twist '
+            "interpolates linearly from the root value.")
+        form.addRow("Twist tip [deg]:", self.gen_twist_tip_spin)
+
+        self.gen_radius_spin = QDoubleSpinBox()
+        self.gen_radius_spin.setRange(0.01, 100.0)
+        self.gen_radius_spin.setDecimals(3)
+        self.gen_radius_spin.setSingleStep(0.1)
+        self.gen_radius_spin.setToolTip(
+            '"radius_m" — Rotor radius in m. The table measures every '
+            "r/R and c/R against it.")
+        form.addRow("Radius [m]:", self.gen_radius_spin)
+
+        self.gen_blades_spin = QSpinBox()
+        self.gen_blades_spin.setRange(1, 8)
+        self.gen_blades_spin.setToolTip(
+            '"n_blades" — Number of blades of the generated rotor.')
+        form.addRow("Blades:", self.gen_blades_spin)
+
+        self.gen_cutout_spin = QDoubleSpinBox()
+        self.gen_cutout_spin.setRange(0.0, 0.95)
+        self.gen_cutout_spin.setDecimals(3)
+        self.gen_cutout_spin.setSingleStep(0.01)
+        self.gen_cutout_spin.setToolTip(
+            '"root_cutout_norm" — Inner radius where the blade starts, '
+            "as r/R. It is the first station of the table.")
+        form.addRow("Root cutout [r/R]:", self.gen_cutout_spin)
+
+        self.gen_stations_spin = QSpinBox()
+        self.gen_stations_spin.setRange(4, 60)
+        self.gen_stations_spin.setToolTip(
+            '"n_stations" — Number of radial stations of the generated '
+            "table. More stations resolve the tip gradient better but "
+            "solve slower.")
+        form.addRow("Stations:", self.gen_stations_spin)
+
+        button_row = QHBoxLayout()
+        self.btn_add_generated = QPushButton("Add as variant")
+        self.btn_add_generated.setToolTip(
+            "Builds the blade from these fields. Then it appends the "
+            "blade as a row that carries the generated geometry "
+            "itself, not overrides over the base. The label cell stays "
+            "editable.")
+        self.btn_add_generated.clicked.connect(self._add_generated_variant)
+        button_row.addWidget(self.btn_add_generated)
+        self.btn_import_project = QPushButton("Import from project…")
+        self.btn_import_project.setToolTip(
+            "Brings the blade of another project into this comparison. "
+            "Add it as an extra variant row, or use it as this "
+            "session's base planform. This window only reads the other "
+            "project.")
+        self.btn_import_project.clicked.connect(self._import_from_project)
+        button_row.addWidget(self.btn_import_project)
+        button_row.addStretch(1)
+        form.addRow(button_row)
+
+        self.gen_family_combo.currentTextChanged.connect(
+            lambda _text: self._update_generate_fields())
+        self._update_generate_fields()
+        return box
+
+    def _update_generate_fields(self):
+        """Reveals only the planform fields of the selected family.
+
+        Goes through ``set_row_visible`` so each hidden field takes its
+        whole row -- label included -- off the screen."""
+        family = self.gen_family_combo.currentText()
+        for attr, families in self._GENERATE_FIELD_FAMILIES.items():
+            set_row_visible(self._generate_form, getattr(self, attr),
+                            family in families)
+
+    def _reset_generate_defaults(self):
+        """Seeds the shared Generate fields from the session base:
+        radius, blade count, root cutout and station count."""
+        base = self._session_base_geometry()
+        if base is None:
+            return
+        self.gen_radius_spin.setValue(float(base.radius_m))
+        self.gen_blades_spin.setValue(int(base.n_blades))
+        self.gen_cutout_spin.setValue(float(base.root_cutout_norm))
+        stations = len(base.r_norm) or 25
+        self.gen_stations_spin.setValue(int(min(max(stations, 4), 60)))
+
+    def _add_generated_variant(self):
+        """Builds one blade from the Generate block's fields and appends
+        it as a row carrying the GENERATED geometry itself."""
+        project = self.state.project
+        if project is None:
+            QMessageBox.warning(self, "No project",
+                                "Open or create a project first.")
+            return
+        family = self.gen_family_combo.currentText()
+        kwargs: dict = {
+            "twist_root_deg": float(self.gen_twist_root_spin.value()),
+            "twist_tip_deg": float(self.gen_twist_tip_spin.value()),
+            "radius_m": float(self.gen_radius_spin.value()),
+            "n_blades": int(self.gen_blades_spin.value()),
+            "root_cutout_norm": float(self.gen_cutout_spin.value()),
+            "n_stations": int(self.gen_stations_spin.value()),
+            "airfoil_name": getattr(self._session_base_geometry(),
+                                    "airfoil_name", ""),
+        }
+        if family == "rectangular":
+            builder, planform = geometry.generate_rectangular, {
+                "chord_norm": float(self.gen_chord_spin.value())}
+        elif family == "tapered":
+            builder, planform = geometry.generate_tapered, {
+                "root_chord_norm": float(self.gen_root_chord_spin.value()),
+                "tip_chord_norm": float(self.gen_tip_chord_spin.value())}
+        else:
+            builder, planform = geometry.generate_elliptic, {
+                "max_chord_norm": float(self.gen_max_chord_spin.value())}
+        try:
+            geom = builder(**kwargs, **planform)
+        except Exception as exc:
+            QMessageBox.warning(self, "Invalid variant parameters",
+                                str(exc))
+            return
+        count = self._generate_counters.get(family, 0) + 1
+        self._generate_counters[family] = count
+        self._append_absolute_row(f"{family} {count}", geom,
+                                  f"generated ({family})")
+
+    def _append_absolute_row(self, label: str, geom, marker: str):
+        """Appends one row whose label item carries a COMPLETE geometry.
+
+        The planform cells stay on screen but inert (non-editable):
+        they would read as overrides over the base, which this row does
+        not have -- its geometry IS the definition. ``_row_resolved``
+        and therefore collect, preview and exports use the payload as
+        given; Duplicate copies it verbatim."""
+        table = self.variants_table
+        self._seeding = True
+        try:
+            row = table.rowCount()
+            table.insertRow(row)
+            inert_tooltip = ("This row carries a complete generated "
+                             "geometry. Its cells are not editable "
+                             "table overrides.")
+            for col in range(table.columnCount()):
+                item = QTableWidgetItem("")
+                if col != self._COL_LABEL:
+                    item.setFlags(Qt.ItemFlag.ItemIsEnabled
+                                  | Qt.ItemFlag.ItemIsSelectable)
+                    item.setToolTip(inert_tooltip)
+                table.setItem(row, col, item)
+            table.item(row, self._COL_LABEL).setText(label)
+            table.item(row, self._COL_LABEL).setData(
+                Qt.ItemDataRole.UserRole, _AbsoluteRowGeometry(geom,
+                                                                marker))
+            self._refresh_derived_cells()
+        finally:
+            self._seeding = False
+        self._draw_preview()
+
+    # --- import from project -------------------------------------------------
+
+    def _import_from_project(self):
+        """Brings another project's blade into this comparison.
+
+        The user picks a project folder; after the project opens, a
+        modal choice decides between appending its blade as one more
+        variant row and making it this session's base. The other
+        project's files are only ever READ."""
+        if self.state.project is None:
+            QMessageBox.warning(self, "No project",
+                                "Open or create a project first.")
+            return
+        path = QFileDialog.getExistingDirectory(
+            self, "Import blade from project")
+        if not path:
+            return
+        try:
+            imported = self._read_import_project(path)
+        except Exception as exc:
+            show_error(self, "Error importing project", exc)
+            return
+        choice = self._ask_import_choice(imported.name)
+        if choice == "variant":
+            self._append_imported_variant(imported)
+        elif choice == "base":
+            self._replace_session_base(imported)
+
+    @staticmethod
+    def _read_import_project(path: str):
+        """Opens the project at ``path``, refusing folders that hold no
+        project at all.
+
+        ``api.open_project`` fills every missing file with defaults, so
+        without this check an arbitrary folder would import a silent,
+        default-shaped blade. A project folder is a folder with the
+        project's .bemt files (geom.bemt, config.bemt, ...) inside an
+        ``inputs`` subfolder."""
+        paths = default_project_paths(path)
+        if not paths["geom"].exists():
+            raise ValueError(
+                f"{path} is not a project folder. A project folder "
+                "contains the .bemt files of a project (geom.bemt, "
+                'config.bemt, ...) inside an "inputs" subfolder.')
+        return api.open_project(path)
+
+    def _ask_import_choice(self, name: str) -> str:
+        """The modal "what should the imported blade become" question.
+
+        Returns ``"variant"``, ``"base"`` or ``"cancel"``; split from
+        ``_import_from_project`` so tests can decide for it."""
+        box = QMessageBox(self)
+        box.setWindowTitle("Import from project")
+        box.setText(f'Use the blade of "{name}" as:')
+        variant_button = box.addButton("Add as variant",
+                                        QMessageBox.ButtonRole.AcceptRole)
+        base_button = box.addButton("Replace base",
+                                     QMessageBox.ButtonRole.ActionRole)
+        cancel_button = box.addButton("Cancel",
+                                       QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(cancel_button)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is base_button:
+            return "base"
+        if clicked is variant_button:
+            return "variant"
+        return "cancel"
+
+    def _append_imported_variant(self, imported):
+        """Adds the imported blade as one absolute-geometry row labeled
+        with the project name (deduplicated against current labels)."""
+        table = self.variants_table
+        existing = {self._row_label(row)
+                    for row in range(table.rowCount())}
+        label = self._unique_label(imported.name, existing)
+        self._append_absolute_row(label, imported.geometry, "imported")
+
+    def _replace_session_base(self, imported):
+        """Makes the imported blade THIS SESSION's base planform.
+
+        Stores the geometry on the window (never in the project): every
+        override row now builds on it through
+        ``_session_base_geometry``, the base row's cells reseed from it,
+        and its Extra overrides cell notes the origin. The imported
+        project file stays untouched."""
+        table = self.variants_table
+        if table.rowCount() == 0:
+            QMessageBox.warning(self, "No project",
+                                "Open or create a project first.")
+            return
+        self._base_override = imported.geometry
+        self._imported_base_name = imported.name
+        self._seeding = True
+        try:
+            self._write_base_row_cells(imported.geometry)
+            self._refresh_derived_cells()
+        finally:
+            self._seeding = False
+        self._draw_preview()
     def _sweep_values(self) -> list[float]:
         """The values of the variation sweep: the comma-separated list
         when it has content, otherwise evenly spaced Start..End..Count.
@@ -361,17 +804,22 @@ class GeometryDesignerWindow(QWidget):
         """Table cells a swept parameter fills, keyed by column index.
 
         Follows the same parameter-to-column map ``_row_overrides``
-        reads back, so an edited built row stays coherent. Parameters
-        without a dedicated column (radius_m, root_cutout_norm) fill no
-        cell; they ride in the row's UserRole data instead.
+        reads back, so an edited built row stays coherent. Every
+        parameter of ``GEOMETRY_PARAMS`` fills at least one cell
+        today; the fallback (the value riding on the label item's
+        data, which ``_row_overrides`` also reads) remains for any
+        parameter a future generator adds without a column.
         """
-        project = self.state.project
-        origin_params = dict(getattr(project.geometry,
-                                     "origin_params", {}) or {})
+        base = self._session_base_geometry()
+        origin_params = dict(getattr(base, "origin_params", {}) or {})
         kind = str(origin_params.get("kind", ""))
         text = self._fmt(value)
         if param == "n_blades":
             return {self._COL_BLADES: str(int(value))}
+        if param == "root_cutout_norm":
+            return {self._COL_ROOT_CUTOUT: text}
+        if param == "radius_m":
+            return {self._COL_RADIUS: text}
         if param == "twist_root_deg":
             return {self._COL_TWIST_ROOT: text}
         if param == "twist_tip_deg":
@@ -403,9 +851,10 @@ class GeometryDesignerWindow(QWidget):
         if label_item is not None:
             label_item.setText(self._sweep_label(param, value))
             if not cells:
-                # No cell carries this parameter (radius_m,
-                # root_cutout_norm): the override travels in the label
-                # item's data instead, and `_row_overrides` picks it up.
+                # No cell carries this parameter (defensive fallback:
+                # every current parameter owns a cell): the override
+                # travels in the label item's data instead, and
+                # `_row_overrides` picks it up.
                 label_item.setData(Qt.ItemDataRole.UserRole, {param: value})
 
     def _build_sweep_variants(self):
@@ -431,16 +880,17 @@ class GeometryDesignerWindow(QWidget):
                 self, "Invalid variation sweep",
                 "Enter at least one value, or set Count to at least 1.")
             return
+        base = self._session_base_geometry()
         self._seeding = True
         try:
             for value in values:
                 overrides = {param: value}
                 try:
-                    api.variant_geometry(project.geometry, overrides)
+                    api.variant_geometry(base, overrides)
                 except Exception as exc:
                     raise ValueError(f"{param}={value:g}: {exc}") from exc
                 self._append_sweep_row(param, value)
-                self._refresh_extra_overrides()
+                self._refresh_derived_cells()
         except ValueError as exc:
             QMessageBox.warning(self, "Invalid variation sweep", str(exc))
         finally:
@@ -450,6 +900,16 @@ class GeometryDesignerWindow(QWidget):
 
     # --- variant table ---------------------------------------------------
 
+    def _session_base_geometry(self):
+        """The geometry every override row builds on: the blade imported
+        through "Replace base" while that choice is active, otherwise
+        the project's own planform. The project file is never modified;
+        this is a session-only substitution."""
+        if self._base_override is not None:
+            return self._base_override
+        project = self.state.project
+        return None if project is None else project.geometry
+
     @staticmethod
     def _fmt(value) -> str:
         """Formats a generator parameter for a table cell ('' when absent)."""
@@ -458,49 +918,122 @@ class GeometryDesignerWindow(QWidget):
         return f"{float(value):.4g}"
 
     def _on_variant_cell_changed(self, row: int, column: int):
-        """Refreshes the "Extra overrides" projection after any cell
-        edit, then schedules the planform preview."""
-        self._refresh_extra_overrides()
+        """Refreshes the read-only projections after any cell edit,
+        then schedules the planform preview."""
+        self._refresh_derived_cells()
         self._schedule_preview()
 
-    def _refresh_extra_overrides(self):
-        """Recomputes every row's "Extra overrides" cell from the row's
-        own data.
+    @staticmethod
+    def _derived_texts(geom) -> tuple[str, str]:
+        """``(aspect ratio, solidity)`` cell texts of one geometry.
 
-        The column is a projection, never a store: ``_row_overrides``
-        stays the single reader of a row, and this method only renders
-        its columnless overrides. The guard keeps the method's own
-        writes from retriggering it through ``cellChanged``."""
-        if self._refreshing_extra or self.state.project is None:
+        With I = ∫c d(r/R) over the row's own stations, AR = 1/I and
+        σ = n_blades·I/π. An integral too small to be meaningful (a
+        table too short or ragged to integrate) renders both as an em
+        dash."""
+        integral = _planform_integral(geom)
+        if integral > 1e-9:
+            return (f"{1.0 / integral:.2f}",
+                    f"{int(geom.n_blades) * integral / np.pi:.3f}")
+        return ("—", "—")
+
+    def _write_projection_cell(self, row: int, column: int, text: str):
+        """Writes one read-only projection cell.
+
+        Creates the item on first use with the column's flags and
+        tooltip; afterwards only the text moves."""
+        table = self.variants_table
+        item = table.item(row, column)
+        if item is None:
+            item = QTableWidgetItem("")
+            item.setFlags(Qt.ItemFlag.ItemIsEnabled
+                          | Qt.ItemFlag.ItemIsSelectable)
+            item.setToolTip(self._PROJECTION_TOOLTIPS.get(column, ""))
+            table.setItem(row, column, item)
+        if item.text() != text:
+            item.setText(text)
+
+    def _fill_direct_value_cells(self, row: int, geom):
+        """Fills EMPTY Root-cutout and Radius cells from ``geom``.
+
+        Only rows that carry a complete geometry of their own qualify:
+        payload rows (generated or imported), whose cells stay inert,
+        and the base row, whose cells remain EDITABLE -- filling only
+        when empty means a user edit is never clobbered. Override rows
+        are left alone: there an empty cell means "inherit the session
+        base value"."""
+        table = self.variants_table
+        for column, value in ((self._COL_ROOT_CUTOUT,
+                               getattr(geom, "root_cutout_norm", None)),
+                              (self._COL_RADIUS,
+                               getattr(geom, "radius_m", None))):
+            if value is None:
+                continue
+            item = table.item(row, column)
+            if item is not None and not item.text().strip():
+                item.setText(f"{float(value):.3f}")
+
+    def _refresh_derived_cells(self):
+        """Recomputes every row's projected cells from its own data.
+
+        Three columns are projections, never stores: "Aspect ratio",
+        "Solidity" and "Extra overrides". Both metrics derive from the
+        SAME resolution the run consumes (the rules of
+        ``_row_resolved``), so the table can never disagree with what
+        a run solves; "Extra overrides" renders the overrides that
+        have no dedicated column, with ``_row_overrides`` staying the
+        single reader of an override row. On top of the projections,
+        the Root cutout and Radius cells of the base row and of
+        payload rows are filled from their geometry while empty. A
+        half-typed cell leaves that row's previous texts in place. The
+        guard keeps the method's own writes from retriggering it
+        through ``cellChanged``."""
+        if self._refreshing_derived or self.state.project is None:
             return
-        self._refreshing_extra = True
+        self._refreshing_derived = True
         try:
             table = self.variants_table
             for row in range(table.rowCount()):
-                try:
-                    _, overrides = self._row_overrides(row)
-                except (ValueError, TypeError):
-                    continue   # a half-typed cell; keep the old text
-                text = self._extra_overrides_text(overrides)
-                item = table.item(row, self._COL_EXTRA_OVERRIDES)
-                if item is None:
-                    item = QTableWidgetItem(text)
-                    item.setFlags(Qt.ItemFlag.ItemIsEnabled
-                                  | Qt.ItemFlag.ItemIsSelectable)
-                    item.setToolTip(
-                        "Overrides of this row that have no dedicated "
-                        "column.")
-                    table.setItem(row, self._COL_EXTRA_OVERRIDES, item)
-                elif item.text() != text:
-                    item.setText(text)
+                payload = self._stored_row_payload(row)
+                if payload is not None:
+                    extra_text = payload.marker
+                    geom = payload.geometry
+                else:
+                    try:
+                        _, overrides = self._row_overrides(row)
+                    except (ValueError, TypeError):
+                        continue   # a half-typed cell; keep the old texts
+                    if row == 0 and self._base_override is not None:
+                        extra_text = f"imported: {self._imported_base_name}"
+                    else:
+                        extra_text = \
+                            self._extra_overrides_text(overrides)
+                    try:
+                        geom = api.variant_geometry(
+                            self._session_base_geometry(), overrides)
+                    except (ValueError, TypeError):
+                        continue
+                self._write_projection_cell(
+                    row, self._COL_EXTRA_OVERRIDES, extra_text)
+                # The direct values of a complete geometry surface even
+                # where no override cell stores them.
+                if payload is not None or row == 0:
+                    self._fill_direct_value_cells(row, geom)
+                ar_text, solidity_text = self._derived_texts(geom)
+                self._write_projection_cell(
+                    row, self._COL_ASPECT_RATIO, ar_text)
+                self._write_projection_cell(
+                    row, self._COL_SOLIDITY, solidity_text)
         finally:
-            self._refreshing_extra = False
+            self._refreshing_derived = False
 
     def _seed_variant_rows(self):
-        """Rebuilds the variant table from the project's own geometry.
+        """Rebuilds the variant table from the session base geometry
+        (the project's own planform, or the blade imported through
+        "Replace base").
 
-        One "base" row carries the planform parameters the current
-        generator actually stores in ``origin_params``. An imported or
+        One "base" row carries the planform parameters that geometry's
+        origin actually stores in ``origin_params``. An imported or
         hand-edited table has no parametric origin: its planform cells
         stay empty (empty means "no override"), and only the blade count
         applies.
@@ -510,48 +1043,68 @@ class GeometryDesignerWindow(QWidget):
             table = self.variants_table
             table.setRowCount(0)
             self._variant_counter = 0
-            project = self.state.project
-            if project is None:
+            self._generate_counters = {}
+            if self.state.project is None:
                 return
-            geom = project.geometry
-            origin_params = dict(getattr(geom, "origin_params", {}) or {})
-            kind = str(origin_params.get("kind", ""))
-            values = ["base", "", "", "", "", str(int(geom.n_blades))]
-            if kind == "rectangular":
-                values[self._COL_ROOT_CHORD] = self._fmt(
-                    origin_params.get("chord_norm"))
-                values[self._COL_TIP_CHORD] = values[self._COL_ROOT_CHORD]
-            elif kind == "tapered":
-                values[self._COL_ROOT_CHORD] = self._fmt(
-                    origin_params.get("root_chord_norm"))
-                values[self._COL_TIP_CHORD] = self._fmt(
-                    origin_params.get("tip_chord_norm"))
-            elif kind == "elliptic":
-                values[self._COL_ROOT_CHORD] = self._fmt(
-                    origin_params.get("max_chord_norm"))
-            values[self._COL_TWIST_ROOT] = self._fmt(
-                origin_params.get("twist_root_deg"))
-            values[self._COL_TWIST_TIP] = self._fmt(
-                origin_params.get("twist_tip_deg"))
             table.insertRow(0)
-            for col, text in enumerate(values):
-                item = QTableWidgetItem(text)
-                if col == self._COL_TIP_CHORD and kind == "elliptic":
-                    item.setText("-")
-                    item.setFlags(Qt.ItemFlag.ItemIsEnabled)
-                    item.setToolTip(
-                        "Not applicable: the elliptic generator has a single "
-                        "chord parameter (max_chord_norm).")
-                table.setItem(0, col, item)
-            # The seventh column is not seeded: the projection fills it
-            # from the row itself.
-            self._refresh_extra_overrides()
+            self._write_base_row_cells(self._session_base_geometry())
+            # The projection columns (aspect ratio, solidity, extra
+            # overrides) are not seeded: the refresh fills them from
+            # each row itself.
+            self._refresh_derived_cells()
         finally:
             self._seeding = False
 
+    def _write_base_row_cells(self, geom):
+        """Writes the BASE row's cells from ``geom``: the project's own
+        planform on a reseed, or an imported blade after "Replace
+        base".
+
+        The override columns are written from ``geom`` itself; root
+        cutout and radius are direct fields every geometry carries, so
+        they seed regardless of the origin. The derived columns and
+        "Extra overrides" are projections that
+        ``_refresh_derived_cells`` fills."""
+        table = self.variants_table
+        origin_params = dict(getattr(geom, "origin_params", {}) or {})
+        kind = str(origin_params.get("kind", ""))
+        values = ["base", "", "", "", "", str(int(geom.n_blades)), "", ""]
+        if kind == "rectangular":
+            values[self._COL_ROOT_CHORD] = self._fmt(
+                origin_params.get("chord_norm"))
+            values[self._COL_TIP_CHORD] = values[self._COL_ROOT_CHORD]
+        elif kind == "tapered":
+            values[self._COL_ROOT_CHORD] = self._fmt(
+                origin_params.get("root_chord_norm"))
+            values[self._COL_TIP_CHORD] = self._fmt(
+                origin_params.get("tip_chord_norm"))
+        elif kind == "elliptic":
+            values[self._COL_ROOT_CHORD] = self._fmt(
+                origin_params.get("max_chord_norm"))
+        values[self._COL_TWIST_ROOT] = self._fmt(
+            origin_params.get("twist_root_deg"))
+        values[self._COL_TWIST_TIP] = self._fmt(
+            origin_params.get("twist_tip_deg"))
+        values[self._COL_ROOT_CUTOUT] = f"{float(geom.root_cutout_norm):.3f}"
+        values[self._COL_RADIUS] = f"{float(geom.radius_m):.3f}"
+        for col, text in enumerate(values):
+            item = QTableWidgetItem(text)
+            if col == self._COL_TIP_CHORD and kind == "elliptic":
+                item.setText("-")
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+                item.setToolTip(
+                    "Not applicable: the elliptic generator has a single "
+                    "chord parameter (max_chord_norm).")
+            table.setItem(0, col, item)
+
     def _copy_row(self, source_row: int, target_row: int) -> None:
         """Copies every cell of one row into another, flags and carried
-        overrides included."""
+        overrides included.
+
+        Every override column copies as it stands, so a copy of the
+        base row carries the base's own cutout and radius values as
+        its starting overrides; a copy of a row that carries a
+        complete geometry stays inert in every column."""
         source = self.variants_table
         for col in range(source.columnCount()):
             base_item = source.item(source_row, col)
@@ -580,7 +1133,7 @@ class GeometryDesignerWindow(QWidget):
             label_item = source.item(target_row, self._COL_LABEL)
             if label_item is not None:
                 label_item.setText(f"variant {self._variant_counter}")
-            self._refresh_extra_overrides()
+            self._refresh_derived_cells()
         finally:
             self._seeding = False
         self._draw_preview()
@@ -601,7 +1154,7 @@ class GeometryDesignerWindow(QWidget):
             label_item = source.item(target_row, self._COL_LABEL)
             if label_item is not None:
                 label_item.setText(f"{base_label} copy")
-            self._refresh_extra_overrides()
+            self._refresh_derived_cells()
         finally:
             self._seeding = False
         self._draw_preview()
@@ -616,12 +1169,12 @@ class GeometryDesignerWindow(QWidget):
         """``(label, overrides)`` read from one variant-table row.
 
         Empty cells produce no override. Chord cells map onto the
-        parameter the CURRENT generator understands, so a table written
-        for a tapered project still reads sensibly after the project
-        switches kind.
+        parameter the CURRENT base planform understands (the session
+        base, which may be an imported blade), so a table written for a
+        tapered project still reads sensibly after the base changes.
         """
-        project = self.state.project
-        origin_params = dict(getattr(project.geometry, "origin_params", {}) or {})
+        base = self._session_base_geometry()
+        origin_params = dict(getattr(base, "origin_params", {}) or {})
         kind = str(origin_params.get("kind", ""))
 
         def cell(col: int) -> str:
@@ -629,11 +1182,12 @@ class GeometryDesignerWindow(QWidget):
             text = item.text().strip() if item is not None else ""
             return "" if text == "-" else text
 
-        label = cell(self._COL_LABEL) or f"variant {row + 1}"
+        label = self._row_label(row)
         overrides: dict = {}
-        # Overrides carried by the row itself (a sweep over a parameter
-        # with no dedicated column, such as radius_m). Cell values read
-        # below take precedence: an edit on the table wins.
+        # Overrides carried by the row itself (the defensive fallback
+        # for a swept parameter whose `_param_cells` found no cell).
+        # Cell values read below take precedence: an edit on the
+        # table wins.
         label_item = self.variants_table.item(row, self._COL_LABEL)
         if label_item is not None:
             carried = label_item.data(Qt.ItemDataRole.UserRole)
@@ -642,6 +1196,12 @@ class GeometryDesignerWindow(QWidget):
         blades = cell(self._COL_BLADES)
         if blades:
             overrides["n_blades"] = int(float(blades))
+        cutout = cell(self._COL_ROOT_CUTOUT)
+        if cutout:
+            overrides["root_cutout_norm"] = float(cutout)
+        radius = cell(self._COL_RADIUS)
+        if radius:
+            overrides["radius_m"] = float(radius)
         root, tip = cell(self._COL_ROOT_CHORD), cell(self._COL_TIP_CHORD)
         twist_root, twist_tip = cell(self._COL_TWIST_ROOT), cell(self._COL_TWIST_TIP)
         if kind == "rectangular":
@@ -662,6 +1222,36 @@ class GeometryDesignerWindow(QWidget):
             overrides["twist_tip_deg"] = float(twist_tip)
         return label, overrides
 
+    def _row_label(self, row: int) -> str:
+        """The label cell of one row, with the shared fallback name."""
+        item = self.variants_table.item(row, self._COL_LABEL)
+        text = item.text().strip() if item is not None else ""
+        return "" if text == "-" else text or f"variant {row + 1}"
+
+    def _stored_row_payload(self, row: int) -> _AbsoluteRowGeometry | None:
+        """The complete geometry a row carries, or None: override rows
+        (the sweep builder and manual rows) keep a dict on their label
+        item, absolute rows keep an ``_AbsoluteRowGeometry``."""
+        item = self.variants_table.item(row, self._COL_LABEL)
+        if item is None:
+            return None
+        carried = item.data(Qt.ItemDataRole.UserRole)
+        return carried if isinstance(carried, _AbsoluteRowGeometry) else None
+
+    def _row_resolved(self, row: int) -> tuple[str, object]:
+        """``(label, geometry)`` of one row through the SAME resolution
+        the run consumes -- so the preview, the exports and
+        ``_collect_variants`` can never disagree about what a row means.
+
+        An absolute row returns its stored geometry as given; every
+        other row applies its overrides over the session base."""
+        payload = self._stored_row_payload(row)
+        if payload is not None:
+            return self._row_label(row), payload.geometry
+        label, overrides = self._row_overrides(row)
+        return label, api.variant_geometry(self._session_base_geometry(),
+                                            overrides)
+
     @staticmethod
     def _unique_label(label: str, variants: dict) -> str:
         if label not in variants:
@@ -676,15 +1266,11 @@ class GeometryDesignerWindow(QWidget):
         variants: dict = {}
         for row in range(self.variants_table.rowCount()):
             try:
-                label, overrides = self._row_overrides(row)
+                label, geom = self._row_resolved(row)
             except ValueError as exc:
                 raise ValueError(f"Geometry table, row {row + 1}: {exc}") from exc
             label = self._unique_label(label, variants)
-            try:
-                variants[label] = api.variant_geometry(
-                    self.state.project.geometry, overrides)
-            except Exception as exc:
-                raise ValueError(f"Geometry {label!r}: {exc}") from exc
+            variants[label] = geom
         if not variants:
             raise ValueError("Add at least one geometry row before running.")
         return variants
@@ -698,17 +1284,19 @@ class GeometryDesignerWindow(QWidget):
         self._preview_timer.start()
 
     def _draw_preview(self):
-        """Overlays the planform outline of every row on one canvas."""
+        """Overlays the planform outline of every row on one canvas.
+
+        Each row resolves through ``_row_resolved``, the same path the
+        run consumes, so absolute rows (generated or imported) draw
+        their own geometry instead of re-deriving overrides."""
         canvas = self.preview_canvas.use_simple()
         canvas.clear()
         ax = canvas.ax
         n_rows = self.variants_table.rowCount()
-        project = self.state.project
         try:
             proxies = []
             for row in range(n_rows):
-                label, overrides = self._row_overrides(row)
-                geom = api.variant_geometry(project.geometry, overrides)
+                label, geom = self._row_resolved(row)
                 color = f"C{row % 10}"
                 before = len(ax.lines)
                 plots.plot_planform(geom, ax=ax, show_hub=False,
@@ -1507,6 +2095,10 @@ class GeometryDesignerWindow(QWidget):
         self._refreshing_from_project = True
         try:
             self._comparison_results = None
+            # A "Replace base" import belongs to the project it was
+            # made from: another project drops it.
+            self._base_override = None
+            self._imported_base_name = ""
             while self.verdict_strip.count():
                 item = self.verdict_strip.takeAt(0)
                 widget = item.widget()
@@ -1529,6 +2121,7 @@ class GeometryDesignerWindow(QWidget):
 
             self._seed_variant_rows()
             self._refresh_mode_labels()
+            self._reset_generate_defaults()
             self._update_saved_count_label()
             self._update_summary_label()
             self._draw_preview()
@@ -1556,6 +2149,9 @@ class GeometryDesignerWindow(QWidget):
         equalize_button_widths((self.btn_add_variant,
                                 self.btn_duplicate_variant,
                                 self.btn_remove_variant))
+        equalize_button_widths((self.btn_build_sweep,
+                                self.btn_add_generated,
+                                self.btn_import_project))
         equalize_button_widths((self.btn_export_report, self.btn_export_csv))
 
 
