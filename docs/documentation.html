@@ -711,7 +711,7 @@
 <li><a href="#cap-3-5">8.5 Compressibility</a></li>
 <li><a href="#cap-3-6">8.6 Data import / tabulated polar</a></li>
 <li><a href="#cap-3-7">8.7 Profile 2D geometry</a></li>
-<li><a href="#cap-3-8">8.8 External solver — NeuralFoil</a></li>
+<li><a href="#cap-3-8">8.8 External polar generation</a></li>
 <li><a href="#cap-3-9">8.9 Preview of the polar and the profile</a></li>
 <li><a href="#cap-3-10">8.10 Navigate (r/R, Reynolds, Mach)</a></li>
 </ol></li>
@@ -742,17 +742,17 @@
 <li><a href="#cap-6-5">11.5 Where the results are written</a></li>
 <li><a href="#cap-6-6">11.6 Reports</a></li>
 </ol></li>
-<li><a href="#cap-design">12. Design tools</a>
+<li><a href="#results-section">12. Results</a>
 <ol>
-<li><a href="#cap-design-1">12.1 Geometry comparison</a></li>
-<li><a href="#cap-design-2">12.2 Design optimization</a></li>
-<li><a href="#cap-design-3">12.3 XFOIL polar generation</a></li>
+<li><a href="#sec-121-results">12.1 Results</a></li>
+<li><a href="#sec-122-results-aggregation">12.2 Results Aggregation</a></li>
+<li><a href="#sec-123-flight-condition-sweeps">12.3 Flight Condition Sweeps</a></li>
 </ol></li>
-<li><a href="#results-section">13. Results</a>
+<li><a href="#cap-designer">13. Geometry Variation Studies</a>
 <ol>
-<li><a href="#sec-121-results">13.1 Results</a></li>
-<li><a href="#sec-122-results-aggregation">13.2 Results Aggregation</a></li>
-<li><a href="#sec-123-flight-condition-sweeps">13.3 Flight Condition Sweeps</a></li>
+<li><a href="#designer-variants">13.1 Variants</a></li>
+<li><a href="#designer-conditions">13.2 Conditions</a></li>
+<li><a href="#designer-run">13.3 Run & results</a></li>
 </ol></li>
 <li><a href="#sec-15-outside-the-gui">14. Command-line reference</a>
 <ol>
@@ -908,7 +908,8 @@ zbemt --help                               # every flag</code></pre>
         which is the point of keeping the two apart.</li>
       <li>Without <b>PyVista</b>, the three-dimensional view is unavailable and the two-dimensional plots
         carry on as normal.</li>
-      <li>Without <b>NeuralFoil</b>, the polar generation block is disabled, with a note saying why.
+      <li>Without <b>NeuralFoil</b>, or without the XFOIL executable when XFOIL is the chosen
+        engine, polar generation states at the click what is missing and how to install it.
         Analytical polars and imported tables are unaffected.</li>
       <li>Without <b>Plotly</b>, reports are generated with static figures instead of interactive
         ones.</li>
@@ -1210,8 +1211,8 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       <a href="#sec-93-configengine"><b>4. Config/Engine</b><br>define models and mesh</a>
       <a href="#sec-10-run-case"><b>5. Run Case</b><br>a flight condition</a>
       <a href="#sec-11-run-batch"><b>6. Run Batch</b><br>generate, review, run</a>
-      <a href="#cap-design"><b>7. Design</b><br>compare and optimize</a>
-      <a href="#results-section"><b>8. Results</b><br>compare and report</a>
+      <a href="#results-section"><b>7. Results</b><br>compare and report</a>
+      <a href="#cap-designer"><b>Geometry Designer</b><br>compare blade variants (Tools menu)</a>
       <a href="#cap-metodo"><b>The method</b><br>equations and assumptions</a>
       <a href="#cap-nomenclatura-helice"><b>Propeller mode</b><br>what differs from a rotor</a>
     </nav>
@@ -2287,7 +2288,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <p>zBEMT computes both coefficient families at every evaluation, whatever
       <code>is_propeller</code> holds (<a class="xref" href="#sec-122-results-aggregation"
-        title="13.2 Results Aggregation">Section 13.2</a>). The mode decides which family it
+        title="12.2 Results Aggregation">Section 12.2</a>). The mode decides which family it
       displays, plots and sweeps by default. The definitions are in
       Sections <a class="xref" href="#cap-14-4"
         title="5.4.4 Force, torque, and power coefficients: rotor convention">5.4.4</a> and <a class="xref"
@@ -2350,7 +2351,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         efficiency only at, or very near, zero flight speed. Away from hover the numerator is no longer
         the ideal power of the condition being flown, the ratio is no longer bounded by $1$, and values
         above unity carry no physical meaning. However, the untrimmed $\mu_x$ sweep in
-        <a class="xref" href="#sec-122-results-aggregation" title="13.2 Results Aggregation">Section 13.2</a> shows
+        <a class="xref" href="#sec-122-results-aggregation" title="12.2 Results Aggregation">Section 12.2</a> shows
         exactly that, and it is a property of the definition, not
         a solver error. For a propeller, read $FM$ at the static point and $\eta_{prop}$ everywhere
         else.
@@ -2473,7 +2474,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p>BEMT solves the physics on an elemental basis: a local equation is written at each point
       $(r,\psi)$ and the result is integrated numerically over the disk by means of a double Riemann integral
       approximated by the trapezoidal rule (detailed in <a class="xref" href="#sec-122-results-aggregation"
-        title="13.2 Results Aggregation">Section 13.2</a>). The continuous disk is
+        title="12.2 Results Aggregation">Section 12.2</a>). The continuous disk is
       replaced by a discrete mesh of
       $N_e$ radial stations by $N_\psi$ azimuthal stations: $N_e\times N_\psi$ elements, each with
       position $(r,\psi)$, interpolated chord and twist, and, after solution, its own aerodynamic state.</p>
@@ -2769,7 +2770,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       $FM=1$ is the ideal limit. Well-designed rotors operate at $0.7$ to $0.8$. The numerator $C_T^{3/2}/\sqrt2$ is the hover ideal, so the
       ratio only measures efficiency in hover or close to it. Away from hover it is still computed, but it is no longer
       bounded by $1$ and no longer means anything (<a class="xref" href="#sec-123-flight-condition-sweeps"
-        title="13.3 Flight Condition Sweeps">Section 13.3</a>).</p>
+        title="12.3 Flight Condition Sweeps">Section 12.3</a>).</p>
 
     <h4 id="cap-14-5">5.4.5 Force, torque, and power coefficients: propeller convention</h4>
     <p>References: velocity $nD$ ($n=\Omega/2\pi$, $D=2R$).</p>
@@ -3437,7 +3438,7 @@ formats and limitations of each polar source.</p>
           <td>$0.833$ (valid)</td>
           <td>$1.78$</td>
           <td>Defined only in hover. In forward flight, actuator disk hover power ceases to represent physical ideal (<a
-              class="xref" href="#sec-123-flight-condition-sweeps" title="13.3 Flight Condition Sweeps">Section 13.3</a>)</td>
+              class="xref" href="#sec-123-flight-condition-sweeps" title="12.3 Flight Condition Sweeps">Section 12.3</a>)</td>
         </tr>
         <tr>
           <td>Convergence</td>
@@ -3924,8 +3925,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     </figure>
     <!-- INDICE-DE-CAMPOS:aerofolio -->
 <div class="boxed">
-<b>Fields in this tab, in the order they appear on screen</b> (30). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-8-3">8.8.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
+<b>Fields in this tab, in the order they appear on screen</b> (34). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>geometry_spec</code> &rarr; <a href="#cap-3-7-8">8.7.3</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-8-3">8.8.4</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:aerofolio -->
     <p class="boxed"><b>Editorial scope.</b> Each field section below is self-contained. It gives the
@@ -5299,29 +5300,89 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   need to regenerate it on opening.
                 </p>
 
-                <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code>, where the
-                  specification is a four- or five-digit NACA code such as <code>naca2412</code> or
-                  <code>naca23012</code>. It is used only together with <code>--gen-neuralfoil</code>, described in
-                  8.8. There is no flag for a CST, Bézier or imported contour on its own. Those are set in the window
-                  or written into the project file.
+                <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> accepts every grammar
+                  listed in <a class="xref" href="#cap-3-7-8" title="8.7.3 The geometry specification string">Section
+                    8.7.3</a>. It is used together with <code>--gen-neuralfoil</code> or
+                  <code>--gen-xfoil</code>, described in 8.8.
                 </p>
 
-                <h3 id="cap-3-8">8.8 External solver — NeuralFoil</h3>
-                <p>NeuralFoil estimates a two-dimensional airfoil polar from profile coordinates, Reynolds number,
-                  Mach number and an angle-of-attack sweep. It is a neural-network surrogate, not a flow solver and
-                  not a replacement for validated measurements in a certification or high-consequence analysis. Its
-                  output is a set of $C_l$ and $C_d$ samples that the blade-element method uses by the same tabulated
-                  interpolation as an imported polar.</p>
+                <h4 id="cap-3-7-8">8.7.3 The geometry specification string</h4>
+
+                <p><b>The physics.</b> One string can carry the complete contour, whatever family it comes
+                  from. The analytic families each fix the shape differently. <code>parsec</code>
+                  (Sobieczky's parameterization) builds each surface as a polynomial in half-integer powers,
+                  $y(x)=\sum_k a_k x^{k-1/2}$, whose coefficients solve exactly for the leading-edge radius
+                  $r_{le}$, the crest position $x_p$ and height $y_p$ of each surface, the algebraic crest
+                  curvature $y_{xx}$, the trailing-edge thickness and the trailing-edge angle measured per
+                  surface from the chord line. <code>joukowski</code> maps a circle through the point
+                  $\zeta=1$ of an auxiliary plane by the conformal transformation $z=\zeta+1/\zeta$: epsilon
+                  sets thickness (approximately $1.3\,\epsilon$) and camber bends the mean line upward, and
+                  the trailing edge comes out a cusp by construction. <code>biconvex</code> is the thin
+                  supersonic section made of two parabolic arcs $y=\pm 2tx(1-x)$, exactly $t$ thick at
+                  mid-chord and sharp at both edges; $t=0$ gives a slit. CST, B&eacute;zier and imported files
+                  behave as described above.</p>
+
+                <p><b>The grammars.</b> A preset nickname (<code>naca0012</code>,
+                  <code>parsec_default</code>, <code>joukowski_t8c5</code>, <code>biconvex_t6</code>, among
+                  others), a raw NACA code (<code>2412</code>, <code>23012</code>), or one of the prefixed
+                  forms: <code>cst:a1,a2,...</code> (an even number of coefficients, 4 or more, split half into
+                  the upper surface and half into the lower), <code>bezier:x1,y1;x2,y2;...</code> (control
+                  points separated by semicolons),
+                  <code>parsec:r_le,x_up,y_up,y_xx_up,x_lo,y_lo,y_xx_lo,th_te,beta_te_deg</code> with nine
+                  numbers and the angle last in degrees, <code>joukowski:epsilon,camber</code>,
+                  <code>biconvex:thickness</code>, and <code>dat:path/to/file.dat</code> for a coordinate file.
+                  An unrecognized specification is rejected with the full list of accepted grammars.</p>
+
+                <p><span class="gui">GUI</span>: the <i>Geometry spec</i> field
+                  (<code>geometry_spec</code>, an editable single-line text) of the <i>Profile 2D geometry</i>
+                  block. When it holds text, <i>Generate geometry</i> resolves this string first and the Source
+                  and NACA fields are ignored for that run; leave it empty to use them as usual.
+                </p>
+
+                <p><span class="bemt">.bemt</span>: the string itself is not stored. What reaches
+                  <code>airfoil.bemt</code> under <code>geometry</code> is the resolved contour:
+                  the family name travels in <code>"naca4"</code>/<code>"cst"</code> style values of
+                  <code>airfoil.geometry.source</code>, and the parameters travel beside it
+                  (<code>naca_code</code>, <code>cst_upper</code>/<code>cst_lower</code>,
+                  <code>bezier_control_points</code>, <code>generator_params</code> for the three analytic
+                  families, <code>imported_path</code>), together with the coordinate lists.</p>
+
+                <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> takes the same grammars,
+                  for example <code>--airfoil-geometry joukowski_t8c5</code>,
+                  <code>--airfoil-geometry parsec:0.0158,0.30,0.0593,-0.475,0.35,-0.047,0.530,0.0025,8.0</code>,
+                  <code>--airfoil-geometry biconvex:0.06</code> or
+                  <code>--airfoil-geometry dat:contour.dat</code>.</p>
+
+                <h3 id="cap-3-8">8.8 External polar generation</h3>
+                <p>Two external engines estimate a two-dimensional airfoil polar from profile coordinates,
+                  Reynolds number, Mach number and an angle-of-attack sweep. <b>NeuralFoil</b> is a neural-network
+                  surrogate of XFOIL: milliseconds per evaluation, so a dense sweep costs seconds. <b>XFOIL</b>
+                  runs the classic boundary-element binary directly: higher fidelity where it converges, minutes
+                  instead of milliseconds, and it needs the executable installed on the machine. Neither is a flow
+                  solver and neither replaces validated measurements in a certification or high-consequence
+                  analysis. The output of both is a set of $C_l$ and $C_d$ samples that the blade-element method
+                  uses by the same tabulated interpolation as an imported polar.</p>
                 <p>The generated coefficients are applicable only within the profile, Reynolds, Mach and angle
                   range requested. They must be reviewed against available data when separation, transition,
-                  compressibility, roughness, Reynolds sensitivity or deep stall materially affects the design. The
-                  optional NeuralFoil package is required. The <span class="gui">GUI</span> disables this block and
-                  states the missing dependency when it is unavailable.</p>
+                  compressibility, roughness, Reynolds sensitivity or deep stall materially affects the design. NeuralFoil needs the
+                  optional Python package of the same name; XFOIL needs its executable, found through the
+                  <code>ZBEMT_XFOIL_BIN</code> environment variable or on <code>PATH</code>. The
+                  <span class="gui">GUI</span> keeps the run button clickable in every case and states the missing
+                  dependency, with installation instructions, when the click cannot proceed.</p>
+                <p><b>How the sweep runs and how it fails.</b> Both engines run incompressibly, so each
+                  generated slice receives the Prandtl-Glauert correction afterwards,
+                  $C_l \rightarrow C_l/\beta$ and $C_d \rightarrow C_d/\beta$ with
+                  $\beta = \sqrt{1-M^2}$, and a slice whose Mach number would make the factor diverge
+                  is dropped. One Reynolds number that produces no converged points warns and
+                  continues. A sweep that produces no usable point at all fails the generation. Each
+                  engine invocation runs under a wall-clock timeout, so a hung subprocess cannot stop
+                  the program.</p>
 
                 <h4 id="cap-3-8-1">8.8.1 Run the solver</h4>
                 <p>Prerequisite: 2D geometry already generated/imported (<a class="xref" href="#cap-3-7"
                     title="8.7 Profile 2D geometry">Section 8.7</a>). The "Run
-                  NeuralFoil" button generates a polar for the <b>currently selected section</b>
+                  polar generation" button generates a polar for the <b>currently selected section</b> with the
+                  engine chosen in the block (neuralfoil or xfoil)
                   (<a class="xref" href="#cap-3-1-3" title="8.1.3 Radial position of a section">Section 8.1.3</a>).
                   With multiple sections, repeat the run per section. The sweep covers
                   Reynolds and Mach lists and an $\alpha$ range.</p>
@@ -5333,7 +5394,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><span class="gui">GUI</span>: the fields <i>Reynolds list</i>, <i>Mach list</i>,
                   <i>alpha min [deg]</i>, <i>alpha max [deg]</i> and <i>step [deg]</i>, with the <i>Run
-                    NeuralFoil</i> button beside them.
+                    polar generation</i> button beside them.
                 </p>
 
                 <p><span class="bemt">.bemt</span>: in <code>airfoil.bemt</code>, the sweep is stored as
@@ -5341,7 +5402,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   the angle range as <code>external_alpha_min_deg</code> (default $-20$),
                   <code>external_alpha_max_deg</code> (default $20$) and <code>external_alpha_step_deg</code>
                   (default $0.5$). <code>external_engine</code> records which generator produced the table. It is
-                  <code>"none"</code> by default and <code>"neuralfoil"</code> once the solver has been run. It is a
+                  <code>"none"</code> by default and holds <code>"neuralfoil"</code> or <code>"xfoil"</code> once
+                  the solver has been run. It is a
                   record of provenance: the engine reads the resulting table, not the generator.
                 </p>
 
@@ -5351,7 +5413,68 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   table and exits).
                 </p>
 
-                <h4 id="cap-3-8-2">8.8.2 Where the generated data goes</h4>
+                <h4 id="cap-3-8-xfoil">8.8.2 The engine choice and the XFOIL transition settings</h4>
+
+                <p><b>The physics.</b> A boundary layer that stays laminar produces less skin
+                  friction than a turbulent one, so the place where the layer turns turbulent
+                  moves the whole polar. XFOIL predicts that place with the $e^N$ envelope
+                  criterion. Small disturbances inside the layer grow as they travel downstream,
+                  and the layer is taken to transition where the total amplification of the
+                  disturbances reaches the factor $e^{N}$:</p>
+
+                <div class="eqn">$$A(x) = e^{N}, \qquad N = N_{crit},$$</div>
+
+                <p>where $A(x)$ is the amplification of the disturbances up to the station $x$.
+                  The generation block runs either NeuralFoil or XFOIL. The three settings below
+                  belong to XFOIL alone: NeuralFoil accepts no transition input and ignores these
+                  values.</p>
+
+                <p><b>N<sub>crit</sub>, the critical amplification factor.</b> This number is the
+                  exponent $N$ of the criterion above. It measures how much disturbance growth the
+                  flow tolerates before the layer turns turbulent. A low value stands for a flow
+                  with many disturbances, such as a wind tunnel of high turbulence or a dirty
+                  surface, and it predicts early transition with drag near the fully turbulent
+                  level. A high value stands for a clean, low-turbulence flow and lets the layer
+                  stay laminar longer. The field in the <span class="gui">GUI</span> accepts values
+                   from 1 to 15. The <span class="bemt">.bemt</span> file and the
+                   <span class="cli">CLI</span> accept any number greater than zero. The default 9
+                   approximates a clean flow and reproduces the classic XFOIL setting.</p>
+
+                <p><b>Xtr top and Xtr bot, the forced transition stations.</b> Each one fixes the
+                  chord fraction $x/c$ where transition is FORCED on one surface, the upper or the
+                  lower one. The value lies between 0 and 1, bounds excluded at 0 and included at
+                  1. The default 1 leaves the transition free, so the $e^N$ criterion alone decides
+                  where it falls. Any smaller value pins the transition at that station and
+                  everything downstream of it turns turbulent at once. This models a trip strip or
+                  a rough leading edge, and it is how a measurement in which transition was fixed
+                  at a known station is reproduced.</p>
+
+                <p><b>Finding the executable.</b> XFOIL runs as an external program. zBEMT looks
+                  for it first at the path stored in the <code>ZBEMT_XFOIL_BIN</code> environment
+                  variable, then under the name <code>xfoil</code> on the system PATH. When
+                  neither leads to an executable, the run explains what is missing and how to
+                  install it, before any solver work starts.</p>
+
+                <p><span class="gui">GUI</span>: the fields <i>Ncrit</i>, <i>Xtr top</i> and
+                  <i>Xtr bot</i> appear in the external generation block only when that block
+                  generates with XFOIL. Set them there before <i>Run polar generation</i>. With any
+                  other engine the rows stay out of sight and the values change nothing.</p>
+
+                <p><span class="bemt">.bemt</span>: in <code>airfoil.bemt</code>, the keys are
+                  <code>xfoil_ncrit</code> (default 9.0), <code>xfoil_xtr_top</code> (default 1.0)
+                  and <code>xfoil_xtr_bot</code> (default 1.0). They are read only when
+                  <code>external_engine</code> holds <code>"xfoil"</code>.</p>
+
+                <p><span class="cli">CLI</span>: <code>--gen-xfoil --ncrit FLOAT --xtr-top FLOAT
+                    --xtr-bot FLOAT</code>. Each flag is optional; an option left out keeps its
+                  default. Given together with <code>--gen-neuralfoil</code>, the command stops
+                  with the error <code>--ncrit/--xtr-top/--xtr-bot apply to --gen-xfoil.</code>
+                  The same three values are also reachable as project fields, with
+                  <code>--set airfoil.xfoil_ncrit=VALUE</code>,
+                  <code>--set airfoil.xfoil_xtr_top=VALUE</code> and
+                  <code>--set airfoil.xfoil_xtr_bot=VALUE</code>.</p>
+
+                <h4 id="cap-3-8-2">8.8.3 Where the generated data goes</h4>
 
                 <p><b>Nothing is written to disk automatically.</b> A generated polar follows the same path as any
                   other edit made in the window: it enters the project held in memory at once, and reaches the
@@ -5378,7 +5501,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     is how a run is kept without committing it to this project.</li>
                 </ol>
 
-                <h4 id="cap-3-8-3">8.8.3 Export without committing the project to disk</h4>
+                <h4 id="cap-3-8-3">8.8.4 Export without committing the project to disk</h4>
 
                 <p><b>Definition.</b> This writes the polars just generated straight to a CSV file, without going
                   through the project at all. It is the way to compare several profiles before deciding which one to
@@ -5392,7 +5515,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 </p>
 
                 <p><span class="gui">GUI</span>: the <i>Export generated table</i> button, beside
-                  <i>Run NeuralFoil</i>. It is available only once a polar has been generated in this session.
+                  <i>Run polar generation</i>. It is available only once a polar has been generated in this session.
                 </p>
 
                 <p><span class="bemt">.bemt</span>: none. The exported file is a loose CSV and is not part
@@ -6915,390 +7038,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <hr>
 
-                        <h2 id="cap-design">12. Design tools</h2>
-
-                        <p>The Design tab holds the two tools that vary the blade instead of analyzing
-                          it. Geometry comparison runs one list of flight conditions over several
-                          blade planforms and reports the answers side by side. Design optimization
-                          searches inside bounds for the planform that drives one summary quantity
-                          to its best value on one flight condition. Both tools call the same solver
-                          as an ordinary case, so their numbers carry the same meaning as every
-                          other result in this document.</p>
-
-                        <figure>
-                          <img src="img/gui/design.png" alt="Design tab">
-                          <figcaption>The Design tab. Geometry comparison occupies the upper block
-                            and design optimization the lower block.</figcaption>
-                        </figure>
-
-                        <h3 id="cap-design-1">12.1 Geometry comparison</h3>
-
-                        <p><b>The physics.</b> A difference between two results answers a question
-                          about geometry only when everything else stays fixed. Each variant
-                          therefore runs with the airfoil polar, the mesh, the inflow model and
-                          every other engine setting of the open project. Only the planform changes
-                          from one variant to the next: each cell of the table states one override
-                          over the chord distribution, the twist distribution or the number of
-                          blades. Every variant runs the same conditions, which are the saved cases
-                          of the project when it has any. When the project has none, one default
-                          hover case is built from the condition fields of the optimization block,
-                          because the engine requires a rotational speed on every condition. The
-                          label in the first column names the variant in the results table, in the
-                          overlay figure and in every export, so choose labels that state the
-                          difference they carry.</p>
-
-                        <p>In the <span class="gui">GUI</span>, the table opens with one row named
-                          <code>base</code>, filled from the parameters that the generator of the
-                          current geometry stores. <i>Add variant</i> copies that row under the next
-                          free label, and <i>Remove selected</i> deletes the selected rows. An empty
-                          cell keeps the project value, so a row can isolate one parameter at a
-                          time. <i>Run comparison</i> solves every condition of every variant on a
-                          worker thread, shows a progress bar and keeps a working <i>Cancel</i>
-                          button, so the window stays responsive throughout. The integrated table
-                          then holds one column per label and one row per summary quantity, taken
-                          from the first condition of each geometry. When several conditions ran per
-                          geometry, the complete sweep belongs in the exports instead. The figure
-                          under the table overlays the spanwise distributions of the variants.
-                          <i>Export report</i> writes a self-contained HTML report into the outputs
-                          folder of the project, and <i>Export CSV</i> writes one row per geometry
-                          and condition beside it.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, comparison variants are not
-                          persisted. The table is rebuilt from the project's own geometry every
-                          time the project opens, and the labels live only in the session. A
-                          comparison worth repeating must therefore be kept through its exports,
-                          which land in the outputs folder of the project.</p>
-
-                        <p>From the <span class="cli">CLI</span>, <code>--compare PATHS</code>
-                          compares whole projects instead of table rows. The value is a
-                          comma-separated list of other project folders. Each folder becomes one
-                          variant named after its folder, and the geometry of
-                          <code>--project</code> joins the comparison as the variant named
-                          <code>base</code>. Every variant runs the saved cases of the
-                          <code>--project</code> folder. The command writes
-                          <code>comparison.html</code> and <code>comparison.csv</code> into the
-                          outputs folder of <code>--project</code> and exits. It refuses to share
-                          one call with another run mode, so give at most one of
-                          <code>--compare</code>, <code>--optimize</code>,
-                          <code>--gen-neuralfoil</code> and <code>--gen-xfoil</code>.</p>
-
-                        <h3 id="cap-design-2">12.2 Design optimization</h3>
-
-                        <p><b>The physics.</b> Design optimization turns one summary quantity into
-                          an objective and lets a bounded search move the planform toward it. The
-                          search varies parametric geometry parameters, each one held between a
-                          lower bound and an upper bound, and drives the chosen coefficient on one
-                          fixed flight condition:</p>
-
-                        <div class="eqn">$$f(\mathbf{p}) = s\,K(\mathbf{p}), \qquad
-                          l_j \leq p_j \leq u_j,$$</div>
-
-                        <p>where $K(\mathbf{p})$ is the objective coefficient evaluated on the
-                          geometry regenerated from the parameter vector $\mathbf{p}$, and $s$
-                          equals $-1$ for a maximization and $+1$ for a minimization, so both
-                          directions reduce to minimizing $f$. The method is derivative-free by
-                          construction. Powell or Nelder-Mead evaluates complete cases and never
-                          asks the engine for gradients. One evaluation regenerates the geometry
-                          from the trial parameters and solves the complete condition, so the cost
-                          of a study is measured in complete solves. The search starts
-                          deterministically from the center of the bounds, which makes a study
-                          repeatable for a fixed project and definition. An evaluation whose solve
-                          fails receives the large penalty value $10^{6}$ added to $f$, so the
-                          search steps away from the region that produced the failure instead of
-                          stopping.</p>
-
-                        <p>The sections below follow the order of the controls on screen. Each one
-                          states what the quantity is, where it enters the mathematics, and how to
-                          set it in the three interfaces.</p>
-
-                        <h4 id="cap-design-2-1">12.2.1 Study name</h4>
-
-                        <p><b>What it is.</b> The name identifies the study inside the project. It
-                          carries no physics, because the solver never reads it. Its one rule is
-                          uniqueness: saving a study under an existing name replaces that entry
-                          rather than adding a second one.</p>
-
-                        <p>In the <span class="gui">GUI</span>, type the name in the <i>Name</i>
-                          field at the top of the design optimization block. An empty field falls
-                          back to <code>optimization 1</code>.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the key is
-                          <code>"name"</code> of an entry in
-                          <code>inputs/optimizations.bemt</code>, and it is also how
-                          <code>--optimize NAME</code> selects the study.</p>
-
-                        <p>From the <span class="cli">CLI</span>, <code>--optimize NAME</code>
-                          selects the stored study by this name and runs it. Without a value after
-                          the flag, the first entry of the file runs.</p>
-
-                        <h4 id="cap-design-2-2">12.2.2 Objective direction</h4>
-
-                        <p><b>The physics.</b> The key <code>"objective_kind"</code> decides whether
-                          the search pushes the objective coefficient up or down. A hover study
-                          usually maximizes the figure of merit, and a cruise study usually
-                          minimizes power or the power coefficient, so the same machinery serves
-                          both questions.</p>
-
-                        <p>In the <span class="gui">GUI</span>, the dropdown offers exactly two
-                          values, <code>maximize</code> and <code>minimize</code>.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the key is
-                          <code>"objective_kind"</code> of the study entry, with the same two
-                          values.</p>
-
-                        <p>From the <span class="cli">CLI</span>, the direction travels with the
-                          stored study that <code>--optimize</code> runs, and no flag overrides
-                          it.</p>
-
-                        <h4 id="cap-design-2-3">12.2.3 Objective quantity</h4>
-
-                        <p><b>The physics.</b> The key <code>"objective_key"</code> names the summary
-                          coefficient the search reads out of every completed evaluation. Any key
-                          that appears in a results summary works. The dropdown lists the usual
-                          candidates, <code>CT</code>, <code>FM</code>, <code>CP</code>,
-                          <code>CQ</code>, <code>eta_prop</code>, <code>Thrust</code> and
-                          <code>Power</code>, and typing another summary key adds it. Choose a
-                          quantity whose meaning covers the condition: the figure of merit compares
-                          hover power against the ideal actuator disk and loses that meaning away
-                          from hover, while propulsive efficiency is the natural objective for a
-                          propeller condition.</p>
-
-                        <p>In the <span class="gui">GUI</span>, pick a value from the editable
-                          dropdown beside <i>Objective kind</i>.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the key is
-                          <code>"objective_key"</code> of the study entry. An empty value falls back
-                          to <code>FM</code>.</p>
-
-                        <p>From the <span class="cli">CLI</span>, the quantity comes from the stored
-                          study that <code>--optimize</code> runs, exactly like the direction.</p>
-
-                        <h4 id="cap-design-2-4">12.2.4 Search method</h4>
-
-                        <p><b>The physics.</b> The key <code>"method"</code> chooses between two
-                          derivative-free methods. Powell repeats line searches along coordinate
-                          directions, which suits smooth objectives and few variables. Nelder-Mead
-                          evolves a simplex of trial points, which tolerates small discontinuities
-                          in the objective. Neither method differentiates anything: both treat the
-                          solver as a function that maps parameters onto one number, and both hold
-                          every trial inside the bounds of the variables. Because the objective
-                          comes from an iterative solver, small numerical noise reaches both
-                          methods equally, and a tighter engine tolerance helps more than a method
-                          change does.</p>
-
-                        <p>In the <span class="gui">GUI</span>, the dropdown offers
-                          <code>powell</code> and <code>nelder-mead</code>.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the key is
-                          <code>"method"</code> of the study entry, holding one of those two
-                          values.</p>
-
-                        <p>From the <span class="cli">CLI</span>, the method comes from the stored
-                          study that <code>--optimize</code> runs.</p>
-
-                        <h4 id="cap-design-2-5">12.2.5 Evaluation limit</h4>
-
-                        <p><b>The physics.</b> The key <code>"max_evals"</code> caps how many
-                          evaluations the search may spend. Every evaluation is one complete
-                          flight-condition solve on a regenerated geometry, so the limit is a
-                          wall-clock budget. The search stops at this number even when it has not
-                          converged, and it reports the best point found up to then. A value that
-                          is too low cuts the search before it leaves the starting region, and a
-                          value that is too high spends solver hours on gains the mesh cannot
-                          resolve.</p>
-
-                        <p>In the <span class="gui">GUI</span>, set the whole number in the
-                          <i>Max evaluations</i> field, between 5 and 500. The default is 40.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the key is
-                          <code>"max_evals"</code> of the study entry, and values below 5 are
-                          rejected before the first evaluation.</p>
-
-                        <p>From the <span class="cli">CLI</span>, <code>--max-evals N</code>
-                          overrides the stored limit for the run started by
-                          <code>--optimize</code>. Without the flag, the stored value applies.</p>
-
-                        <h4 id="cap-design-2-6">12.2.6 In-plane advance ratio</h4>
-
-                        <p><b>The physics.</b> This row carries the key
-                           <code>"mu_x"</code>, the in-plane advance ratio
-                           $\mu_x = V_x/(\Omega R)$, which measures how fast the rotor
-                           moves edgewise through the air relative to its tip speed. It alone sets
-                           the strength of the advancing and retreating asymmetry and the size of
-                           the reverse-flow region on the retreating side. Zero gives axial flight,
-                           where every azimuth sees the same flow. In propeller mode the displayed
-                           letter rotates to $\mu_z$, while the stored quantity stays the
-                           same.</p>
-
-                        <p>In the <span class="gui">GUI</span>, the field sits among the
-                          <i>Flight condition</i> rows of the block and accepts values from
-                          $-0.5$ to $1.5$.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the value travels inside
-                           the study's <code>"condition"</code> entry, under the in-plane
-                           ratio key the project's mode displays.</p>
-
-                        <p>From the <span class="cli">CLI</span>, the condition comes from the
-                          stored study that <code>--optimize</code> runs.</p>
-
-                        <h4 id="cap-design-2-7">12.2.7 Collective pitch</h4>
-
-                        <p><b>The physics.</b> This row carries the key
-                            <code>"collective_deg"</code>, the collective pitch, which adds
-                            the same angle to every blade station. It
-                          shifts the local aerodynamic angle $\alpha = \theta - \phi$ almost
-                          uniformly, so it is the strongest lever on thrust that the condition
-                          offers. During the optimization it stays fixed, because the search varies
-                          geometry around the condition, and the collective defines that condition
-                          together with the other three fields.</p>
-
-                        <p>In the <span class="gui">GUI</span>, set the angle in degrees in the
-                          collective row, from $-10$ to $30$.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the value travels inside
-                            the study's <code>"condition"</code> entry as the collective angle in
-                            degrees.</p>
-
-                        <p>From the <span class="cli">CLI</span>, the collective comes from the
-                          stored study that <code>--optimize</code> runs.</p>
-
-                        <h4 id="cap-design-2-8">12.2.8 Along-shaft velocity</h4>
-
-                        <p><b>The physics.</b> This row carries the key <code>"Vz"</code>,
-                            the velocity along
-                            the shaft, in meters per second. Positive values describe climb, negative
-                          values descent, and zero gives axial flight. Together with the in-plane
-                          component it fixes the velocity vector of the disk. In propeller mode the
-                          displayed letter rotates, and the same stored key appears as the airspeed
-                          $V_x$ along the shaft.</p>
-
-                        <p>In the <span class="gui">GUI</span>, set the speed in the axial row,
-                          from $-50$ to $50$ m/s.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the value travels inside
-                            the study's <code>"condition"</code> entry as the along-shaft speed $V_z$.</p>
-
-                        <p>From the <span class="cli">CLI</span>, the value comes from the stored
-                          study that <code>--optimize</code> runs.</p>
-
-                        <h4 id="cap-design-2-9">12.2.9 Rotational speed</h4>
-
-                        <p><b>The physics.</b> This row carries the key <code>"rpm"</code>,
-                            the rotational
-                            speed. It fixes the tip speed $\Omega R$, and through it every
-                          dimensionless scale of the run: the advance ratios, the Reynolds number
-                          and the Mach number of each blade element. No default exists on purpose,
-                          because every result scales with the tip speed. The optimization requires
-                          it on the study condition, and the fallback hover case of the geometry
-                          comparison takes its speed from this same field.</p>
-
-                        <p>In the <span class="gui">GUI</span>, set a whole number between 100 and
-                          20000 rev/min in the RPM row.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the value travels inside
-                            the study's <code>"condition"</code> entry as the speed in rev/min. A study
-                            without it is rejected before the first evaluation.</p>
-
-                        <p>From the <span class="cli">CLI</span>, the speed comes from the stored
-                          study that <code>--optimize</code> runs.</p>
-
-                        <h4 id="cap-design-2-10">12.2.10 Design variables and bounds</h4>
-
-                        <p><b>The physics.</b> Each row of the variables table grants the search
-                          one degree of freedom over the planform. The parameter column names a
-                          geometry parameter, using the same names the geometry generators use.
-                          The two bound columns hold the smallest and the largest value the search
-                          may assign, written to the study as <code>variables[].param</code>,
-                          <code>variables[].lower</code> and <code>variables[].upper</code>. The
-                          interval between the bounds matters twice: the search starts at its
-                          center, and no trial ever leaves it. Parameters that take whole numbers,
-                          such as the blade count, receive rounded values during the search. Choose
-                          bounds that contain the interesting designs and keep every corner
-                          physically meaningful, since a bound that admits a degenerate planform
-                          wastes evaluations on penalized failures.</p>
-
-                        <p>In the <span class="gui">GUI</span>, <i>Add variable</i> appends a row
-                          with a parameter dropdown and the two bound fields, and <i>Remove
-                            selected</i> deletes the selected rows. A study needs at least one row,
-                          and each row needs a lower bound strictly below its upper bound.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file, the rows form the list
-                          <code>"variables"</code> of the study entry in
-                          <code>inputs/optimizations.bemt</code>, with one object per row carrying
-                          the keys <code>"param"</code>, <code>"lower"</code> and <code>"upper"</code>.</p>
-
-                        <p>From the <span class="cli">CLI</span>, the variables come from the stored
-                          study that <code>--optimize</code> runs.</p>
-
-                        <h4 id="cap-design-2-11">12.2.11 Saving, running and exporting a study</h4>
-
-                        <p><b>Saving.</b> <i>Save definition</i> collects the block into a study
-                          and stores it in the project. An entry with the same name is replaced, so
-                          saving works as an update as well as a create. The write lands in
-                          <code>inputs/optimizations.bemt</code>, and reopening the project loads
-                          the first stored study back into the block.</p>
-
-                        <p><b>Running.</b> <i>Run optimization</i> executes the study shown in the
-                          block on a worker thread. A progress bar counts evaluations, the status
-                          line reports the best value found so far, and the canvas draws the
-                          convergence history of the objective against the evaluation number.
-                          <i>Cancel</i> stops the search cleanly between evaluations. When the run
-                          ends, the status line reports the best parameters together with the
-                          objective value reached.</p>
-
-                        <p><b>Exporting.</b> <i>Export report</i> writes a self-contained HTML
-                          report into the outputs folder of the project, with the convergence
-                          history and the best parameters. Nothing else about a run is persisted:
-                          the outcome lives in the session, and the report is its record on
-                          disk.</p>
-
-                        <h3 id="cap-design-3">12.3 XFOIL polar generation</h3>
-
-                        <p><b>The physics.</b> XFOIL builds an airfoil polar from a panel method
-                          coupled to a boundary-layer formulation, solved around the two-dimensional
-                          profile. zBEMT drives it as an external process. The program writes one
-                          input script per Reynolds number, calls the <code>xfoil</code>
-                          executable, and parses the accumulated polar dump that the executable
-                          leaves behind. The result becomes an ordinary tabulated polar, consumed
-                          by the same code path as an imported table. Compressibility follows the
-                          same route as NeuralFoil: XFOIL runs incompressibly, and each slice is
-                          corrected afterwards by the Prandtl-Glauert factor,</p>
-
-                        <div class="eqn">$$C_l \rightarrow \frac{C_l}{\beta}, \qquad
-                          C_d \rightarrow \frac{C_d}{\beta}, \qquad \beta = \sqrt{1 - M^2},$$</div>
-
-                        <p>and a slice whose Mach number would make the factor diverge is
-                          dropped.</p>
-
-                        <p><b>Availability and failure.</b> The executable is looked up on the
-                          system PATH. When it is missing, generation fails before any solver work
-                          with an error that names the cause and the remedies: install XFOIL so
-                          that the command <code>xfoil</code> runs, or import a polar table
-                          instead. One Reynolds number that produces no converged points warns and
-                          continues, and a sweep with no usable points at all fails the
-                          generation. Each per-Reynolds script runs under a wall-clock timeout, so
-                          a hung subprocess cannot stop the program.</p>
-
-                        <p>From the <span class="cli">CLI</span>, <code>--gen-xfoil</code> generates
-                          a polar table and exits, without running BEMT. It shares every companion
-                          flag with <code>--gen-neuralfoil</code>: <code>--airfoil-geometry SPEC</code>
-                          selects the profile, <code>--reynolds R1,R2,...</code> and
-                          <code>--mach M1,M2,...</code> set the sweeps, <code>--alpha-range
-                            MIN:MAX:STEP</code> sets the angle-of-attack range, and
-                          <code>--export-table PATH</code> writes the CSV, which otherwise joins
-                          the tables already stored in the project. Like the other design modes,
-                          <code>--gen-xfoil</code> refuses to share one call with
-                          <code>--compare</code>, <code>--optimize</code> or
-                          <code>--gen-neuralfoil</code>.</p>
-
-                        <p>In the <span class="gui">GUI</span>, external generation currently
-                          offers NeuralFoil only: the engine dropdown of the Airfoil tab lists
-                          <code>none</code> and <code>neuralfoil</code>. Generating a polar with
-                          XFOIL is therefore available from the command line alone.</p>
-
-                        <hr>
-
-                        <h2 id="results-section">13. Results</h2>
+                        <h2 id="results-section">12. Results</h2>
 
                         <figure>
                           <img src="img/gui/results.png" alt="Results tab">
@@ -7315,7 +7055,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         </p>
 
                         <a id="cap-7"></a>
-                        <h3 id="sec-121-results">13.1 Results</h3>
+                        <h3 id="sec-121-results">12.1 Results</h3>
                         <p>The Results tab examines completed cases. The session history retains entries from Run Case
                           and
                           Run Batch until the project is closed, allowing single-case inspection and comparison.
@@ -7351,7 +7091,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                             maps when a result looks surprising.</p>
                         </div>
 
-                        <h4 id="cap-7-1">13.1.1 Disk Map</h4>
+                        <h4 id="cap-7-1">12.1.1 Disk Map</h4>
                         <p>The <b>Disk Map</b> visualizes 2D spatial distributions across the rotor disk for a single
                           evaluated flight condition. Available scalar fields include induced and total inflow
                           ($\lambda_i, \lambda_{total}, V_i$), sectional velocities ($U_p, U_t, W$), aerodynamic angles
@@ -7391,7 +7131,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><b>Limits.</b> Masking reverse flow is a visualization toggle. Underlying force integrations
                           and exported tabular metrics retain all blade element contributions.</p>
-                        <h4 id="cap-7-2">13.1.2 Coefficients vs. Axis</h4>
+                        <h4 id="cap-7-2">12.1.2 Coefficients vs. Axis</h4>
                         <p>This view accepts one run or several. It gives the <b>sweep</b> answer: each solved condition
                           collapses to
                           a single point, and the points line up into the performance curves. Where a disk map shows one
@@ -7399,7 +7139,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           the
                           integrated behavior moves as one flight variable changes. Choose the X axis from $\mu_x$,
                           $\alpha_{deg}$, collective, or RPM (<a class="xref" href="#sec-123-flight-condition-sweeps"
-                            title="13.3 Flight Condition Sweeps">Section 13.3</a>) and, with 2+ selections,
+                            title="12.3 Flight Condition Sweeps">Section 12.3</a>) and, with 2+ selections,
                           toggle between combining everything into a single curve or overlaying one series per
                           selection.</p>
 
@@ -7459,7 +7199,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           show whether a drop in the figure of merit came from a stalled inboard band or
                           from tip compressibility. The two causes have opposite remedies. When a curve
                           bends, return to the spatial views to find the reason.</p>
-                        <h4 id="cap-7-3">13.1.3 Azimuth / Radius</h4>
+                        <h4 id="cap-7-3">12.1.3 Azimuth / Radius</h4>
                         <p>This view needs exactly one run selected. It gives a <b>slice</b> through the disk: instead
                           of color over
                           an area, it plots one quantity as a curve, either along the radius at fixed azimuths or around
@@ -7512,7 +7252,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           stalled
                           band entirely. When the curves look implausibly smooth, add stations before believing them.
                         </p>
-                        <h4 id="cap-7-4">13.1.4 3D</h4>
+                        <h4 id="cap-7-4">12.1.4 3D</h4>
                         <p>This view needs exactly one run selected. The two-dimensional plan view is always available. The rotor
                           or blade in three dimensions and the 3D load distribution are produced through an optional
                           rendering
@@ -7548,7 +7288,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           condition, like every spatial view: it shows where the blade is loaded now, not how that
                           changes as
                           the condition moves.</p>
-                        <h4 id="cap-7-5">13.1.5 Export and Report</h4>
+                        <h4 id="cap-7-5">12.1.5 Export and Report</h4>
 
                         <p><b>Definition.</b> The views above answer questions on screen. This block turns what is on
                           screen, or the whole selection behind it, into files: images, a numeric table, or one
@@ -7639,7 +7379,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <a id="s19"></a>
                         <a id="cap-28"></a>
-                        <h3 id="sec-122-results-aggregation">13.2 Results Aggregation</h3>
+                        <h3 id="sec-122-results-aggregation">12.2 Results Aggregation</h3>
 
                         <p>The Results tab integrates the two-dimensional fields into one row of global results. For a
                           field $f(r,\psi)$, the disk integral is evaluated numerically as
@@ -7707,10 +7447,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           Therefore, it must grow. A value above $1$ here signals the absence of collective trim, not
                           a
                           solver error: the definition is a hover one, as <a class="xref"
-                            href="#sec-123-flight-condition-sweeps" title="13.3 Flight Condition Sweeps">Section
-                            13.3</a> sets out.</p>
+                            href="#sec-123-flight-condition-sweeps" title="12.3 Flight Condition Sweeps">Section
+                            12.3</a> sets out.</p>
 
-                        <h4 id="cap-28-1">13.2.1 Total power curve</h4>
+                        <h4 id="cap-28-1">12.2.1 Total power curve</h4>
 
                         <p><b>What it is.</b> The shaft power a main rotor needs, plotted against flight speed, is the
                           sum
@@ -7774,7 +7514,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <a id="cap-29"></a>
                         <a id="s20"></a>
-                        <h3 id="sec-123-flight-condition-sweeps">13.3 Flight Condition Sweeps</h3>
+                        <h3 id="sec-123-flight-condition-sweeps">12.3 Flight Condition Sweeps</h3>
 
                         <p><b>What a sweep is.</b> A sweep repeats the solution over a sequence of flight conditions and
                           assembles one result row per condition, so that a trend can be read where a single case gives
@@ -7806,7 +7546,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                             dimensionless.</figcaption>
                         </figure>
 
-                        <h4 id="cap-29-1">13.3.1 Trimmed and untrimmed sweeps</h4>
+                        <h4 id="cap-29-1">12.3.1 Trimmed and untrimmed sweeps</h4>
 
                         <p><b>The distinction.</b> The sweep above holds the pitch $\theta(r)$ fixed, so thrust is an
                           <em>output</em> that varies from condition to condition. That is the direct mode, and it
@@ -7840,7 +7580,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           same
                           target.</p>
 
-                        <h4 id="cap-29-2">13.3.2 Reading the figure of merit along a sweep</h4>
+                        <h4 id="cap-29-2">12.3.2 Reading the figure of merit along a sweep</h4>
 
                         <p><b>The definition is a hover one.</b> $FM$ compares the actual power against the ideal
                           actuator-disk power of a rotor in still air. That reference stops applying the moment there is
@@ -7866,6 +7606,249 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           ratio. For a rotor away from hover, compare power at equal thrust, which is what a trimmed
                           sweep
                           produces.</p>
+
+                        <hr>
+                        <h2 id="cap-designer">13. Geometry Variation Studies</h2>
+
+                        <p>The Geometry Designer is a separate window that compares blade
+                          planforms. The main window opens it from the Tools menu, with the entry
+                          <i>Geometry Designer&hellip;</i>. The window runs the same solver as an ordinary
+                          case, so its numbers carry the same meaning as every other result in this
+                          document. Everything except the blade geometry stays fixed across a
+                          comparison. Every variant runs with the airfoil polar, the mesh, the
+                          inflow model and the corrections of the open project, so a difference
+                          between two results has a geometric cause.</p>
+
+                        <p>The window holds three pages. <i>Variants</i> defines the blade
+                          geometries to compare. <i>Conditions</i> decides what every variant
+                          runs. <i>Run &amp; results</i> executes the solves and reads them. The
+                          window compares geometries. It does not search for one: design
+                          optimization remains an outer loop driven from the
+                          <span class="cli">CLI</span> or the library.</p>
+
+                        <figure>
+                          <img src="img/gui/designer.png" alt="Geometry Designer window">
+                          <figcaption>The Geometry Designer window, opened from the Tools menu of
+                            the main window. The Variants page is open, with the variation sweep
+                            builder beside the geometry table and the planform preview at the
+                            right.</figcaption>
+                        </figure>
+
+                        <h3 id="designer-variants">13.1 Variants</h3>
+
+                        <p><b>The physics.</b> A variant is one blade planform built from the
+                          project's own geometry plus a few overrides. Each row of the table states
+                          one variant, and the first row, named <code>base</code>, is the project's
+                          own planform. An empty cell keeps the project value, so a row can isolate
+                          a single parameter at a time. The first column holds the label that names
+                          the variant in the verdict strip, in the figures and in every export.
+                          Choose labels that state the difference the row carries.</p>
+
+                        <p><b>The table columns.</b> A row carries the root chord and the tip chord
+                          over the radius (the column headers read <code>c/R</code>), the twist in
+                          degrees at the root and at the tip, and the blade count. The two chord
+                          cells feed the generator of the project's current geometry. A rectangular
+                          blade takes a single chord parameter, so its two chord cells state the
+                          same value, and the root cell wins when they differ. A tapered blade reads
+                          the two cells separately. An elliptic blade has no tip-chord parameter, so
+                          that cell is disabled there. Two further parameters accept no cell: a
+                          variation over the radius or over the root cutout rides with its row and
+                          applies when the comparison runs.</p>
+
+                        <p><b>The variation sweep builder.</b> The panel beside the table turns one
+                          geometry parameter into several rows at once. The <i>Parameter</i>
+                          dropdown lists the parameters the generators accept:
+                          <code>root_chord_norm</code>, <code>tip_chord_norm</code>,
+                          <code>twist_root_deg</code>, <code>twist_tip_deg</code>,
+                          <code>max_chord_norm</code>, <code>chord_norm</code>,
+                          <code>n_blades</code>, <code>radius_m</code> and
+                          <code>root_cutout_norm</code>. With the list field empty, the builder
+                          spreads $n$ evenly spaced values between the <i>Start</i> and the
+                          <i>End</i> bounds, both included:</p>
+
+                        <div class="eqn">$$v_k = v_{start} + \frac{k}{n-1}\left(v_{end} -
+                            v_{start}\right), \qquad k = 0, 1, \ldots, n-1.$$</div>
+
+                                                  <p>A count of 1 produces the start value alone. The <i>Values</i> field
+                          accepts explicit numbers separated by commas, and replaces Start, End and
+                          Count whenever it holds anything. A parameter that takes whole numbers,
+                          the blade count, receives rounded values with duplicates removed. The
+                          bounds span from -10 to 10 with four decimals, and the count runs from 1
+                          to 50. <i>Build variants</i> checks every value against the project's own
+                          generator before it appends the row, so an unacceptable value stops the
+                          build with a message instead of leaving rows that fail only at run time.
+                          Each appended row starts as a copy of the base row, carries its value in
+                          the matching cell, and takes a label that names the parameter and the
+                          value, such as <code>tip_chord_norm=0.040</code>.</p>
+
+                        <p><b>The row buttons and the preview.</b> <i>Add</i> copies the base row
+                          under an automatic label of the form <code>variant N</code>.
+                          <i>Duplicate</i> copies the selected row under
+                          a fresh label. <i>Remove</i> deletes the selected rows. The preview beside
+                          the table overlays the planform outline of every row, one color per row,
+                          with a legend naming each label. It redraws shortly after the last cell
+                          edit, so typing through several cells does not redraw between
+                          keystrokes.</p>
+
+                        <p>In the <span class="gui">GUI</span>: pick the parameter in the
+                          <i>Variation sweep</i> panel, set Start, End and Count, or type explicit
+                          numbers in <i>Values</i>, then press <i>Build variants</i>. Edit any cell
+                          of any row afterwards. Manage rows with <i>Add</i>, <i>Duplicate</i> and
+                          <i>Remove</i>, and watch the preview to confirm what each variant looks
+                          like.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: comparison variants are not
+                          persisted. The table rebuilds itself from the project's own geometry every
+                          time the project opens, and the labels live only in the session. A
+                          comparison worth repeating must be kept through its exports, which land in
+                          the outputs folder of the project.</p>
+
+                        <p>From the <span class="cli">CLI</span>: <code>--compare PATHS</code>
+                          compares whole projects instead of table rows. The value is a
+                          comma-separated list of other project folders. Each folder becomes one
+                          variant named after the project it holds, and the geometry of
+                          <code>--project</code> joins the comparison as the variant named
+                          <code>base</code>. The command writes <code>comparison.html</code> and
+                          <code>comparison.csv</code> into the outputs folder of
+                          <code>--project</code> and exits. It refuses to share one call with
+                          <code>--optimize</code>, <code>--gen-neuralfoil</code> or
+                          <code>--gen-xfoil</code>.</p>
+
+                        <h3 id="designer-conditions">13.2 Conditions</h3>
+
+                        <p><b>The physics.</b> Every variant must run something, and this page
+                          decides what. Three radio buttons select the mode. <i>Saved cases</i>
+                          runs every flight condition already stored in the project on every
+                          variant. <i>Single condition</i> builds one condition from four fields.
+                          <i>Sweep</i> carries one quantity through evenly spaced values. In every
+                          mode, all variants run the same ordered conditions, so their results stay
+                          directly comparable. A gray estimate line at the bottom states the
+                          resulting count, for example <code>single condition: 4 variants &times; 1
+                            case = 4 solves</code>, or names the reason a run cannot start.</p>
+
+                        <p><b>Saved cases.</b> The panel shows how many cases the project stores.
+                          The run refuses to start when none are stored, and it refuses equally
+                          when a stored case lacks a rotational speed, naming the cases without
+                          one. Cases are created and stored on the Run Case tab of the main
+                          window.</p>
+
+                        <p><b>The single condition fields.</b> The first field carries the advance
+                          ratio $\mu_x = V_x/(\Omega R)$ along the vehicle longitudinal axis. It
+                          sets the strength of the advancing and retreating asymmetry, and zero
+                          gives axial flow. It accepts values from -0.5 to 1.5 and starts at 0. In
+                          propeller mode the displayed letter rotates to $\mu_z$, while the stored
+                          quantity stays the same. The second field is the collective pitch in
+                          degrees, the same geometric angle added at every blade station. It shifts
+                          the local aerodynamic angle $\alpha = \theta - \phi$ almost uniformly and
+                          is the strongest lever on thrust the condition offers. It accepts values
+                          from -10 to 30 degrees and starts at 8. The third field is the velocity
+                          along the shaft in meters per second, positive in climb. Together with the
+                          in-plane component it fixes the velocity vector of the disk. It accepts
+                          values from -50 to 50 m/s and starts at 0. The fourth field is the
+                          rotational speed in rev/min. It fixes the tip speed $\Omega R$, and
+                          through it every dimensionless scale of the run: the advance ratios, the
+                          Reynolds number and the Mach number of each blade element. It accepts
+                          whole numbers from 1 to 20000 and comes prefilled with 1500.</p>
+
+                        <p><b>The sweep fields.</b> The axis dropdown sweeps either the in-plane
+                          advance ratio or the collective pitch. Start and Stop bound the sweep,
+                          both included, anywhere from -1000 to 1000, and Count sets how many
+                          evenly spaced values fall between them, from 1 to 200 with a default of
+                          5. The remaining quantities keep the values of the Single condition
+                          panel, rotational speed included. Each generated condition receives a name
+                          built from the swept value, such as <code>mu=0.10</code> for the advance
+                          ratio or <code>theta=8.00</code> for the collective, and those names
+                          identify the conditions downstream.</p>
+
+                        <p>In the <span class="gui">GUI</span>: check one of the three radio
+                          buttons at the top of the page. Fill the panel that appears below it, and
+                          read the estimate line to confirm the number of solves before moving
+                          on.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: the saved cases are real
+                          project data and live in <code>inputs/saved_cases.bemt</code>. The single
+                          and sweep settings belong to the window alone and store nothing.</p>
+
+                        <p>From the <span class="cli">CLI</span>: <code>--compare PATHS</code> runs
+                          the saved cases of the <code>--project</code> folder over the variants.
+                          When that project stores no cases, the command builds one hover-like
+                          condition instead, with 8 degrees of collective and the speed given by
+                          <code>--rpm R</code>. Without saved cases and without
+                          <code>--rpm</code>, it stops with an instruction rather than guessing a
+                          speed.</p>
+
+                        <h3 id="designer-run">13.3 Run &amp; results</h3>
+
+                        <p><b>The physics.</b> One solve covers one variant at one condition, so a
+                          comparison costs variants times conditions complete solves. Nothing is
+                          interpolated between them and no result stands in for another: every
+                          number shown after a run comes from a full solution. The results live in
+                          memory for the rest of the session.</p>
+
+                        <p><b>Run comparison.</b> The button solves every condition of every
+                          variant in the table. A progress bar counts the pairs as they finish, a
+                          status line reports the same count, and <i>Cancel</i> stays clickable and
+                          stops the run cleanly. All of it happens off the main thread, so the
+                          window keeps responding while the solver works. When the run ends, the
+                          verdict strip, the ranking figure and the overlay figure fill
+                          themselves.</p>
+
+                        <div class="eqn">$$\eta_{prop}=\frac{J_x\,C_{T,prop}}{C_{P,prop}},
+                            \qquad J_x=\frac{\pi V_x}{\Omega R}.$$</div>
+
+                        <p><b>The verdict strip.</b> The strip holds one chip per variant, read at
+                          the reference condition, which is the first case of the ordered run. A
+                          chip collects the badges its variant wins. <i>Best thrust</i> goes to the
+                          largest thrust coefficient or force, <i>best figure of merit</i> to the
+                          largest $FM$, <i>lowest power</i> to the smallest power coefficient or
+                          power, and <i>best propeller efficiency</i> to the largest $\eta_{prop}$
+                          computed by the formula above. The propeller-efficiency badge appears only
+                          when the project runs in propeller convention, because $\eta_{prop}$ ranks
+                          designs only where thrust does useful work along the shaft. One sentence
+                          below the chips gathers the winners per design goal.</p>
+
+                        <p><b>The ranking figure.</b> The <i>Rank by</i> dropdown lists the summary
+                          quantities this run actually produced, among <code>CT</code>,
+                          <code>FM</code>, <code>CP</code>, <code>eta_prop</code> and
+                          <code>Thrust</code>, and keeps <code>FM</code> as the default when it
+                          exists. The figure is one horizontal bar per variant at the reference
+                          condition. The best side of the chosen quantity sits on top, so power-type
+                          quantities rank ascending and the others descending. The winning bar takes
+                          the highlight color, every bar carries its numeric annotation, and the
+                          title states the condition the bars were read at.</p>
+
+                        <p><b>The overlay figure.</b> The lower canvas draws one panel per summary
+                          quantity among $C_T$, $FM$, $C_P$ and $\eta_{prop}$, whichever ones the
+                          run produced. Every panel plots one curve per geometry across all the
+                          conditions the run covered. This is where a ranking taken at one condition
+                          gets checked against the rest of the envelope: a variant that wins at the
+                          reference condition but crosses another curve partway through the sweep
+                          has a limited advantage.</p>
+
+                        <p><b>The exports.</b> <i>Export report</i> writes a self-contained HTML
+                          report into the outputs folder of the project, with the metadata of the
+                          run, the full summary table and the overlay figure embedded inside the
+                          file itself.                           <i>Export CSV</i> writes one row per geometry and condition
+                          beside it. Both names start with <code>geometry_comparison_</code> and
+                          carry a timestamp, so a new export never silently replaces an older one.
+                          Until one of the buttons is pressed, nothing reaches disk: the results
+                          and the figures live in memory only.</p>
+
+                        <p>In the <span class="gui">GUI</span>: press <i>Run comparison</i> and wait
+                          for the finished message on the status line. Read the verdict chips at
+                          the reference condition, choose a quantity in <i>Rank by</i>, and compare
+                          the curves of the overlay figure across the conditions. Press <i>Export
+                            report</i> or <i>Export CSV</i> to keep the run.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: nothing about the run or
+                          the results persists. The exports are the record on disk, written into
+                          the outputs folder of the project.</p>
+
+                        <p>From the <span class="cli">CLI</span>: <code>--compare PATHS</code>
+                          produces the same pair of files the window exports, named
+                          <code>comparison.html</code> and <code>comparison.csv</code>, and prints
+                          one line per variant with its thrust coefficient and figure of merit at
+                          the first condition.</p>
 
                         <hr>
 
@@ -7913,7 +7896,14 @@ zbemt --new projects/MyProject --geom-radius 0.6 --rpm 1200 \
 zbemt --project projects/MyProject \
     --gen-neuralfoil --airfoil-geometry naca2412 \
     --reynolds 1e5,5e5,1e6 --mach 0.1,0.3 --alpha-range -10:20:0.5 \
-    --export-table saida/naca2412_neuralfoil.csv</code></pre>
+    --export-table outputs/naca2412_neuralfoil.csv
+
+# Generate polar via XFOIL, with its transition settings
+zbemt --project projects/MyProject \
+    --gen-xfoil --airfoil-geometry naca2412 \
+    --reynolds 1e5,5e5,1e6 --mach 0.1,0.3 --alpha-range -10:20:0.5 \
+    --ncrit 9 --xtr-top 1.0 --xtr-bot 1.0 \
+    --export-table outputs/naca2412_xfoil.csv</code></pre>
                         <p>Complete table of flags (grouped by corresponding tab. See each linked section for the
                           physical meaning of each field):</p>
                         <div class="tablewrap">
@@ -7938,20 +7928,26 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>External polar generation (<a class="xref" href="#cap-3-8"
-                                  title="8.8 External solver — NeuralFoil">Section 8.8</a>,
-                                <a class="xref" href="#cap-design-3" title="12.3 XFOIL polar generation">Section
-                                  12.3</a>)</td>
+                                  title="8.8 External polar generation">Section 8.8</a>,
+                                <a class="xref" href="#cap-3-8-xfoil" title="8.8.2 The engine choice and the XFOIL transition settings">Section
+                                  8.8.2</a>)</td>
                               <td><code>--gen-neuralfoil</code> | <code>--gen-xfoil</code> |
                                 <code>--airfoil-geometry SPEC</code> |
                                 <code>--reynolds R1,R2,...</code> | <code>--mach M1,M2,...</code> |
-                                <code>--alpha-range MIN:MAX:STEP</code> | <code>--export-table PATH</code>
+                                <code>--alpha-range MIN:MAX:STEP</code> | <code>--export-table PATH</code> |
+                                XFOIL only: <code>--ncrit FLOAT</code> | <code>--xtr-top FLOAT</code> |
+                                <code>--xtr-bot FLOAT</code>
                               </td>
                             </tr>
                             <tr>
-                              <td>Design tools (<a class="xref" href="#cap-design" title="12. Design tools">Chapter
-                                  12</a>)</td>
-                              <td><code>--compare PROJECTS</code> | <code>--optimize [NAME]</code> |
-                                <code>--max-evals N</code>
+                              <td>Geometry variation studies (<a class="xref" href="#cap-designer" title="13. Geometry Variation Studies">Chapter
+                                  13</a>)</td>
+                              <td><code>--compare PROJECTS</code></td>
+                            </tr>
+                            <tr>
+                              <td>Design optimization, command line only (<a class="xref" href="#sec-15-outside-the-gui"
+                                  title="14. Command-line reference">Chapter 14</a>)</td>
+                              <td><code>--optimize [NAME]</code> | <code>--max-evals N</code>
                               </td>
                             </tr>
                             <tr>
@@ -8065,9 +8061,9 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>error</td>
-                              <td>external solver (NeuralFoil) selected without 2D airfoil geometry</td>
+                              <td>external solver selected without 2D airfoil geometry</td>
                               <td>Needs the profile shape to generate the polar (<a class="xref" href="#cap-3-8"
-                                  title="8.8 External solver — NeuralFoil">Section 8.8</a>).</td>
+                                  title="8.8 External polar generation">Section 8.8</a>).</td>
                             </tr>
                             <tr>
                               <td>error</td>

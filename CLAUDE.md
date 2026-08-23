@@ -98,7 +98,8 @@ zbemt/
   api.py  studies.py  bemt.py  models.py  validation.py  nomenclature.py
   geometry.py  airfoils.py  external_solvers.py  paths.py  cli.py
   gui/  app.py  common.py  workers.py  dialogs.py  widgets.py  styles.py
-        tabs/  project  geometry_tab  airfoil  config  run_case  run_batch  design  results
+        tabs/  project  geometry_tab  airfoil  config  run_case  run_batch
+               designer_window  results
   viz/  plots.py  visualization.py  style.py
 ```
 
@@ -214,8 +215,10 @@ Structure:
 ```
 0-5   Introduction  how to think · installation · GUI/CLI/.bemt · tutorial ·
                     nomenclature and axes · the method
-6-13  THE PAGES     Project · Geometry · Airfoil · Config/Engine ·
-                    Run Case · Run Batch · Design · Results
+6-12  THE PAGES     Project · Geometry · Airfoil · Config/Engine ·
+                    Run Case · Run Batch · Results
+13    TOOLS WINDOW  Geometry Variation Studies (the Geometry Designer,
+                    opened from the Tools menu)
 14-15 Reference     command line · limitations
 ```
 
@@ -234,7 +237,7 @@ Rules:
 5. No class names, function names, package paths or development notes.
 6. Call the three interfaces GUI, CLI and `.bemt`. Nothing else.
 7. Plain, formal, explanatory English, in full sentences.
-8. Open each page chapter with its tab screenshot. Number the tabs 1 to 8.
+8. Open each page chapter with its tab screenshot. Number the tabs 1 to 7.
 9. A field or block belonging to a tab opens a section inside that tab's
    chapter.
 10. Mark each interface with its color: GUI blue, CLI red, `.bemt` green.

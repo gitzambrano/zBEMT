@@ -42,23 +42,37 @@ different rule.
   polars.
 - **SC-4** — Three synchronized interfaces (GUI, CLI, library) built on one engine,
   with GUI/CLI/`.bemt`-file parity as required by §3.3.
-- **SC-7** — Geometry comparison across labeled variants: the project's saved cases
-  run over several blade planforms with everything except the geometry held
-  fixed (same airfoil polar, mesh, inflow model and corrections), and each
-  variant is tagged by a user label in the results table, plots and exports.
-  Comparison variants are session data; they are not persisted in the
-  project.
+- **SC-7** — Geometry comparison across labeled variants in a dedicated
+  Geometry Designer window: a chosen set of flight conditions (the
+  project's saved cases, one single condition, or one swept quantity) runs
+  over several blade planforms with everything except the geometry held
+  fixed (same airfoil polar, mesh, inflow model and corrections). Variants
+  are built as override rows over the project's own planform or generated
+   by a one-parameter variation sweep, and each variant is tagged by a user
+   label (or an auto-generated `param=value` label) in the verdicts, plots
+   and exports. Comparison variants are session data; they are not
+  persisted in the project.
 - **SC-8** — Persisted design-optimization studies (`inputs/optimizations.bemt`)
   that drive one summary quantity on one flight condition through a bounded,
   derivative-free search over parametric planform parameters (Powell or
   Nelder-Mead). The search starts deterministically from the center of the
   bounds, respects them throughout, and penalizes failed evaluations instead
-  of stopping.
+  of stopping. Optimization is deliberately not offered in the GUI: it runs
+  as an outer loop from the CLI (`--optimize`) and the library.
 - **SC-9** — XFOIL as an external polar engine: polar generation may drive the
-  `xfoil` binary looked up on PATH, one script per Reynolds number, with the
-  same Prandtl-Glauert post-correction as NeuralFoil. Per PR-7, a missing
-  binary degrades only this feature, failing with a clear RuntimeError that
-  names the cause and the remedies.
+  `xfoil` binary, looked up first through the `ZBEMT_XFOIL_BIN` environment
+  variable and then on PATH, one script per Reynolds number, with the same
+  Prandtl-Glauert post-correction as NeuralFoil. XFOIL-only transition
+  inputs (`ncrit`, `xtr_top`, `xtr_bot`: the e^N criterion and forced
+  transition stations) reach the binary only on the XFOIL path and are
+  rejected with `--gen-neuralfoil`. Per PR-7, a missing binary degrades only
+  this feature, failing with a clear RuntimeError that names the cause and
+  the remedies.
+- **SC-10** — Analytic airfoil geometry families (PARSEC, Joukowski,
+  biconvex) beside NACA/CST/Bézier, all reachable through one resolver
+  grammar (preset nicknames and prefixed forms) shared by the GUI's
+  geometry-spec field and the CLI's `--airfoil-geometry`, and stored so a
+  saved contour can be regenerated without its coordinate table.
 
 ### 1.2 The software must not support
 
@@ -211,7 +225,7 @@ different rule.
   help source, written in English. Every flag, module, project, batch and
   anchor it cites must exist.
 - **DC-2** — Structure: introduction (chapters 0-5), one chapter per GUI tab in tab order
-  (6-13), reference (14-15).
+  (6-12), the Geometry Designer window chapter (13), reference (14-15).
 - **DC-3** — A GUI page gets a chapter of its own. Its sections follow the order of the
   blocks and fields on screen. A page is never documented inside a physics
   chapter.
