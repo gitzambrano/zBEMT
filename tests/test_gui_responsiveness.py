@@ -29,7 +29,7 @@ import tempfile
 import unittest
 
 try:
-    from PyQt6.QtCore import QEventLoop, QThread, QTimer
+    from PyQt6.QtCore import QEventLoop, QThread, QTimer, Qt
     from PyQt6.QtWidgets import QApplication
     _HAS_QT = True
 except Exception:                                        # pragma: no cover
@@ -176,7 +176,16 @@ class TestEngineDoesNotFreezeTheInterface(unittest.TestCase):
             if len(done) == 2:
                 worker.cancel()
 
-        worker.case_finished.connect(on_case_done)
+        # DirectConnection: the slot runs on the WORKER thread, between
+        # two cases, so `worker.cancel()` is observable before the next
+        # case starts. The default queued connection made this a race:
+        # with fast cases the worker could finish all six before the
+        # main thread ever dispatched the slot that sets the flag (seen
+        # as a rare 6-not-less-than-6 failure under the full runner).
+        # The slot touches no GUI state, so running it on the worker
+        # thread is safe.
+        worker.case_finished.connect(on_case_done,
+                                     Qt.ConnectionType.DirectConnection)
         worker.finished.connect(lambda _r: loop.quit())
         worker.failed.connect(lambda _m: loop.quit())
 
