@@ -115,7 +115,8 @@ if _HAS_QT:
             window = self._window_for(_make_project())
             cells = [window.variants_table.item(0, c).text()
                      for c in range(window.variants_table.columnCount())]
-            self.assertEqual(cells, ["base", "0.1", "0.04", "14", "2", "2"])
+            self.assertEqual(cells, ["base", "0.1", "0.04", "14", "2", "2",
+                                     "—"])
 
     @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
     class TestVariationSweepBuilder(DesignerWindowBase):
@@ -187,6 +188,151 @@ if _HAS_QT:
                 window.btn_build_sweep.click()
             self.assertEqual(window.variants_table.rowCount(), 1)
             box.warning.assert_called()
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestExtraOverridesColumn(DesignerWindowBase):
+        """The read-only column that summarizes columnless overrides."""
+
+        def test_column_exists_and_is_read_only(self):
+            window = self._window_for(_make_project())
+            table = window.variants_table
+            self.assertEqual(table.columnCount(), 7)
+            self.assertEqual(table.horizontalHeaderItem(6).text(),
+                             "Extra overrides")
+            flags = table.item(0, 6).flags()
+            self.assertFalse(flags & Qt.ItemFlag.ItemIsEditable)
+
+        def test_radius_sweep_shows_fragments_and_base_dash(self):
+            window = self._window_for(_make_project())
+            window.vsweep_param_combo.setCurrentText("radius_m")
+            window.vsweep_values_edit.setText("1.2, 1.4, 1.6")
+            with helpers.patch_message_box_everywhere("QMessageBox"):
+                window.btn_build_sweep.click()
+            table = window.variants_table
+            self.assertEqual(table.item(0, 6).text(), "—")
+            texts = [table.item(r, 6).text() for r in (1, 2, 3)]
+            for text in texts:
+                self.assertIn("radius_m=", text)
+            self.assertEqual(texts, ["radius_m=1.200", "radius_m=1.400",
+                                     "radius_m=1.600"])
+            # A duplicated row carries its overrides and their summary.
+            table.selectRow(1)
+            with helpers.patch_message_box_everywhere("QMessageBox"):
+                window.btn_duplicate_variant.click()
+            self.assertEqual(table.item(4, 6).text(), "radius_m=1.200")
+
+        def test_cell_edits_recompute_the_projection(self):
+            from zbemt import geometry
+            from zbemt.models import Project
+            geom = geometry.generate_rectangular(chord_norm=0.08,
+                                                  n_stations=8)
+            airfoil = AirfoilDef(source="analytical", stall_model="clip")
+            project = Project(name="rect", geometry=geom, airfoil=airfoil,
+                               config=dict(Ne=6, Npsi=8,
+                                           solver="fixed_point",
+                                           max_iter=80))
+            window = self._window_for(project)
+            table = window.variants_table
+            # The rectangular generator drives chord_norm, which has no
+            # dedicated column: the base row names it.
+            self.assertEqual(table.item(0, 6).text(), "chord_norm=0.080")
+            table.item(0, 1).setText("0.12")
+            self.assertEqual(table.item(0, 6).text(), "chord_norm=0.120")
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestDefaultRankingMetric(DesignerWindowBase):
+        """The metric combo opens on the mode-appropriate quantity."""
+
+        def test_propeller_summaries_default_to_eta_prop(self):
+            window = self._window_for(
+                _make_project(config={"is_propeller": True}))
+            results = [_result("base", "cruise", eta_prop=0.80, FM=0.70,
+                                cfg_is_propeller=True),
+                       _result("v1", "cruise", eta_prop=0.85, FM=0.72,
+                                cfg_is_propeller=1)]
+            window._fill_ranking_combo(results)
+            self.assertEqual(window.ranking_field_combo.currentText(),
+                             "eta_prop")
+
+        def test_rotor_summaries_default_to_fm(self):
+            window = self._window_for(_make_project())
+            results = [_result("base", "hover", FM=0.70, eta_prop=0.50,
+                                cfg_is_propeller=False),
+                       _result("v1", "hover", FM=0.75,
+                                cfg_is_propeller=0)]
+            window._fill_ranking_combo(results)
+            self.assertEqual(window.ranking_field_combo.currentText(),
+                             "FM")
+
+        def test_fallback_keeps_the_first_available_metric(self):
+            window = self._window_for(_make_project())
+            results = [_result("base", "hover", CT=0.005)]
+            window._fill_ranking_combo(results)
+            self.assertEqual(window.ranking_field_combo.currentText(),
+                             "CT")
+
+        def test_previous_choice_survives_when_still_valid(self):
+            window = self._window_for(_make_project())
+            results = [_result("base", "hover", CT=0.005, FM=0.70),
+                       _result("v1", "hover", CT=0.006, FM=0.72)]
+            window._fill_ranking_combo(results)
+            window.ranking_field_combo.setCurrentText("CT")
+            window._fill_ranking_combo(results)
+            self.assertEqual(window.ranking_field_combo.currentText(),
+                             "CT")
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestRankingConditionCombo(DesignerWindowBase):
+        """The ranking reads the case picked in the Condition combo."""
+
+        @staticmethod
+        def _results():
+            results = []
+            for label, fm in (("base", 0.70), ("v1", 0.74), ("v2", 0.78)):
+                for name, mult in (("hover", 1.0), ("cruise", 1.02)):
+                    results.append(_result(label, name, CT=0.005,
+                                            FM=fm * mult, CP=0.010,
+                                            cfg_is_propeller=False))
+            return results
+
+        def test_combo_lists_conditions_in_first_appearance_order(self):
+            window = self._window_for(_make_project())
+            window._comparison_results = self._results()
+            window._populate_results(window._comparison_results)
+            combo = window.ranking_condition_combo
+            self.assertEqual(
+                [combo.itemText(i) for i in range(combo.count())],
+                ["hover", "cruise"])
+            self.assertEqual(combo.currentText(), "hover")
+
+        def test_selecting_second_condition_reranks_at_position_one(self):
+            window = self._window_for(_make_project())
+            window._comparison_results = self._results()
+            window._populate_results(window._comparison_results)
+            window.ranking_condition_combo.setCurrentIndex(1)
+            with unittest.mock.patch(
+                    "zbemt.gui.tabs.designer_window.plots"
+                    ".plot_geometry_ranking") as ranking:
+                window._draw_ranking()
+            self.assertEqual(ranking.call_args.kwargs.get("ref_index"), 1)
+
+        def test_ranking_title_names_the_selected_condition(self):
+            window = self._window_for(_make_project())
+            window._comparison_results = self._results()
+            window._populate_results(window._comparison_results)
+            window.ranking_condition_combo.setCurrentIndex(1)
+            window._draw_ranking()
+            title = window.ranking_canvas.simple.ax.get_title()
+            self.assertIn("cruise", title)
+
+        def test_combos_disable_while_a_run_is_in_flight(self):
+            window = self._window_for(_make_project())
+            window.ranking_condition_combo.addItem("hover")
+            window._set_compare_running(True)
+            self.assertFalse(window.ranking_field_combo.isEnabled())
+            self.assertFalse(window.ranking_condition_combo.isEnabled())
+            window._set_compare_running(False)
+            self.assertTrue(window.ranking_condition_combo.isEnabled())
 
     @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
     class TestConditionsPage(DesignerWindowBase):
@@ -288,6 +434,35 @@ if _HAS_QT:
                           overlay_fig._suptitle.get_text())
             lines = sum(len(ax.get_lines()) for ax in overlay_fig.axes)
             self.assertGreater(lines, 0)
+            # Delta canvas: percent change of the variant against base.
+            self.assertGreaterEqual(
+                len(window.delta_canvas.simple.ax.patches), 1)
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestDeltaViewPage(DesignerWindowBase):
+        """The third canvas expresses each variant against the base."""
+
+        def test_populate_draws_percent_bars_against_base(self):
+            window = self._window_for(_make_project())
+            results = [_result("base", "hover", CT=0.005, FM=0.50,
+                                cfg_is_propeller=False),
+                       _result("variant 1", "hover", CT=0.006, FM=0.55,
+                                cfg_is_propeller=False)]
+            window._populate_results(results)
+            ax = window.delta_canvas.simple.ax
+            self.assertGreaterEqual(len(ax.patches), 1)
+            heights = sorted(round(p.get_height(), 6)
+                             for p in ax.patches)
+            self.assertIn(10.0, heights)
+
+        def test_none_metric_disables_the_delta_view(self):
+            window = self._window_for(_make_project())
+            results = [_result("base", "hover", CT=0.005, FM=0.70),
+                       _result("variant 1", "hover", CT=0.006, FM=0.72)]
+            window.ranking_field_combo.setCurrentText("(none)")
+            window._draw_delta(results)
+            self.assertGreater(len(window.delta_canvas.simple.ax.texts), 0)
+            self.assertEqual(len(window.delta_canvas.simple.ax.patches), 0)
 
     @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
     class TestCancelPath(DesignerWindowBase):

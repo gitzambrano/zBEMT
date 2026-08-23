@@ -742,13 +742,14 @@ class TestInflowCouplingComboRemoved(unittest.TestCase):
         self.assertEqual(tab._inflow_field_model_from_widgets(), "drees_local")
 
 
-    def test_source_combo_has_three_consolidated_options(self):
-        """Item 6 (plano_v3.md Part 7): analytical / table / neuralfoil
-        in a single selector -- no separate visible 'Engine' combo."""
+    def test_source_combo_has_four_consolidated_options(self):
+        """Item 6 (plano_v3.md Part 7), extended by user decision: analytical /
+        table / neuralfoil / xfoil in a single selector -- no separate visible
+        'Engine' combo."""
         state = self.gui.AppState()
         tab = self.gui.AirfoilTab(state)
         items = [tab.source_combo.itemText(i) for i in range(tab.source_combo.count())]
-        self.assertEqual(items, ["analytical", "table", "neuralfoil"])
+        self.assertEqual(items, ["analytical", "table", "neuralfoil", "xfoil"])
 
     def test_each_source_mode_shows_only_its_own_blocks(self):
         state = self.gui.AppState()
@@ -758,6 +759,7 @@ class TestInflowCouplingComboRemoved(unittest.TestCase):
             "analytical": dict(table=False, geometry=False, external=False),
             "table": dict(table=True, geometry=False, external=False),
             "neuralfoil": dict(table=True, geometry=True, external=True),
+            "xfoil": dict(table=True, geometry=True, external=True),
         }
         for mode, vis in expected.items():
             tab.source_combo.setCurrentText(mode)

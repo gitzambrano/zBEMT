@@ -239,11 +239,12 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "",
         "equation": r"C_l,\ C_d = f(\alpha,\ Re,\ M)",
         "effect": "Changing the source alters how the blade element forces are computed at each radial station and flight condition.",
-        "range": "analytical, table, or neuralfoil",
+        "range": "analytical, table, neuralfoil, or xfoil",
         "options": {
             "analytical": "Polynomial analytical model with stall transition. Fast and smooth, best for preliminary design.",
             "table": "Precomputed polar curves at fixed Reynolds and Mach slices. Accurate, but it requires data and interpolation.",
-            "neuralfoil": "NeuralFoil external solver generates the polar on demand. High fidelity but slower, and it requires an external installation."
+            "neuralfoil": "NeuralFoil external solver generates the polar on demand. High fidelity but slower, and it requires an external installation.",
+            "xfoil": "The XFOIL binary generates the polar on demand, with transition settings of its own (Ncrit and the two Xtr stations). Highest fidelity, but it needs the executable installed and found through ZBEMT_XFOIL_BIN or PATH. The check happens when Run is clicked."
         }
     },
     "cl_alpha": {
@@ -459,7 +460,9 @@ FIELD_HELP: dict[str, dict] = {
             "gives on-screen access to the analytic families (PARSEC sets crest "
             "positions, curvatures and nose radius directly; Joukowski is a cusped "
             "conformal-map section; biconvex is a sharp-edged thin supersonic "
-            "section) and to CST/Bezier without leaving the tab.\n\n"
+            "section) and to preset nicknames. CST, Bézier, NACA codes and .dat "
+            "files are accepted here too, though the Source dropdown already "
+            "offers those four directly.\n\n"
             "Careful: the contour only reaches the engine through the polar "
             "generated from it. Changing the string changes nothing until polar "
             "generation runs again."),
@@ -485,8 +488,8 @@ FIELD_HELP: dict[str, dict] = {
             "angle. Thickness governs how gently the section stalls and how much "
             "profile drag it carries.\n\n"
             "Careful: the contour only reaches the engine through the polar "
-            "generated from it. Changing the code changes nothing until "
-            "NeuralFoil runs again."),
+            "generated from it. Changing the code changes nothing until polar "
+            "generation runs again."),
         "range": (
             "4 or 5 digits.\n\n"
             "Sections in common rotor use: 0009 (thin symmetric, high-speed tip), "
@@ -503,9 +506,9 @@ FIELD_HELP: dict[str, dict] = {
         "effect": (
             "The first weight governs the leading-edge radius and the last the "
             "trailing-edge angle.\n\n"
-            "Offered on screen only for a project that already uses this source: "
-            "new contours are described by a NACA code or imported from a "
-            "coordinate file."),
+            "The field appears while 'cst' is the selected Source of the 2D "
+            "profile geometry; press Generate geometry to rebuild the contour "
+            "from it."),
         "range": "typically 0.1–0.3, one value per Bernstein term",
         "options": None
     },
@@ -518,7 +521,7 @@ FIELD_HELP: dict[str, dict] = {
             "Negative values put the surface below the chord line; the gap "
             "between the two sets at a station is the local thickness and their "
             "mean is the camber.\n\n"
-            "Same availability note as the upper set."),
+            "Same availability as the upper set: visible while Source is 'cst'."),
         "range": "typically −0.3 to 0.0, one value per Bernstein term",
         "options": None
     },
@@ -530,8 +533,9 @@ FIELD_HELP: dict[str, dict] = {
         "effect": (
             "The curve is pulled toward each point without passing through it, "
             "so points crowded near the nose sharpen the leading-edge radius.\n\n"
-            "Offered on screen only for a project that already uses this "
-            "source."),
+            "The editor appears while 'bezier' is the selected Source of the 2D "
+            "profile geometry; press Generate geometry to rebuild the contour "
+            "from it."),
         "range": "4+ points, x from 0 to 1",
         "options": None
     },

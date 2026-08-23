@@ -4,11 +4,12 @@ The window gathers the geometry-comparison tool that left the Design
 tab. It mirrors the vocabulary of Run Case and Run Batch in three pages:
 the Variants page defines what to compare, the Conditions page decides
 what each variant runs, and the Run & Results page executes the solves
-and reads them (a verdict strip, one ranking figure, one overlay
-figure). Inputs are the active project, its geometry origin parameters,
-its saved cases, and the values typed on the pages; outputs are
-in-memory results, canvases, and exported report or CSV files in the
-project ``outputs`` folder. Project I/O and solver execution cross the
+and reads them (a verdict strip, one ranking figure, one
+delta-against-base figure, one overlay figure). Inputs are the active
+project, its geometry origin parameters, its saved cases, and the
+values typed on the pages; outputs are in-memory results, canvases,
+and exported report or CSV files in the project ``outputs`` folder.
+Project I/O and solver execution cross the
 ``api.py`` boundary; the solve itself runs on a worker thread so the
 window never freezes (PR-11). The Variants page leads with a variation
 sweep builder -- one geometry parameter through several values, one
@@ -76,11 +77,24 @@ class GeometryDesignerWindow(QWidget):
 
     #: Columns of the variant table. The first column holds the label
     #: that names the geometry in results, plots and reports; "base" is
-    #: the project's own planform.
+    #: the project's own planform. The last column is a read-only
+    #: projection of the overrides without a dedicated column.
     _VARIANT_COLUMNS = ["Label", "Root chord c/R", "Tip chord c/R",
-                        "Twist root [deg]", "Twist tip [deg]", "Blades"]
+                        "Twist root [deg]", "Twist tip [deg]", "Blades",
+                        "Extra overrides"]
     _COL_LABEL, _COL_ROOT_CHORD, _COL_TIP_CHORD = 0, 1, 2
     _COL_TWIST_ROOT, _COL_TWIST_TIP, _COL_BLADES = 3, 4, 5
+    _COL_EXTRA_OVERRIDES = 6
+
+    #: Geometry parameters with a dedicated column of their own, mapped
+    #: to that column's index.
+    _COLUMN_MAPPED_PARAMS = {
+        "root_chord_norm": _COL_ROOT_CHORD,
+        "tip_chord_norm": _COL_TIP_CHORD,
+        "twist_root_deg": _COL_TWIST_ROOT,
+        "twist_tip_deg": _COL_TWIST_TIP,
+        "n_blades": _COL_BLADES,
+    }
 
     #: Ranking fields offered after a run, in display order; the combo
     #: keeps only the ones present in at least one summary.
@@ -105,6 +119,9 @@ class GeometryDesignerWindow(QWidget):
         self._seeding = False
         # Reentrancy guard for the project rebuild itself.
         self._refreshing_from_project = False
+        # Reentrancy guard for the "Extra overrides" projection, whose
+        # own writes would otherwise retrigger it through cellChanged.
+        self._refreshing_extra = False
 
         # One worker/thread pair; both stay None between runs.
         self._compare_thread: QThread | None = None
@@ -161,14 +178,17 @@ class GeometryDesignerWindow(QWidget):
             "cells name the same value and the root cell wins when they "
             "differ. The elliptic generator has no tip-chord parameter, "
             "which is why that cell stays disabled there. Blades accepts "
-            "a whole number.")
+            "a whole number.\n\n"
+            "Extra overrides summarizes, read-only, every override of "
+            "the row that has no column of its own.")
         self.variants_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch)
         self.variants_table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows)
         self.variants_table.verticalHeader().setVisible(False)
         self.variants_table.setMinimumHeight(160)
-        self.variants_table.cellChanged.connect(self._schedule_preview)
+        self.variants_table.cellChanged.connect(
+            self._on_variant_cell_changed)
         table_column.addWidget(self.variants_table)
 
         button_row = QHBoxLayout()
@@ -301,12 +321,34 @@ class GeometryDesignerWindow(QWidget):
         return values
 
     @staticmethod
-    def _sweep_label(param: str, value) -> str:
-        """Row label of one swept value, in the ``param=value`` form
+    def _override_fragment(param: str, value) -> str:
+        """One ``param=value`` fragment, in the sweep-label format
         ("tip_chord_norm=0.040")."""
         if param in INTEGER_PARAMS:
             return f"{param}={int(value)}"
         return f"{param}={float(value):.3f}"
+
+    @classmethod
+    def _sweep_label(cls, param: str, value) -> str:
+        """Row label of one swept value."""
+        return cls._override_fragment(param, value)
+
+    @classmethod
+    def _extra_override_params(cls) -> tuple:
+        """The geometry parameters without a dedicated table column,
+        derived from ``GEOMETRY_PARAMS`` minus ``_COLUMN_MAPPED_PARAMS``
+        so the two lists can never drift apart."""
+        return tuple(name for name in GEOMETRY_PARAMS
+                     if name not in cls._COLUMN_MAPPED_PARAMS)
+
+    @classmethod
+    def _extra_overrides_text(cls, overrides: dict) -> str:
+        """Renders a row's columnless overrides as ``param=value``
+        fragments joined with "; "; an em dash when there are none."""
+        fragments = [cls._override_fragment(param, overrides[param])
+                     for param in cls._extra_override_params()
+                     if param in overrides]
+        return "; ".join(fragments) if fragments else "—"
 
     def _param_cells(self, param: str, value) -> dict:
         """Table cells a swept parameter fills, keyed by column index.
@@ -391,6 +433,7 @@ class GeometryDesignerWindow(QWidget):
                 except Exception as exc:
                     raise ValueError(f"{param}={value:g}: {exc}") from exc
                 self._append_sweep_row(param, value)
+                self._refresh_extra_overrides()
         except ValueError as exc:
             QMessageBox.warning(self, "Invalid variation sweep", str(exc))
         finally:
@@ -406,6 +449,45 @@ class GeometryDesignerWindow(QWidget):
         if value is None:
             return ""
         return f"{float(value):.4g}"
+
+    def _on_variant_cell_changed(self, row: int, column: int):
+        """Refreshes the "Extra overrides" projection after any cell
+        edit, then schedules the planform preview."""
+        self._refresh_extra_overrides()
+        self._schedule_preview()
+
+    def _refresh_extra_overrides(self):
+        """Recomputes every row's "Extra overrides" cell from the row's
+        own data.
+
+        The column is a projection, never a store: ``_row_overrides``
+        stays the single reader of a row, and this method only renders
+        its columnless overrides. The guard keeps the method's own
+        writes from retriggering it through ``cellChanged``."""
+        if self._refreshing_extra or self.state.project is None:
+            return
+        self._refreshing_extra = True
+        try:
+            table = self.variants_table
+            for row in range(table.rowCount()):
+                try:
+                    _, overrides = self._row_overrides(row)
+                except (ValueError, TypeError):
+                    continue   # a half-typed cell; keep the old text
+                text = self._extra_overrides_text(overrides)
+                item = table.item(row, self._COL_EXTRA_OVERRIDES)
+                if item is None:
+                    item = QTableWidgetItem(text)
+                    item.setFlags(Qt.ItemFlag.ItemIsEnabled
+                                  | Qt.ItemFlag.ItemIsSelectable)
+                    item.setToolTip(
+                        "Overrides of this row that have no dedicated "
+                        "column.")
+                    table.setItem(row, self._COL_EXTRA_OVERRIDES, item)
+                elif item.text() != text:
+                    item.setText(text)
+        finally:
+            self._refreshing_extra = False
 
     def _seed_variant_rows(self):
         """Rebuilds the variant table from the project's own geometry.
@@ -454,6 +536,9 @@ class GeometryDesignerWindow(QWidget):
                         "Not applicable: the elliptic generator has a single "
                         "chord parameter (max_chord_norm).")
                 table.setItem(0, col, item)
+            # The seventh column is not seeded: the projection fills it
+            # from the row itself.
+            self._refresh_extra_overrides()
         finally:
             self._seeding = False
 
@@ -488,6 +573,7 @@ class GeometryDesignerWindow(QWidget):
             label_item = source.item(target_row, self._COL_LABEL)
             if label_item is not None:
                 label_item.setText(f"variant {self._variant_counter}")
+            self._refresh_extra_overrides()
         finally:
             self._seeding = False
         self._draw_preview()
@@ -508,6 +594,7 @@ class GeometryDesignerWindow(QWidget):
             label_item = source.item(target_row, self._COL_LABEL)
             if label_item is not None:
                 label_item.setText(f"{base_label} copy")
+            self._refresh_extra_overrides()
         finally:
             self._seeding = False
         self._draw_preview()
@@ -942,6 +1029,21 @@ class GeometryDesignerWindow(QWidget):
         self.guidance_label.setWordWrap(True)
         vbox.addWidget(self.guidance_label)
 
+        # The two result canvases exist before the rows above them, so
+        # the layout can pair the two single-axis figures side by side.
+        self.ranking_canvas = CanvasHost()
+        self.ranking_canvas.setMinimumHeight(180)
+        self.ranking_canvas.show_message(
+            "Run a comparison to see the ranking.")
+        self.delta_canvas = CanvasHost()
+        self.delta_canvas.setMinimumHeight(180)
+        self.delta_canvas.show_message(
+            "Run a comparison to see the delta view.")
+        self.overlay_canvas = CanvasHost()
+        self.overlay_canvas.setMinimumHeight(220)
+        self.overlay_canvas.show_message(
+            "Run a comparison to see the overlay figure.")
+
         ranking_row = QHBoxLayout()
         ranking_row.addWidget(QLabel("Rank by:"))
         self.ranking_field_combo = QComboBox()
@@ -954,26 +1056,39 @@ class GeometryDesignerWindow(QWidget):
             "condition. The list keeps only the quantities this run "
             "produced.")
         # `activated`, not `currentIndexChanged`: programmatic rebuilds
-        # of this list happen while results are being laid out, and a
+        # of these lists happen while results are being laid out, and a
         # canvas redraw must not run inside such a change (it crashed
         # the process natively under the offscreen platform). Every
         # programmatic fill redraws explicitly right after it sets the
         # selection; only a USER selection needs to trigger one here.
-        self.ranking_field_combo.activated.connect(self._draw_ranking)
+        self.ranking_field_combo.activated.connect(
+            self._on_ranking_selection_changed)
         ranking_row.addWidget(self.ranking_field_combo)
+
+        ranking_row.addWidget(QLabel("Condition:"))
+        self.ranking_condition_combo = QComboBox()
+        self.ranking_condition_combo.setToolTip(
+            "Case whose results the ranking reads. The list holds the "
+            "distinct conditions of the last run; the first one ranks "
+            "by default.")
+        self.ranking_condition_combo.activated.connect(
+            self._on_ranking_selection_changed)
+        ranking_row.addWidget(self.ranking_condition_combo)
         ranking_row.addStretch(1)
         vbox.addLayout(ranking_row)
 
-        self.ranking_canvas = CanvasHost()
-        self.ranking_canvas.setMinimumHeight(180)
-        self.ranking_canvas.show_message(
-            "Run a comparison to see the ranking.")
-        vbox.addWidget(self.ranking_canvas, stretch=1)
+        # Ranking and delta side by side: both are single-axis summary
+        # figures that read well at half width, and stacking a third
+        # canvas would leave nothing of the 1080x700 window for them.
+        figures_row = QHBoxLayout()
+        figures_row.addWidget(self.ranking_canvas, stretch=1)
+        delta_column = QVBoxLayout()
+        delta_column.setSpacing(0)
+        delta_column.addWidget(QLabel("Delta vs base (%)"))
+        delta_column.addWidget(self.delta_canvas, stretch=1)
+        figures_row.addLayout(delta_column, stretch=1)
+        vbox.addLayout(figures_row, stretch=1)
 
-        self.overlay_canvas = CanvasHost()
-        self.overlay_canvas.setMinimumHeight(220)
-        self.overlay_canvas.show_message(
-            "Run a comparison to see the overlay figure.")
         vbox.addWidget(self.overlay_canvas, stretch=2)
 
         export_row = QHBoxLayout()
@@ -1056,6 +1171,10 @@ class GeometryDesignerWindow(QWidget):
         self.btn_add_variant.setEnabled(not running)
         self.btn_duplicate_variant.setEnabled(not running)
         self.btn_remove_variant.setEnabled(not running)
+        # The ranking reads the results of the LAST run; both of its
+        # combos wait until the new run has replaced them.
+        self.ranking_field_combo.setEnabled(not running)
+        self.ranking_condition_combo.setEnabled(not running)
         self.compare_progress.setVisible(running)
         self.btn_compare_cancel.setVisible(running)
         self.btn_compare_cancel.setEnabled(running)
@@ -1078,10 +1197,12 @@ class GeometryDesignerWindow(QWidget):
         return first_by_label
 
     def _populate_results(self, results: list):
-        """Fills the three reasoning views after a finished run."""
+        """Fills the reasoning views after a finished run."""
         self._populate_verdict(self._first_result_by_label(results))
         self._fill_ranking_combo(results)
+        self._fill_ranking_condition_combo(results)
         self._draw_ranking()
+        self._draw_delta(results)
         self._draw_overlay(results)
 
     # --- verdict strip -------------------------------------------------------
@@ -1169,8 +1290,9 @@ class GeometryDesignerWindow(QWidget):
     # --- ranking -------------------------------------------------------------
 
     def _fill_ranking_combo(self, results: list):
-        """Offers only the ranking quantities this run produced, keeping
-        FM as the default when it exists."""
+        """Offers only the ranking quantities this run produced, and
+        opens on the mode-appropriate default: eta_prop for a propeller
+        run, FM otherwise."""
         current = (self.ranking_field_combo.currentText()
                    if self.ranking_field_combo.count() else "")
         present = [key for key in self._RANKING_FIELDS
@@ -1180,26 +1302,89 @@ class GeometryDesignerWindow(QWidget):
         self.ranking_field_combo.addItem("(none)")
         for key in present:
             self.ranking_field_combo.addItem(key)
-        default = "FM" if "FM" in present else (present[0] if present else "(none)")
+        if any(bool(r.summary.get("cfg_is_propeller")) for r in results) \
+                and "eta_prop" in present:
+            default = "eta_prop"
+        elif "FM" in present:
+            default = "FM"
+        else:
+            default = present[0] if present else "(none)"
         index = self.ranking_field_combo.findText(current)
         if index < 0:
             index = self.ranking_field_combo.findText(default)
         self.ranking_field_combo.setCurrentIndex(max(index, 0))
         self.ranking_field_combo.blockSignals(False)
 
+    def _fill_ranking_condition_combo(self, results: list):
+        """Lists the distinct condition names of the last run, in
+        first-appearance order.
+
+        Results are variant-major and every variant runs the same
+        ordered conditions, so position p names the same case in every
+        variant; each name carries that position as its data, which is
+        exactly the ``ref_index`` the ranking plot expects. The first
+        condition stays selected, as before this combo existed."""
+        groups: dict = {}
+        for res in results:
+            label = (res.summary or {}).get("geometry_label")
+            if label is None:
+                continue
+            groups.setdefault(label, []).append(res)
+        positions: dict[str, int] = {}
+        for idxs in groups.values():
+            for position, res in enumerate(idxs):
+                name = str(getattr(res, "condition_name", "") or "")
+                if name:
+                    positions.setdefault(name, position)
+        combo = self.ranking_condition_combo
+        combo.blockSignals(True)
+        combo.clear()
+        for name, position in positions.items():
+            combo.addItem(name, userData=position)
+        if combo.count():
+            combo.setCurrentIndex(0)
+        combo.blockSignals(False)
+
+    def _on_ranking_selection_changed(self):
+        """Redraws every view that follows the ranking selections."""
+        self._draw_ranking()
+        self._draw_delta(self._comparison_results)
+
     def _draw_ranking(self):
-        """Draws the horizontal bar ranking at the reference condition."""
+        """Draws the horizontal bar ranking at the chosen condition."""
         field = self.ranking_field_combo.currentText()
         canvas = self.ranking_canvas.use_simple()
         canvas.clear()
         if not self._comparison_results or field in ("", "(none)"):
-            canvas.show_message("Run a comparison to see the ranking.")
+            self.ranking_canvas.show_message(
+                "Run a comparison to see the ranking.")
             return
+        ref_index = self.ranking_condition_combo.currentData()
         try:
             plots.plot_geometry_ranking(
-                self._comparison_results, field, ax=canvas.ax, ref_index=0)
+                self._comparison_results, field, ax=canvas.ax,
+                ref_index=int(ref_index) if ref_index is not None else 0)
         except Exception as exc:
             canvas.ax.text(0.5, 0.5, f"Could not draw the ranking: {exc}",
+                           ha="center", va="center",
+                           transform=canvas.ax.transAxes, wrap=True)
+        canvas.draw()
+
+    def _draw_delta(self, results):
+        """Draws every variant's percent change against the base
+        planform, for the selected metric."""
+        field = self.ranking_field_combo.currentText()
+        canvas = self.delta_canvas.use_simple()
+        canvas.clear()
+        if not results or field in ("", "(none)"):
+            self.delta_canvas.show_message(
+                "Run a comparison to see the delta view.")
+            return
+        try:
+            plots.plot_geometry_delta(results, field, ax=canvas.ax)
+        except Exception as exc:
+            canvas.ax.text(0.5, 0.5,
+                           f"Could not draw the delta view: {exc}",
                            ha="center", va="center",
                            transform=canvas.ax.transAxes, wrap=True)
         canvas.draw()
@@ -1285,8 +1470,13 @@ class GeometryDesignerWindow(QWidget):
             self.ranking_field_combo.blockSignals(True)
             self.ranking_field_combo.clear()
             self.ranking_field_combo.blockSignals(False)
+            self.ranking_condition_combo.blockSignals(True)
+            self.ranking_condition_combo.clear()
+            self.ranking_condition_combo.blockSignals(False)
             self.ranking_canvas.show_message(
                 "Run a comparison to see the ranking.")
+            self.delta_canvas.show_message(
+                "Run a comparison to see the delta view.")
             self.overlay_canvas.show_message(
                 "Run a comparison to see the overlay figure.")
 

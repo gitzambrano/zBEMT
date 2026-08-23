@@ -2107,6 +2107,162 @@ def plot_geometry_comparison(results_list, fields=None, *,
 _RANKING_LOWER_IS_BETTER = frozenset({"CP", "Power", "CQ"})
 
 
+#: Below this magnitude a base value counts as zero for a percent
+#: change: dividing by it would explode the scale, so the figure falls
+#: back to the plain difference and says so on the labels.
+_DELTA_BASE_EPSILON = 1e-12
+
+
+def plot_geometry_delta(results_list, field: str, *, ax=None, fname=None,
+                        base_label: str = "base"):
+    """Percent change of every geometry variant against ONE base
+    variant.
+
+    ``results_list`` is the variant-major list produced by
+    ``studies.compare_geometries``, and ``field`` is a
+    ``Results.summary`` key. Every variant whose label differs from
+    ``base_label`` gets one series per condition, expressing its value
+    as ``100*(v - v_base)/abs(v_base)`` against the base variant AT THE
+    SAME condition (the same case position of the ordered list). A
+    variant position without a base result at that position leaves the
+    figure.
+
+    When the magnitude of a base value falls below
+    ``_DELTA_BASE_EPSILON``, the percent form would explode, so the
+    plain difference is drawn instead and both the axis label and the
+    title carry an "(absolute)" suffix.
+
+    The X axis mirrors `plot_geometry_comparison`: more than one
+    distinct ``mu_x`` value draws one polyline per variant against
+    ``mu_x``; otherwise grouped bars sit per case position and each tick
+    names its case (rotated by 30 degrees when longer than 12
+    characters). One color per variant label, consistent within this
+    figure. An emphasized zero line marks "equal to base".
+
+    Empty or degenerate input draws a centered explanation instead of
+    staying blank. The ``ax`` and ``fname`` parameters follow the
+    module convention stated at the top of this file. The axis is
+    returned.
+    """
+    results_list = list(results_list or [])
+    if ax is None:
+        fig, ax = _new_figure((6.5, 4))
+        owned_fig = fig
+    else:
+        fig = ax.figure
+        owned_fig = None   # a figure the caller owns is never saved here
+    groups = _group_by_geometry_label(results_list)
+
+    def _explain(message: str):
+        ax.set_axis_off()
+        ax.text(0.5, 0.5, message, ha="center", va="center",
+                fontsize=10, color="0.35", transform=ax.transAxes)
+        return _finish(ax, owned_fig, fname)
+
+    if not groups:
+        return _explain("No geometry-labeled results to compare")
+    base_idxs = groups.get(base_label)
+    if not base_idxs:
+        return _explain(
+            f"No geometry named {base_label!r} to use as the base")
+
+    mu_values = set()
+    for result in results_list:
+        value = _summary_float((result.summary or {}).get("mu_x"))
+        if np.isfinite(value):
+            mu_values.add(value)
+    vs_mu_x = len(mu_values) > 1
+
+    # Index mode resolves the tick names once, from the first group that
+    # reaches each position -- same rationale as plot_geometry_comparison.
+    n_positions = max((len(idxs) for idxs in groups.values()), default=0)
+    tick_names = []
+    if not vs_mu_x:
+        for position in range(n_positions):
+            name = ""
+            for idxs in groups.values():
+                if position < len(idxs):
+                    candidate = str(
+                        results_list[idxs[position]].condition_name or "")
+                    if candidate:
+                        name = candidate
+                        break
+            tick_names.append(name)
+
+    # ONE local color map per figure: colormap state must not be shared
+    # across figures, or two open figures would recolor each other.
+    colors = {label: f"C{k % 10}" for k, label in enumerate(groups)
+              if label != base_label}
+
+    series: dict = {}
+    absolute_used = False
+    for label in colors:
+        for position, idx in enumerate(groups[label]):
+            if position >= len(base_idxs):
+                continue   # no base result ran this condition
+            summary = results_list[idx].summary or {}
+            base_summary = results_list[base_idxs[position]].summary or {}
+            xv = (_summary_float(summary.get("mu_x")) if vs_mu_x
+                  else float(position))
+            value = _summary_float(summary.get(field))
+            base_value = _summary_float(base_summary.get(field))
+            if not (np.isfinite(xv) and np.isfinite(value)
+                    and np.isfinite(base_value)):
+                continue
+            if abs(base_value) < _DELTA_BASE_EPSILON:
+                yv = value - base_value
+                absolute_used = True
+            else:
+                yv = 100.0 * (value - base_value) / abs(base_value)
+            series.setdefault(label, []).append((xv, yv))
+
+    if not any(points for points in series.values()):
+        return _explain("No valid data points for the selected fields")
+
+    if vs_mu_x:
+        for label, points in series.items():
+            arr = np.asarray(points, dtype=float)
+            order = np.argsort(arr[:, 0], kind="stable")
+            ax.plot(arr[order, 0], arr[order, 1], "o-", markersize=3.5,
+                    linewidth=1.3, color=colors[label], label=label)
+        ax.set_xlabel(_summary_axis_label("mu_x"))
+    else:
+        n_variants = max(len(series), 1)
+        width = 0.8 / n_variants
+        for k, (label, points) in enumerate(series.items()):
+            xs = np.asarray([p[0] for p in points], dtype=float)
+            ys = np.asarray([p[1] for p in points], dtype=float)
+            offset = (k - (n_variants - 1) / 2.0) * width
+            ax.bar(xs + offset, ys, width * 0.9,
+                   color=colors[label], label=label)
+        ax.set_xlabel("Case")
+        ax.set_xticks(range(n_positions))
+        ax.set_xticklabels(tick_names, fontsize=8)
+        if max((len(name) for name in tick_names), default=0) > 12:
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(30)
+                tick.set_ha("right")
+
+    ax.axhline(0, color="0.25", linestyle="--", linewidth=1.0)
+    suffix = " (absolute)" if absolute_used else ""
+    ax.set_ylabel(rf"{_summary_axis_label(field)} $\Delta$ vs base [%]"
+                  f"{suffix}")
+    ax.grid(True, axis="y", alpha=0.3)
+    ax.legend(fontsize=7, title="Geometry", loc="best")
+
+    condition_names = {str(getattr(r, "condition_name", "") or "")
+                       for r in results_list}
+    condition_names.discard("")
+    n_conditions = len(condition_names) or n_positions
+    fig.suptitle(rf"$\Delta$ vs base — {_summary_axis_label(field)} "
+                 f"relative to {base_label} ({n_conditions} conditions)"
+                 f"{suffix}",
+                 fontsize=12, fontweight="bold")
+    if owned_fig is not None:
+        fig.tight_layout(rect=[0, 0, 1, 0.92])
+    return _finish(ax, owned_fig, fname)
+
+
 def plot_geometry_ranking(results_list, field: str, *,
                           ax=None, fname=None, ref_index: int = 0):
     """Horizontal bar ranking of the geometry variants for ONE summary

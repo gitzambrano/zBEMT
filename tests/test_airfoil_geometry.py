@@ -1,12 +1,11 @@
-"""Block "2D Profile Geometry" from the Airfoil tab, after the cleanup
-requested by the user:
+"""Block "2D Profile Geometry" from the Airfoil tab:
 
 * the "typical preset" combo was removed -- all six catalog entries are NACA
   codes, so the preset and "NACA code" field were two controls for a single
   choice;
-* `cst`/`bezier` were removed from the sources list (their fields were never
-  reachable on screen), but remain VALID: a project that already uses them
-  shows them again, and the profile is never lost;
+* `cst`/`bezier` are first-class sources again (user decision reversing an
+  earlier removal): the editors show for their option and the contour is
+  never lost, whichever way a project was written;
 * the remaining fields gained proper help (popup "?" and tooltip),
   including the format accepted by the `.dat` importer.
 """
@@ -86,11 +85,12 @@ class TestContourSources(_TestWindow):
         self.assertFalse(hasattr(tab, "profile_preset_combo"),
                           "the preset combo was redundant with the NACA field")
 
-    def test_only_naca_and_imported_in_the_list(self):
+    def test_all_five_contour_sources_in_the_list(self):
         tab = self.tab
         offered = [tab.profile_source_combo.itemText(i)
                    for i in range(tab.profile_source_combo.count())]
-        self.assertEqual(offered, ["naca4", "naca5", "imported"])
+        self.assertEqual(offered,
+                         ["naca4", "naca5", "cst", "bezier", "imported"])
 
     def test_legacy_project_in_cst_recovers_the_option(self):
         """Hiding an option must not mean losing data from who already used

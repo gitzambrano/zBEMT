@@ -173,6 +173,131 @@ class TestPlotGeometryComparison(unittest.TestCase):
             plt.close(fig)
 
 
+class TestPlotGeometryDelta(unittest.TestCase):
+    """Percent change of every variant against one base geometry."""
+
+    @staticmethod
+    def _result(label, name, mu_x, FM):
+        return Results(summary={"geometry_label": label, "mu_x": mu_x,
+                                  "FM": FM},
+                       maps={}, condition_name=name)
+
+    def _bar_results(self):
+        """Variant-major list with one constant mu_x, known percents.
+
+        A sits 10% above base at both conditions, B 10% below."""
+        values = {"base": (0.50, 0.60), "A": (0.55, 0.66),
+                  "B": (0.45, 0.54)}
+        results = []
+        for label, fms in values.items():
+            for name, fm in zip(("hover", "cruise"), fms):
+                results.append(self._result(label, name, 0.0, fm))
+        return results
+
+    def test_fname_writes_non_empty_png(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "delta.png"
+            plots.plot_geometry_delta(self._bar_results(), "FM",
+                                      fname=str(path))
+            self.assertTrue(path.exists())
+            self.assertGreater(path.stat().st_size, 0)
+
+    def test_known_percents_and_base_excluded(self):
+        fig, ax = plt.subplots()
+        try:
+            out = plots.plot_geometry_delta(self._bar_results(), "FM",
+                                            ax=ax)
+            heights = sorted(p.get_height() for p in out.patches)
+            np.testing.assert_allclose(heights,
+                                       [-10.0, -10.0, 10.0, 10.0])
+            labels = [line.get_label() for line in _labeled_lines(out)]
+            self.assertNotIn("base", labels)
+            titles = [t.get_text() for t in out.figure.texts]
+            suptitle = next(t for t in titles if t)
+            self.assertIn("$FM$", suptitle)
+            self.assertIn("relative to base", suptitle)
+            self.assertIn("2 conditions", suptitle)
+            self.assertIn("vs base [%]", out.get_ylabel())
+        finally:
+            plt.close(fig)
+
+    def test_zero_base_falls_back_to_absolute_differences(self):
+        results = []
+        for label, fms in (("base", (0.0, 0.0)), ("A", (0.05, -0.02))):
+            for name, fm in zip(("hover", "cruise"), fms):
+                results.append(self._result(label, name, 0.0, fm))
+        fig, ax = plt.subplots()
+        try:
+            out = plots.plot_geometry_delta(results, "FM", ax=ax)
+            heights = sorted(p.get_height() for p in out.patches)
+            np.testing.assert_allclose(heights, [-0.02, 0.05])
+            self.assertIn("(absolute)", out.get_ylabel())
+            texts = [t.get_text() for t in out.figure.texts]
+            self.assertTrue(any("(absolute)" in t for t in texts))
+        finally:
+            plt.close(fig)
+
+    def test_mu_x_sweep_draws_one_line_per_variant(self):
+        results = []
+        for label, fms in (("base", (0.50, 0.50)),
+                            ("A", (0.55, 0.60)),
+                            ("B", (0.40, 0.60))):
+            for mu_x, fm in zip((0.1, 0.2), fms):
+                results.append(self._result(label, f"c{mu_x:g}", mu_x, fm))
+        fig, ax = plt.subplots()
+        try:
+            out = plots.plot_geometry_delta(results, "FM", ax=ax)
+            lines = _labeled_lines(out)
+            self.assertEqual([line.get_label() for line in lines],
+                             ["A", "B"])
+            series_a = next(line for line in lines
+                            if line.get_label() == "A")
+            np.testing.assert_allclose(series_a.get_xdata(), [0.1, 0.2])
+            np.testing.assert_allclose(series_a.get_ydata(), [10.0, 20.0])
+            self.assertIn("mu", out.get_xlabel())
+            zero_lines = [line for line in out.get_lines()
+                          if abs(line.get_ydata()[0]) < 1e-12]
+            self.assertTrue(zero_lines, "the zero reference is missing")
+        finally:
+            plt.close(fig)
+
+    def test_long_case_names_rotate_like_the_comparison_plot(self):
+        results = []
+        for name, fm_base, fm_a in (("hover", 0.50, 0.55),
+                                     ("fast forward flight", 0.60, 0.66)):
+            results.append(self._result("base", name, 0.0, fm_base))
+            results.append(self._result("A", name, 0.0, fm_a))
+        fig, ax = plt.subplots()
+        try:
+            out = plots.plot_geometry_delta(results, "FM", ax=ax)
+            rotations = {t.get_rotation() for t in out.get_xticklabels()}
+            self.assertEqual(rotations, {30.0})
+        finally:
+            plt.close(fig)
+
+    def test_empty_input_draws_an_explanation(self):
+        fig, ax = plt.subplots()
+        try:
+            out = plots.plot_geometry_delta([], "FM", ax=ax)
+            self.assertIs(out, ax)
+            self.assertEqual(_labeled_lines(out), [])
+            self.assertTrue(out.texts, "an empty input must explain itself")
+        finally:
+            plt.close(fig)
+
+    def test_missing_base_variant_draws_an_explanation(self):
+        results = [self._result("A", "hover", 0.0, 0.55)]
+        fig, ax = plt.subplots()
+        try:
+            out = plots.plot_geometry_delta(results, "FM", ax=ax,
+                                            base_label="base")
+            message = " ".join(t.get_text() for t in out.texts)
+            self.assertIn("base", message)
+            self.assertEqual(_labeled_lines(out), [])
+        finally:
+            plt.close(fig)
+
+
 class TestPlotOptimizationConvergence(unittest.TestCase):
 
     def _history(self):
