@@ -74,9 +74,13 @@ different rule.
   of stopping. Optimization is deliberately not offered in the GUI: it runs
   as an outer loop from the CLI (`--optimize`) and the library.
 - **SC-9** — XFOIL as an external polar engine: polar generation may drive the
-  `xfoil` binary, looked up first through the `ZBEMT_XFOIL_BIN` environment
-  variable and then on PATH, one script per Reynolds number, with the same
-  Prandtl-Glauert post-correction as NeuralFoil. XFOIL-only transition
+  `xfoil` binary, looked up through a four-place chain: the `ZBEMT_XFOIL_BIN`
+  environment variable first, then the executable path remembered from a
+  previous GUI "Locate…" pick (stored between sessions in the application
+  settings file), then PATH, then the standard Windows install folders
+  (`%LOCALAPPDATA%\Programs\XFOIL` and `%ProgramFiles%\XFOIL`). One script per
+  Reynolds number, with the same Prandtl-Glauert post-correction as NeuralFoil.
+  XFOIL-only transition
   inputs (`ncrit`, `xtr_top`, `xtr_bot`: the e^N criterion and forced
   transition stations) reach the binary only on the XFOIL path and are
   rejected with `--gen-neuralfoil`. Per PR-7, a missing binary degrades only
@@ -84,11 +88,15 @@ different rule.
   the remedies.
 - **SC-10** — Analytic airfoil geometry families (PARSEC, Joukowski,
   biconvex) beside NACA/CST/Bézier, all reachable through one resolver
-  grammar (preset nicknames and prefixed forms) shared by the GUI's
-  geometry-spec field and the CLI's `--airfoil-geometry`, and stored so a
-  saved contour can be regenerated without its coordinate table. NACA
+  grammar (preset nicknames and prefixed forms) served by the CLI's
+  `--airfoil-geometry`. In the GUI every family is a first-class entry of the
+  contour Source dropdown, each revealing its own editor rows; no parallel
+  specification-string field exists on screen. Parameters are serialized under
+  the profile geometry (`generator_params` inside the `geometry` block of
+  `inputs/airfoil.bemt`) so a saved contour can be regenerated without its
+  coordinate table. NACA
   (4- and 5-digit), CST, Bézier and imported contours are additionally
-  first-class entries of the GUI's contour Source dropdown, each with its
+  entries of the GUI's contour Source dropdown, each with its
   dedicated editor fields, serialized under the profile geometry in
   `inputs/airfoil.bemt`.
 

@@ -1213,7 +1213,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       <a href="#sec-10-run-case"><b>5. Run Case</b><br>a flight condition</a>
       <a href="#sec-11-run-batch"><b>6. Run Batch</b><br>generate, review, run</a>
       <a href="#results-section"><b>7. Results</b><br>compare and report</a>
-      <a href="#cap-designer"><b>Geometry Designer</b><br>compare blade variants (Tools menu)</a>
+      <a href="#cap-designer"><b>Geometry Designer</b><br>compare blade variants. Open: main window, Tools menu, <i>Geometry Designer&hellip;</i></a>
       <a href="#cap-metodo"><b>The method</b><br>equations and assumptions</a>
       <a href="#cap-nomenclatura-helice"><b>Propeller mode</b><br>what differs from a rotor</a>
     </nav>
@@ -3927,7 +3927,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <!-- INDICE-DE-CAMPOS:aerofolio -->
 <div class="boxed">
 <b>Fields in this tab, in the order they appear on screen</b> (34). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>geometry_spec</code> &rarr; <a href="#cap-3-7-8">8.7.3</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-1-3">8.1.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
+<ol class="indice-de-campos"><li><code>generator_params</code> &rarr; <a href="#cap-3-7-biconvex">8.7.5</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-1-3">8.1.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:aerofolio -->
     <p class="boxed"><b>Editorial scope.</b> Each field section below is self-contained. It gives the
@@ -5186,7 +5186,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>The contour never enters the blade element equations. What the solver reads is the polar, and the
                   shape reaches the solution only through the coefficients a generator produces from it. Once those
                   coefficients exist, editing the contour changes nothing until the generator is run again. The
-                  sources below are four ways of arriving at the same thing, a list of normalized coordinate
+                  sources below are eight ways of arriving at the same thing, a list of normalized coordinate
                   pairs.</p>
                 <div class="tablewrap">
                   <table>
@@ -5213,6 +5213,27 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       </td>
                     </tr>
                     <tr>
+                      <td><code>parsec</code></td>
+                      <td>Nine PARSEC geometric parameters in one row
+                        (<a class="xref" href="#cap-3-7-8"
+                          title="8.7.3 The PARSEC parameters">Section 8.7.3</a>)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td><code>joukowski</code></td>
+                      <td>Two conformal-map parameters in one row
+                        (<a class="xref" href="#cap-3-7-joukowski"
+                          title="8.7.4 The Joukowski parameters">Section 8.7.4</a>)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td><code>biconvex</code></td>
+                      <td>One thickness value in one row
+                        (<a class="xref" href="#cap-3-7-biconvex"
+                          title="8.7.5 The biconvex parameters">Section 8.7.5</a>)
+                      </td>
+                    </tr>
+                    <tr>
                       <td id="cap-3-7-5"><code>imported</code></td>
                       <td>Coordinate file loaded from disk in <b>Selig layout</b>; Lednicer is rejected with an
                         explanation (<a class="xref" href="#cap-3-7-6"
@@ -5228,8 +5249,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   therefore needed when a polar is to be produced from the section itself. It is optional, and purely
                   illustrative, when the polar is analytical or already tabulated.</p>
 
-                <p><b>What can be entered.</b> Five ways to obtain the same thing, a set of contour
-                  coordinates. On screen the whole block appears only while the polar
+                <p><b>What can be entered.</b> Eight ways to obtain the same thing, a set of contour
+                  coordinates. A <i>Source</i> dropdown selects the family, and each family reveals the
+                  fields that describe it. On screen the whole block appears only while the polar
                   <span class="gui">Data source</span> is a generated one, NeuralFoil or XFOIL,
                   because those are the engines that read the shape; with an analytical or
                   imported polar the block stays out of the way.</p>
@@ -5261,6 +5283,18 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   points near $x=1$ set the trailing edge. It is the most direct way to draw a shape by
                   hand.</p>
 
+                <p><b>The three analytic families</b> build the contour from geometric parameters
+                  instead of coordinates or codes. PARSEC sets the leading-edge radius and the crest
+                  position, height and curvature of each surface directly
+                  (<a class="xref" href="#cap-3-7-8"
+                    title="8.7.3 The PARSEC parameters">Section 8.7.3</a>).
+                  Joukowski maps a circle through a conformal transformation
+                  (<a class="xref" href="#cap-3-7-joukowski"
+                    title="8.7.4 The Joukowski parameters">Section 8.7.4</a>).
+                  The biconvex section joins two symmetric parabolic arcs
+                  (<a class="xref" href="#cap-3-7-biconvex"
+                    title="8.7.5 The biconvex parameters">Section 8.7.5</a>).</p>
+
                 <p><b>An imported file</b> takes coordinates measured or downloaded elsewhere, in the layout
                   described below.</p>
 
@@ -5270,11 +5304,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   number of points controls how finely the contour is sampled. The default of $200$ resolves the
                   leading edge adequately for polar generation.</p>
 
-                <p><span class="gui">GUI</span>: the <i>Profile 2D geometry</i> block: a <i>Source</i>
-                  dropdown offering <code>naca4</code>, <code>naca5</code>, <code>cst</code>,
-                  <code>bezier</code> and <code>imported</code>, the fields belonging to the chosen source
-                  (the NACA code, the two CST coefficient fields, or the Bézier point editor), and the
-                  <i>Generate geometry</i> and <i>Import .dat&hellip;</i> buttons.
+                <p><span class="gui">GUI</span>: the <i>Profile 2D geometry</i> block. Its <i>Source</i>
+                  dropdown offers <code>naca4</code>, <code>naca5</code>, <code>cst</code>,
+                  <code>bezier</code>, <code>parsec</code>, <code>joukowski</code>,
+                  <code>biconvex</code> and <code>imported</code>. The chosen source reveals its own
+                  fields and hides the others: the NACA code for the two NACA families, the two CST
+                  coefficient fields for CST, the Bézier point editor for Bézier, one parameter row for
+                  each of the three analytic families, described in their sections below. The
+                  <i>Generate geometry</i> button builds the contour from those fields and draws it in
+                  the profile preview. The <i>Import .dat&hellip;</i> button loads a coordinate file.
                 </p>
 
                 <p><span class="bemt">.bemt</span>: inside <code>geometry</code> in
@@ -5282,22 +5320,29 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   (<code>airfoil.geometry.source</code>, to use its full dotted name), one of
                   <code>"naca4"</code>
                   (default),
-                  <code>"naca5"</code>, <code>"cst"</code>, <code>"bezier"</code> or <code>"imported"</code>.
+                  <code>"naca5"</code>, <code>"cst"</code>, <code>"bezier"</code>,
+                  <code>"parsec"</code>, <code>"joukowski"</code>, <code>"biconvex"</code> or
+                  <code>"imported"</code>.
                   This key names the contour family; it differs from the polar-source key described in
                   <a class="xref" href="#cap-3-2-1" title="8.2.1 Polar source and linear coefficients">Section
                     8.2.1</a>, which selects where the coefficients come from rather than what the contour is.
                   <code>naca_code</code>, a string, default <code>"0012"</code>. <code>cst_upper</code> and
                   <code>cst_lower</code>, lists of coefficients, one per Bernstein term of each surface.
-                  <code>bezier_control_points</code>, a list of coordinate pairs in file order.
+                  <code>bezier_control_points</code>, a list of coordinate pairs in file order. For the
+                  three analytic families, <code>generator_params</code> holds the family's parameters as
+                  named values, listed with each family in its section below.
                   <code>imported_path</code> for a file. And <code>n_points</code>, default
                   $200$.
                 </p>
 
                 <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> when generating a
-                  polar; its grammar carries the same families, including
+                  polar; it carries the same families as the dropdown, including
                   <code>--airfoil-geometry cst:a1,a2,a3,a4</code> and
-                  <code>--airfoil-geometry bezier:x1,y1;x2,y2;...</code>. Individual fields are set with
-                  <code>--set</code>, for example
+                  <code>--airfoil-geometry bezier:x1,y1;x2,y2;...</code>, plus preset nicknames such as
+                  <code>naca0012</code> and <code>biconvex_t6</code>. This grammar is the command-line
+                  path only: on screen every way of generating a contour is a <i>Source</i> option that
+                  reveals its own fields, and no parallel specification field exists. Individual fields
+                  are set with <code>--set</code>, for example
                   <code>--set airfoil.geometry.naca_code=2412</code>.
                 </p>
 
@@ -5327,10 +5372,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   ($x$ spanning $0$ to $1$), because the chord is the length scale everything
                   downstream assumes, and a contour in millimetres would otherwise reach NeuralFoil as an airfoil
                   of a thousand chords' extent.</p>
-                <p id="cap-3-7-1"><b>The preset list.</b> A dropdown offers the NACA codes commonly used on rotor
-                  and propeller blades, the symmetric four-digit family and the five-digit family among them, each
-                  with a note on where it is normally found. Choosing one and pressing <i>Use preset</i> fills the
-                  code field, which can then be edited like any other.</p>
+                <p id="cap-3-7-1"><b>The preset nicknames.</b> The catalog of typical blade sections
+                  survives in the command-line grammar: nicknames such as <code>naca0012</code>,
+                  <code>naca23012</code>, <code>parsec_default</code>, <code>joukowski_t8c5</code> and
+                  <code>biconvex_t6</code> resolve to a ready set of parameters. On screen no preset
+                  picker exists: every family is a <i>Source</i> option that reveals its own fields, and
+                  the notes on where each typical section is used travel in the help of the NACA code
+                  field.</p>
 
                 <p><span class="gui">GUI</span>: the <i>Profile 2D geometry</i> block: the <i>Source</i>
                   dropdown, the fields belonging to the chosen source, and the <i>Generate geometry</i> and
@@ -5343,58 +5391,142 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   need to regenerate it on opening.
                 </p>
 
-                <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> accepts every grammar
-                  listed in <a class="xref" href="#cap-3-7-8" title="8.7.3 The geometry specification string">Section
-                    8.7.3</a>. It is used together with <code>--gen-neuralfoil</code> or
+                <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> accepts every
+                  family of the block, the analytic ones included, through the grammars given in each
+                  family's section below. It is used together with <code>--gen-neuralfoil</code> or
                   <code>--gen-xfoil</code>, described in 8.8.
                 </p>
 
-                <h4 id="cap-3-7-8">8.7.3 The geometry specification string</h4>
+                <h4 id="cap-3-7-8">8.7.3 The PARSEC parameters</h4>
 
-                <p><b>The physics.</b> One string can carry the complete contour, whatever family it comes
-                  from. The analytic families each fix the shape differently. <code>parsec</code>
-                  (Sobieczky's parameterization) builds each surface as a polynomial in half-integer powers,
-                  $y(x)=\sum_k a_k x^{k-1/2}$, whose coefficients solve exactly for the leading-edge radius
-                  $r_{le}$, the crest position $x_p$ and height $y_p$ of each surface, the algebraic crest
-                  curvature $y_{xx}$, the trailing-edge thickness and the trailing-edge angle measured per
-                  surface from the chord line. <code>joukowski</code> maps a circle through the point
-                  $\zeta=1$ of an auxiliary plane by the conformal transformation $z=\zeta+1/\zeta$: epsilon
-                  sets thickness (approximately $1.3\,\epsilon$) and camber bends the mean line upward, and
-                  the trailing edge comes out a cusp by construction. <code>biconvex</code> is the thin
-                  supersonic section made of two parabolic arcs $y=\pm 2tx(1-x)$, exactly $t$ thick at
-                  mid-chord and sharp at both edges; $t=0$ gives a slit. CST, B&eacute;zier and imported files
-                  behave as described above.</p>
+                <p><b>The physics.</b> PARSEC is Sobieczky's parametrization for aerodynamic sections.
+                  Each surface, upper and lower, is a polynomial in half-integer powers of the
+                  chordwise coordinate,</p>
+                <div class="eqn">$$y(x) = \sum_{k=1}^{6} a_k\, x^{k-\frac{1}{2}},$$</div>
+                <p>and the six coefficients $a_k$ of each surface solve, exactly, six geometric
+                  conditions imposed directly: the leading-edge radius $r_{le}$, the crest position
+                  $x_{up}$ or $x_{lo}$ and height $y_{up}$ or $y_{lo}$ of each surface, the algebraic
+                  crest curvature $y_{xx}$, the trailing-edge thickness and the trailing-edge angle
+                  $\beta_{te}$. Because the conditions are geometric, PARSEC controls the shapes that
+                  dominate the pressure distribution: the nose radius sets the suction peak, the crest
+                  curvature shapes the pressure recovery, and the trailing-edge angle sets how the
+                  surfaces close. Nine numbers therefore describe the whole contour. The two surfaces
+                  take their own crest triple, with $y_{up} &gt; 0$ above the chord line and
+                  $y_{lo} &lt; 0$ below it. Each curvature enters as a second derivative at its crest,
+                  typically negative on the upper surface and positive on the lower one. The angle is
+                  measured per surface from the chord line, so the total wedge between the surfaces is
+                  twice it, and the leading-edge radius pins the nose radius exactly through the first
+                  basis term.</p>
 
-                <p><b>The grammars.</b> A preset nickname (<code>naca0012</code>,
-                  <code>parsec_default</code>, <code>joukowski_t8c5</code>, <code>biconvex_t6</code>, among
-                  others), a raw NACA code (<code>2412</code>, <code>23012</code>), or one of the prefixed
-                  forms: <code>cst:a1,a2,...</code> (an even number of coefficients, 4 or more, split half into
-                  the upper surface and half into the lower), <code>bezier:x1,y1;x2,y2;...</code> (control
-                  points separated by semicolons),
-                  <code>parsec:r_le,x_up,y_up,y_xx_up,x_lo,y_lo,y_xx_lo,th_te,beta_te_deg</code> with nine
-                  numbers and the angle last in degrees, <code>joukowski:epsilon,camber</code>,
-                  <code>biconvex:thickness</code>, and <code>dat:path/to/file.dat</code> for a coordinate file.
-                  An unrecognized specification is rejected with the full list of accepted grammars.</p>
+                <p><b>Options and ranges.</b> The row takes nine numbers, comma-separated, in the order
+                  <code>r_le</code>, <code>x_up</code>, <code>y_up</code>, <code>y_xx_up</code>,
+                  <code>x_lo</code>, <code>y_lo</code>, <code>y_xx_lo</code>, <code>th_te</code>,
+                  <code>beta_te_deg</code>: leading-edge radius, crest station and height of each
+                  surface, crest curvature of each surface, trailing-edge thickness, and trailing-edge
+                  angle in degrees. All nine must be finite. The radius must be positive, both crest
+                  stations lie strictly between 0 and 1, the thickness is zero or positive, and the
+                  angle stays strictly between −90° and 90°. The defaults 0.0158, 0.30, 0.0593, −0.475,
+                  0.35, −0.047, 0.530, 0.0025 and 8.0 reproduce a conventional section of about twelve
+                  per cent thickness with slight camber. A parameter set whose surfaces would cross is
+                  rejected with a message when the geometry is generated.</p>
 
-                <p><span class="gui">GUI</span>: the <i>Geometry spec</i> field
-                  (<code>geometry_spec</code>, an editable single-line text) of the <i>Profile 2D geometry</i>
-                  block. When it holds text, <i>Generate geometry</i> resolves this string first and the Source
-                  and NACA fields are ignored for that run; leave it empty to use them as usual.
+                <p><span class="gui">GUI</span>: choose <code>parsec</code> in the <i>Source</i>
+                  dropdown of the <i>Profile 2D geometry</i> block. One row appears, <i>PARSEC (9
+                  values)</i>. Type the nine numbers there, comma-separated, in the order given above,
+                  and press <i>Generate geometry</i> to build and draw the contour.
                 </p>
 
-                <p><span class="bemt">.bemt</span>: the string itself is not stored. What reaches
-                  <code>airfoil.bemt</code> under <code>geometry</code> is the resolved contour:
-                  the family name travels in the contour-family key of
-                  <a class="xref" href="#cap-3-7-0" title="8.7.1 Choosing the shape">Section 8.7.1</a>,
-                  the family's parameters travel beside it under the key names given there
-                  (<code>generator_params</code> carries them for the three analytic families),
-                  together with the coordinate lists.</p>
+                <p><span class="bemt">.bemt</span>: inside the <code>geometry</code> block of
+                  <code>airfoil.bemt</code>, the family key holds <code>"parsec"</code> and
+                  <code>generator_params</code> holds the nine parameters as named values:
+                  <code>r_le</code>, <code>x_up</code>, <code>y_up</code>, <code>y_xx_up</code>,
+                  <code>x_lo</code>, <code>y_lo</code>, <code>y_xx_lo</code>,
+                  <code>th_te</code> and <code>beta_te_deg</code>. The saved contour carries its
+                  coordinate lists too, so the project reopens without regenerating anything and the
+                  numbers can be edited again.
+                </p>
 
-                <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> takes the same grammars,
-                  for example <code>--airfoil-geometry joukowski_t8c5</code>,
-                  <code>--airfoil-geometry parsec:0.0158,0.30,0.0593,-0.475,0.35,-0.047,0.530,0.0025,8.0</code>,
-                  <code>--airfoil-geometry biconvex:0.06</code> or
-                  <code>--airfoil-geometry dat:contour.dat</code>.</p>
+                <p><span class="cli">CLI</span>:
+                  <code>--airfoil-geometry parsec:r_le,x_up,y_up,y_xx_up,x_lo,y_lo,y_xx_lo,th_te,beta_te_deg</code>,
+                  for example <code>--airfoil-geometry
+                  parsec:0.0158,0.30,0.0593,-0.475,0.35,-0.047,0.530,0.0025,8.0</code>. The nickname
+                  <code>parsec_default</code> resolves to the same default set.
+                </p>
+
+                <h4 id="cap-3-7-joukowski">8.7.4 The Joukowski parameters</h4>
+
+                <p><b>The physics.</b> The Joukowski section comes from complex analysis rather than
+                  from a curve fit. A circle in an auxiliary plane is mapped to the section plane by
+                  the conformal transformation</p>
+                <div class="eqn">$$z = \zeta + \frac{1}{\zeta},$$</div>
+                <p>and the image of the circle is an airfoil-shaped closed curve. Two numbers place the
+                  circle: $\epsilon$ offsets it from the point $\zeta = 1$ and thickens the section,
+                  while the camber lifts it off the axis and bows the mean line upward. The radius is
+                  chosen so that the circle passes exactly through $\zeta = 1$, the point where the
+                  transformation folds the two surfaces together. The trailing edge therefore comes out
+                  a cusp by construction: zero included angle, both surfaces meeting tangentially. The
+                  maximum thickness is approximately $1.3\,\epsilon$ in the thin-section limit and
+                  drops slowly as $\epsilon$ grows, so treat $\epsilon$ as the thickness control rather
+                  than an exact thickness. The classical value of the family is theoretical: it has an
+                  exact conformal-map solution, which makes it a common check case for
+                  two-dimensional solvers.</p>
+
+                <p><b>Options and ranges.</b> The row takes two numbers, comma-separated:
+                  <code>epsilon</code>, which controls the thickness, and <code>camber</code>, which
+                  bows the mean line. Both must be finite, and $\epsilon$ must be positive; the camber
+                  may be negative for a section loaded downward. The defaults 0.08 and 0.05 give a
+                  section of roughly ten per cent thickness with camber.</p>
+
+                <p><span class="gui">GUI</span>: choose <code>joukowski</code> in the <i>Source</i>
+                  dropdown of the <i>Profile 2D geometry</i> block. One row appears, <i>Joukowski (eps,
+                  camber)</i>. Type the two numbers there, comma-separated, and press <i>Generate
+                  geometry</i>.
+                </p>
+
+                <p><span class="bemt">.bemt</span>: inside the <code>geometry</code> block of
+                  <code>airfoil.bemt</code>, the family key holds <code>"joukowski"</code> and
+                  <code>generator_params</code> holds the two parameters as named values,
+                  <code>epsilon</code> and <code>camber</code>, beside the coordinate lists of the saved
+                  contour.
+                </p>
+
+                <p><span class="cli">CLI</span>:
+                  <code>--airfoil-geometry joukowski:epsilon,camber</code>, for example
+                  <code>--airfoil-geometry joukowski:0.08,0.05</code>. The nickname
+                  <code>joukowski_t8c5</code> resolves to the same default set.
+                </p>
+
+                <h4 id="cap-3-7-biconvex">8.7.5 The biconvex parameters</h4>
+
+                <p><b>The physics.</b> The biconvex section is two symmetric parabolic arcs,</p>
+                <div class="eqn">$$y = \pm\, 2t\, x(1-x),$$</div>
+                <p>joined at sharp leading and trailing edges. The total thickness grows linearly from
+                  either edge, reaches exactly $t$ at mid-chord and returns to zero at both edges, so
+                  one number describes the whole section: the mid-chord thickness $t$, in chord units.
+                  This is the classical thin supersonic section, with no camber and sharp edges, and it
+                  stands behind the linearized supersonic airfoil theory found in textbooks. A value of
+                  zero is accepted deliberately and produces a slit, the thinnest possible reference
+                  section; negative values are rejected.</p>
+
+                <p><b>Options and ranges.</b> The row takes one number: the thickness
+                  <code>thickness</code> at mid-chord, as a fraction of the chord, zero or positive.
+                  Default 0.06.</p>
+
+                <p><span class="gui">GUI</span>: choose <code>biconvex</code> in the <i>Source</i>
+                  dropdown of the <i>Profile 2D geometry</i> block. One row appears, <i>Biconvex
+                  (thickness)</i>. Type the thickness there and press <i>Generate geometry</i>.
+                </p>
+
+                <p><span class="bemt">.bemt</span>: inside the <code>geometry</code> block of
+                  <code>airfoil.bemt</code>, the family key holds <code>"biconvex"</code> and
+                  <code>generator_params</code> holds the single parameter as a named value,
+                  <code>thickness</code>, beside the coordinate lists of the saved contour.
+                </p>
+
+                <p><span class="cli">CLI</span>: <code>--airfoil-geometry biconvex:thickness</code>, for
+                  example <code>--airfoil-geometry biconvex:0.06</code>. The nickname
+                  <code>biconvex_t6</code> resolves to the same default value.
+                </p>
 
                 <h3 id="cap-3-8">8.8 External polar generation</h3>
                 <p>Two external engines estimate a two-dimensional airfoil polar from profile coordinates,
@@ -5408,10 +5540,12 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>The generated coefficients are applicable only within the profile, Reynolds, Mach and angle
                   range requested. They must be reviewed against available data when separation, transition,
                   compressibility, roughness, Reynolds sensitivity or deep stall materially affects the design. NeuralFoil needs the
-                  optional Python package of the same name; XFOIL needs its executable, found through the
-                  <code>ZBEMT_XFOIL_BIN</code> environment variable or on <code>PATH</code>. The
-                  <span class="gui">GUI</span> keeps the run button clickable in every case and states the missing
-                  dependency, with installation instructions, when the click cannot proceed.</p>
+                  optional Python package of the same name; XFOIL needs its executable, looked up in four places:
+                  the <code>ZBEMT_XFOIL_BIN</code> environment variable, the path remembered from a previous
+                  <i>Locate&hellip;</i> pick, the system <code>PATH</code>, and the standard install folders.
+                  The
+                  <span class="gui">GUI</span> keeps the run button clickable in every case; when the lookup finds
+                  nothing, a dialog states what was checked and offers to locate the executable.</p>
                 <p><b>How the sweep runs and how it fails.</b> Both engines run incompressibly, so each
                   generated slice receives the Prandtl-Glauert correction afterwards,
                   $C_l \rightarrow C_l/\beta$ and $C_d \rightarrow C_d/\beta$ with
@@ -5503,12 +5637,23 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   fields start at 0.01 and move in steps of 0.05, so a value closer to zero needs
                   the file or the command line.</p>
 
-                <p><b>Finding the executable.</b> XFOIL runs as an external program. zBEMT looks
-                  for it first at the path stored in the <code>ZBEMT_XFOIL_BIN</code> environment
-                  variable, then under the name <code>xfoil</code> on the system PATH. The check happens
-                  when <i>Run polar generation</i> is clicked, not before. The button stays clickable in
-                  every case. When neither lookup leads to an executable, a dialog opens that names
-                  what is missing and how to install it, before any solver work starts.</p>
+                <p><b>Finding the executable.</b> XFOIL runs as an external program, and zBEMT looks
+                  for it in four places, in this order:</p>
+                <ol>
+                  <li>the path stored in the <code>ZBEMT_XFOIL_BIN</code> environment variable;</li>
+                  <li>the path remembered from a previous <i>Locate&hellip;</i> pick, kept between
+                    sessions in the application settings file of the user;</li>
+                  <li>the system <code>PATH</code>, under the name <code>xfoil</code>;</li>
+                  <li>the standard Windows install folders
+                    <code>%LOCALAPPDATA%\Programs\XFOIL</code> and
+                    <code>%ProgramFiles%\XFOIL</code>.</li>
+                </ol>
+                <p>The check happens when <i>Run polar generation</i> is clicked, not before. The button
+                  stays clickable in every case. When the four places lead to no executable, a dialog
+                  opens before any solver work starts. The dialog lists the four places with what each
+                  one held on this machine, links the XFOIL download page, and offers a
+                  <i>Locate xfoil&hellip;</i> button. Picking the executable there stores the choice, so
+                  the next run finds it without the dialog again.</p>
 
                 <p><span class="gui">GUI</span>: select <code>xfoil</code> in the polar <i>Data source</i>
                   dropdown of the <i>Aerodynamic model</i> block. The fields <i>Ncrit</i>, <i>Xtr top</i>
@@ -7851,13 +7996,21 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <h2 id="cap-designer">13. Geometry Variation Studies</h2>
 
                         <p>The Geometry Designer is a separate window that compares blade
-                          planforms. The main window opens it from the Tools menu, with the entry
-                          <i>Geometry Designer&hellip;</i>. The window runs the same solver as an ordinary
-                          case, so its numbers carry the same meaning as every other result in this
-                          document. Everything except the blade geometry stays fixed across a
-                          comparison. Every variant runs with the airfoil polar, the mesh, the
-                          inflow model and the corrections of the open project, so a difference
-                          between two results has a geometric cause.</p>
+                          planforms. The window runs the same solver as an ordinary case, so its numbers
+                          carry the same meaning as every other result in this document. Everything
+                          except the blade geometry stays fixed across a comparison. Every variant runs
+                          with the airfoil polar, the mesh, the inflow model and the corrections of the
+                          open project, so a difference between two results has a geometric cause.</p>
+
+                        <p>Open the Geometry Designer like this:</p>
+                        <ol>
+                          <li>Open the project.</li>
+                          <li>In the main window, open the <i>Tools</i> menu.</li>
+                          <li>Click <i>Geometry Designer&hellip;</i>.</li>
+                        </ol>
+
+                        <p>The Designer opens as its own window over the main one. The main window stays
+                          usable while the Designer is open.</p>
 
                         <p>The window holds three pages. <i>Variants</i> defines the blade
                           geometries to compare. <i>Conditions</i> decides what every variant
