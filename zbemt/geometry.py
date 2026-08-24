@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .models import RotorGeometryDef
+from .models import BladeDynamicsDef, RotorGeometryDef
 
 
 def _r_grid(n_stations: int, root_cutout_norm: float) -> np.ndarray:
@@ -220,3 +220,132 @@ def edit_point(geom: RotorGeometryDef, index: int, chord_norm: float | None = No
     geom.twist_deg = twists
     geom.origin = "editor"
     return geom
+
+
+# =============================================================================
+# Blade dynamics conversions (SC-11)
+# =============================================================================
+# The formulas of the rigid-blade flap and lag model live HERE, once, so
+# that the validation, the GUI's live preview panel and the engine cannot
+# drift apart. ``models.py`` holds no physics (AR-3); this module is the
+# one the requirements name for the inertia conversion.
+
+#: Radial station (r/R) where the reference chord c_ref of the Lock number
+#: is read from the radial table.
+REFERENCE_CHORD_STATION = 0.75
+
+
+def reference_chord_m(geom: RotorGeometryDef) -> float:
+    """The blade chord [m] interpolated at ``r/R = 0.75``, the classic
+    representative station of the Lock number."""
+    r_old, chord_old, _twist_old = _validate_and_sort_table(
+        geom.r_norm, geom.chord_norm, geom.twist_deg,
+        context="reference_chord_m")
+    return float(np.interp(REFERENCE_CHORD_STATION, r_old, chord_old) * geom.radius_m)
+
+
+def resolve_flap_inertia(*, inertia_source: str, lock_number: float,
+                          flap_inertia_kg_m2: float, blade_mass_kg: float,
+                          hinge_offset_norm: float, radius_m: float,
+                          chord_ref_m: float, rho: float,
+                          cl_alpha: float) -> float:
+    """Resolved flap inertia I_beta [kg*m^2] of one blade about its flap
+    hinge, from the source the user chose.
+
+    - ``"lock"``       -- from the Lock number gamma, inverted:
+      I_beta = rho*a*c_ref*R^4 / gamma, with `a` the lift-curve slope and
+      `c_ref` the chord at r/R = 0.75.
+    - ``"inertia"``    -- the value given in ``flap_inertia_kg_m2``.
+    - ``"blade_mass"`` -- a uniform mass per unit length over the flapping
+      part of the blade: I_beta = m_b*(R - e*R)^2 / 3.
+
+    An unknown source returns NaN, which the validation turns into an
+    error; it never silently falls back to another source.
+    """
+    if inertia_source == "lock":
+        denominator = float(lock_number)
+        if not np.isfinite(denominator) or abs(denominator) < 1e-9:
+            return float("nan")
+        return float(rho * cl_alpha * chord_ref_m * radius_m ** 4 / denominator)
+    if inertia_source == "inertia":
+        return float(flap_inertia_kg_m2)
+    if inertia_source == "blade_mass":
+        arm = max(radius_m * (1.0 - hinge_offset_norm), 1e-9)
+        return float(blade_mass_kg * arm ** 2 / 3.0)
+    return float("nan")
+
+
+def flap_inertia_from(dynamics: BladeDynamicsDef, geom: RotorGeometryDef,
+                      rho: float, cl_alpha: float) -> float:
+    """``resolve_flap_inertia`` fed straight from the project's dataclasses.
+    This is the entry point the validation and the GUI use."""
+    return resolve_flap_inertia(
+        inertia_source=dynamics.inertia_source,
+        lock_number=dynamics.lock_number,
+        flap_inertia_kg_m2=dynamics.flap_inertia_kg_m2,
+        blade_mass_kg=dynamics.blade_mass_kg,
+        hinge_offset_norm=dynamics.hinge_offset_norm,
+        radius_m=geom.radius_m,
+        chord_ref_m=reference_chord_m(geom),
+        rho=rho, cl_alpha=cl_alpha,
+    )
+
+
+def _offset_spring_term(hinge_offset_norm: float) -> float:
+    """(3/2)*e/(1-e): the frequency contribution of an offset hinge,
+    shared by the flap and the lag ratios."""
+    e = float(hinge_offset_norm)
+    if not np.isfinite(e):
+        return float("nan")
+    if abs(e) >= 1.0:
+        return float("nan")
+    return 1.5 * e / (1.0 - e)
+
+
+def flap_frequency_ratio_squared(hinge_offset_norm: float, spring_nm_per_rad: float,
+                                  inertia_kg_m2: float, omega_rad_s: float) -> float:
+    """nu_beta^2 = 1 + (3/2)*e/(1-e) + K_beta/(I_beta*Omega^2), for a
+    uniform blade with an offset hinge and a root spring.
+
+    The leading 1 is the rigid-blade bending mode's own restoring term.
+    With e = 0 and no spring the ratio is exactly 1, which is why an
+    articulated rotor resonates with the first harmonic (EN-8)."""
+    spring_term = 0.0
+    if inertia_kg_m2 and omega_rad_s:
+        spring_term = float(spring_nm_per_rad) / (float(inertia_kg_m2) * float(omega_rad_s) ** 2)
+    return 1.0 + _offset_spring_term(hinge_offset_norm) + spring_term
+
+
+def lag_frequency_ratio_squared(hinge_offset_norm: float, lag_spring_nm_per_rad: float,
+                                 lag_inertia_kg_m2: float, omega_rad_s: float) -> float:
+    """nu_zeta^2 = (3/2)*e/(1-e) + K_zeta/(I_zeta*Omega^2).
+
+    The lag freedom gets no restoring term from the thrust, so unlike the
+    flap ratio the leading 1 is absent: with no offset and no spring the
+    ratio is exactly zero and the lag angle is undefined."""
+    spring_term = 0.0
+    if lag_inertia_kg_m2 and omega_rad_s:
+        spring_term = (float(lag_spring_nm_per_rad)
+                       / (float(lag_inertia_kg_m2) * float(omega_rad_s) ** 2))
+    return _offset_spring_term(hinge_offset_norm) + spring_term
+
+
+def flap_aero_damping(lock_number: float, hinge_offset_norm: float) -> float:
+    """Aerodynamic flap damping coefficient d_beta of the harmonic
+    balance, in the same normalization as the flap equation:
+
+        beta'' + nu_beta^2 * beta + d_beta * beta' = Mbar(psi)
+
+    Derived from the ``(r - e*R)*beta_dot`` term of U_P: a blade section
+    moving with the flap rate sees a change of incidence proportional to
+    ``(r/R - e)``, and integrating its moment about the hinge against the
+    Lock inertia gives
+
+        d_beta = (gamma/6) * (1 - 3e + 3e^2)
+
+    with ``gamma`` the RESOLVED Lock number (whatever inertia source the
+    user chose). This is the term the solver must treat implicitly --
+    see `bemt.solve_bemt_flapping` -- because keeping it on the
+    right-hand side makes the outer iteration unstable."""
+    e = float(hinge_offset_norm)
+    return float(lock_number) / 6.0 * (1.0 - 3.0 * e + 3.0 * e * e)

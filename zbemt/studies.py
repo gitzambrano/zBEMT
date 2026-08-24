@@ -37,7 +37,8 @@ from .models import (Project, RotorGeometryDef, FlightCondition,
 from . import airfoils
 from . import geometry as geometry_gen
 from . import nomenclature
-from .bemt import BEMTConfig, Rotor, solve_bemt, aggregate_results, SolveCancelled
+from .bemt import (BEMTConfig, Rotor, solve_bemt, aggregate_results,
+                   SolveCancelled, solve_bemt_flapping)
 
 # Fixed-point solvers available in bemt.py (see bemt._SOLVERS), used
 # as the default for benchmark_solvers().
@@ -173,8 +174,21 @@ def run_single_case(project: Project, condition: FlightCondition,
     airfoil_obj = airfoils.to_blade_airfoil(
         project.airfoil_sections or [project.airfoil], radial=radial)
 
-    maps = solve_bemt(rotor, airfoil_obj, cfg, mu_x=condition.mu_x, Vz=condition.Vz,
-                       should_cancel=should_cancel)
+    # Blade dynamics routing (SC-11): a flapping/lagging blade, and also
+    # a rigid blade that carries cyclic pitch (which varies with azimuth,
+    # so it cannot live on the twist vector), takes the Section 4h path.
+    # Everything else -- every project saved before this model existed --
+    # runs the unchanged `solve_bemt` call below.
+    dynamics = project.geometry.dynamics
+    has_cyclic = bool(condition.cyclic_c_deg) or bool(condition.cyclic_s_deg)
+    if dynamics.flap_model != "rigid" or dynamics.lag_enabled or has_cyclic:
+        maps = solve_bemt_flapping(
+            rotor, airfoil_obj, cfg, mu_x=condition.mu_x, Vz=condition.Vz,
+            dynamics=dynamics, cyclic_c_deg=condition.cyclic_c_deg,
+            cyclic_s_deg=condition.cyclic_s_deg, should_cancel=should_cancel)
+    else:
+        maps = solve_bemt(rotor, airfoil_obj, cfg, mu_x=condition.mu_x,
+                           Vz=condition.Vz, should_cancel=should_cancel)
     summary = aggregate_results(rotor, cfg, maps)
 
     # Convenience aliases for the 2 factorial variables (Part 4.2) that
@@ -185,6 +199,8 @@ def run_single_case(project: Project, condition: FlightCondition,
     # future key of the same name coming from `aggregate_results`.
     summary.setdefault("collective_deg", condition.collective_deg)
     summary.setdefault("rpm", summary.get("rotor_rpm", condition.rpm))
+    summary.setdefault("cyclic_c_deg", condition.cyclic_c_deg)
+    summary.setdefault("cyclic_s_deg", condition.cyclic_s_deg)
 
     # The CONDITION also goes into `maps`, not just `summary`: `viz.plots`
     # functions receive only `maps` and it is their job to build the figure
@@ -205,39 +221,164 @@ def run_single_case(project: Project, condition: FlightCondition,
 # target is hit)
 # =============================================================================
 
-_TRIM_MODES = ("solve_collective", "solve_rpm")
+_TRIM_MODES = ("solve_collective", "solve_rpm",
+               "solve_cyclic_flapback", "solve_collective_and_cyclic")
 _TRIM_TARGET_KINDS = ("thrust", "CT")
 _DEFAULT_TRIM_BRACKET = {"solve_collective": (-10.0, 30.0), "solve_rpm": (10.0, 20000.0)}
 
+#: Finite-difference step [deg] of the numerical Jacobian used by the
+#: cyclic trims. The flap harmonics respond smoothly to 1/rev pitch, so
+#: a forward difference at this size keeps the truncation error far
+#: below the trim tolerance.
+_CYCLIC_JACOBIAN_STEP_DEG = 0.25
+
+
+def _trim_by_newton(project: Project, condition: FlightCondition, *,
+                    controls: list[str], residual, tol: float, max_iter: int,
+                    should_cancel=None) -> Results:
+    """Newton loop over the named control angles [deg], driving the vector
+    returned by ``residual(results)`` to zero, with a forward-difference
+    numerical Jacobian (one base solve plus len(controls) perturbed solves
+    per step). Raises SolveCancelled through the inner runs and between
+    steps."""
+    x = np.array([getattr(condition, c) for c in controls], dtype=float)
+
+    def _eval(xv) -> Results:
+        if should_cancel is not None and should_cancel():
+            raise SolveCancelled()
+        cond = replace(condition, **dict(zip(controls, (float(v) for v in xv))))
+        return run_single_case(project, cond, should_cancel=should_cancel)
+
+    res = _eval(x)
+    r = np.asarray(residual(res), dtype=float)
+    for _step in range(max_iter):
+        if np.max(np.abs(r)) <= tol:
+            break
+        jac = np.empty((r.size, x.size), dtype=float)
+        for j in range(x.size):
+            if should_cancel is not None and should_cancel():
+                raise SolveCancelled()
+            h = np.zeros_like(x)
+            h[j] = _CYCLIC_JACOBIAN_STEP_DEG
+            res_j = _eval(x + h)
+            jac[:, j] = (np.asarray(residual(res_j), dtype=float) - r) / h[j]
+        try:
+            dx = np.linalg.solve(jac, -r)
+        except np.linalg.LinAlgError:
+            dx, *_ = np.linalg.lstsq(jac, -r, rcond=None)
+        # Damped step: a full Newton step on a numerically differentiated
+        # system can overshoot stall; halving keeps the loop monotone in
+        # practice without slowing it measurably.
+        x = x + 1.0 * dx
+        res = _eval(x)
+        r = np.asarray(residual(res), dtype=float)
+    return res
+
+
+def _record_trim(summary: dict, dofs: list[str], target: float,
+                 target_key: str | None = None) -> None:
+    """Writes what was traded into the summary, matching the convention
+    `compare_geometries` uses (``trim_target``/``trim_dof``/
+    ``trim_dof_value``); multi-degree trims carry lists."""
+    summary["trim_target"] = float(target)
+    if len(dofs) == 1:
+        summary["trim_dof"] = dofs[0]
+        summary["trim_dof_value"] = float(summary[dofs[0]])
+    else:
+        summary["trim_dof"] = list(dofs)
+        summary["trim_dof_value"] = [float(summary[d]) for d in dofs]
+    if target_key:
+        summary["trim_target_kind"] = target_key
+
 
 def run_case_trimmed(project: Project, condition: FlightCondition, *,
-                      trim_mode: str, target_kind: str, target_value: float,
+                      trim_mode: str, target_kind: Optional[str] = None,
+                      target_value: Optional[float] = None,
                       bracket: Optional[tuple[float, float]] = None,
                       tol: float = 1e-4, max_iter: int = 40,
                       should_cancel: Optional[Callable[[], bool]] = None) -> Results:
-    """Runs ``condition`` but OVERRIDES one of the two trim DOFs
-    (collective or RPM) by bisection until ``Results.summary[<Thrust|CT>]``
-    matches ``target_value``. The other DOF stays fixed at the value
-    already present in ``condition``.
+    """Runs ``condition`` but OVERRIDES one or more trim DOFs until the
+    requested targets are hit.
 
-    ``trim_mode``: "solve_collective" (RPM fixed at ``condition.rpm``,
-    solves ``collective_deg``) or "solve_rpm" (collective fixed at
-    ``condition.collective_deg``, solves ``rpm``). Bisection, not
-    Newton/secant: robust even if CT(collective)/CT(rpm) is not perfectly
-    smooth near stall. The same `bisection` solver already exists in
-    `bemt.py` for each element's inner loop, for an analogous reason.
-    Requires ``target_value`` to lie BETWEEN the two extremes of
+    ``trim_mode``:
+
+    - ``"solve_collective"`` -- RPM fixed at ``condition.rpm``, solves
+      ``collective_deg`` by bisection for a thrust/CT target.
+    - ``"solve_rpm"``        -- collective fixed, solves ``rpm`` the same way.
+    - ``"solve_cyclic_flapback"`` -- solves ``cyclic_c_deg``/``cyclic_s_deg``
+      (Newton with a numerical Jacobian) until both first flap harmonics
+      are zero: the wind-tunnel trim, and the natural default for a
+      stability-derivative run. No target needed.
+    - ``"solve_collective_and_cyclic"`` -- a three-by-three Newton on
+      ``collective_deg``/``cyclic_c_deg``/``cyclic_s_deg`` holding the
+      thrust (or CT) at ``target_value`` AND both flap harmonics at zero.
+
+    Bisection (first two) is robust even if the response is not perfectly
+    smooth near stall; the same `bisection` solver already exists in
+    `bemt.py` for an analogous reason inside each element's inner loop.
+    Bisection requires ``target_value`` to lie BETWEEN the two extremes of
     ``bracket`` (opposite signs of ``summary[key] - target_value``).
     Otherwise it raises ``ValueError`` explaining how to widen the bracket,
     instead of converging outside the physically plausible interval.
 
-    ``should_cancel`` is checked between iterations of the trim loop AND,
-    inside each `run_single_case`, once per engine solver iteration (same
-    convention as `_run_conditions`). It raises ``SolveCancelled``, which
-    propagates to the caller (there is no list of partial cases here, it
-    is a single case)."""
+    The cyclic modes need the blade to actually respond to pitch, so they
+    raise ``ValueError`` on a rigid blade with no flap freedom.
+
+    ``should_cancel`` is checked between iterations AND inside each
+    `run_single_case`, once per engine solver iteration. It raises
+    ``SolveCancelled``, which propagates to the caller."""
     if trim_mode not in _TRIM_MODES:
         raise ValueError(f"run_case_trimmed: trim_mode must be one of {_TRIM_MODES}, got {trim_mode!r}")
+
+    if trim_mode in ("solve_cyclic_flapback", "solve_collective_and_cyclic"):
+        dynamics = project.geometry.dynamics
+        if dynamics.flap_model == "rigid":
+            raise ValueError(
+                f"run_case_trimmed: trim mode {trim_mode!r} trims the flap "
+                "harmonics, which requires a flapping blade. This project's "
+                "blade dynamics are 'rigid'. Choose a flap model with a hinge "
+                "offset or a root spring on the Geometry tab.")
+        if trim_mode == "solve_collective_and_cyclic":
+            if target_kind not in _TRIM_TARGET_KINDS:
+                raise ValueError(
+                    f"run_case_trimmed: target_kind must be one of {_TRIM_TARGET_KINDS} "
+                    f"for {trim_mode}, got {target_kind!r}")
+            summary_key = "Thrust" if target_kind == "thrust" else "CT"
+            target_value = float(target_value)
+
+            def _residual(res):
+                return np.array([
+                    res.summary[summary_key] - target_value,
+                    res.summary.get("beta_1c_deg", 0.0),
+                    res.summary.get("beta_1s_deg", 0.0),
+                ])
+
+            # Thrust scales like the controls, the flap harmonics are
+            # angles: normalize each row so one tolerance fits all three.
+            scale = max(abs(target_value), 1e-9)
+
+            def _scaled(res):
+                vec = _residual(res).copy()
+                vec[0] /= scale
+                return vec
+
+            res = _trim_by_newton(project, condition, controls=["collective_deg", "cyclic_c_deg", "cyclic_s_deg"],
+                                  residual=_scaled, tol=tol, max_iter=max_iter,
+                                  should_cancel=should_cancel)
+            _record_trim(res.summary, ["collective_deg", "cyclic_c_deg", "cyclic_s_deg"],
+                         target_value, target_key)
+            return res
+
+        # solve_cyclic_flapback: beta_1c and beta_1s -> 0.
+        res = _trim_by_newton(project, condition,
+                              controls=["cyclic_c_deg", "cyclic_s_deg"],
+                              residual=lambda r: [r.summary.get("beta_1c_deg", 0.0),
+                                                  r.summary.get("beta_1s_deg", 0.0)],
+                              tol=max(tol, 1e-3), max_iter=max_iter,
+                              should_cancel=should_cancel)
+        _record_trim(res.summary, ["cyclic_c_deg", "cyclic_s_deg"], 0.0, "flapping")
+        return res
+
     if target_kind not in _TRIM_TARGET_KINDS:
         raise ValueError(f"run_case_trimmed: target_kind must be one of {_TRIM_TARGET_KINDS}, got {target_kind!r}")
     summary_key = "Thrust" if target_kind == "thrust" else "CT"

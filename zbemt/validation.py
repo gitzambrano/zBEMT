@@ -16,7 +16,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from .models import AirfoilDef, uses_full_range_extension
+from .models import AirfoilDef, BladeDynamicsDef, RotorGeometryDef, uses_full_range_extension
+from . import geometry as geometry_gen
 
 
 
@@ -379,6 +380,135 @@ def validate_flight_condition(condition) -> list[Issue]:
 _MACH_LIMITE_PRANDTL_GLAUERT = 0.85
 
 
+#: The flap models `BladeDynamicsDef.flap_model` accepts.
+FLAP_MODELS = ("rigid", "offset", "spring", "offset_spring")
+
+#: Inertia sources `BladeDynamicsDef.inertia_source` accepts.
+INERTIA_SOURCES = ("lock", "inertia", "blade_mass")
+
+#: A harmonic whose denominator |nu^2 - n^2| falls under this is declared
+#: resonant instead of solved (EN-8): the response would be a large
+#: number that means nothing.
+_RESONANCE_GUARD = 1e-3
+
+#: Upper bound of the hinge offset e as a fraction of R.
+_HINGE_OFFSET_MAX = 0.3
+
+
+def _dynamics_omega(dynamics: BladeDynamicsDef, condition_rpm) -> float:
+    """Angular speed [rad/s] for the frequency-ratio checks, from a
+    condition's RPM. ``None`` when there is no usable RPM."""
+    rpm = None
+    if condition_rpm is not None:
+        try:
+            rpm = float(condition_rpm)
+        except (TypeError, ValueError):
+            return float("nan")
+    if rpm is None or not math.isfinite(rpm) or rpm <= 0.0:
+        return float("nan")
+    return 2.0 * math.pi * rpm / 60.0
+
+
+def validate_blade_dynamics(dynamics: BladeDynamicsDef, geom: RotorGeometryDef,
+                             *, rho: float = 1.225, cl_alpha: float = 2.0 * math.pi,
+                             rpm=None) -> list[Issue]:
+    """Static checks of one blade's flap/lag dynamics (SC-11), before any
+    solve. ``rho``/``cl_alpha`` resolve a Lock-number inertia the way the
+    engine will; ``rpm`` (a flight condition's) enables the resonance
+    guard EN-8, which depends on the rotation speed.
+
+    Every check here mirrors what ``bemt.solve_blade_motion`` would raise
+    or silently degrade into; this function exists so the user meets the
+    problem as an Issue in the GUI panel instead of a traceback."""
+    issues: list[Issue] = []
+    prefix = "[blade dynamics] "
+
+    if dynamics.flap_model not in FLAP_MODELS:
+        issues.append(Issue("error", prefix + (
+            f"unknown flap model {dynamics.flap_model!r}. Use one of "
+            f"{', '.join(FLAP_MODELS)}.")))
+        return issues
+    if dynamics.inertia_source not in INERTIA_SOURCES:
+        issues.append(Issue("error", prefix + (
+            f"unknown inertia source {dynamics.inertia_source!r}. Use one of "
+            f"{', '.join(INERTIA_SOURCES)}.")))
+        return issues
+
+    rigid = dynamics.flap_model == "rigid"
+    uses_offset = dynamics.flap_model in ("offset", "offset_spring")
+    uses_spring = dynamics.flap_model in ("spring", "offset_spring")
+    e = float(dynamics.hinge_offset_norm)
+
+    if not rigid and not (0.0 <= e <= _HINGE_OFFSET_MAX):
+        issues.append(Issue("error", prefix + (
+            f"hinge offset e = {e:g} outside the valid range "
+            f"0 to {_HINGE_OFFSET_MAX} of R.")))
+
+    if uses_offset and not uses_spring and abs(e) < 1e-12:
+        # An articulated rotor: nu_beta = 1 exactly, so the first
+        # harmonic divides by zero. This is a physical fact of the
+        # configuration, not a numerical accident (EN-8).
+        issues.append(Issue("warning", prefix + (
+            "flap model 'offset' with a hinge offset of exactly zero is the "
+            "articulated rotor: its flap frequency ratio is 1, equal to the "
+            "first harmonic, and the periodic response has no finite "
+            "solution. Give the hinge an offset or add a root spring.")))
+
+    inertia = geometry_gen.flap_inertia_from(dynamics, geom, rho, cl_alpha)
+    if not rigid:
+        if not (math.isfinite(inertia) and inertia > 0.0):
+            issues.append(Issue("error", prefix + (
+                f"the resolved flap inertia I_beta is {inertia:g} kg*m^2 with "
+                f"inertia source '{dynamics.inertia_source}'. A flapping blade "
+                "needs a positive inertia: fill in the Lock number, the flap "
+                "inertia, or the blade mass, according to the chosen source.")))
+        elif uses_spring and dynamics.flap_spring_nm_per_rad < 0.0:
+            issues.append(Issue("error", prefix + (
+                "flap spring stiffness must not be negative.")))
+
+    # The resonance guard (EN-8) depends on the rotation speed, so it
+    # only fires when a condition's RPM is available.
+    omega = _dynamics_omega(dynamics, rpm)
+    if not rigid and math.isfinite(omega) and math.isfinite(inertia) and inertia > 0.0:
+        nu2 = geometry_gen.flap_frequency_ratio_squared(
+            e, max(dynamics.flap_spring_nm_per_rad, 0.0), inertia, omega)
+        for n in range(1, int(dynamics.harmonics) + 1):
+            if abs(nu2 - n * n) < _RESONANCE_GUARD:
+                issues.append(Issue("error", prefix + (
+                    f"resonant flap denominator: nu_beta^2 - {n}^2 = "
+                    f"{nu2 - n * n:.2e} falls inside the guard (+/-"
+                    f"{_RESONANCE_GUARD:g}) at this RPM. The harmonic-balance "
+                    f"response of harmonic {n} is undefined -- a physical fact "
+                    "of this hinge offset and spring, not a numerical failure "
+                    "(EN-8). Change the offset, the spring, or the RPM.")))
+                break
+
+    if not rigid and dynamics.lag_enabled:
+        lag_inertia = float(dynamics.lag_inertia_kg_m2)
+        if not (math.isfinite(lag_inertia) and lag_inertia > 0.0):
+            issues.append(Issue("error", prefix + (
+                f"lead-lag is enabled but its inertia I_zeta is {lag_inertia:g} "
+                "kg*m^2. A lagging blade needs a positive inertia.")))
+        if dynamics.lag_damping_nms_per_rad < 0.0:
+            issues.append(Issue("error", prefix + (
+                "lag damping must not be negative.")))
+
+    # --- fields carried while their freedom is off --------------------
+    if not dynamics.lag_enabled:
+        lag_fields = {
+            "lag_spring_nm_per_rad": dynamics.lag_spring_nm_per_rad,
+            "lag_damping_nms_per_rad": dynamics.lag_damping_nms_per_rad,
+            "lag_inertia_kg_m2": dynamics.lag_inertia_kg_m2,
+        }
+        filled = [name for name, value in lag_fields.items() if value]
+        if filled or dynamics.lag_feeds_back is not True:
+            issues.append(Issue("info", prefix + (
+                "lead-lag values are stored ("
+                f"{', '.join(sorted(filled))}) but lead-lag is disabled, so "
+                "they have no effect on the result.")))
+    return issues
+
+
 def _validate_tip_mach(condition, radius_m: float, config: dict) -> list[Issue]:
     """Warns when the advancing blade tip goes past the regime in which
     this solver's airfoil models are valid.
@@ -436,7 +566,8 @@ def _validate_tip_mach(condition, radius_m: float, config: dict) -> list[Issue]:
 
 def validate_project(config: dict, airfoil_def: AirfoilDef,
                       airfoil_sections: list[AirfoilDef] | None = None,
-                      conditions=None, radius_m: float | None = None) -> list[Issue]:
+                      conditions=None, radius_m: float | None = None,
+                      geometry: RotorGeometryDef | None = None) -> list[Issue]:
     """Convenience: joins the lists above. Used by api.validate_project.
 
     If ``airfoil_sections`` has 2+ elements (multi-section airfoil, Phase
@@ -447,14 +578,19 @@ def validate_project(config: dict, airfoil_def: AirfoilDef,
     ``conditions`` (optional): the ``FlightCondition``s that will be run.
     When given, each one goes through ``validate_flight_condition``, with
     the index/name in the ``Issue``'s field so the user knows which
-    condition complained."""
+    condition complained.
+
+    ``geometry`` (optional): the project's radial table. When given, the
+    blade-dynamics block (SC-11) is validated too, including the EN-8
+    resonance guard at each condition's RPM."""
     if airfoil_sections:
         issues = validate_airfoil_sections(airfoil_sections) + validate_config(config, airfoil_sections[0])
     else:
         issues = validate_airfoil_def(airfoil_def) + validate_config(config, airfoil_def)
 
     is_propeller = bool(config.get("is_propeller", False))
-    for i, condition in enumerate(conditions or []):
+    resolved_conditions = list(conditions or [])
+    for i, condition in enumerate(resolved_conditions):
         label = getattr(condition, "name", None) or f"#{i}"
         for issue in validate_flight_condition(condition):
             issues.append(Issue(issue.level, f"[condition {label}] {issue.message}"))
@@ -463,6 +599,13 @@ def validate_project(config: dict, airfoil_def: AirfoilDef,
         if radius_m:
             for issue in _validate_tip_mach(condition, radius_m, config):
                 issues.append(Issue(issue.level, f"[condition {label}] {issue.message}"))
+
+    if geometry is not None:
+        rho = float(config.get("rho", 1.225) or 1.225)
+        cl_alpha = float(getattr(airfoil_def, "cl_alpha", 2.0 * math.pi))
+        rpm = getattr(resolved_conditions[0], "rpm", None) if resolved_conditions else None
+        issues.extend(validate_blade_dynamics(geometry.dynamics, geometry,
+                                              rho=rho, cl_alpha=cl_alpha, rpm=rpm))
     return issues
 
 

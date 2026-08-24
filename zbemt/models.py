@@ -291,6 +291,7 @@ def _coerce_field(ftype: Any, val: Any, is_propeller: bool = False) -> Any:
         "ProfileGeometry": ProfileGeometry,
         "PolarSlice": PolarSlice,
         "RotorGeometryDef": RotorGeometryDef,
+        "BladeDynamicsDef": BladeDynamicsDef,
         "AirfoilDef": AirfoilDef,
         "FlightCondition": FlightCondition,
         "BatchDefinition": BatchDefinition,
@@ -504,6 +505,53 @@ def uses_full_range_extension(a: "AirfoilDef") -> bool:
 # =============================================================================
 
 @dataclass
+class BladeDynamicsDef:
+    """Rigid-blade flap and lead-lag freedoms. See SC-11.
+
+    The blade stays rigid; what this block adds is its rigid-body motion
+    about a flap hinge (and optionally a lag hinge) at ``hinge_offset_norm``
+    (= e, a fraction of R), with optional root springs. The response is
+    periodic in azimuth and quasi-steady: there is no transient here
+    (SC-12 owns transients). The physics conversions (resolved inertia,
+    frequency ratios) live in ``geometry.py``; the solver lives in
+    ``bemt.solve_bemt_flapping``. This class holds only editable data
+    (AR-3).
+
+    ``flap_model`` selects how much freedom the blade has:
+
+    - ``"rigid"``          -- no flap freedom at all. The behavior of every
+      project that predates this block, and still the default.
+    - ``"offset"``         -- flap hinge at e > 0, no spring.
+    - ``"spring"``         -- flap root spring at e = 0.
+    - ``"offset_spring"``  -- hinge offset AND root spring together.
+
+    ``inertia_source`` decides how the flap inertia I_beta is obtained:
+    from a given Lock number (``"lock"``, converted with the airfoil's
+    lift-curve slope and the chord at r/R = 0.75), given directly
+    (``"inertia"``), or from a uniform blade mass over the flapping part
+    (``"blade_mass"``).
+    """
+    flap_model: str = "rigid"        # "rigid" | "offset" | "spring" | "offset_spring"
+    hinge_offset_norm: float = 0.0   # e, fraction of R
+    flap_spring_nm_per_rad: float = 0.0     # K_beta [N*m/rad]
+    inertia_source: str = "lock"     # "lock" | "inertia" | "blade_mass"
+    lock_number: float = 8.0         # gamma, used when inertia_source == "lock"
+    flap_inertia_kg_m2: float = 0.0  # I_beta, used when inertia_source == "inertia"
+    blade_mass_kg: float = 0.0       # used when inertia_source == "blade_mass"
+    pitch_flap_coupling_deg: float = 0.0    # delta_3, the delta-three hinge
+    harmonics: int = 2               # N_h in the harmonic balance
+    outer_max_iter: int = 30
+    outer_tol_deg: float = 1e-4
+    outer_relax: float = 0.5
+    # --- lead-lag ---
+    lag_enabled: bool = False
+    lag_spring_nm_per_rad: float = 0.0      # K_zeta [N*m/rad]
+    lag_damping_nms_per_rad: float = 0.0    # C_zeta [N*m*s/rad]
+    lag_inertia_kg_m2: float = 0.0          # I_zeta [kg*m^2]
+    lag_feeds_back: bool = True      # apply the zeta_dot term to U_T
+
+
+@dataclass
 class RotorGeometryDef:
     """Radial table of the blade (always the canonical on-disk
     representation, regardless of whether it was generated from
@@ -518,6 +566,12 @@ class RotorGeometryDef:
     n_blades: int = 2
     radius_m: float = 1.0
     root_cutout_norm: float = 0.15
+
+    #: Rigid-blade flap and lead-lag freedoms (SC-11). The default is a
+    #: blade with no flap freedom, which is the behavior of every project
+    #: saved before this field existed: an old ``geom.bemt`` without a
+    #: ``dynamics`` key loads with exactly this default.
+    dynamics: BladeDynamicsDef = field(default_factory=BladeDynamicsDef)
 
     #: Free-form label, metadata only: NOTHING in the engine reads this
     #: field, and it has no link to `AirfoilDef.name` nor does it select a
@@ -542,6 +596,16 @@ class FlightCondition:
     collective_deg: float = 8.0
     Vz: float = 0.0                 # vertical velocity [m/s]
     rpm: Optional[float] = None     # if None, uses Omega from BEMTConfig/Rotor
+    #: Cyclic pitch, the 1/rev harmonics theta_1c (cosine) and theta_1s
+    #: (sine), in degrees. Unlike the collective, which is a rigid offset on
+    #: the twist vector, cyclic varies with azimuth, so it reaches the
+    #: engine inside the blade-motion dictionary instead of on
+    #: ``Rotor.theta_geom_deg``. A rigid-blade project that sets either one
+    #: to a nonzero value is solved through the same path, with the flap
+    #: angle held at zero. Both default to zero: every condition saved
+    #: before these fields existed keeps its exact behavior.
+    cyclic_c_deg: float = 0.0   # theta_1c, the cosine cyclic
+    cyclic_s_deg: float = 0.0   # theta_1s, the sine cyclic
 
 
 @dataclass

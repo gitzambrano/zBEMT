@@ -222,7 +222,8 @@ def validate_project(project: Project, conditions=None) -> list[validation.Issue
     looking at config/airfoil."""
     return validation.validate_project(project.config, project.airfoil,
                                        project.airfoil_sections, conditions=conditions,
-                                       radius_m=project.geometry.radius_m)
+                                       radius_m=project.geometry.radius_m,
+                                       geometry=project.geometry)
 
 
 # =============================================================================
@@ -244,13 +245,17 @@ def run_case(project: Project, condition: FlightCondition,
 
 
 def run_case_trimmed(project: Project, condition: FlightCondition, *,
-                      trim_mode: str, target_kind: str, target_value: float,
-                      bracket: Optional[tuple] = None, tol: float = 1e-4, max_iter: int = 40,
+                      trim_mode: str, target_kind: Optional[str] = None,
+                      target_value: Optional[float] = None,
+                      bracket: Optional[tuple] = None, tol: float = 1e-4,
+                      max_iter: int = 40,
                       should_cancel: Optional[Callable[[], bool]] = None) -> Results:
     """Runs ``condition`` holding ONE of the two trim DOFs fixed
     (collective or RPM) and solving the other by bisection until it hits
     a thrust/CT target, see ``studies.run_case_trimmed`` for the full
-    semantics of ``trim_mode``/``target_kind``/``bracket``."""
+    semantics of ``trim_mode``/``target_kind``/``target_value`` (which
+    also covers the cyclic trim modes of SC-11, where both targets stay
+    unset or thrust-only)."""
     return studies.run_case_trimmed(
         project, condition, trim_mode=trim_mode, target_kind=target_kind,
         target_value=target_value, bracket=bracket, tol=tol, max_iter=max_iter,

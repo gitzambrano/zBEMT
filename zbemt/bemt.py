@@ -123,8 +123,14 @@ a map of where to find each one.
      from just 3 global degrees of freedom (nu0, nu_s, nu_c) instead of one
      lambda_i per element. See Section 6b.
 
-  e) Flapping: not implemented. This code only solves the aerodynamic
-     field of a rigid disk, without blade structural dynamics.
+  e) `geometry.dynamics` -- rigid-blade flapping and lead-lag (SC-11).
+     The blade stays rigid; it gains rigid-body freedoms about a flap
+     hinge (and optionally a lag hinge) with an offset and/or root
+     springs. The response is periodic in azimuth and quasi-steady,
+     solved by harmonic balance over N_h harmonics: see Section 4h
+     (`solve_bemt_flapping`, `solve_blade_motion`). A resonant harmonic
+     denominator is rejected by name (EN-8). The default remains the
+     fully rigid disk of every project saved before this model existed.
 
   f) `use_dynamic_stall=True` . Øye dynamic stall (Øye, 1991): models the
      boundary-layer separation lag when the angle of attack varies fast
@@ -1663,16 +1669,48 @@ def reverse_flow_alpha_eff(alpha_geom, reverse, cfg: BEMTConfig, ut_norm=None):
 
 def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
                    Nb, Omega, OmegaR, airfoil, cfg: BEMTConfig,
-                   r_root_norm_geom, r_tip_norm_geom):
+                   r_root_norm_geom, r_tip_norm_geom, motion=None):
     """Evaluates the aerodynamic state/forces of ALL elements (Ne,Npsi)
     for a given lambda_i field, and also returns lambda_i_next (the
-    fixed-point map of the momentum/BET equation) used by the solvers."""
+    fixed-point map of the momentum/BET equation) used by the solvers.
+
+    ``motion`` (optional): the rigid-blade flap/lag state (SC-11), as a
+    dictionary with the arrays ``beta``, ``beta_rate`` and ``zeta_rate``
+    on the same (Ne,Npsi) grid, plus the scalars ``e_hinge_dim`` (hinge
+    offset in metres), ``pitch_flap_K`` (= tan(delta_3)),
+    ``cyclic_c_rad`` and ``cyclic_s_rad`` (the 1/rev cyclic pitch, in
+    radians). ``None`` (the default) is the rigid disk, unchanged.
+
+    The motion adds three terms to the local flow:
+
+        U_P += (r - e*R)*beta_dot + V_inf*beta*cos(psi)
+        U_T += (r - e*R)*zeta_dot
+        theta_eff = theta(r) + theta_1c*cos(psi) + theta_1s*sin(psi)
+                    - K_p*beta
+
+    Small angles throughout: cos(beta) ~= 1 and sin(beta) ~= beta, so the
+    blade element stays in the disk plane for area and arm. W, phi,
+    reverse and every downstream model are built from Up/Ut AFTER these
+    terms, so the motion reaches the whole aerodynamics with no other
+    edit; the reverse-flow branch itself is untouched."""
     rho, a_sound = cfg.rho, cfg.a_sound
     Vinf = mu_x * OmegaR
 
     lambda_total = lambda_z + lambda_i
     Up = lambda_total * OmegaR
     Ut = Omega * R_DIM + Vinf * np.sin(PSI)
+    if motion is not None:
+        arm = np.maximum(R_DIM - motion["e_hinge_dim"], 0.0)
+        Up = Up + arm * motion["beta_rate"] + Vinf * motion["beta"] * np.cos(PSI)
+        Ut = Ut + arm * motion["zeta_rate"]
+        # Cyclic pitch varies with azimuth, so it cannot live on the
+        # twist vector: it rebinds the LOCAL THETA here. Pitch-flap
+        # coupling (delta-3): an up-flapping blade pitches down by
+        # K_p*beta.
+        THETA = (THETA
+                 + motion["cyclic_c_rad"] * np.cos(PSI)
+                 + motion["cyclic_s_rad"] * np.sin(PSI)
+                 - motion["pitch_flap_K"] * motion["beta"])
     W = np.maximum(np.sqrt(Up ** 2 + Ut ** 2), 0.1)
 
     reverse = Ut < 0.0
@@ -1843,10 +1881,18 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
     lambda_i_next = np.where((np.abs(denom) < 1e-8) | (F < 0.015), 0.0, raw_next)
     lambda_i_next = np.clip(lambda_i_next, -0.5, 0.5)
 
-    return dict(Up=Up, Ut=Ut, W=W, phi=phi, phi_rev=phi_rev, reverse=reverse,
+    out = dict(Up=Up, Ut=Ut, W=W, phi=phi, phi_rev=phi_rev, reverse=reverse,
                 alpha_eff=alpha_eff, Mach=Mach, Cl=Cl, Cd=Cd, Lift=Lift, Drag=Drag,
                 Fn=Fn, Ft=Ft, Ft_i=Ft_i, Ft_p=Ft_p, F=F, lambda_total=lambda_total,
                 lambda_i_next=lambda_i_next)
+    if motion is not None:
+        # Echoed for `aggregate_results` and the plots: the blade state
+        # that produced the loads, on the same (Ne,Npsi) grid. A rigid
+        # run (motion=None) reports nothing new.
+        out["beta"] = motion["beta"]
+        out["beta_rate"] = motion["beta_rate"]
+        out["zeta_rate"] = motion["zeta_rate"]
+    return out
 
 
 # =============================================================================
@@ -2116,6 +2162,458 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
         dynamic_stall_method=cfg.dynamic_stall_method,
         dynamic_stall_time_march_history=time_march_history,
     ))
+    return maps
+
+
+# =============================================================================
+# 4h. RIGID-BLADE FLAPPING AND LEAD-LAG (harmonic balance, SC-11)
+# =============================================================================
+#
+# The blade is rigid. It rotates about a flap hinge (and optionally a lag
+# hinge) at the same radial offset e, with optional root springs. The
+# response is PERIODIC in azimuth and quasi-steady: the aerodynamics
+# inside one azimuth station stays steady, only the blade motion adds
+# terms to the local flow, and there is no transient (that is what keeps
+# the model consistent with a blade-element momentum solution; a real
+# flap transient is out of scope, see SC-12's limits).
+#
+# Assumptions (also stated in docs/documentation.html):
+#   1. Small angles: cos(beta) ~= 1, sin(beta) ~= beta. The blade element
+#      stays in the disk plane for area and arm.
+#   2. The blade is rigid in bending and in torsion.
+#   3. The response is periodic; there is no transient.
+#   4. Flap and lag are solved from the converged aerodynamic field, and
+#      the field is then re-solved with the new motion, until both agree
+#      (`solve_bemt_flapping`).
+#
+# Equation of motion in psi = Omega*t, flap:
+#
+#     beta'' + nu_beta^2 * beta = M_beta(psi) / (I_beta*Omega^2)
+#
+# with nu_beta^2 = 1 + (3/2)*e/(1-e) + K_beta/(I_beta*Omega^2)
+# (geometry.flap_frequency_ratio_squared). Harmonic balance: write both
+# sides as truncated Fourier series with N_h harmonics,
+#
+#     beta(psi)   = beta_0 + sum_n [beta_nc cos(n psi) + beta_ns sin(n psi)]
+#     Mbar(psi)   = M_0    + sum_n [M_nc   cos(n psi) + M_ns   sin(n psi)]
+#     Mbar = M_beta/(I_beta*Omega^2)
+#
+# Because beta'' = -n^2*(...) for each harmonic, the solution is
+# algebraic:
+#
+#     beta_0 = M_0/nu_beta^2,  beta_nc = M_nc/(nu_beta^2 - n^2), ...
+#
+# EN-8 applies: when |nu_beta^2 - n^2| < 1e-3 the denominator is declared
+# resonant and a ValueError names the resonance instead of returning a
+# large number. An articulated rotor (e = 0, no spring) gives
+# nu_beta = 1 exactly, so its first harmonic is undefined -- a physical
+# fact of the configuration, not a numerical failure.
+#
+# Lag adds a damper C_zeta, which couples the sine to the cosine part of
+# each harmonic into a two-by-two solve:
+#
+#     (nu_zeta^2 - n^2)*zeta_nc + n*(C_zeta/(I_zeta*Omega))*zeta_ns = M_nc
+#    -n*(C_zeta/(I_zeta*Omega))*zeta_nc + (nu_zeta^2 - n^2)*zeta_ns = M_ns
+#     zeta_0 = M_0 / nu_zeta^2
+#
+# Sign conventions used in every output of this section:
+#     beta(psi) = beta_0 + beta_1c*cos(psi) + beta_1s*sin(psi), positive UP;
+#     each tip-path-plane tilt is the NEGATIVE of its first harmonic
+#     (tpp_tilt_long_deg = -beta_1c_deg, tpp_tilt_lat_deg = -beta_1s_deg).
+
+_FLAP_RESONANCE_GUARD = 1e-3
+
+
+def _fourier_coefficients(field_psi: np.ndarray, psi_nodes: np.ndarray,
+                          n_harm: int):
+    """Returns (a0, a_c, a_s) of a periodic field sampled on ``psi_nodes``.
+
+    ``a0`` is the azimuthal mean; ``a_c[n]``/``a_s[n]`` are the cosine and
+    sine coefficients of harmonic n, for n = 1..n_harm. The mesh is
+    uniform over [0, 2*pi), so the coefficients reduce to weighted means
+    (the periodic trapezoid rule, exactly the rectangle rule on this
+    grid)."""
+    field_psi = np.asarray(field_psi, dtype=float)
+    a0 = float(np.mean(field_psi))
+    a_c = np.zeros(n_harm + 1)
+    a_s = np.zeros(n_harm + 1)
+    for n in range(1, n_harm + 1):
+        a_c[n] = float(np.mean(field_psi * np.cos(n * psi_nodes)))
+        a_s[n] = float(np.mean(field_psi * np.sin(n * psi_nodes)))
+    return a0, 2.0 * a_c, 2.0 * a_s
+
+
+def _flap_moment(maps: dict, rotor: "Rotor", e_hinge_dim: float) -> np.ndarray:
+    """M_beta(psi): the radial integral of (r - e*R)*Fn over one blade.
+
+    ``Fn`` is the normal force per unit span that `element_state` already
+    returns, so whatever reached it (inflow model, reverse flow, dynamic
+    stall, corrections) reaches the flap forcing too."""
+    r_nodes = maps["r_norm_nodes"] * rotor.R
+    arm = np.maximum(r_nodes - e_hinge_dim, 0.0)[:, None]
+    return _trapz(arm * maps["Fn"], r_nodes, axis=0)
+
+
+def _lag_moment(maps: dict, rotor: "Rotor", e_hinge_dim: float) -> np.ndarray:
+    """M_zeta(psi): the radial integral of (r - e*R)*Ft over one blade."""
+    r_nodes = maps["r_norm_nodes"] * rotor.R
+    arm = np.maximum(r_nodes - e_hinge_dim, 0.0)[:, None]
+    return _trapz(arm * maps["Ft"], r_nodes, axis=0)
+
+
+def solve_blade_motion(moment_psi: np.ndarray, psi_nodes: np.ndarray,
+                       nu_squared: float, inertia: float, Omega: float,
+                       n_harm: int, damping: float = 0.0,
+                       freedom: str = "flap", hinge_offset_norm: float = 0.0):
+    """Harmonic balance for one rigid-body freedom.
+
+    Solves the algebraic system described in Section 4h for the given
+    normalized moment history ``moment_psi`` (one value per azimuth
+    node). Returns ``(coeffs, angle_psi, rate_psi)`` where ``coeffs`` maps
+    each harmonic to its cosine/sine pair (harmonic 0 -> the mean),
+    ``angle_psi`` is the reconstructed angle [rad] on the psi grid and
+    ``rate_psi`` its time derivative [rad/s] (angle' * Omega).
+
+    ``damping`` is the NON-DIMENSIONAL damper C/(I*Omega); it couples the
+    sine and cosine parts per harmonic into a two-by-two system. With
+    zero damping the solve stays diagonal.
+
+    Raises ValueError when the denominator of a harmonic is resonant
+    (EN-8), naming the freedom, the harmonic and the configuration that
+    produced it."""
+    if not np.isfinite(nu_squared):
+        raise ValueError(
+            f"solve_blade_motion: the {freedom} frequency ratio is not finite. "
+            "Check the hinge offset, the spring and the inertia.")
+    if abs(nu_squared) < 1e-9:
+        # Lag without offset or spring: nothing restores the angle, so
+        # even the mean is undefined.
+        raise ValueError(
+            f"the {freedom} freedom has no restoring term: its frequency "
+            "ratio is zero because the rotor has neither a hinge offset nor "
+            f"a {freedom} spring. The periodic response is undefined. Give "
+            f"the {freedom} hinge an offset or add a spring.")
+    for n in range(1, n_harm + 1):
+        if abs(nu_squared - n * n) < _FLAP_RESONANCE_GUARD:
+            articulated = abs(hinge_offset_norm) < 1e-12
+            physical = (" That is the ARTICULATED rotor: with no hinge "
+                        "offset and no spring the flap frequency ratio is "
+                        "exactly 1, equal to this harmonic, so the "
+                        "periodic response has no finite solution."
+                        if (freedom == "flap" and articulated) else "")
+            raise ValueError(
+                f"resonant {freedom} denominator: |nu_{freedom[0]}^2 - "
+                f"{n}^2| = {abs(nu_squared - n * n):.2e} < "
+                f"{_FLAP_RESONANCE_GUARD:g} (nu^2 = {nu_squared:.6f}, hinge "
+                f"offset e = {hinge_offset_norm:g}). Harmonic {n} cannot be "
+                "solved by harmonic balance; returning a large number would "
+                "mean nothing." + physical + " Change the hinge offset, the "
+                "spring, or drop the harmonic count below it.")
+    inertia_term = max(float(inertia) * float(Omega) ** 2, 1e-12)
+    m_bar = np.asarray(moment_psi, dtype=float) / inertia_term
+    m0, mc, ms = _fourier_coefficients(m_bar, psi_nodes, n_harm)
+
+    coeffs = {0: (m0 / nu_squared, 0.0)}
+    for n in range(1, n_harm + 1):
+        denom = nu_squared - n * n
+        matrix = np.array([[denom, n * damping],
+                           [-n * damping, denom]])
+        det = float(matrix[0, 0] * matrix[1, 1] - matrix[0, 1] * matrix[1, 0])
+        if abs(det) < (_FLAP_RESONANCE_GUARD ** 2):
+            raise ValueError(
+                f"resonant {freedom} denominator: the damped two-by-two "
+                f"system of harmonic {n} is singular (nu^2 = "
+                f"{nu_squared:.6f}, damping ratio C/(I*Omega) = "
+                f"{damping:.6f}, hinge offset e = {hinge_offset_norm:g}). "
+                "The periodic response is undefined (EN-8).")
+        zc, zs = np.linalg.solve(matrix, np.array([mc[n], ms[n]]))
+        coeffs[n] = (float(zc), float(zs))
+
+    angle = np.full_like(psi_nodes, coeffs[0][0], dtype=float)
+    rate_dpsi = np.zeros_like(psi_nodes, dtype=float)
+    for n in range(1, n_harm + 1):
+        zc, zs = coeffs[n]
+        angle += zc * np.cos(n * psi_nodes) + zs * np.sin(n * psi_nodes)
+        rate_dpsi += n * (-zc * np.sin(n * psi_nodes) + zs * np.cos(n * psi_nodes))
+    return coeffs, angle, rate_dpsi * Omega
+
+
+def build_motion_grid(rotor: "Rotor", cfg: "BEMTConfig", motion_scalars: dict,
+                       beta_psi=None, beta_rate_psi=None, zeta_rate_psi=None):
+    """Assembles the `motion` dictionary `element_state` consumes, from
+    per-azimuth arrays (Npsi,) broadcast onto the (Ne,Npsi) mesh."""
+    r_eff_root = rotor.r_root_norm_geom + cfg.integration_offset
+    r_eff_tip = rotor.r_tip_norm_geom - cfg.integration_offset
+    r_norm_nodes = np.linspace(r_eff_root, r_eff_tip, cfg.Ne)
+    psi_nodes = np.linspace(0, 2 * np.pi * (1 - 1.0 / cfg.Npsi), cfg.Npsi)
+    R_NORM, PSI = np.meshgrid(r_norm_nodes, psi_nodes, indexing="ij")
+
+    def _grid(values):
+        if values is None:
+            return np.zeros_like(R_NORM)
+        values = np.asarray(values, dtype=float)
+        if values.ndim == 1:
+            return np.repeat(values[None, :], cfg.Ne, axis=0)
+        return values
+
+    motion = {
+        "beta": _grid(beta_psi),
+        "beta_rate": _grid(beta_rate_psi),
+        "zeta_rate": _grid(zeta_rate_psi),
+        "e_hinge_dim": float(motion_scalars.get("e_hinge_dim", 0.0)),
+        "pitch_flap_K": float(motion_scalars.get("pitch_flap_K", 0.0)),
+        "cyclic_c_rad": float(motion_scalars.get("cyclic_c_rad", 0.0)),
+        "cyclic_s_rad": float(motion_scalars.get("cyclic_s_rad", 0.0)),
+    }
+    return motion, r_norm_nodes, psi_nodes, R_NORM, PSI
+
+
+def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
+                         Vz: float, dynamics, *, cyclic_c_deg: float = 0.0,
+                         cyclic_s_deg: float = 0.0, warm_start: Optional[dict] = None,
+                         should_cancel=None):
+    """Solves one case WITH the blade's rigid-body flap/lag freedoms
+    (SC-11): the outer loop of Section 4h.
+
+    Loop: `solve_bemt` with the current motion, then the flap/lag moments
+    from the converged field, then the harmonic balance, relaxed into the
+    next iterate, until the flap coefficients stop moving (below
+    ``dynamics.outer_tol_deg``, at most ``dynamics.outer_max_iter``
+    times). A flapping blade changes the inflow it produces, which is why
+    the aerodynamic field and the motion must agree before the result is
+    reported (assumption 4 of Section 4h).
+
+    ``dynamics`` is the project's `BladeDynamicsDef`. With
+    ``flap_model='rigid'`` (and no lag) there is no freedom to solve: a
+    single pass runs the unchanged path with any cyclic pitch carried as
+    an azimuthal pitch term and beta held at zero.
+
+    ``warm_start`` optionally carries the coefficients of a previous case
+    in a sweep, cutting the iteration count.
+
+    Returns the same ``maps`` contract as `solve_bemt`, plus the flap
+    keys (`beta_0_rad`, `beta_coeffs`, `nu_beta`, `lock_number`,
+    `flap_inertia`, `flap_outer_iterations`, `flap_outer_residual_deg`,
+    and their lag counterparts). `aggregate_results` turns them into the
+    summary columns; a caller downstream needs nothing new.
+
+    ``should_cancel`` is honored once per outer iteration AND inside every
+    inner `solve_bemt` iteration (PR-11): cancellation raises
+    `SolveCancelled` and never returns a partial result."""
+    from . import geometry as geometry_gen
+
+    _check_rotor_rotation(rotor)
+    rho = cfg.rho
+    cl_alpha, _alpha0 = _airfoil_cl_alpha_alpha0(airfoil)
+    chord_ref = float(np.interp(
+        geometry_gen.REFERENCE_CHORD_STATION,
+        np.asarray(rotor.r_geom, dtype=float),
+        np.asarray(rotor.chord_geom, dtype=float) / rotor.R)) * rotor.R
+    inertia = geometry_gen.resolve_flap_inertia(
+        inertia_source=dynamics.inertia_source,
+        lock_number=dynamics.lock_number,
+        flap_inertia_kg_m2=dynamics.flap_inertia_kg_m2,
+        blade_mass_kg=dynamics.blade_mass_kg,
+        hinge_offset_norm=dynamics.hinge_offset_norm,
+        radius_m=rotor.R, chord_ref_m=chord_ref, rho=rho, cl_alpha=cl_alpha)
+
+    rigid = dynamics.flap_model == "rigid"
+    if not rigid and not (np.isfinite(inertia) and inertia > 0.0):
+        raise ValueError(
+            f"solve_bemt_flapping: the resolved flap inertia I_beta is "
+            f"{inertia} kg*m^2 (source '{dynamics.inertia_source}'). A "
+            "flapping blade needs a positive inertia.")
+
+    e_norm = 0.0 if rigid else float(dynamics.hinge_offset_norm)
+    e_dim = e_norm * rotor.R
+    k_flap = np.tan(np.deg2rad(0.0 if rigid else dynamics.pitch_flap_coupling_deg))
+    scalars = {
+        "e_hinge_dim": e_dim,
+        "pitch_flap_K": k_flap,
+        "cyclic_c_rad": np.deg2rad(cyclic_c_deg),
+        "cyclic_s_rad": np.deg2rad(cyclic_s_deg),
+    }
+    omega = rotor.Omega
+    nu_beta_sq = geometry_gen.flap_frequency_ratio_squared(
+        e_norm, max(dynamics.flap_spring_nm_per_rad, 0.0), inertia, omega)
+    lock_number = (float(dynamics.lock_number)
+                   if dynamics.inertia_source == "lock"
+                   else float(rho * cl_alpha * chord_ref * rotor.R ** 4 / max(inertia, 1e-12)))
+
+    lag_on = bool(dynamics.lag_enabled) and not rigid
+    lag_inertia = float(dynamics.lag_inertia_kg_m2)
+    if lag_on and not (np.isfinite(lag_inertia) and lag_inertia > 0.0):
+        raise ValueError(
+            f"solve_bemt_flapping: lead-lag is enabled but its inertia "
+            f"I_zeta is {lag_inertia} kg*m^2. A lagging blade needs a "
+            "positive inertia.")
+    nu_zeta_sq = (geometry_gen.lag_frequency_ratio_squared(
+        e_norm, max(dynamics.lag_spring_nm_per_rad, 0.0), lag_inertia, omega)
+        if lag_on else None)
+    lag_feeds_back = lag_on and bool(dynamics.lag_feeds_back)
+
+    n_harm = max(int(dynamics.harmonics), 1)
+
+    def _reconstruct(coeffs, nodes):
+        """Angle [rad] and rate [rad/s] on the psi grid from harmonic
+        coefficients."""
+        angle = np.full(cfg.Npsi, coeffs[0][0], dtype=float)
+        rate = np.zeros(cfg.Npsi, dtype=float)
+        for n in range(1, len(coeffs)):
+            zc, zs = coeffs[n]
+            angle += zc * np.cos(n * nodes) + zs * np.sin(n * nodes)
+            rate += n * (-zc * np.sin(n * nodes) + zs * np.cos(n * nodes))
+        return angle, rate * omega
+
+    def _coeffs_vector(coeffs):
+        """Flat [b0, b1c, b1s, b2c, ...] vector of a coefficient dict."""
+        flat = [coeffs[0][0]]
+        for n in range(1, len(coeffs)):
+            flat.extend(coeffs[n])
+        return np.asarray(flat, dtype=float)
+
+    def _vector_coeffs(vec):
+        n = len(vec)
+        out = {0: (float(vec[0]), 0.0)}
+        for k in range(1, (n + 1) // 2):
+            out[k] = (float(vec[2 * k - 1]), float(vec[2 * k]))
+        return out
+
+    def _coeff_delta_deg(new_coeffs, old_coeffs):
+        """Largest coefficient change [deg], over harmonics that carry a
+        physical amplitude. Harmonics sitting under the noise gate in
+        BOTH iterates are skipped: their solver-level jitter would
+        otherwise keep the outer loop chasing differences smaller than
+        any physical meaning, forever."""
+        gate_rad = np.deg2rad(max(10.0 * tol_deg_hint, 1e-3))
+        worst = 0.0
+        for key in set(new_coeffs) | set(old_coeffs):
+            cn = new_coeffs.get(key, (0.0, 0.0))
+            co = old_coeffs.get(key, (0.0, 0.0))
+            amp = max(np.hypot(cn[0], cn[1]), np.hypot(co[0], co[1]))
+            if key != 0 and amp < gate_rad:
+                continue
+            worst = max(worst,
+                        abs(cn[0] - co[0]), abs(cn[1] - co[1]))
+        return float(np.degrees(worst))
+
+    tol_deg = max(float(dynamics.outer_tol_deg), 1e-10)
+    tol_deg_hint = tol_deg   # noise gate of _coeff_delta_deg, above
+    max_iter = max(int(dynamics.outer_max_iter), 1)
+
+    # -- outer loop ------------------------------------------------------
+    # WHO CARRIES THE FLAP DAMPING, AND WHERE. The blade-rate term of
+    # U_P is real physics: a flapping blade sees its incidence change in
+    # proportion to beta_dot. Solving the balance with the raw algebraic
+    # denominator while ALSO feeding that rate back through the field
+    # makes the iteration gain ~ n*d/(nu^2-n^2) -- far above 1 for a
+    # small offset hinge -- and no relaxation scheme survives it. The
+    # scheme below is the textbook one:
+    #
+    #   1. The fields the outer loop iterates on are solved with the
+    #      blade ANGLE only (rates held at zero), so their moments carry
+    #      no rate feedback.
+    #   2. The analytic flap damping d_beta = (gamma/6)(1-3e+3e^2)
+    #      (`geometry.flap_aero_damping`, derived from exactly the term
+    #      that was removed) enters the harmonic balance as the
+    #      two-by-two coupling of each harmonic, exactly like a lag
+    #      damper.
+    #   3. The map from blade angle to solved coefficients now has an
+    #      O(mu) gain: plain under-relaxed fixed-point iteration
+    #      converges in a few steps.
+    #   4. One final solve rebuilds the field WITH the converged rates,
+    #      so the reported loads include the rate terms consistently
+    #      with the damped solution.
+    relax = float(np.clip(dynamics.outer_relax, 0.05, 1.0))
+    d_beta = geometry_gen.flap_aero_damping(lock_number, e_norm)
+    zeta_rate_grid = np.zeros(cfg.Npsi)
+
+    warm = warm_start or {}
+    state = np.zeros(1 + 2 * n_harm)
+    motion, _rn, psi_nodes, _RN, _PSI = build_motion_grid(
+        rotor, cfg, scalars,
+        beta_psi=warm.get("beta_psi"),
+        zeta_rate_psi=warm.get("zeta_rate_psi"),
+    )
+    if warm.get("beta_psi") is not None:
+        state = _coeffs_vector(_fourier_coefficients(
+            np.asarray(warm["beta_psi"], dtype=float), psi_nodes, n_harm))
+
+    residual_deg = float("inf")
+    iterations = 0
+    coeffs_flap = None
+    coeffs_lag = None
+
+    for iterations in range(1, max_iter + 1):
+        if should_cancel is not None and should_cancel():
+            raise SolveCancelled()
+        maps = solve_bemt(rotor, airfoil, cfg, mu_x, Vz,
+                          should_cancel=should_cancel, motion=motion)
+        if rigid:
+            break   # nothing to balance: the cyclic-only pass is done
+
+        m_beta = _flap_moment(maps, rotor, e_dim)
+        new_coeffs, _new_angle, _new_rate = solve_blade_motion(
+            m_beta, psi_nodes, nu_beta_sq, inertia, omega,
+            n_harm, damping=d_beta, freedom="flap", hinge_offset_norm=e_norm)
+
+        if lag_on:
+            m_zeta = _lag_moment(maps, rotor, e_dim)
+            damping_ratio = dynamics.lag_damping_nms_per_rad / max(lag_inertia * omega, 1e-12)
+            coeffs_lag, _za, _zr = solve_blade_motion(
+                m_zeta, psi_nodes, nu_zeta_sq, lag_inertia, omega,
+                n_harm, damping=damping_ratio, freedom="lag",
+                hinge_offset_norm=e_norm)
+
+        residual_deg = _coeff_delta_deg(new_coeffs, _vector_coeffs(state))
+        state = state + relax * (_coeffs_vector(new_coeffs) - state)
+        beta_ang, _unused_rate = _reconstruct(_vector_coeffs(state), psi_nodes)
+        motion, _rn, psi_nodes, _RN, _PSI = build_motion_grid(
+            rotor, cfg, scalars,
+            beta_psi=beta_ang,
+            zeta_rate_psi=zeta_rate_grid,
+        )
+        if residual_deg < tol_deg:
+            break
+
+    if not rigid and coeffs_flap is not None:
+        # Consistency pass: rebuild the FULL motion (angles AND rates)
+        # from the converged coefficients and re-solve once, so every
+        # reported field is exactly what the reported blade state
+        # produces, with the rate terms of U_P included.
+        beta_ang, beta_rate = _reconstruct(_vector_coeffs(state), psi_nodes)
+        if lag_on:
+            _za, _zr = _reconstruct(coeffs_lag or {0: (0.0, 0.0)}, psi_nodes)
+            zeta_rate_grid = _zr if lag_feeds_back else np.zeros(cfg.Npsi)
+        motion, _rn, psi_nodes, _RN, _PSI = build_motion_grid(
+            rotor, cfg, scalars,
+            beta_psi=beta_ang, beta_rate_psi=beta_rate,
+            zeta_rate_psi=zeta_rate_grid)
+        maps = solve_bemt(rotor, airfoil, cfg, mu_x, Vz,
+                          should_cancel=should_cancel, motion=motion)
+
+    maps["flap_outer_iterations"] = iterations
+    maps["flap_outer_residual_deg"] = residual_deg
+    maps["nu_beta"] = float(np.sqrt(max(nu_beta_sq, 0.0)))
+    maps["nu_beta_squared"] = float(nu_beta_sq)
+    maps["lock_number"] = float(lock_number)
+    maps["flap_inertia_kg_m2"] = float(inertia)
+    maps["hinge_offset_norm"] = float(e_norm)
+    if not rigid:
+        # Report the STATE the final field was solved with, so the
+        # summary and every map agree by construction.
+        reported = state
+        beta_dict = {0: (float(reported[0]), 0.0)}
+        for k in range(1, (reported.size + 1) // 2):
+            beta_dict[k] = (float(reported[2 * k - 1]), float(reported[2 * k]))
+        maps["beta_coeffs"] = beta_dict
+        maps["beta_0_rad"] = float(reported[0])
+        maps["beta_1c_rad"] = float(reported[1]) if reported.size > 1 else 0.0
+        maps["beta_1s_rad"] = float(reported[2]) if reported.size > 2 else 0.0
+        if lag_on:
+            maps["nu_zeta"] = float(np.sqrt(max(nu_zeta_sq, 0.0)))
+            maps["lag_coeffs"] = {int(k): tuple(v)
+                                   for k, v in (coeffs_lag or {}).items()}
     return maps
 
 
@@ -2494,7 +2992,8 @@ def _pitt_peters_geometry(rotor: Rotor, cfg: BEMTConfig):
 
 
 def _pitt_peters_forcing(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lambda_z,
-                          r_norm_nodes, psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA, nu):
+                          r_norm_nodes, psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA, nu,
+                          motion=None):
     """Given nu=(nu0,nu_s,nu_c), builds lambda_i(r,psi) DIRECTLY (without
     solving BEMT element by element . This is Pitt-Peters' central
     simplification), evaluates `element_state` (reusing reverse flow,
@@ -2502,12 +3001,16 @@ def _pitt_peters_forcing(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lambda_z,
     3 "forcings" (CT, C_s=CMy, C_c=CMx) with the same definitions as
     `aggregate_results`. Also returns lambda_i (field) and the `state`
     from `element_state`, for reuse without re-evaluating the
-    aerodynamics twice."""
+    aerodynamics twice.
+
+    ``motion`` (Section 4h, optional): forwarded into `element_state` so
+    the blade's flap/lag state reaches the forcing too."""
     nu0, nu_s, nu_c = nu
     lambda_i = nu0 + nu_c * R_NORM * np.cos(PSI) + nu_s * R_NORM * np.sin(PSI)
     state = element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
                            rotor.Nb, rotor.Omega, rotor.OmegaR, airfoil, cfg,
-                           rotor.r_root_norm_geom, rotor.r_tip_norm_geom)
+                           rotor.r_root_norm_geom, rotor.r_tip_norm_geom,
+                           motion=motion)
     Fn = state["Fn"]
 
     def disk_integral(field_2d):
@@ -2527,13 +3030,16 @@ def _pitt_peters_forcing(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lambda_z,
 
 def _solve_pitt_peters_steady(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lambda_z,
                                r_norm_nodes, psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA,
-                               nu0_guess=None):
+                               nu0_guess=None, motion=None):
     """OUTER fixed point (a few dozen iterations over just 3 scalars, not
     over the Ne x Npsi grid) for the steady state of the Pitt-Peters
     model: at equilibrium, M*dnu/dtau=0 => V*L^-1*nu=forcing(nu) =>
     nu = L*V^-1*forcing(nu). Since forcing depends on nu (via the blade
     aerodynamics) and L,V depend on nu (via nu0, in the wake angle),
-    iterates with relaxation until nu stops changing."""
+    iterates with relaxation until nu stops changing.
+
+    ``motion`` (Section 4h, optional): forwarded into every
+    `_pitt_peters_forcing` call."""
     if cfg.pitt_peters_states != 3:
         raise NotImplementedError(
             "pitt_peters_states=5 (Peters-He with second harmonic) is not "
@@ -2563,14 +3069,14 @@ def _solve_pitt_peters_steady(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lamb
         # order of magnitude.
         forcing_semente, _, _ = _pitt_peters_forcing(
             rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_nodes,
-            R_NORM, PSI, R_DIM, CHORD, THETA, nu)
+            R_NORM, PSI, R_DIM, CHORD, THETA, nu, motion=motion)
         nu[0] = float(np.sqrt(max(float(forcing_semente[0]), 0.0) / 2.0))
     forcing = lambda_i = state = None
     n_it = 0
     for n_it in range(1, cfg.pitt_peters_outer_iter + 1):
         forcing, lambda_i, state = _pitt_peters_forcing(
             rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_nodes,
-            R_NORM, PSI, R_DIM, CHORD, THETA, nu)
+            R_NORM, PSI, R_DIM, CHORD, THETA, nu, motion=motion)
         L, V = _pitt_peters_L_V(mu_x, nu[0], lambda_z)
         nu_target = L @ (forcing / np.maximum(V, 1e-6))
         delta = nu_target - nu
@@ -2580,7 +3086,7 @@ def _solve_pitt_peters_steady(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lamb
     # re-evaluates once more at the converged nu to return consistent fields
     forcing, lambda_i, state = _pitt_peters_forcing(
         rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_nodes,
-        R_NORM, PSI, R_DIM, CHORD, THETA, nu)
+        R_NORM, PSI, R_DIM, CHORD, THETA, nu, motion=motion)
 
     # --- Validity diagnostics -----------------------------------------------
     # The 3-state Pitt-Peters model is a LINEAR theory (1st-order
@@ -2750,7 +3256,7 @@ def _check_rotor_rotation(rotor: Rotor) -> None:
 
 
 def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
-                should_cancel=None):
+                should_cancel=None, motion=None):
     """Solves the inflow field lambda_i(r,psi) for a flight condition
     (mu_x, Vz) and returns a dictionary with all the per-element maps.
 
@@ -2758,7 +3264,11 @@ def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
     iteration. If it returns ``True``, the solve raises
     ``SolveCancelled`` . It does not return a partial result, which
     would pass for a valid result. Without it (default), nothing
-    changes."""
+    changes.
+
+    ``motion`` (optional): the rigid-blade flap/lag state of Section 4h
+    (SC-11), forwarded verbatim into `element_state`. ``None`` keeps the
+    rigid disk; every caller that does not pass it sees no change."""
     r_eff_root = rotor.r_root_norm_geom + cfg.integration_offset
     r_eff_tip = rotor.r_tip_norm_geom - cfg.integration_offset
     if r_eff_root >= r_eff_tip:
@@ -2795,7 +3305,8 @@ def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
     def residual_fn(lam):
         return element_state(lam, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
                               rotor.Nb, rotor.Omega, rotor.OmegaR, airfoil, cfg,
-                              rotor.r_root_norm_geom, rotor.r_tip_norm_geom)
+                              rotor.r_root_norm_geom, rotor.r_tip_norm_geom,
+                              motion=motion)
 
     t0 = time.perf_counter()
 
@@ -2848,7 +3359,7 @@ def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
         # --- Finite-state dynamic inflow (Pitt-Peters), see Section 6b ---
         nu, lam, state, n_outer = _solve_pitt_peters_steady(
             rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_nodes,
-            R_NORM, PSI, R_DIM, CHORD, THETA)
+            R_NORM, PSI, R_DIM, CHORD, THETA, motion=motion)
         converged = np.ones_like(lam, dtype=bool)
         n_iter = np.full_like(lam, n_outer, dtype=int)
         total_it = n_outer
@@ -3420,6 +3931,54 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         solver=maps["solver"], inflow_coupling=maps["inflow_coupling"],
         mean_iter=float(np.mean(maps["n_iter"])), elapsed_s=maps["elapsed"],
     )
+
+    # --- blade dynamics outputs (Section 4h, SC-11) ----------------------
+    # Present ONLY when the run actually solved a flapping/lagging blade;
+    # a rigid run reports nothing new. Sign convention (stated wherever a
+    # column of these appears): beta(psi) = beta_0 + beta_1c*cos(psi) +
+    # beta_1s*sin(psi), positive up, and each tip-path-plane tilt is the
+    # NEGATIVE of its first harmonic.
+    if maps.get("beta_coeffs"):
+        coeffs = maps["beta_coeffs"]
+        deg = np.degrees
+        out["beta_0_deg"] = float(deg(coeffs[0][0]))
+        first = coeffs.get(1, (0.0, 0.0))
+        out["beta_1c_deg"] = float(deg(first[0]))
+        out["beta_1s_deg"] = float(deg(first[1]))
+        out["tpp_tilt_long_deg"] = -out["beta_1c_deg"]
+        out["tpp_tilt_lat_deg"] = -out["beta_1s_deg"]
+        n_harm_out = max(coeffs.keys())
+        for n in range(2, n_harm_out + 1):
+            cn, sn = coeffs.get(n, (0.0, 0.0))
+            out[f"beta_{n}c_deg"] = float(deg(cn))
+            out[f"beta_{n}s_deg"] = float(deg(sn))
+        out["nu_beta"] = maps["nu_beta"]
+        out["lock_number"] = maps["lock_number"]
+        out["flap_inertia_kg_m2"] = maps["flap_inertia_kg_m2"]
+        out["flap_outer_iterations"] = maps["flap_outer_iterations"]
+        out["flap_outer_residual_deg"] = maps["flap_outer_residual_deg"]
+
+        # Hub moment carried through the offset hinge/root spring: the
+        # structural path that a hinged (or spring-restrained) blade adds
+        # to the tilting moments computed from the thrust distribution
+        # alone. The totals are what a hub would actually feel.
+        nu_sq_minus_1 = maps.get("nu_beta_squared", 1.0) - 1.0
+        i_beta = maps["flap_inertia_kg_m2"]
+        gain = (rotor.Nb / 2.0) * i_beta * Omega ** 2 * nu_sq_minus_1
+        mx_hub = gain * first[0]
+        my_hub = gain * first[1]
+        out["Mx_hub"] = float(mx_hub)
+        out["My_hub"] = float(my_hub)
+        out["Mx_total"] = float(Mx + mx_hub)
+        out["My_total"] = float(My + my_hub)
+
+        if maps.get("lag_coeffs"):
+            lag_coeffs = maps["lag_coeffs"]
+            out["zeta_0_deg"] = float(deg(lag_coeffs[0][0]))
+            lag_first = lag_coeffs.get(1, (0.0, 0.0))
+            out["zeta_1c_deg"] = float(deg(lag_first[0]))
+            out["zeta_1s_deg"] = float(deg(lag_first[1]))
+            out["nu_zeta"] = maps["nu_zeta"]
 
     if export_settings:
         # --- run's full "data sheet" -----------------------------------------
