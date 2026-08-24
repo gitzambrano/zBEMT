@@ -87,9 +87,8 @@ different rule.
   derivative-free search over parametric planform parameters (Powell or
   Nelder-Mead). The search starts deterministically from the center of the
   bounds, respects them throughout, and penalizes failed evaluations instead
-  of stopping. The GUI deliberately does not offer optimization.
-  Optimization runs as an outer loop from the CLI (`--optimize`) and the
-  library.
+  of stopping. Optimization runs as an outer loop from the CLI (`--optimize`)
+  and the library.
 - **SC-9** — XFOIL as an external polar engine. Polar generation may drive
   the `xfoil` binary, which the software looks up through a four-place
   chain: the `ZBEMT_XFOIL_BIN`
@@ -116,12 +115,27 @@ different rule.
   `geometry` block of
   `inputs/airfoil.bemt`) so a saved contour can be regenerated without its
   coordinate table.
+- **SC-11** — Rigid-blade flap and lead-lag dynamics, solved as a periodic
+  quasi-steady response. The blade carries a flap hinge offset, a root
+  spring, or both. A rigid blade with no flap freedom stays available, and
+  it stays the default.
+- **SC-12** — Transient time marching over a prescribed sequence of flight
+  conditions. The marched states are the Pitt-Peters inflow states and the
+  Øye separation state. The blade-element solution stays quasi-steady
+  inside each time step.
+- **SC-13** — Multi-objective design optimization in a dedicated window,
+  with a genetic algorithm and a Pareto front. `SC-8` stays the
+  single-objective study; `SC-13` is the multi-objective one.
+- **SC-14** — Stability and control derivatives of the rotor hub loads, by
+  finite differences about a trim point, in a dedicated window.
 
 ### 1.2 The software must not support
 
-- **SC-5** — Unsteady/time-marching aerodynamics. Pitt-Peters unsteady and any other
-  dynamic time-marching inflow model must not be implemented; zBEMT
-  solves steady/quasi-steady flight conditions only.
+- **SC-5** — Free-wake, prescribed-wake and vortex-lattice inflow, and any
+  form of computational fluid dynamics. The inflow field stays an annular
+  momentum model or a finite-state model. Blade elasticity, that is a modal
+  or a finite-element blade, also stays out of scope. The blade is rigid.
+  Its rigid-body flap and lag freedoms are in scope (`SC-11`).
 - **SC-6** — Mandatory GUI dependencies in the core engine. The solver and CLI must
   keep running on `numpy` + `scipy` + `matplotlib` + `pandas` alone; a
   batch run on a headless server must never require Qt or 3D graphics.
@@ -235,6 +249,13 @@ different rule.
 - **EN-7** — Geometry generation and custom geometry tables must be validated before the
   engine runs: monotonic radial stations, a span inside the hub and tip
   radii, and consistent lengths across the columns.
+- **EN-8** — A periodic response solved by harmonic balance must state its
+  harmonic count, and it must reject a resonant denominator instead of
+  returning a large number. See the resonant denominator ν_β² − n² of the
+  flap response (`SC-11`).
+- **EN-9** — A time-marched state must report the marched interval, the step
+  count, and whether the last revolutions reached a periodic regime. A
+  transient that did not settle must not pass as a converged result.
 
 ### 3.3 GUI / CLI / `.bemt` parity
 

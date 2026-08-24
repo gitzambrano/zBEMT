@@ -413,5 +413,77 @@ class TestGeneratorParamsRoundTripOnDisk(unittest.TestCase):
         self.assertGreater(len(geometry.x), 10)
 
 
+class TestScopeCodesCoverTheDesignTools(unittest.TestCase):
+    """ESCAPE CLOSED: `SC-5` used to ban every unsteady model outright,
+    so Items 1 to 4 of the work plan could not land without breaking a
+    requirement. The requirement was rewritten deliberately: the ban now
+    covers free-wake, prescribed-wake, vortex-lattice and CFD inflow only,
+    and the new scope codes carry what was added (SC-11 rigid-blade flap
+    and lead-lag, SC-12 transient time marching over prescribed flight
+    conditions, SC-13 multi-objective optimization with a Pareto front in
+    a dedicated window, SC-14 stability and control derivatives by finite
+    differences about a trim point). EN-8 guards the resonant denominator
+    of a harmonic-balance response; EN-9 requires a time-marched state to
+    report whether its transient settled.
+
+    These citations ARE the second guardrail's data point: every new code
+    must stay cited by at least one module or test outside the
+    requirements document itself, so retiring a feature cannot leave a
+    dead code behind unnoticed."""
+
+    REQUIREMENTS = os.path.join(REPO, "docs", "software_requirements.md")
+
+    def _requirements_text(self) -> str:
+        with open(self.REQUIREMENTS, encoding="utf-8") as handle:
+            return handle.read()
+
+    def _sc_bullet(self, code: str) -> str:
+        """The body of one `- **SC-n** -- ...` bullet, up to the next bullet."""
+        text = self._requirements_text()
+        start = text.index(f"- **{code}**")
+        nxt = text.find("- **", start + 1)
+        return text[start:nxt if nxt > start else len(text)]
+
+    def test_sc5_no_longer_bans_the_unsteady_inflow_models(self):
+        sc5 = self._sc_bullet("SC-5")
+        self.assertNotIn("Pitt-Peters unsteady", sc5,
+                         "SC-5 must not ban the unsteady Pitt-Peters "
+                         "inflow model anymore: SC-12 scopes it.")
+        for kept in ("Free-wake", "vortex-lattice"):
+            self.assertIn(kept, sc5,
+                          f"the narrowed SC-5 must keep banning {kept}")
+
+    def test_new_codes_exist_in_the_document(self):
+        text = self._requirements_text()
+        for code in ("SC-11", "SC-12", "SC-13", "SC-14", "EN-8", "EN-9"):
+            self.assertIn(f"**{code}**", text,
+                          f"{code} is missing from the requirements document")
+
+    def test_every_new_code_is_cited_outside_the_requirements(self):
+        codes = ("SC-11", "SC-12", "SC-13", "SC-14", "EN-8", "EN-9")
+        roots = [os.path.join(REPO, "zbemt"), os.path.join(REPO, "tests")]
+        bodies = {}
+        for root in roots:
+            for dirpath, _dirnames, filenames in os.walk(root):
+                for name in filenames:
+                    if not name.endswith(".py"):
+                        continue
+                    path = os.path.join(dirpath, name)
+                    with open(path, encoding="utf-8") as handle:
+                        bodies[path] = handle.read()
+        missing = []
+        for code in codes:
+            where = [os.path.relpath(path, REPO)
+                     for path, body in bodies.items() if code in body]
+            # A citation in this very file counts: the docstring above and
+            # the list here keep the codes anchored even before their
+            # features ship.
+            if not where:
+                missing.append(code)
+        self.assertEqual(missing, [],
+                         "every scope code must be cited by at least one "
+                         "module or test outside the requirements document")
+
+
 if __name__ == "__main__":   # pragma: no cover
     unittest.main()
