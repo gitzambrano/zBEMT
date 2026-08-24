@@ -1049,6 +1049,259 @@ def generate_bezier(control_points: list[list[float]], n_points: int = 200) -> P
                             n_points=n_points, x=x.tolist(), y=y.tolist())
 
 
+def _parsec_surface_coefficients(x_p: float, y_p: float, y_xx_p: float,
+                                  y_te: float, dy_te: float,
+                                  r_le: float, sign: int) -> np.ndarray:
+    """Solves the 6x6 PARSEC system of ONE surface and returns the six
+    coefficients ``a1..a6`` of the canonical half-power polynomial
+
+        ``y(x) = sum_k a_k x**(k-1/2)``   (x**0.5 ... x**5.5)
+
+    The half-integer basis is what makes the leading edge round: the pure
+    ``sqrt(x)`` term has a CONSTANT radius of curvature ``a1**2/2``, so the
+    nose radius enters exactly, as ``a1 = sign*sqrt(2*r_le)`` -- no
+    small-slope approximation involved.
+
+    The six conditions, in this order:
+
+    1. ``y(1) = y_te`` -- half the trailing-edge thickness on this
+       surface's side (``sign=+1`` upper, ``sign=-1`` lower);
+    2. ``y(x_p) = y_p`` -- crest position and height;
+    3. ``y'(1) = dy_te`` -- signed trailing-edge slope, already computed
+       by the caller from the surface side and ``beta_te``;
+    4. ``y'(x_p) = 0`` -- the crest is a local extreme;
+    5. ``y''(x_p) = y_xx_p`` -- algebraic second derivative at the crest
+       (sign convention: the plain d2y/dx2 of the surface as drawn, so a
+       typical upper crest is NEGATIVE and a typical lower crest POSITIVE;
+       the classic PARSEC literature sometimes reports only absolute
+       values with an implicit sign -- here the sign travels inside the
+       parameter itself);
+    6. ``a1 = sign*sqrt(2*r_le)`` -- leading-edge radius.
+    """
+    exponent = np.arange(1, 7) - 0.5            # 0.5, 1.5, ..., 5.5
+    row_y = lambda x: x ** exponent
+    row_dy = lambda x: exponent * x ** (exponent - 1.0)
+    row_ddy = lambda x: exponent * (exponent - 1.0) * x ** (exponent - 2.0)
+    matrix = np.vstack([
+        row_y(1.0),
+        row_y(x_p),
+        row_dy(1.0),
+        row_dy(x_p),
+        row_ddy(x_p),
+        np.eye(6)[0],                            # selects a1 directly
+    ])
+    rhs = np.array([y_te, y_p, dy_te, 0.0, y_xx_p, sign * math.sqrt(2.0 * r_le)])
+    try:
+        return np.linalg.solve(matrix, rhs)
+    except np.linalg.LinAlgError as exc:
+        raise ValueError(f"generate_parsec: singular PARSEC system ({exc}). "
+                          "Check that the crest positions are distinct and inside (0, 1).") from exc
+
+
+def generate_parsec(r_le: float = 0.0158, x_up: float = 0.30, y_up: float = 0.0593,
+                     y_xx_up: float = -0.475, x_lo: float = 0.35, y_lo: float = -0.047,
+                     y_xx_lo: float = 0.530, th_te: float = 0.0025,
+                     beta_te_deg: float = 8.0, n_points: int = 200,
+                     source: str = "parsec") -> ProfileGeometry:
+    """PARSEC parameterization (Sobieczky, 1998): each surface is the
+    canonical sixth degree half-power polynomial ``y = sum a_k x**(k-1/2)``
+    whose six coefficients solve, exactly, the six conditions that the
+    geometric parameters impose directly -- here reduced to the nine
+    geometric ones (the two remaining classical parameters, the trailing-
+    edge vertical position and direction, stay fixed at zero chord and
+    zero mean direction).
+
+    Sign conventions, stated honestly because the published literature is
+    loose about them:
+
+    - ``y_up > 0`` and ``y_lo < 0`` always: the parameters locate the
+      crest of each surface relative to the chord line, in chord units.
+    - ``y_xx_up``/``y_xx_lo`` enter as ALGEBRAIC second derivatives at
+      the crest. A typical section has ``y_xx_up < 0`` (past the crest the
+      upper surface bends back down towards the chord) and
+      ``y_xx_lo > 0``.
+    - ``r_le`` enters exactly through ``a1 = +-sqrt(2*r_le)``: on the pure
+      ``sqrt(x)`` leading term the radius of curvature equals ``a1**2/2``
+      everywhere, which pins the nose radius with no approximation.
+    - ``beta_te_deg`` is measured per surface, from the chord line to the
+      surface tangent at x=1: the upper surface closes with slope
+      ``-tan(beta_te)`` and the lower one with ``+tan(beta_te)``, so the
+      total wedge angle between the surfaces is twice it. Each surface
+      closes TOWARDS the chord.
+
+    Sampling uses cosine spacing clustered near the leading edge, like
+    every other generator of this module. The contour leaves a blunt
+    (finite-thickness) but CLOSED trailing edge when ``th_te > 0`` and a
+    sharp closed one when ``th_te == 0``. Raises ``ValueError`` on out-of-
+    range inputs or when the solved surfaces cross each other.
+    """
+    r_le = float(r_le);   x_up = float(x_up);   y_up = float(y_up)
+    y_xx_up = float(y_xx_up); x_lo = float(x_lo); y_lo = float(y_lo)
+    y_xx_lo = float(y_xx_lo); th_te = float(th_te); beta_te_deg = float(beta_te_deg)
+
+    if not all(math.isfinite(v) for v in (r_le, x_up, y_up, y_xx_up, x_lo, y_lo,
+                                           y_xx_lo, th_te, beta_te_deg)):
+        raise ValueError("generate_parsec: every parameter must be finite.")
+    if r_le <= 0:
+        raise ValueError(f"generate_parsec: leading-edge radius must be positive, got {r_le}.")
+    if not 0.0 < x_up < 1.0:
+        raise ValueError(f"generate_parsec: x_up must lie strictly inside (0, 1), got {x_up}.")
+    if not 0.0 < x_lo < 1.0:
+        raise ValueError(f"generate_parsec: x_lo must lie strictly inside (0, 1), got {x_lo}.")
+    if th_te < 0:
+        raise ValueError(f"generate_parsec: trailing-edge thickness must be >= 0, got {th_te}.")
+    if abs(beta_te_deg) >= 90.0:
+        raise ValueError(f"generate_parsec: beta_te_deg must lie strictly inside (-90, 90), "
+                          f"got {beta_te_deg}.")
+    n_points = int(n_points)
+    if n_points < 8:
+        raise ValueError("generate_parsec: n_points must be at least 8.")
+
+    beta_te_rad = math.radians(beta_te_deg)
+    coeff_up = _parsec_surface_coefficients(x_up, y_up, y_xx_up,
+                                             th_te / 2.0, -math.tan(beta_te_rad),
+                                             r_le, sign=+1)
+    coeff_lo = _parsec_surface_coefficients(x_lo, y_lo, y_xx_lo,
+                                             -th_te / 2.0, math.tan(beta_te_rad),
+                                             r_le, sign=-1)
+
+    half = n_points // 2
+    beta = np.linspace(0.0, math.pi, half)
+    x = (1.0 - np.cos(beta)) / 2.0   # cosine spacing -> denser at the leading edge
+    exponent = np.arange(1, 7) - 0.5
+    basis = x[:, None] ** exponent[None, :]
+    yu = basis @ coeff_up
+    yl = basis @ coeff_lo
+
+    # Sanity: the surfaces must stay open (each on its side of the chord)
+    # and must not cross anywhere along the chord. Both surfaces MEET at
+    # the leading edge (x=0) by construction, so the shared nose point is
+    # excluded from the check.
+    if yu.max() <= 0.0:
+        raise ValueError("generate_parsec: the upper surface never rises above the chord; "
+                          "check y_up (must be > 0).")
+    if yl.min() >= 0.0:
+        raise ValueError("generate_parsec: the lower surface never falls below the chord; "
+                          "check y_lo (must be < 0).")
+    if np.min(yu[1:] - yl[1:]) <= 0.0:
+        raise ValueError("generate_parsec: the surfaces cross somewhere along the chord; "
+                          "the parameter set does not describe a valid section.")
+
+    x_out = np.concatenate([x[::-1], x[1:]])
+    y_out = np.concatenate([yu[::-1], yl[1:]])
+    params = {"r_le": r_le, "x_up": x_up, "y_up": y_up, "y_xx_up": y_xx_up,
+              "x_lo": x_lo, "y_lo": y_lo, "y_xx_lo": y_xx_lo,
+              "th_te": th_te, "beta_te_deg": beta_te_deg}
+    return ProfileGeometry(source=source, generator_params=params,
+                            n_points=n_points, x=x_out.tolist(), y=y_out.tolist())
+
+
+def generate_joukowski(epsilon: float = 0.08, camber: float = 0.05,
+                        n_points: int = 200, source: str = "joukowski") -> ProfileGeometry:
+    """Joukowski airfoil: a circle in the auxiliary plane, mapped by the
+    conformal transformation ``z = zeta + 1/zeta``.
+
+    The circle is centered at ``mu = -epsilon + i*camber`` with the radius
+    ``R = |1 - mu|`` that makes it pass exactly through ``zeta = 1`` --
+    the image of that point is the trailing edge. ``epsilon`` controls
+    thickness and ``camber`` the mean line offset (positive camber bows
+    the mean line upwards).
+
+    Two documented characteristics of the family, stated instead of hidden:
+
+    - The trailing edge is a CUSP (zero included angle): the transformation
+      is singular exactly there, and the two surfaces meet tangentially.
+    - The maximum thickness is only APPROXIMATELY ``1.30*epsilon``: that
+      factor holds in the thin-section limit and drops slowly as epsilon
+      grows (about ``1.2*epsilon`` by ``epsilon = 0.08``). Nothing here
+      enforces an exact thickness; treat ``epsilon`` as the thickness
+      KNOB, not an exact thickness.
+
+    The contour is swept once around the circle, stopping a small angle
+    short of the singular point, whose exact image closes the contour at
+    both ends. It is then translated and rescaled so the leading edge
+    sits at x=0 and the trailing edge at x=1, with y divided by the same
+    chord (the convention of the whole module). Raises ``ValueError``
+    on non-positive epsilon or non-finite input.
+    """
+    epsilon = float(epsilon)
+    camber = float(camber)
+    if not math.isfinite(epsilon) or not math.isfinite(camber):
+        raise ValueError("generate_joukowski: epsilon and camber must be finite.")
+    if epsilon <= 0:
+        raise ValueError(f"generate_joukowski: epsilon must be positive, got {epsilon}.")
+    n_points = int(n_points)
+    if n_points < 16:
+        raise ValueError("generate_joukowski: n_points must be at least 16.")
+
+    mu = complex(-epsilon, camber)
+    radius = abs(complex(1.0, 0.0) - mu)
+    # Sweep stops a small angle short of theta=0 (the singular point
+    # zeta=1) on both sides, and the EXACT cusp image closes the contour
+    # at each end: mapping zeta=1 gives z=2 identically.
+    delta_theta = math.pi / n_points
+    theta = np.linspace(delta_theta, 2.0 * math.pi - delta_theta, n_points)
+    zeta = mu + radius * np.exp(1j * theta)
+    z = zeta + 1.0 / zeta
+    cusp = complex(2.0, 0.0)
+    z = np.concatenate([[cusp], z, [cusp]])
+
+    z = np.asarray(z)
+    # Normalization: translate and rescale so the leading edge sits at
+    # x=0 and the trailing-edge cusp at x=1, y divided by the same chord
+    # (the convention of the whole module; preserves t/c). Deliberately NO
+    # rotation: in the mapped plane the leading edge lies LEFT of the
+    # cusp, and rotating the chord onto the axis turns out to be a
+    # half-turn that mirrors the section upside down -- with positive
+    # camber coming out negative. Pure translation + scale keeps the
+    # orientation the transformation produced.
+    chord = float(z.real.max() - z.real.min())
+    if chord <= 1e-12:
+        raise ValueError("generate_joukowski: degenerate circle (zero chord).")
+    x = (z.real - z.real.min()) / chord
+    y = z.imag / chord
+
+    return ProfileGeometry(source=source,
+                            generator_params={"epsilon": epsilon, "camber": camber},
+                            n_points=n_points, x=x.tolist(), y=y.tolist())
+
+
+def generate_biconvex(thickness: float = 0.06, n_points: int = 200,
+                       source: str = "biconvex") -> ProfileGeometry:
+    """Parabolic biconvex section: two symmetric parabolic arcs
+    ``y = +-2*t*x*(1-x)``, so the total thickness grows linearly from
+    either edge, reaches exactly ``t`` at mid-chord, and closes in sharp
+    leading and trailing edges. The classic thin-supersonic section
+    (in the linear-wedge limit the shape family is the double wedge; the
+    parabolic variant smooths the crest ridge).
+
+    ``thickness`` is the maximum TOTAL thickness in chord units, reached
+    at x=0.5. ``thickness == 0`` is accepted deliberately: both surfaces
+    collapse onto the chord and the result is a slit -- useful as the
+    thinnest possible reference blade section. Negative values raise
+    ``ValueError``, as do non-finite inputs.
+    """
+    thickness = float(thickness)
+    if not math.isfinite(thickness):
+        raise ValueError("generate_biconvex: thickness must be finite.")
+    if thickness < 0:
+        raise ValueError(f"generate_biconvex: thickness must be >= 0, got {thickness}.")
+    n_points = int(n_points)
+    if n_points < 8:
+        raise ValueError("generate_biconvex: n_points must be at least 8.")
+
+    half = n_points // 2
+    beta = np.linspace(0.0, math.pi, half)
+    x = (1.0 - np.cos(beta)) / 2.0   # cosine spacing -> denser at the leading edge
+    yu = 2.0 * thickness * x * (1.0 - x)
+    yl = -yu
+
+    x_out = np.concatenate([x[::-1], x[1:]])
+    y_out = np.concatenate([yu[::-1], yl[1:]])
+    return ProfileGeometry(source=source, generator_params={"thickness": thickness},
+                            n_points=n_points, x=x_out.tolist(), y=y_out.tolist())
+
+
 #: Outside this range, an "x" is not a chord-normalized contour
 #: coordinate. The limit is deliberately generous (a legitimate contour
 #: lives in 0..1. The slack covers rounding and some extended trailing
@@ -1112,12 +1365,13 @@ def load_profile_dat(path: str) -> ProfileGeometry:
 # =============================================================================
 # c) Automatic generation from a simple specification (Phase 7: NeuralFoil)
 # =============================================================================
-# Catalog of TYPICAL blade section airfoils: all are NACA4/5 (the
-# only family with closed-form geometry implemented here), chosen for
-# documented use in rotor and propeller blades, with a short nickname so the
-# user does not have to memorize the 4-digit or 5-digit code. Any arbitrary NACA4/5
-# code (outside this catalog) also works directly. See
-# `resolve_geometry_spec`.
+# Catalog of TYPICAL blade section airfoils, chosen for documented use in
+# rotor and propeller blades, with a short nickname so the user does not
+# have to memorize the code. The NACA4/5 entries carry a raw `code`; the
+# analytic families (parsec/joukowski/biconvex) carry their generator
+# keywords in `params`. Any arbitrary NACA4/5 code (outside this catalog)
+# also works directly, and every family is reachable through the prefixed
+# grammar of `resolve_geometry_spec`.
 AIRFOIL_PRESETS: dict[str, dict] = {
     "naca0009": {"family": "naca4", "code": "0009",
                  "note": "Thin symmetric. High-speed blade and propeller tip."},
@@ -1132,12 +1386,34 @@ AIRFOIL_PRESETS: dict[str, dict] = {
                   "note": "Cambered. Used in tail-rotor blades and propeller applications."},
     "naca4412": {"family": "naca4", "code": "4412",
                  "note": "Classic cambered section. Educational reference, also used in propellers."},
+    # The analytic families below are first-class citizens of the same
+    # catalog: their entries carry the generator's keyword parameters
+    # (`params`) instead of a NACA `code`, and `generate_preset` dispatches
+    # on `family`. The same parameters are reachable through the prefixed
+    # grammar of `resolve_geometry_spec`.
+    "parsec_default": {"family": "parsec",
+                       "params": {"r_le": 0.0158, "x_up": 0.30, "y_up": 0.0593,
+                                   "y_xx_up": -0.475, "x_lo": 0.35, "y_lo": -0.047,
+                                   "y_xx_lo": 0.530, "th_te": 0.0025, "beta_te_deg": 8.0},
+                       "note": "PARSEC example section. Crest positions, curvatures and "
+                               "leading-edge radius set directly."},
+    "joukowski_t8c5": {"family": "joukowski",
+                        "params": {"epsilon": 0.08, "camber": 0.05},
+                        "note": "Joukowski section, about 10% thick with camber. "
+                                "Cusped trailing edge by construction."},
+    "biconvex_t6": {"family": "biconvex",
+                     "params": {"thickness": 0.06},
+                     "note": "Parabolic biconvex, 6% thick at mid-chord. Sharp edges; "
+                             "classic supersonic/thin-section reference."},
 }
 
 
 def generate_preset(name: str, n_points: int = 200) -> ProfileGeometry:
     """Generates the geometry of an airfoil from the `AIRFOIL_PRESETS`
-    catalog by its nickname (for example ``'naca0012'``)."""
+    catalog by its nickname (for example ``'naca0012'``). Dispatches on
+    the entry's ``family`` key: NACA families carry a ``code``, the
+    analytic families (``parsec``/``joukowski``/``biconvex``) carry their
+    generator keywords in ``params``."""
     key = name.strip().lower()
     if key not in AIRFOIL_PRESETS:
         raise ValueError(
@@ -1145,27 +1421,164 @@ def generate_preset(name: str, n_points: int = 200) -> ProfileGeometry:
             f"Available presets: {', '.join(sorted(AIRFOIL_PRESETS))}."
         )
     entry = AIRFOIL_PRESETS[key]
-    if entry["family"] == "naca4":
+    family = entry["family"]
+    if family == "naca4":
         return generate_naca4(entry["code"], n_points=n_points)
-    return generate_naca5(entry["code"], n_points=n_points)
+    if family == "naca5":
+        return generate_naca5(entry["code"], n_points=n_points)
+    if family == "parsec":
+        return generate_parsec(n_points=n_points, **entry["params"])
+    if family == "joukowski":
+        return generate_joukowski(n_points=n_points, **entry["params"])
+    if family == "biconvex":
+        return generate_biconvex(n_points=n_points, **entry["params"])
+    raise ValueError(f"generate_preset: unknown family {family!r} in preset {key!r}.")
+
+
+#: Prefixes accepted by `resolve_geometry_spec`. The prefix is matched
+#: case-insensitively; the payload keeps its case (a `dat:` path may be
+#: case-sensitive).
+_SPEC_PREFIXES = ("cst", "bezier", "parsec", "joukowski", "biconvex", "dat")
 
 
 def resolve_geometry_spec(spec: str, n_points: int = 200) -> ProfileGeometry:
     """Single entry point for "generate geometry from a simple string".
-    It is used by the GUI (preset combo box in block 'e') and by the CLI
-    (``--airfoil-geometry``, Phase 7). Accepts, in order:
+    It is used by the CLI (``--airfoil-geometry``, Phase 7); on screen
+    each family is a Source option of the Airfoil tab instead. Accepted
+    grammars, tried in this order:
 
     1. A nickname from the `AIRFOIL_PRESETS` catalog (for example
-       ``'naca0012'``, a typical blade and rotor airfoil).
-    2. A raw NACA4 code (for example ``'naca2412'`` or just ``'2412'``).
-    3. A raw NACA5 code (for example ``'naca23012'`` or just ``'23012'``).
+       ``'naca0012'``, ``'parsec_default'``, ``'joukowski_t8c5'`` or
+       ``'biconvex_t6'``).
+    2. Prefixed analytic grammars (prefix case-insensitive, payload after
+       the first colon):
 
-    Raises ``ValueError`` with the list of available presets if nothing
+       - ``cst:a_u1,a_u2|a_l1,a_l2`` -- CST coefficients, upper group,
+          then ``|``, then lower group (comma-separated float lists, at
+          least two coefficients each; the two sides may carry different
+          counts -- the Bernstein degrees of the surfaces are independent).
+          PREFERRED form: the separator says where the split falls;
+        - ``cst:a1,a2,...`` -- compact alternative: one comma-separated
+          list with an EVEN count of coefficients (4 or more), first half
+          upper, second half lower. Accepted for brevity; ambiguous when
+          the middle is hard to see -- prefer the ``|`` form above;
+       - ``bezier:x1,y1;x2,y2;...`` -- control points as x,y pairs
+         separated by semicolons (at least two pairs; the generator
+         itself requires three or more to close a contour);
+       - ``parsec:r_le,x_up,y_up,y_xx_up,x_lo,y_lo,y_xx_lo,th_te,beta_te_deg``
+         -- exactly nine floats in this order, with the trailing-edge
+         angle LAST and in degrees;
+       - ``joukowski:epsilon,camber`` -- two floats;
+       - ``biconvex:thickness`` -- one float, ``0`` allowed (slit);
+       - ``dat:<path-to-file>`` -- reads the contour from a coordinate
+         file via `load_profile_dat`.
+
+    3. A raw NACA4 code (for example ``'naca2412'`` or just ``'2412'``).
+    4. A raw NACA5 code (for example ``'naca23012'`` or just ``'23012'``).
+
+    Raises ``ValueError`` listing every accepted grammar if nothing
     matches, making explicit what IS supported without needing to read
     the code."""
-    key = spec.strip().lower()
+    text = str(spec).strip()
+    key = text.lower()
     if key in AIRFOIL_PRESETS:
         return generate_preset(key, n_points=n_points)
+
+    prefix, payload = None, None
+    for candidate in _SPEC_PREFIXES:
+        marker = candidate + ":"
+        if key.startswith(marker):
+            # Payload from the ORIGINAL text: a dat: path is case-sensitive.
+            prefix, payload = candidate, text[len(marker):].strip()
+            break
+
+    def _floats(count: int, grammar: str) -> list[float]:
+        parts = [p for p in (s.strip() for s in payload.split(","))]
+        try:
+            values = [float(p) for p in parts]
+        except ValueError:
+            raise ValueError(
+                f"Invalid '{prefix}:' specification {spec!r}: expected {count} "
+                f"comma-separated numbers ({grammar}).") from None
+        if len(values) != count:
+            raise ValueError(
+                f"Invalid '{prefix}:' specification {spec!r}: expected {count} "
+                f"comma-separated numbers, got {len(values)} ({grammar}).")
+        return values
+
+    def _cst_csv(group: str) -> list[float]:
+        try:
+            return [float(p) for p in
+                    (s.strip() for s in group.split(",")) if p != ""]
+        except ValueError:
+            raise ValueError(
+                f"Invalid 'cst:' specification {spec!r}: expected comma-separated "
+                f"numbers, got {group!r} (cst:a_u1,a_u2|a_l1,a_l2).") from None
+
+    if prefix == "cst":
+        # Preferred form: one '|' separating the upper group from the lower
+        # group -- unambiguous, unlike counting commas to find the middle.
+        if "|" in payload:
+            upper_txt, _, lower_txt = payload.partition("|")
+            if "|" in lower_txt:
+                raise ValueError(
+                    f"Invalid 'cst:' specification {spec!r}: only one '|' is "
+                    "allowed, between the upper and the lower groups "
+                    "(cst:a_u1,a_u2|a_l1,a_l2).")
+            upper = _cst_csv(upper_txt)
+            lower = _cst_csv(lower_txt)
+            if len(upper) < 2 or len(lower) < 2:
+                raise ValueError(
+                    f"Invalid 'cst:' specification {spec!r}: each group needs at "
+                    f"least two coefficients, got {len(upper)} upper and "
+                    f"{len(lower)} lower (cst:a_u1,a_u2|a_l1,a_l2).")
+            return generate_cst(upper, lower, n_points=n_points)
+        # Compact alternative: one comma list, even count, split in the
+        # middle (first half upper, second half lower).
+        values = _cst_csv(payload)
+        if len(values) < 4 or len(values) % 2 != 0:
+            raise ValueError(
+                f"Invalid 'cst:' specification {spec!r}: needs an EVEN number of "
+                "coefficients, 4 or more (half upper, half lower), got "
+                f"{len(values)}. Or separate the groups with '|': "
+                "cst:a_u1,a_u2|a_l1,a_l2.")
+        half = len(values) // 2
+        return generate_cst(values[:half], values[half:], n_points=n_points)
+
+    if prefix == "bezier":
+        pairs = [p.strip() for p in payload.split(";") if p.strip()]
+        points: list[list[float]] = []
+        try:
+            for pair in pairs:
+                xs, ys = pair.split(",")
+                points.append([float(xs.strip()), float(ys.strip())])
+        except ValueError:
+            raise ValueError(
+                f"Invalid 'bezier:' specification {spec!r}: expected x,y pairs "
+                "separated by semicolons (bezier:x1,y1;x2,y2;...).") from None
+        if len(points) < 2:
+            raise ValueError(
+                f"Invalid 'bezier:' specification {spec!r}: needs at least 2 "
+                "control points (bezier:x1,y1;x2,y2;...).")
+        return generate_bezier(points, n_points=n_points)
+
+    if prefix == "parsec":
+        names = ("r_le", "x_up", "y_up", "y_xx_up", "x_lo", "y_lo",
+                 "y_xx_lo", "th_te", "beta_te_deg")
+        values = _floats(len(names), "parsec:r_le,x_up,y_up,y_xx_up,x_lo,"
+                                      "y_lo,y_xx_lo,th_te,beta_te_deg")
+        return generate_parsec(n_points=n_points, **dict(zip(names, values)))
+
+    if prefix == "joukowski":
+        epsilon, camber_v = _floats(2, "joukowski:epsilon,camber")
+        return generate_joukowski(epsilon=epsilon, camber=camber_v, n_points=n_points)
+
+    if prefix == "biconvex":
+        thickness_v = _floats(1, "biconvex:thickness")[0]
+        return generate_biconvex(thickness=thickness_v, n_points=n_points)
+
+    if prefix == "dat":
+        return load_profile_dat(payload)
 
     code = key[4:] if key.startswith("naca") else key
     if code.isdigit() and len(code) == 4:
@@ -1174,10 +1587,16 @@ def resolve_geometry_spec(spec: str, n_points: int = 200) -> ProfileGeometry:
         return generate_naca5(code, n_points=n_points)
 
     raise ValueError(
-        f"Unrecognized geometry specification: {spec!r}. Use a NACA4 code "
-        f"(4 digits, for example 'naca2412'), NACA5 (5 digits, for example "
-        f"'naca23012'), or a typical rotor-blade preset: "
-        f"{', '.join(sorted(AIRFOIL_PRESETS))}."
+        f"Unrecognized geometry specification: {spec!r}. Accepted grammars: "
+        "a preset nickname; cst:a_u1,a_u2|a_l1,a_l2 (upper coefficients, '|', "
+        "lower coefficients, at least two each) or cst:<coefficients "
+        "comma separated> (even count of 4 or more, split half upper/half "
+        "lower); bezier:x1,y1;x2,y2;...; "
+        "parsec:r_le,x_up,y_up,y_xx_up,x_lo,y_lo,y_xx_lo,th_te,beta_te_deg "
+        "(nine floats, angle last in degrees); joukowski:epsilon,camber; "
+        "biconvex:thickness; dat:<path-to-file>; a NACA4 code (for example "
+        "'naca2412'); or a NACA5 code (for example 'naca23012'). "
+        f"Available presets: {', '.join(sorted(AIRFOIL_PRESETS))}."
     )
 
 

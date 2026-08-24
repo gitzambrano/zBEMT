@@ -23,6 +23,7 @@ import numpy as np
 from .models import (
     Project, RotorGeometryDef, AirfoilDef, FlightCondition, BatchDefinition,
     Results, PolarSlice, ProfileGeometry,
+    OptimizationDefinition, OptimizationOutcome, DesignVariable,
     save_bemt, load_bemt, save_bemt_list, load_bemt_list, default_project_paths,
 )
 from . import geometry
@@ -49,6 +50,7 @@ def new_project(path: str, name: Optional[str] = None) -> Project:
         airfoil_sections=[],
         batches=[],
         saved_cases=[],
+        optimizations=[],
     )
     save_project(project)
     return project
@@ -137,9 +139,15 @@ def open_project(path: str) -> Project:
     saved_cases = (load_bemt_list(FlightCondition, paths["saved_cases"],
                                   is_propeller)
                    if paths["saved_cases"].exists() else [])
+    # Design tools: named optimization studies (no axis quantities, so no
+    # mode rotation, same as batches' sweep_params).
+    optimizations = (load_bemt_list(OptimizationDefinition,
+                                    paths["optimizations"])
+                     if paths["optimizations"].exists() else [])
     return Project(name=name, path=str(path), config=config,
                     geometry=geom, airfoil=airfoil_def, airfoil_sections=airfoil_sections,
-                    batches=batches, saved_cases=saved_cases)
+                    batches=batches, saved_cases=saved_cases,
+                    optimizations=optimizations)
 
 
 def save_project(project: Project) -> None:
@@ -155,6 +163,10 @@ def save_project(project: Project) -> None:
     # Only these two carry flight conditions, and therefore axis letters.
     save_bemt_list(project.batches, paths["batches"], is_propeller)
     save_bemt_list(project.saved_cases, paths["saved_cases"], is_propeller)
+    # Design tools: named optimization studies (their embedded condition
+    # carries axis letters, so the same mode rotation applies).
+    save_bemt_list(project.optimizations, paths["optimizations"],
+                   is_propeller)
     # Migration cleanup: only after the (possibly migrated, see
     # `load_project`) batches are safely persisted into `batches.bemt` is
     # the old singular `batch.bemt` certainly redundant. Remove it so it
@@ -185,7 +197,7 @@ def get_saved_case(project: Project, name: str) -> FlightCondition:
         if c.name == name:
             return c
     raise KeyError(f"case '{name}' not found in project.saved_cases "
-                    f"(available: {[c.name for c in project.saved_cases]})")
+                   f"(available: {[c.name for c in project.saved_cases]})")
 
 
 def list_projects(projects_root: str = "projects") -> list[str]:
@@ -295,6 +307,59 @@ def benchmark_solvers(project: Project, condition: FlightCondition,
 
 
 # =============================================================================
+# Design tools: geometry comparison and design optimization
+# =============================================================================
+
+def variant_geometry(base_geometry: RotorGeometryDef,
+                     overrides: dict) -> RotorGeometryDef:
+    """Build one geometry variant from named parameter overrides."""
+    return studies.variant_geometry(base_geometry, overrides)
+
+
+def compare_geometries(project: Project, variants: dict,
+                       conditions: Optional[Sequence[FlightCondition]] = None, *,
+                       trim: str = "none",
+                       on_case_done=None,
+                       should_cancel: Optional[Callable[[], bool]] = None
+                       ) -> list[Results]:
+    """Run the same conditions over several geometry variants (AR-2:
+    results stay in memory). Each summary carries ``geometry_label``.
+    ``trim`` ("none"/"thrust"/"CT") holds thrust or CT constant across
+    variants by bisecting one control per case; see
+    ``studies.compare_geometries``."""
+    return studies.compare_geometries(project, variants, conditions,
+                                      trim=trim,
+                                      on_case_done=on_case_done,
+                                      should_cancel=should_cancel)
+
+
+def optimize_design(project: Project, definition: OptimizationDefinition,
+                    *, on_progress=None,
+                    should_cancel: Optional[Callable[[], bool]] = None
+                    ) -> OptimizationOutcome:
+    """Run one persisted design optimization (see ``studies.optimize_design``)."""
+    return studies.optimize_design(project, definition,
+                                   on_progress=on_progress,
+                                   should_cancel=should_cancel)
+
+
+def get_optimization(project: Project, name: Optional[str] = None
+                     ) -> OptimizationDefinition:
+    """Named lookup over ``project.optimizations`` (first when name omitted)."""
+    if name is None:
+        if not project.optimizations:
+            raise KeyError(
+                "this project defines no optimization studies; add one to "
+                "inputs/optimizations.bemt")
+        return project.optimizations[0]
+    for o in project.optimizations:
+        if o.name == name:
+            return o
+    raise KeyError(f"optimization '{name}' not found in project.optimizations "
+                   f"(available: {[o.name for o in project.optimizations]})")
+
+
+# =============================================================================
 # rotor<->propeller convention conversions (GUI v3 plan, Sections 6 and 9,
 # items 8-9), extracted from the same formulas already used internally
 # by bemt.resolve_advance_velocity, just exposed as public, stateless
@@ -356,13 +421,23 @@ def alpha_deg_from_vv(Vz: float, mu_x: float, rpm: float, radius_m: float) -> fl
 # External polar generation via NeuralFoil (Phase 7, see external_solvers.py)
 # =============================================================================
 
-def run_external_polar(airfoil_def: AirfoilDef) -> list[PolarSlice]:
-    """Runs the external engine configured in ``airfoil_def`` (today only
-    ``"neuralfoil"`` is supported) over the geometry already defined in
-    ``airfoil_def.geometry``, using the Reynolds/Mach/alpha sweep also
-    already configured in ``airfoil_def.external_*``."""
+def run_external_polar(airfoil_def: AirfoilDef,
+                       diagnostics: Optional[list] = None) -> list[PolarSlice]:
+    """Runs the external engine configured in ``airfoil_def`` over the
+    geometry already defined in ``airfoil_def.geometry``, using the
+    Reynolds/Mach/alpha sweep also already configured in
+    ``airfoil_def.external_*``. When the engine is ``"xfoil"``, the
+    XFOIL-dedicated adjustment inputs ``airfoil_def.xfoil_ncrit``/
+    ``xfoil_xtr_top``/``xfoil_xtr_bot`` go through as well; other engines
+    ignore them. ``diagnostics`` (optional list) collects one line per
+    partial result so the caller can surface them."""
     if airfoil_def.geometry is None:
         raise ValueError("AirfoilDef.geometry not defined — generate or import a profile geometry first.")
+    extra = {}
+    if airfoil_def.external_engine == "xfoil":
+        extra = {"ncrit": airfoil_def.xfoil_ncrit,
+                 "xtr_top": airfoil_def.xfoil_xtr_top,
+                 "xtr_bot": airfoil_def.xfoil_xtr_bot}
     return external_solvers.run_polar(
         engine=airfoil_def.external_engine,
         geometry=airfoil_def.geometry,
@@ -371,22 +446,36 @@ def run_external_polar(airfoil_def: AirfoilDef) -> list[PolarSlice]:
         alpha_min_deg=airfoil_def.external_alpha_min_deg,
         alpha_max_deg=airfoil_def.external_alpha_max_deg,
         alpha_step_deg=airfoil_def.external_alpha_step_deg,
+        diagnostics=diagnostics,
+        **extra,
     )
 
 
 def run_external_polar_from_geometry(geometry: ProfileGeometry, *, engine: str = "neuralfoil",
                                       reynolds_list: Sequence[float], mach_list: Sequence[float],
                                       alpha_min_deg: float, alpha_max_deg: float,
-                                      alpha_step_deg: float) -> list[PolarSlice]:
+                                      alpha_step_deg: float,
+                                      ncrit: float = 9.0, xtr_top: float = 1.0,
+                                      xtr_bot: float = 1.0,
+                                      diagnostics: Optional[list] = None) -> list[PolarSlice]:
     """'Direct' variant of ``run_external_polar`` that does not require
-    an open ``AirfoilDef`` or project. Used by the CLI (``--gen-neuralfoil``,
-    Phase 7) to generate a table from just a geometry resolved by
-    ``airfoils.resolve_geometry_spec``."""
+    an open ``AirfoilDef`` or project. Used by the CLI (``--gen-neuralfoil``
+    and ``--gen-xfoil``, Phase 7) and by the GUI's polar worker to generate
+    a table from just a geometry resolved by ``airfoils.resolve_geometry_spec``.
+
+    ``ncrit``/``xtr_top``/``xtr_bot`` are the XFOIL-dedicated adjustment
+    inputs and reach ``external_solvers.run_polar`` only when ``engine``
+    is ``"xfoil"``; other engines ignore them. ``diagnostics`` (optional
+    list) collects one line per partial result."""
+    extra = {}
+    if engine == "xfoil":
+        extra = {"ncrit": ncrit, "xtr_top": xtr_top, "xtr_bot": xtr_bot}
     return external_solvers.run_polar(
         engine=engine, geometry=geometry,
         reynolds_list=list(reynolds_list), mach_list=list(mach_list),
         alpha_min_deg=alpha_min_deg, alpha_max_deg=alpha_max_deg,
-        alpha_step_deg=alpha_step_deg,
+        alpha_step_deg=alpha_step_deg, diagnostics=diagnostics,
+        **extra,
     )
 
 
@@ -2428,5 +2517,156 @@ def generate_report(results, path: str, *, project: Optional[Project] = None,
     parts.append(f"<script>{_REPORT_JS}</script>")
     parts.append("</body></html>")
     dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("\n".join(parts), encoding="utf-8")
+    return dest
+
+
+# =============================================================================
+# Design tools: comparison and optimization reports (RP-1/RP-5 pattern)
+# =============================================================================
+
+def export_comparison_csv(results_list: list, path: str) -> Path:
+    """One CSV row per (geometry variant, condition); the
+    ``geometry_label`` column rides in each summary. ``path`` is the
+    exact file path to write."""
+    target = Path(path)
+    # export_results_tabular takes an OUTDIR plus a file name WITHOUT the
+    # extension (it appends .csv itself).
+    written = export_results_tabular(results_list, str(target.parent),
+                                     filename=target.stem)
+    return Path(written)
+
+
+def generate_comparison_report(results_list, path, *,
+                               project: Optional[Project] = None,
+                               title: str = "Geometry Comparison",
+                               notes: Optional[str] = None,
+                               fields: Optional[list] = None) -> Path:
+    """Self-contained HTML comparing geometry variants (PR-5): summary
+    table plus the overlay figure embedded as base64. No network access,
+    no external files."""
+    from .viz import plots as plots_module
+    import time
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        fig_path = Path(tmp) / "geometry_comparison.png"
+        plots_module.plot_geometry_comparison(results_list, fields=fields,
+                                              fname=str(fig_path))
+        figures = [_embedded_figure(str(fig_path))]
+    parts = [
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+        f"<title>{title}</title><style>{_REPORT_CSS}</style></head><body>",
+        f"<h1>{title}</h1>",
+        f'<p class="sub">Generated on {time.strftime("%Y-%m-%d %H:%M")}</p>',
+        "<h2>What was run</h2>", _report_metadata(project, results_list),
+    ]
+    if notes:
+        parts += ["<h2>Notes</h2>", f'<div class="note">{notes}</div>']
+    parts += ["<h2>Summary</h2>",
+              _summary_table(results_list, propeller_mode(results_list, project)),
+              "<h2>Comparison across geometries</h2>"] + figures
+    parts += [f"<script>{_REPORT_JS}</script>", "</body></html>"]
+    dest.write_text("\n".join(parts), encoding="utf-8")
+    return dest
+
+
+def generate_optimization_report(outcome, path, *,
+                                 project: Optional[Project] = None,
+                                 definition: Optional[OptimizationDefinition] = None,
+                                 notes: Optional[str] = None) -> Path:
+    """Self-contained HTML for one design optimization: convergence,
+    best parameters and the best case's own summary. A history CSV lands
+    next to the HTML so the raw evaluations stay inspectable."""
+    from .viz import plots as plots_module
+    import csv as _csv
+    import time
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    title = f"Design Optimization - {definition.name}" if definition \
+        else "Design Optimization"
+    params_rows = "".join(
+        f"<tr><td><code>{k}</code></td><td>{v}</td></tr>"
+        for k, v in outcome.best_params.items())
+    objective_line = (
+        f"<p class=\"sub\">Objective: <b>{outcome.objective_kind} "
+        f"<code>{outcome.objective_key}</code></b>, best value "
+        f"<b>{outcome.best_value:.6g}</b> over {outcome.n_evals} "
+        f"evaluations. {outcome.message}</p>")
+    body = [
+        "<h2>Best parameters</h2>",
+        '<table class="params"><thead><tr><th>Parameter</th>'
+        "<th>Value</th></tr></thead><tbody>"
+        + (params_rows or '<tr><td colspan="2">none</td></tr>')
+        + "</tbody></table>",
+        objective_line,
+        "<h2>Convergence</h2>",
+    ]
+    if outcome.history:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            conv_path = Path(tmp) / "convergence.png"
+            plots_module.plot_optimization_convergence(
+                outcome.history, outcome.objective_key, fname=str(conv_path))
+            body.append(_embedded_figure(str(conv_path)))
+            if project is not None and outcome.best_params:
+                try:
+                    variant = studies.variant_geometry(project.geometry,
+                                                       outcome.best_params)
+                    geom_png = Path(tmp) / "best_planform.png"
+                    plots_module.plot_chord_twist_distribution(
+                        variant, fname=str(geom_png))
+                    body += ["<h2>Best planform</h2>",
+                             _embedded_figure(str(geom_png))]
+                except Exception:
+                    pass
+    else:
+        body.append('<p class="note">No finite evaluation was recorded.</p>')
+    if definition is not None:
+        variables_rows = "".join(
+            f'<tr><td><code>{v.param}</code></td><td>{v.lower}</td>'
+            f"<td>{v.upper}</td></tr>" for v in definition.variables)
+        body += ["<h2>Search definition</h2>",
+                 f'<p class="sub">method={definition.method}, '
+                 f"max_evals={definition.max_evals}</p>",
+                 '<table class="params"><thead><tr><th>Variable</th>'
+                 "<th>Lower</th><th>Upper</th></tr></thead><tbody>"
+                 + (variables_rows or '<tr><td colspan="3">none</td></tr>')
+                 + "</tbody></table>"]
+    if notes:
+        body += ["<h2>Notes</h2>", f'<div class="note">{notes}</div>']
+
+    history_path = dest.with_name(f"{dest.stem}_history.csv")
+    keys: list[str] = []
+    for row in outcome.history:
+        for k in row:
+            if k not in keys:
+                keys.append(k)
+    with history_path.open("w", newline="", encoding="utf-8") as fh:
+        writer = _csv.DictWriter(fh, fieldnames=["eval", *keys[1:]]
+                                 if "eval" in keys else keys)
+        writer.writeheader()
+        writer.writerows(outcome.history)
+
+    best_summary = ([outcome.best_results] if outcome.best_results else [])
+    parts = [
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+        f"<title>{title}</title><style>{_REPORT_CSS}</style></head><body>",
+        f"<h1>{title}</h1>",
+        f'<p class="sub">Generated on {time.strftime("%Y-%m-%d %H:%M")} | '
+        f'history: <a href="{history_path.name}">'
+        f"{history_path.name}</a></p>",
+        "<h2>What was run</h2>",
+        _report_metadata(project, best_summary),
+        *body,
+    ]
+    if outcome.best_results is not None:
+        parts += ["<h2>Summary of the best case</h2>",
+                  _summary_table([outcome.best_results],
+                                 propeller_mode([outcome.best_results],
+                                                project))]
+    parts += [f"<script>{_REPORT_JS}</script>", "</body></html>"]
     dest.write_text("\n".join(parts), encoding="utf-8")
     return dest

@@ -67,6 +67,14 @@ def in_paragraphs(text: str) -> str:
 # user's request after seeing the popup at its real width for the first
 # time.
 _WIDTH = 504
+# Upper bounds for the popup's width, applied wherever the size is
+# decided (`_position`, the only path): the smaller of 92% of the
+# current monitor's available width and this hard readability cap.
+# Without them the natural width follows the content, and long
+# unbreakable tokens (grammar strings like "cst:a1,a2,...", equations)
+# can push the popup past the screen edge.
+_MAX_PIXEL_WIDTH = 760
+_MAX_WIDTH_FRACTION = 0.92
 # Minimum margin from the screen edge
 _SCREEN_MARGIN = 12
 #: Gap between the body's last line and the footer separator, in px.
@@ -218,6 +226,10 @@ class HelpPopup(QFrame):
             " border-radius: 6px; }"
         )
         self._close_filter: _CloseFilter | None = None
+        # Equation labels of the CURRENT body, kept so `_position` can
+        # shrink any rendered equation wider than the viewport (a QLabel
+        # with a pixmap cannot wrap -- see `_fit_equations`).
+        self._eq_labels: list[QLabel] = []
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(12, 10, 12, 10)
@@ -344,7 +356,9 @@ class HelpPopup(QFrame):
         for paragraph in data.get("body", []):
             self._add_line(paragraph)
 
-        self.setFixedWidth(max(_WIDTH, 500))
+        # The width is decided in ONE place, `_position` (it needs the
+        # screen to apply the 92%/760 px cap). This path used to widen
+        # the popup here first, outside any clamp.
         self._position(near)
         self._install_filter()
         self.show()
@@ -380,6 +394,7 @@ class HelpPopup(QFrame):
 
     def _clear_body(self) -> None:
         """Empties the body NOW, not on the next event cycle."""
+        self._eq_labels = []
         while self._body_layout.count():
             item = self._body_layout.takeAt(0)
             w = item.widget() if item else None
@@ -423,6 +438,7 @@ class HelpPopup(QFrame):
         row.setSpacing(6)
         row.setAlignment(Qt.AlignmentFlag.AlignTop)
         lbl_r = QLabel(f"<b>{label}:</b>")
+        lbl_r.setWordWrap(True)
         lbl_r.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         lbl_r.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         from .. import api
@@ -444,13 +460,52 @@ class HelpPopup(QFrame):
         if pixmap is not None:
             lbl.setPixmap(pixmap)
             lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            # A pixmap cannot wrap; the label is registered so
+            # `_fit_equations` can shrink it inside the viewport.
+            self._eq_labels.append(lbl)
         else:
             lbl.setText(f"<code>{eq}</code>")
-            lbl.setWordWrap(True)
             lbl.setTextFormat(Qt.TextFormat.RichText)
+        # WordWrap on a pixmap-only QLabel changes nothing visually, but
+        # it keeps ONE invariant for every body label: text never widens
+        # its row -- it wraps (house rule: no clipped or overflowing text).
+        lbl.setWordWrap(True)
         lbl.setStyleSheet("background: transparent; padding: 1px 0px; margin: 1px 0px;")
         lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._body_layout.addWidget(lbl)
+
+    def _fit_equations(self, avail_w: int) -> None:
+        """Shrinks any rendered equation wider than `avail_w` to fit.
+
+        A QLabel showing a pixmap cannot wrap: without this, an equation
+        wider than the viewport loses its right side silently (three
+        analytic families packed into one mathtext image measured 533 px
+        against a 480 px viewport). The device pixel ratio is restored
+        after scaling, so the image stays crisp on high-DPI screens.
+        """
+        kept: list[QLabel] = []
+        for lbl in self._eq_labels:
+            try:
+                pm = lbl.pixmap()
+                if pm is None or pm.isNull():
+                    kept.append(lbl)
+                    continue
+                dpr = float(pm.devicePixelRatio()) or 1.0
+                logical_w = pm.width() / dpr
+                if logical_w > avail_w:
+                    f = avail_w / logical_w
+                    scaled = pm.scaled(
+                        max(1, int(pm.width() * f)),
+                        max(1, int(pm.height() * f)),
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation)
+                    # QPixmap.scaled() drops the ratio; put it back.
+                    scaled.setDevicePixelRatio(dpr)
+                    lbl.setPixmap(scaled)
+            except RuntimeError:
+                continue  # label already destroyed with an old body
+            kept.append(lbl)
+        self._eq_labels = kept
 
     def _position(self, ref: QWidget) -> None:
         """Positions the popup to the right of the reference widget.
@@ -463,6 +518,13 @@ class HelpPopup(QFrame):
         # ── Step 1: fix the width ────────────────────────────────────────
         # Must come before any sizeHint query, since the width affects
         # the height computed by the text layout.
+        #
+        # The width is `_WIDTH` capped by the smaller of 92% of THIS
+        # monitor's available width and the hard readability cap: on any
+        # monitor the popup stays inside the screen. (The old formula,
+        # `min(_WIDTH, max(390, screen.width() - 2 * margin))`, had a
+        # floor that could push the width PAST the cap on a small
+        # screen; the cap now always wins.)
         #
         # `outer` uses `SetFixedSize` (comment in `__init__`): Qt does not
         # merely SUGGEST the popup's size from `layout.sizeHint()`, it
@@ -477,10 +539,22 @@ class HelpPopup(QFrame):
         # used). The `_scroll` width needs to be fixed TOO, so that the
         # outer layout's `sizeHint()` -- what `SetFixedSize` actually
         # uses -- is already correct from the start.
-        width = min(_WIDTH, max(390, screen.width() - 2 * _SCREEN_MARGIN))
+        width_cap = min(int(screen.width() * _MAX_WIDTH_FRACTION),
+                        _MAX_PIXEL_WIDTH)
+        width = min(_WIDTH, width_cap)
         self.setFixedWidth(width)
         margins = self.layout().contentsMargins()
         self._scroll.setFixedWidth(width - margins.left() - margins.right())
+
+        # Equations are images and cannot wrap; any one wider than the
+        # viewport would be cut at the right edge (the horizontal
+        # scrollbar is off by design). Shrink them NOW, so Steps 2-4
+        # measure the fitted heights. The scrollbar strip is reserved
+        # either way (measured below, at Step 3) and it is in the
+        # viewport that content lays out.
+        scrollbar_w = self._scroll.verticalScrollBar().sizeHint().width()
+        self._fit_equations(
+            max(120, self._scroll.width() - scrollbar_w))
 
         # ── Step 2: force layout propagation at the new width ───────────
         layout = self.layout()
@@ -520,7 +594,7 @@ class HelpPopup(QFrame):
                 w.show()
         self._body_layout.invalidate()
         self._body_layout.activate()
-        max_scroll_h = max(600, screen.height() - 40)
+        max_scroll_h = max(120, screen.height() - 40)
         # HEIGHT FROM THE REAL WIDTH, not from sizeHint. A `QLabel` with
         # `wordWrap` returns in `sizeHint()` the height of an IDEAL line
         # wrap that Qt picks on its own (close to a square rectangle),
@@ -550,7 +624,6 @@ class HelpPopup(QFrame):
         # underestimates the height by a few dozen pixels in long blocks
         # -- the last line ended up behind the border. The error in the
         # other direction costs a few pixels of slack and hides nothing.
-        scrollbar_w = self._scroll.verticalScrollBar().sizeHint().width()
         content_h = self._body_layout.heightForWidth(
             max(120, self._scroll.width() - scrollbar_w))
         if content_h <= 0:                       # no item with wordWrap
@@ -573,18 +646,27 @@ class HelpPopup(QFrame):
             layout.invalidate()
             layout.activate()
         self.adjustSize()
+        # Last-resort guard: `SetFixedSize` re-derives min/max from the
+        # layout's sizeHint on every activation, so the width decided in
+        # Step 1 is only a request until it is re-checked HERE, after
+        # the final activation. Nothing may reopen wider than the cap.
+        if self.width() > width_cap:
+            self.setFixedWidth(width_cap)
 
         # ── Step 5: position on screen ────────────────────────────
         pos_global = ref.mapToGlobal(QPoint(ref.width() + 4, 0))
         if pos_global.x() + self.width() + _SCREEN_MARGIN > screen.right():
             pos_global = ref.mapToGlobal(QPoint(-self.width() - 4, 0))
-        pos_global.setX(max(screen.left() + _SCREEN_MARGIN,
-                            min(pos_global.x(),
-                                screen.right() - self.width() - _SCREEN_MARGIN)))
-        pos_global.setY(
-            max(screen.top() + _SCREEN_MARGIN,
-                min(pos_global.y(), screen.bottom() - self.height() - _SCREEN_MARGIN))
-        )
+        # `max(lo, hi)` keeps the clamp sane when the popup is nearly as
+        # wide as the screen: with plain `hi`, `max(lo, min(x, hi))`
+        # pins the popup to `lo` and lets it run past the right edge.
+        lo_x = screen.left() + _SCREEN_MARGIN
+        hi_x = max(lo_x, screen.right() - self.width() - _SCREEN_MARGIN)
+        pos_global.setX(max(lo_x, min(pos_global.x(), hi_x)))
+        lo_y = screen.top() + _SCREEN_MARGIN
+        hi_y = max(lo_y,
+                   screen.bottom() - self.height() - _SCREEN_MARGIN)
+        pos_global.setY(max(lo_y, min(pos_global.y(), hi_y)))
         self.move(pos_global)
 
     def _install_filter(self) -> None:

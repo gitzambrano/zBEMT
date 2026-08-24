@@ -39,6 +39,10 @@ Typical command-line usage (``zbemt`` is the installed entry point;
         --gen-neuralfoil --airfoil-geometry naca2412 \\
         --reynolds 1e5,5e5,1e6 --mach 0.1,0.3 --alpha-range -10:20:0.5 \\
         --export-table saida/naca2412_neuralfoil.csv
+    zbemt --project projects/MyProject --gen-xfoil \\
+        --airfoil-geometry naca2412 --reynolds 1e6 --mach 0.3
+    zbemt --project projects/MyProject --compare projects/RotorA,projects/RotorB
+    zbemt --project projects/MyProject --optimize tip_chord_study --max-evals 60
 """
 
 from __future__ import annotations
@@ -132,32 +136,92 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--from-bemt-case", metavar="NAME", default=None,
                     help="Run the saved case NAME (project.saved_cases).")
 
-    # --- NeuralFoil: polar table generation (Phase 7, docs/plano_v3.md
+    # --- External polar table generation (Phase 7, docs/plano_v3.md
     # Part 7.4). Mode independent of running BEMT, exits right after
-    # generating (and optionally exporting/applying). ---------------------
-    neuralfoil_group = p.add_argument_group("NeuralFoil (Phase 7: polar table generation)")
-    neuralfoil_group.add_argument(
+    # generating (and optionally exporting/applying). One flag per
+    # engine; every other option of the group is shared. ---------------
+    polar_group = p.add_argument_group("External polar table generation")
+    polar_group.add_argument(
         "--gen-neuralfoil", action="store_true",
         help="Generate a polar table via NeuralFoil for --airfoil-geometry and exit "
              "(does not run BEMT). Requires the 'neuralfoil' package (pip install neuralfoil).")
-    neuralfoil_group.add_argument(
+    polar_group.add_argument(
+        "--gen-xfoil", action="store_true",
+        help="Generate a polar table via XFOIL for --airfoil-geometry and exit "
+             "(does not run BEMT). Shares every option of this group with "
+             "--gen-neuralfoil. Only the engine differs. The three transition "
+             "options below apply to XFOIL only. Stops with an error "
+             "when XFOIL support is not available.")
+    polar_group.add_argument(
         "--airfoil-geometry", metavar="SPEC", default=None,
-        help="Airfoil geometry: NACA4/5 code (for example 'naca2412', 'naca23012') "
+        help="Airfoil geometry: a NACA 4-digit or 5-digit code (for example "
+             "'naca2412', 'naca23012') "
              f"or a typical rotor-blade preset ({', '.join(sorted(airfoils.AIRFOIL_PRESETS))}).")
-    neuralfoil_group.add_argument(
+    polar_group.add_argument(
         "--reynolds", metavar="R1,R2,...", default=None,
-        help="List of Reynolds for NeuralFoil sweep, for example '1e5,5e5,1e6'.")
-    neuralfoil_group.add_argument(
+        help="List of Reynolds for the sweep, for example '1e5,5e5,1e6'.")
+    polar_group.add_argument(
         "--mach", metavar="M1,M2,...", default=None,
-        help="List of Mach for NeuralFoil sweep, for example '0.1,0.3'.")
-    neuralfoil_group.add_argument(
+        help="List of Mach for the sweep, for example '0.1,0.3'.")
+    polar_group.add_argument(
         "--alpha-range", metavar="MIN:MAX:STEP", default="-10:20:0.5",
-        help="Alpha [deg] range for NeuralFoil sweep (default: -10:20:0.5).")
-    neuralfoil_group.add_argument(
+        help="Alpha [deg] range for the sweep (default: -10:20:0.5).")
+    polar_group.add_argument(
         "--export-table", metavar="PATH", default=None,
         help="Write the generated polar table to PATH (CSV, import format). "
              "If omitted, the table is appended to project.airfoil.table_slices and the project "
              "is saved (equivalent to applying directly from GUI).")
+    polar_group.add_argument(
+        "--ncrit", type=float, metavar="FLOAT", default=None,
+        help="XFOIL only (--gen-xfoil): critical amplification factor N of the "
+             "e^N transition criterion. A lower N predicts earlier transition and "
+             "a more conservative drag level (default: 9). The option is rejected "
+             "together with --gen-neuralfoil.")
+    polar_group.add_argument(
+        "--xtr-top", type=float, metavar="FLOAT", default=None,
+        help="XFOIL only (--gen-xfoil): chord fraction where transition is forced "
+             "on the upper surface, in (0, 1]. A value of 1 leaves free transition "
+             "(default: 1). The option is rejected together with --gen-neuralfoil.")
+    polar_group.add_argument(
+        "--xtr-bot", type=float, metavar="FLOAT", default=None,
+        help="XFOIL only (--gen-xfoil): chord fraction where transition is forced "
+             "on the lower surface, in (0, 1]. A value of 1 leaves free transition "
+             "(default: 1). The option is rejected together with --gen-neuralfoil.")
+
+    # --- Design tools: geometry comparison and saved optimization
+    # studies. Same early-exit pattern as the group above: they never
+    # reach the BEMT batch below. --------------------------------------
+    design_group = p.add_argument_group("Design tools")
+    design_group.add_argument(
+        "--compare", metavar="PROJECTS", default=None,
+        help="Compare blade geometries and exit (no batch is run). PROJECTS is a "
+             "comma-separated list of other project folders. Each folder becomes one "
+             "geometry variant, named after its folder, and the geometry of --project "
+             "joins the comparison as the variant named 'base'. Every variant runs the "
+             "saved cases of --project. When there are none, pass --rpm to compare at "
+             "one default condition. Writes comparison.html and comparison.csv to "
+             "the outputs folder of --project.")
+    design_group.add_argument(
+        "--optimize", nargs="?", const="", default=None, metavar="NAME",
+        help="Run one saved optimization study and exit (no batch is run). NAME selects "
+             "an entry of project.optimizations by name. Without NAME, the first entry "
+             "runs. Writes an HTML report plus a history CSV to the outputs folder.")
+    design_group.add_argument(
+        "--max-evals", type=int, default=None, metavar="N",
+        help="Evaluation limit used by --optimize, overriding the value stored in the "
+             "study definition. Without this flag, the stored value is kept.")
+    design_group.add_argument(
+        "--trim", choices=["none", "thrust", "CT"], default="none",
+        help="Loading held constant across the --compare variants, so efficiency "
+             "is compared at equal loading. 'thrust' or 'CT' reads the target from the "
+             "first variant (the reference: the geometry of --project, named 'base') "
+             "and, at every condition, trims each other variant to it. Propellers "
+             "solve RPM, and rotors solve collective. Trimmed summaries record "
+             "the columns trim_target, trim_dof and trim_dof_value. Each trimmed "
+             "case bisects one control and costs roughly ten times a direct "
+             "solve. With the default none, every variant runs the same controls.")
+    # NOTE: --rpm already exists below (ad hoc condition speed). --compare
+    # reuses it when the project has no saved cases; see _run_compare.
 
     # --- ad hoc condition (used only if no --from-bemt-* is given and the
     # project has no batch.conditions) ----------------------------------
@@ -668,8 +732,15 @@ def _apply_set_flags(project, args) -> None:
 
 
 # =============================================================================
-# NeuralFoil (Phase 7, Part 7.4): polar table generation, CLI mode
+# External polar engines (--gen-neuralfoil / --gen-xfoil), CLI mode
 # =============================================================================
+
+#: Engine -> flag that selects it, and engine -> name shown to the user.
+#: A new external polar engine needs one entry in each dict, its
+#: ``--gen-<engine>`` flag in the parser, and nothing else in this file.
+_GEN_POLAR_FLAGS = {"neuralfoil": "--gen-neuralfoil", "xfoil": "--gen-xfoil"}
+_GEN_POLAR_NAMES = {"neuralfoil": "NeuralFoil", "xfoil": "XFOIL"}
+
 
 def _parse_float_list(text: str, flag: str) -> list[float]:
     try:
@@ -678,13 +749,25 @@ def _parse_float_list(text: str, flag: str) -> list[float]:
         raise ValueError(f"Invalid value in {flag}={text!r}: {exc}") from exc
 
 
-def _run_gen_neuralfoil(project, project_path, args) -> int:
+def _run_gen_polar(project, project_path, args, engine: str) -> int:
+    """Shared handler for every --gen-* polar flag: only ``engine``
+    differs between them (same required flags, same export/apply
+    behavior). The three XFOIL transition options are the one exception:
+    they exist for --gen-xfoil only."""
+    flag = _GEN_POLAR_FLAGS[engine]
+    if engine != "xfoil" and any(
+            value is not None
+            for value in (args.ncrit, args.xtr_top, args.xtr_bot)):
+        print("Error: --ncrit/--xtr-top/--xtr-bot apply to --gen-xfoil.",
+              file=sys.stderr)
+        return 2
     if not args.airfoil_geometry:
-        print("Error: --gen-neuralfoil requires --airfoil-geometry (NACA4/5 code or preset).",
+        print(f"Error: {flag} requires --airfoil-geometry "
+              "(a NACA 4-digit or 5-digit code, or a preset).",
               file=sys.stderr)
         return 2
     if not args.reynolds or not args.mach:
-        print("Error: --gen-neuralfoil requires --reynolds and --mach (at least one value each).",
+        print(f"Error: {flag} requires --reynolds and --mach (at least one value each).",
               file=sys.stderr)
         return 2
 
@@ -697,19 +780,39 @@ def _run_gen_neuralfoil(project, project_path, args) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
 
+    # Defaults come from the library; each option is forwarded only when
+    # given on the command line.
+    xfoil_kwargs = {}
+    if engine == "xfoil":
+        if args.ncrit is not None:
+            xfoil_kwargs["ncrit"] = args.ncrit
+        if args.xtr_top is not None:
+            xfoil_kwargs["xtr_top"] = args.xtr_top
+        if args.xtr_bot is not None:
+            xfoil_kwargs["xtr_bot"] = args.xtr_bot
+
+    diagnostics: list = []
     try:
         slices = api.run_external_polar_from_geometry(
-            geom, engine="neuralfoil",
+            geom, engine=engine,
             reynolds_list=reynolds_list, mach_list=mach_list,
             alpha_min_deg=float(lo_s), alpha_max_deg=float(hi_s), alpha_step_deg=float(step_s),
+            diagnostics=diagnostics,
+            **xfoil_kwargs,
         )
     except (RuntimeError, ValueError) as exc:
         # Clear message (not a raw traceback). It covers the common case of
-        # 'neuralfoil' not being installed in this environment.
+        # the engine's package or executable not being available here.
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    print(f"NeuralFoil: {len(slices)} polar(s) generated for {args.airfoil_geometry!r} "
+    # Partial results (a Reynolds that produced no points, dropped alpha
+    # points) must never pass silently on the command line either.
+    for line in diagnostics:
+        print(f"Warning: {line}", file=sys.stderr)
+
+    print(f"{_GEN_POLAR_NAMES[engine]}: {len(slices)} polar tables generated "
+          f"for {args.airfoil_geometry!r} "
           f"({len(reynolds_list)} Reynolds x {len(mach_list)} Mach).")
 
     if args.export_table:
@@ -720,6 +823,141 @@ def _run_gen_neuralfoil(project, project_path, args) -> int:
         project.airfoil.source = "table"
         api.save_project(project)
         print(f"Applied to project.airfoil.table_slices and saved to {project_path}.")
+    return 0
+
+
+# =============================================================================
+# Design tools (--compare / --optimize): geometry comparison and design
+# optimization, CLI mode
+# =============================================================================
+
+def _run_compare(project, args) -> int:
+    """--compare: run this project's saved conditions over several blade
+    geometries and always write comparison.csv/comparison.html into the
+    outputs folder."""
+    variants = {}
+    for raw_path in str(args.compare).split(","):
+        folder = raw_path.strip()
+        if not folder:
+            continue
+        if not Path(folder).exists():
+            # Plain interpolation, not {folder!r}: repr would double the
+            # path separators on Windows and the printed path would no
+            # longer match what the user typed.
+            print(f"Error: --compare: project folder does not exist: {folder}",
+                  file=sys.stderr)
+            return 2
+        try:
+            other = api.open_project(folder)
+        except (OSError, ValueError) as exc:
+            print(f"Error: --compare: could not open {folder!r}: {exc}",
+                  file=sys.stderr)
+            return 1
+        # The label is the project NAME stored in the folder's meta file,
+        # which may differ from the folder name.
+        variants[other.name] = other.geometry
+    variants["base"] = project.geometry
+
+    # No saved cases: run one default hover-like case at the RPM given
+    # with --rpm. The engine has no defensible rpm default, so without
+    # the flag the command stops with a clear instruction instead of a
+    # deep traceback.
+    conditions = list(project.saved_cases)
+    if not conditions:
+        rpm_value = getattr(args, "rpm", None)
+        if not rpm_value:
+            print("Error: --compare: this project has no saved cases and "
+                  "--rpm was not given. Save a case in Run Case or pass "
+                  "--rpm R to compare at that rotational speed.",
+                  file=sys.stderr)
+            return 2
+        conditions = [FlightCondition(name="comparison",
+                                      collective_deg=8.0,
+                                      rpm=float(rpm_value))]
+    try:
+        results = api.compare_geometries(project, variants, conditions,
+                                          trim=args.trim)
+    except (RuntimeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    outputs_dir = Path(api.project_outputs_dir(project, create=True))
+    try:
+        report = api.generate_comparison_report(
+            results, str(outputs_dir / "comparison.html"), project=project,
+            title=f"Geometry comparison - {project.name}")
+        csv_path = api.export_comparison_csv(results,
+                                              str(outputs_dir / "comparison.csv"))
+    except (RuntimeError, ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    # One line per variant at the FIRST condition it ran (results are
+    # variant-major, so the first result carrying a label holds that
+    # condition): CT for the load side and FM for hover quality are the
+    # two numbers a planform comparison turns on first.
+    first_by_label: dict = {}
+    for res in results:
+        first_by_label.setdefault(str(res.summary.get("geometry_label", "")), res)
+    for label, res in first_by_label.items():
+        parts = []
+        if "CT" in res.summary:
+            parts.append(f"CT={res.summary['CT']:.5g}")
+        if "FM" in res.summary:
+            parts.append(f"FM={res.summary['FM']:.5g}")
+        print(f"[{res.condition_name}] {label}: " + ", ".join(parts))
+    print(f"Report: {report}")
+    print(f"CSV: {csv_path}")
+    return 0
+
+
+def _run_optimize(project, args) -> int:
+    """--optimize: run one saved study and write its report plus the
+    history CSV that lands beside it."""
+    try:
+        definition = api.get_optimization(project, args.optimize or None)
+    except KeyError as exc:
+        # exc.args[0]: str(KeyError) would wrap the message in another
+        # pair of quotes, which reads like shell noise.
+        message = exc.args[0] if exc.args else str(exc)
+        print(f"Error: {message}", file=sys.stderr)
+        return 1
+
+    if args.max_evals is not None:
+        definition = dataclasses.replace(definition, max_evals=int(args.max_evals))
+
+    try:
+        outcome = api.optimize_design(project, definition)
+    except (RuntimeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    outputs_dir = Path(api.project_outputs_dir(project, create=True))
+    # The report file follows the STUDY's own name, not the command-line
+    # argument: a bare --optimize runs the first entry, whose name may be
+    # anything, and two studies must never overwrite each other's report.
+    slug = api.sanitize_filename(definition.name)
+    try:
+        report = api.generate_optimization_report(
+            outcome, str(outputs_dir / f"{slug}_optimization.html"),
+            project=project, definition=definition)
+    except (RuntimeError, ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    if outcome.best_results is None:
+        print(f"Error: no finite evaluation was recorded ({outcome.message}); "
+              f"the report was written to {report}.", file=sys.stderr)
+        return 1
+
+    print(f"Optimization '{definition.name}' finished: {outcome.message}.")
+    print(f"Best parameters: "
+          + ", ".join(f"{param_name}={param_value}"
+                      for param_name, param_value in outcome.best_params.items()))
+    print(f"Best {outcome.objective_key} ({outcome.objective_kind}): "
+          f"{outcome.best_value:.6g}")
+    print(f"Report: {report}")
+    print(f"History CSV: {Path(report).with_name(Path(report).stem + '_history.csv')}")
     return 0
 
 
@@ -771,8 +1009,33 @@ def main(argv=None, options=None) -> int:
             print(f"{c.name}\tmu={c.mu_x}\tcollective_deg={c.collective_deg}\tVv={c.Vz}\trpm={c.rpm}")
         return 0
 
+    # The design-tool modes are alternative jobs, not modifiers: each one
+    # runs its own workflow and writes its own artifacts, so two of them
+    # in one call has no defined meaning. argparse cannot express this
+    # conflict (the polar flags and the design flags live in different
+    # argument groups), so the check is explicit. It sits before any flag
+    # application because it is a pure command-line conflict.
+    selected_modes = [flag for flag, given in (
+        ("--compare", bool(args.compare)),
+        ("--optimize", args.optimize is not None),
+        ("--gen-neuralfoil", bool(args.gen_neuralfoil)),
+        ("--gen-xfoil", bool(args.gen_xfoil)),
+    ) if given]
+    if len(selected_modes) > 1:
+        print("cli.py: error: " + ", ".join(selected_modes)
+              + " are mutually exclusive. Give at most one of "
+              "--compare, --optimize, --gen-neuralfoil or --gen-xfoil.",
+              file=sys.stderr)
+        return 2
+
     if args.gen_neuralfoil:
-        return _run_gen_neuralfoil(project, project_path, args)
+        return _run_gen_polar(project, project_path, args, "neuralfoil")
+    if args.gen_xfoil:
+        return _run_gen_polar(project, project_path, args, "xfoil")
+    if args.compare:
+        return _run_compare(project, args)
+    if args.optimize is not None:
+        return _run_optimize(project, args)
 
     _apply_geometry_flags(project, args)
     _apply_airfoil_flags(project, args)

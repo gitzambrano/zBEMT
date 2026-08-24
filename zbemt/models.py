@@ -294,6 +294,8 @@ def _coerce_field(ftype: Any, val: Any, is_propeller: bool = False) -> Any:
         "AirfoilDef": AirfoilDef,
         "FlightCondition": FlightCondition,
         "BatchDefinition": BatchDefinition,
+        "DesignVariable": DesignVariable,
+        "OptimizationDefinition": OptimizationDefinition,
     }
     for name, klass in registry.items():
         if name in str(type_name):
@@ -331,11 +333,16 @@ class ProfileGeometry:
     """2D profile geometry (x,y coordinates). Only needed when a polar is
     to be generated via an external engine (NeuralFoil, Phase 7); for the
     analytical/table models it is optional/illustrative."""
-    source: str = "naca4"          # "naca4" | "naca5" | "cst" | "bezier" | "imported"
+    source: str = "naca4"          # "naca4" | "naca5" | "cst" | "bezier" | "parsec" | "joukowski" | "biconvex" | "imported"
     naca_code: str = "0012"
     cst_upper: list[float] = field(default_factory=list)
     cst_lower: list[float] = field(default_factory=list)
     bezier_control_points: list[list[float]] = field(default_factory=list)
+    #: Parameters of the analytic families that have no dedicated fields
+    # ("parsec", "joukowski", "biconvex"): the exact keyword dictionary
+    # accepted by the generator of the same name in airfoils.py, so a
+    # saved contour can be regenerated without the coordinates.
+    generator_params: dict = field(default_factory=dict)
     imported_path: Optional[str] = None
     n_points: int = 200
 
@@ -453,12 +460,22 @@ class AirfoilDef:
     geometry: Optional[ProfileGeometry] = None
 
     # --- external engine (Phase 7, see external_solvers.py) ---
-    external_engine: str = "none"      # "none" | "neuralfoil" (XFOIL is not supported)
+    external_engine: str = "none"      # "none" | "neuralfoil" | "xfoil"
     external_reynolds_list: list[float] = field(default_factory=list)
     external_mach_list: list[float] = field(default_factory=list)
     external_alpha_min_deg: float = -20.0
     external_alpha_max_deg: float = 20.0
     external_alpha_step_deg: float = 0.5
+
+    # --- XFOIL-only adjustment inputs, read only when
+    # external_engine == "xfoil" (see external_solvers._run_polar_xfoil).
+    # xfoil_ncrit is the critical amplification factor N of the e^N
+    # transition criterion; xfoil_xtr_top/xfoil_xtr_bot force transition
+    # at a chord fraction, where 1.0 leaves free transition. Serialized by
+    # airfoil.bemt automatically. NeuralFoil ignores them.
+    xfoil_ncrit: float = 9.0
+    xfoil_xtr_top: float = 1.0
+    xfoil_xtr_bot: float = 1.0
 
 
 def uses_full_range_extension(a: "AirfoilDef") -> bool:
@@ -537,6 +554,60 @@ class BatchDefinition:
     plots: list[str] = field(default_factory=list)
 
 
+# =============================================================================
+# Design tools: geometry comparison and design optimization
+# =============================================================================
+
+#: Parameters a design optimization may vary, with their roles. Geometry
+#: planform parameters are generator inputs (they live in
+#: ``RotorGeometryDef.origin_params``); ``n_blades``, ``radius_m`` and
+#: ``root_cutout_norm`` are direct ``RotorGeometryDef`` fields.
+GEOMETRY_PARAMS = (
+    "root_chord_norm", "tip_chord_norm", "twist_root_deg", "twist_tip_deg",
+    "max_chord_norm", "chord_norm", "n_blades", "radius_m", "root_cutout_norm",
+)
+
+INTEGER_PARAMS = ("n_blades",)
+
+
+@dataclass
+class DesignVariable:
+    """One bounded degree of freedom of a design optimization."""
+    param: str = "tip_chord_norm"
+    lower: float = 0.02
+    upper: float = 0.15
+
+
+@dataclass
+class OptimizationDefinition:
+    """A persisted design-optimization study (inputs/optimizations.bemt).
+
+    The study varies bounded geometry parameters and drives one flight
+    condition until a summary quantity reaches its best found value. It
+    carries no physics of its own: every evaluation is a plain
+    ``run_single_case`` on a regenerated variant geometry."""
+    name: str = "optimization 1"
+    objective_kind: str = "maximize"   # "maximize" | "minimize"
+    objective_key: str = "FM"
+    variables: list[DesignVariable] = field(default_factory=list)
+    method: str = "powell"             # "powell" | "nelder-mead"
+    max_evals: int = 40
+    condition: Optional[FlightCondition] = None
+
+
+@dataclass
+class OptimizationOutcome:
+    """Result of one design-optimization run (in memory only)."""
+    best_params: dict = field(default_factory=dict)
+    best_value: float = float("nan")
+    objective_key: str = ""
+    objective_kind: str = "maximize"
+    history: list[dict] = field(default_factory=list)
+    best_results: Optional[Any] = None   # Results of the best evaluation
+    n_evals: int = 0
+    message: str = ""
+
+
 @dataclass
 class Results:
     """Lightweight container for the result of one case/batch. The real
@@ -596,6 +667,9 @@ class Project:
     # list (as its first entry) the first time an old project is opened.
     batches: list[BatchDefinition] = field(default_factory=list)
     saved_cases: list[FlightCondition] = field(default_factory=list)
+    # Design tools: named optimization studies persisted as
+    # inputs/optimizations.bemt (same lifecycle as `batches`).
+    optimizations: list[OptimizationDefinition] = field(default_factory=list)
 
 
 def default_project_paths(project_path: str) -> dict:
@@ -613,5 +687,6 @@ def default_project_paths(project_path: str) -> dict:
         "legacy_batch": root / "inputs" / "batch.bemt",
         "batches": root / "inputs" / "batches.bemt",
         "saved_cases": root / "inputs" / "saved_cases.bemt",
+        "optimizations": root / "inputs" / "optimizations.bemt",
         "meta": root / "inputs" / "meta.bemt",
     }

@@ -145,6 +145,7 @@ a map of where to find each one.
 from __future__ import annotations
 
 import time
+import warnings
 from dataclasses import dataclass, field, replace, asdict
 from typing import Optional, Callable
 
@@ -559,8 +560,41 @@ def _detect_stall_extremum(alpha_rad: np.ndarray, cl: np.ndarray, side: str) -> 
     mask = (alpha_rad >= 0) if side == "pos" else (alpha_rad <= 0)
     idx_side = np.where(mask)[0]
     if len(idx_side) == 0:
-        raise ValueError(f"Table has no points on alpha side '{side}' "
-                          f"-- cannot auto-detect stall on this side.")
+        # One-sided table (an external polar that only converged on one
+        # side of alpha=0). Dying here turned a usable polar into a dead
+        # "Error running case". The section is assumed MIRROR-symmetric
+        # about the chord line for the missing side: the stall anchor is
+        # the other side's extremum, sign-flipped, clamped to stay at or
+        # beyond that side's data edge. The extrapolated region carries
+        # the assumption; everything inside the table stays 100% data.
+        other = "neg" if side == "pos" else "pos"
+        mask_other = (alpha_rad >= 0) if other == "pos" else (alpha_rad <= 0)
+        idx_other = np.where(mask_other)[0]
+        if len(idx_other) == 0:
+            raise ValueError(
+                "Table has no alpha points at all -- cannot auto-detect "
+                "stall. Regenerate or import a polar with a non-empty "
+                "alpha sweep.")
+        j_local = int(np.argmax(cl[idx_other])) if other == "pos" \
+            else int(np.argmin(cl[idx_other]))
+        j = int(idx_other[j_local])
+        if side == "pos":
+            # Missing positive side: anchor mirrored from the negative
+            # extremum, clamped to at/after the last data point.
+            alpha_anchor = max(-float(alpha_rad[j]), float(alpha_rad[-1]))
+            cl_anchor = -float(cl[j])
+            idx = int(np.argmax(alpha_rad))
+        else:
+            alpha_anchor = min(-float(alpha_rad[j]), float(alpha_rad[0]))
+            cl_anchor = -float(cl[j])
+            idx = int(np.argmin(alpha_rad))
+        warnings.warn(
+            f"Table covers only the '{other}' side of alpha=0; the "
+            f"'{side}' stall anchor is MIRRORED from it "
+            f"(alpha_stall={np.degrees(alpha_anchor):.2f} deg, "
+            f"CL={cl_anchor:.3f}). Regenerate the polar with a wider "
+            f"alpha range for real data on both sides.")
+        return idx, float(alpha_anchor), float(cl_anchor)
     cl_side = cl[idx_side]
     local_idx = int(np.argmax(cl_side)) if side == "pos" else int(np.argmin(cl_side))
     idx = int(idx_side[local_idx])

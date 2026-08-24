@@ -10,6 +10,7 @@ These tests do not define GUI or file-format behavior.
 import math
 import os
 import unittest
+import warnings
 
 import numpy as np
 
@@ -683,10 +684,6 @@ class TestHeterogeneousMultiSectionAirfoil(unittest.TestCase):
         self.assertGreater(summary["CT"], 0.0)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestPrandtlLossFactor(unittest.TestCase):
     """The loss factor must match the closed form, including the 1/x.
 
@@ -733,3 +730,85 @@ class TestPrandtlLossFactor(unittest.TestCase):
         cfg = _fast_cfg(prandtl_loss_mode="both")
         estado = self._estado(0.5, rotor, cfg)
         self.assertGreater(float(np.asarray(estado["F"]).ravel()[0]), 0.99)
+
+
+from zbemt import bemt
+
+
+class TestOneSidedTableStall(unittest.TestCase):
+    """A polar that only converged on ONE side of alpha=0 used to kill
+    the whole Run Case with "Table has no points on alpha side 'pos'".
+    The stall anchor on the empty side is now MIRRORED from the side
+    that exists (stated assumption, warned), and the case runs."""
+
+    def _pos_only_table(self):
+        # Strictly positive alphas: alpha=0 counts as the 'neg' side
+        # (mask alpha<=0), so the fixture must exclude it.
+        alpha = np.linspace(0.5, 12.0, 12)
+        cl = 0.11 * alpha * (1.0 - (alpha / 14.0) ** 2)   # peak ~1.2 near 8-9 deg
+        cd = 0.01 + 0.002 * alpha ** 2
+        return bemt.TableAirfoil(alpha, cl, cd)
+
+    def test_viterna_extension_builds_from_pos_only_table(self):
+        base = self._pos_only_table()
+        with self.assertWarns(UserWarning):
+            ext = bemt.ViternaExtendedAirfoil(base)
+        self.assertGreater(ext.alpha_s_pos, 0.0)
+        # Mirrored anchor, clamped to stay at/beyond the data edge (0 deg):
+        self.assertLessEqual(ext.alpha_s_neg, 0.0)
+        cl, cd = ext.cl_cd(np.deg2rad(np.array([-8.0, 0.0, 8.0])))
+        self.assertTrue(np.all(np.isfinite(cl)) and np.all(np.isfinite(cd)))
+
+    def test_neg_only_table_mirrors_pos_anchor(self):
+        alpha = np.linspace(-12.0, -0.5, 12)
+        cl = -0.11 * (-alpha) * (1.0 - ((-alpha) / 14.0) ** 2)
+        cd = 0.01 + 0.002 * (-alpha) ** 2
+        base = bemt.TableAirfoil(alpha, cl, cd)
+        with self.assertWarns(UserWarning):
+            ext = bemt.ViternaExtendedAirfoil(base)
+        self.assertGreaterEqual(ext.alpha_s_pos, 0.0)
+        self.assertLess(ext.alpha_s_neg, 0.0)
+
+    def test_empty_table_still_raises_with_actionable_text(self):
+        for side in ("pos", "neg"):
+            with self.subTest(side=side):
+                with self.assertRaises(ValueError) as ctx:
+                    bemt._detect_stall_extremum(np.array([]), np.array([]), side)
+                self.assertIn("no alpha points", str(ctx.exception))
+
+    def test_warning_tells_how_to_get_real_data(self):
+        base = self._pos_only_table()
+        with self.assertWarnsRegex(UserWarning, r"(?s)MIRRORED.*wider"):
+            bemt.ViternaExtendedAirfoil(base)
+
+    def test_mirror_anchor_is_the_sign_flipped_extremum_of_the_existing_side(self):
+        # The anchor of the empty side is the extremum of the existing
+        # side, with the sign flipped. For strictly one-sided data the
+        # clamp compares against the edge of the EXISTING side, so it
+        # never binds: the observable anchor is the pure sign flip.
+        alpha = np.linspace(0.5, 12.0, 12)
+        cl = 0.11 * alpha * (1.0 - (alpha / 14.0) ** 2)
+        cd = 0.01 + 0.002 * alpha ** 2
+        table = bemt.TableAirfoil(alpha, cl, cd)
+        j = int(np.argmax(table.cl_tab))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            idx, alpha_s, cl_s = bemt._detect_stall_extremum(
+                table.alpha, table.cl_tab, "neg")
+        self.assertEqual(idx, int(np.argmin(table.alpha)))
+        self.assertAlmostEqual(alpha_s, -float(table.alpha[j]), places=12)
+        self.assertAlmostEqual(cl_s, -float(table.cl_tab[j]), places=12)
+
+    def test_mirrored_anchor_reaches_the_viterna_wrapper(self):
+        base = self._pos_only_table()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            ext = bemt.ViternaExtendedAirfoil(base)
+        peak_alpha = float(base.alpha[int(np.argmax(base.cl_tab))])
+        self.assertAlmostEqual(ext.alpha_s_neg, -peak_alpha, places=12)
+        self.assertGreater(ext.alpha_s_pos, 0.0)
+        self.assertLess(ext.alpha_s_neg, 0.0)
+
+
+if __name__ == "__main__":
+    unittest.main()

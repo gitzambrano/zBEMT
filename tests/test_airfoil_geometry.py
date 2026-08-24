@@ -1,12 +1,11 @@
-"""Block "2D Profile Geometry" from the Airfoil tab, after the cleanup
-requested by the user:
+"""Block "2D Profile Geometry" from the Airfoil tab:
 
 * the "typical preset" combo was removed -- all six catalog entries are NACA
   codes, so the preset and "NACA code" field were two controls for a single
   choice;
-* `cst`/`bezier` were removed from the sources list (their fields were never
-  reachable on screen), but remain VALID: a project that already uses them
-  shows them again, and the profile is never lost;
+* `cst`/`bezier` are first-class sources again (user decision reversing an
+  earlier removal): the editors show for their option and the contour is
+  never lost, whichever way a project was written;
 * the remaining fields gained proper help (popup "?" and tooltip),
   including the format accepted by the `.dat` importer.
 """
@@ -86,11 +85,13 @@ class TestContourSources(_TestWindow):
         self.assertFalse(hasattr(tab, "profile_preset_combo"),
                           "the preset combo was redundant with the NACA field")
 
-    def test_only_naca_and_imported_in_the_list(self):
+    def test_all_eight_contour_sources_in_the_list(self):
         tab = self.tab
         offered = [tab.profile_source_combo.itemText(i)
                    for i in range(tab.profile_source_combo.count())]
-        self.assertEqual(offered, ["naca4", "naca5", "imported"])
+        self.assertEqual(offered,
+                         ["naca4", "naca5", "cst", "bezier", "parsec",
+                          "joukowski", "biconvex", "imported"])
 
     def test_legacy_project_in_cst_recovers_the_option(self):
         """Hiding an option must not mean losing data from who already used
@@ -131,7 +132,8 @@ class TestBlockHelp(unittest.TestCase):
         not appear in the row and the user got no explanation at all."""
         from zbemt.gui import help_content
         from zbemt.gui.field_help import field_anchor
-        for field in ("naca_code", "cst_upper", "cst_lower", "bezier_control_points"):
+        for field in ("naca_code", "cst_upper", "cst_lower", "bezier_control_points",
+                      "generator_params"):
             with self.subTest(field=field):
                 self.assertIn(field, help_content.FIELD_HELP)
                 self.assertIsNotNone(field_anchor(field))
@@ -169,12 +171,75 @@ class TestBlockHelp(unittest.TestCase):
     def test_naca_catalog_enters_the_field_hint(self):
         """The note for each preset ("what is typical for") was the only
         content the removed combo added -- it survives in the field help,
-        derived from the SAME catalog."""
+        derived from the SAME catalog. Only the NACA families are listed:
+        the hint sits in the NACA field, and the analytic presets
+        (parsec/joukowski/biconvex) carry generator parameters, not a NACA
+        code -- on screen they are Source options with their own rows."""
         from zbemt.gui.tabs.airfoil import NACA_CATALOG_TEXT
         tooltip = NACA_CATALOG_TEXT()
-        for data in airfoils.AIRFOIL_PRESETS.values():
+        for alias, data in airfoils.AIRFOIL_PRESETS.items():
+            if data["family"] not in ("naca4", "naca5"):
+                continue
             with self.subTest(code=data["code"]):
                 self.assertIn(data["code"], tooltip)
+
+    def test_every_analytic_preset_is_named_by_a_catalog_entry(self):
+        """The new analytic families are first-class: each one has a preset
+        entry that `generate_preset` dispatches by family key."""
+        families = {data["family"] for data in airfoils.AIRFOIL_PRESETS.values()}
+        self.assertLessEqual({"parsec", "joukowski", "biconvex"}, families)
+
+
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestAnalyticFamilyRows(_TestWindow):
+    """Every way of generating a contour is a Source option revealing its
+    own row (user rule: one dropdown, no parallel grammar field). PARSEC,
+    Joukowski and biconvex build from their rows, and the parameters
+    round-trip through the saved contour's `generator_params`."""
+
+    _CASES = {
+        "parsec": ("parsec_edit",
+                   "0.0158, 0.30, 0.0593, -0.475, 0.35, -0.047, 0.530, "
+                   "0.0025, 8.0"),
+        "joukowski": ("joukowski_edit", "0.08, 0.05"),
+        "biconvex": ("biconvex_edit", "0.06"),
+    }
+
+    def test_each_family_builds_from_its_row(self):
+        for source, (editor, text) in self._CASES.items():
+            with self.subTest(source=source):
+                tab = self.tab
+                tab.profile_source_combo.setCurrentText(source)
+                getattr(tab, editor).setText(text)
+                tab._generate_profile()
+                self.assertEqual(tab._profile.source, source)
+                self.assertGreater(len(tab._profile.x), 10)
+
+    def test_wrong_count_reports_error_and_keeps_previous_profile(self):
+        from unittest.mock import patch
+        tab = self.tab
+        tab.profile_source_combo.setCurrentText("biconvex")
+        tab.biconvex_edit.setText("0.06")
+        tab._generate_profile()
+        before = tab._profile
+        tab.profile_source_combo.setCurrentText("parsec")
+        with patch("zbemt.gui.tabs.airfoil.show_error") as err:
+            tab.parsec_edit.setText("1, 2, 3")
+            tab._generate_profile()
+        self.assertTrue(err.called, "a wrong count must say so, not fail silently")
+        self.assertIs(tab._profile, before)
+
+    def test_parameters_round_trip_through_the_loader(self):
+        tab = self.tab
+        tab.source_combo.setCurrentText("neuralfoil")   # block becomes visible
+        tab.profile_source_combo.setCurrentText("parsec")
+        tab.parsec_edit.setText(
+            "0.02, 0.30, 0.06, -0.475, 0.35, -0.047, 0.530, 0.0025, 8.0")
+        tab._generate_profile()
+        tab._load_form_from_airfoil_def(tab._collect_airfoil_def())
+        self.assertEqual(tab.profile_source_combo.currentText(), "parsec")
+        self.assertTrue(tab.parsec_edit.text().startswith("0.02,"))
+        self.assertTrue(tab.parsec_edit.isVisibleTo(tab))
 
 
 class TestSuggestedEnvelope(unittest.TestCase):

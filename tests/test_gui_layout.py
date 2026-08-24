@@ -185,6 +185,15 @@ class TestMountedWindowLayout(unittest.TestCase):
                                                       w.minimumSizeHint().width()):
                     stretched.append(f"{tab_name}: number field {w.width()}px")
             for w in tab.findChildren(QComboBox):
+                # Deliberate exemption (vertical-alignment rule): a combo
+                # flagged `_form_width_stretch` shares the column edges of
+                # the free-text editors around it (the Airfoil Source
+                # dropdowns). There the strip look is the POINT -- the user
+                # reported the short combo as the defect -- so the enum
+                # heuristic stands down, exactly like
+                # `common.compact_form_fields` already does.
+                if w.property("_form_width_stretch"):
+                    continue
                 # The floor is the minimum the combo itself requests: a
                 # combo whose longest option does not fit in
                 # `ENUM_MAX_WIDTH` asks for more (see
@@ -263,22 +272,30 @@ class TestMountedWindowLayout(unittest.TestCase):
         Not every value widget corresponds to a `.bemt` field (there are
         display-only controls), so what is required here is the converse:
         if the tooltip names a field, that name has to actually exist --
-        either as a field persisted in the project dataclasses or as an
+        either as a field persisted in the project dataclasses, as an
         API execution parameter (trim, for example, is not saved in the
-        `.bemt`: it is an argument of `api.run_case_trimmed`)."""
+        `.bemt`: it is an argument of `api.run_case_trimmed`), or as one
+        of the GUI-only controls with a defined contract (the geometry
+        spec string resolves through the same entry point as the CLI's
+        `--airfoil-geometry`)."""
         import inspect
 
         from zbemt import api
         from zbemt.bemt import BEMTConfig
         from zbemt.gui.field_help import _widget_field
         from zbemt.models import (AirfoilDef, BatchDefinition, FlightCondition,
+                                  OptimizationDefinition, DesignVariable,
                                   ProfileGeometry, Project, RotorGeometryDef)
 
         known: set = set(inspect.signature(
             api.run_case_trimmed).parameters)
         for cls in (BEMTConfig, AirfoilDef, RotorGeometryDef, FlightCondition,
-                    BatchDefinition, ProfileGeometry, Project):
+                    BatchDefinition, ProfileGeometry, Project,
+                    OptimizationDefinition, DesignVariable):
             known |= set(cls.__dataclass_fields__)
+        # GUI-only controls: not persisted under these names, but real
+        # contracts documented in FIELD_HELP and in the manual.
+        known |= {"geometry_spec"}
 
         invented = []
         for tab_name, tab in self._tabs():
@@ -348,18 +365,29 @@ class TestMountedWindowLayout(unittest.TestCase):
 
         reached: set = set()
         mute: list = []
-        for tab_name, tab in self._tabs():
-            for gb in tab.findChildren(QGroupBox):
+        # The Geometry Designer is a separate top-level window parented
+        # to the main one; its groupboxes carry block titles through the
+        # same map and belong in this check.
+        roots = [(name, tab) for name, tab in self._tabs()]
+        roots.append(("Geometry Designer", self.win.geometry_designer))
+        for source_name, root in roots:
+            for gb in root.findChildren(QGroupBox):
                 clickable = next((c for c in gb.children()
                                   if isinstance(c, _ClickableBlockTitle)), None)
                 if clickable is None:
-                    mute.append(f"{tab_name}: {gb.title()!r}")
+                    mute.append(f"{source_name}: {gb.title()!r}")
                 else:
                     reached.add(clickable._block_id)
 
         self.assertEqual(mute, [],
                          "groupbox without block help: " + str(mute))
-        self.assertEqual(sorted(set(BLOCK_HELP) - reached), [],
+        # Retired with the Design tab (product decision): optimization
+        # runs from the CLI/library only, so no groupbox carries this
+        # block anymore. Drop the entry from BLOCK_HELP when the
+        # documentation pass rewrites the design-tools chapter.
+        RETIRED_BLOCKS = {"design_optimization"}
+        self.assertEqual(sorted(set(BLOCK_HELP) - reached - RETIRED_BLOCKS),
+                         [],
                          "BLOCK_HELP entry that no groupbox reaches "
                          "-- title renamed without updating `app._BLOCOS`")
 

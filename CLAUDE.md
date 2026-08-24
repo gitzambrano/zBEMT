@@ -98,7 +98,8 @@ zbemt/
   api.py  studies.py  bemt.py  models.py  validation.py  nomenclature.py
   geometry.py  airfoils.py  external_solvers.py  paths.py  cli.py
   gui/  app.py  common.py  workers.py  dialogs.py  widgets.py  styles.py
-        tabs/  project  geometry_tab  airfoil  config  run_case  run_batch  results
+        tabs/  project  geometry_tab  airfoil  config  run_case  run_batch
+               designer_window  results
   viz/  plots.py  visualization.py  style.py
 ```
 
@@ -216,7 +217,10 @@ Structure:
                     nomenclature and axes · the method
 6-12  THE PAGES     Project · Geometry · Airfoil · Config/Engine ·
                     Run Case · Run Batch · Results
-13-14 Reference     command line · limitations
+13    TOOLS WINDOW  Geometry Variation Studies (the Geometry Designer,
+                    opened from the Tools button in the main window's top
+                    bar, next to Help)
+14-15 Reference     command line · limitations
 ```
 
 Rules:
@@ -245,7 +249,7 @@ Rules:
     it cannot be followed, and it drifts silently when sections are renumbered.
     `tests/test_documentation.py` enforces both the link and the fact that its
     number and its target agree.
-12. Chapters 6-12 are self-contained. A reference out of one of them is allowed
+12. Chapters 6-13 are self-contained. A reference out of one of them is allowed
     only as a statement of scope — "that setting lives in another tab" — never
     as a deferral of physics, and every such exception is listed by name in
     `TestCapitulosDeAbaSaoEstanques`.

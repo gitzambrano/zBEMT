@@ -454,6 +454,73 @@ class TestReverseFlowMaskLivesInResults(ResultsTabBase):
                           "syncing the checkbox with the project must not dirty it")
 
 
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+class TestEnableHistoryButton(ResultsTabBase):
+    """The "Enable convergence history" button was hidden in BOTH branches
+    of `_refresh_convergence`, so a project saved with collect_history=false
+    could never reach the affordance its own constructor docstring promises.
+    PR-2: a real control that still has something to offer stays visible."""
+
+    _CONVERGENCE_ROW = 5   # `_MODES` puts Convergence last on purpose
+
+    def _open_convergence_with_result(self, cfg_collect_history=None):
+        project = _make_project()
+        if cfg_collect_history is not None:
+            project.config["collect_history"] = cfg_collect_history
+        win, tab = self._with_result(project)
+        # Through the widget, so currentRow AND the options stack move
+        # together exactly as on a real click.
+        tab.mode_list.setCurrentRow(self._CONVERGENCE_ROW)
+        tab._refresh_current()
+        self.app.processEvents()
+        return win, tab
+
+    def test_button_visible_when_project_does_not_collect_history(self):
+        win, tab = self._open_convergence_with_result(cfg_collect_history=False)
+        self.assertTrue(tab.btn_enable_history.isVisible(),
+                        "without history the user needs the affordance")
+
+    def test_button_hidden_when_result_recorded_history(self):
+        win, tab = self._open_convergence_with_result(cfg_collect_history=True)
+        entry = win.state.results_history[-1]
+        entry.results.summary["cfg_collect_history"] = True
+        tab._refresh_current()
+        self.app.processEvents()
+        self.assertFalse(tab.btn_enable_history.isVisible())
+
+    def test_click_writes_config_and_hides_the_button(self):
+        win, tab = self._open_convergence_with_result(cfg_collect_history=False)
+        with unittest.mock.patch("zbemt.gui.tabs.results.QMessageBox") as box:
+            box.information.return_value = None
+            tab._habilitar_historico_de_convergencia()
+        self.assertTrue(win.state.project.config.get("collect_history"))
+        self.assertFalse(tab.btn_enable_history.isVisible())
+
+
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+class TestAxisCombosFollowPr2(ResultsTabBase):
+    """The X/Y quantity dropdowns are empty until a result exists.
+    PR-2: empty means DISABLED, not enabled-but-useless."""
+
+    def test_xy_combos_disabled_without_results(self):
+        win, tab = self._window_on_results_tab()
+        tab._populate_xy_combos()
+        self.app.processEvents()
+        self.assertEqual(tab.xy_x_combo.count(), 0)
+        self.assertFalse(tab.xy_x_combo.isEnabled())
+        self.assertFalse(tab.xy_y_combo.isEnabled())
+        # group-by always carries "(none)": something to choose, stays on
+        self.assertTrue(tab.xy_group_combo.isEnabled())
+
+    def test_xy_combos_enabled_once_results_exist(self):
+        win, tab = self._with_result()
+        tab._populate_xy_combos()
+        self.app.processEvents()
+        self.assertGreater(tab.xy_x_combo.count(), 0)
+        self.assertTrue(tab.xy_x_combo.isEnabled())
+        self.assertTrue(tab.xy_y_combo.isEnabled())
+
+
 if __name__ == "__main__":   # pragma: no cover
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     unittest.main()

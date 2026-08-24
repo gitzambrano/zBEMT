@@ -94,6 +94,20 @@ EXPLICIT_FLAGS = {
 #: ROTOR geometry, not `AirfoilDef.geometry` (the 2D profile coordinates).
 FALSE_POSITIVES = {("geometry", "--geom-file"), ("geometry", "--geom-preset")}
 
+#: Fields whose on-screen home is OUTSIDE the tabs `field_index.TABS`
+#: walks, as ``field -> (tab, position among these extras)``.
+#:
+#: The Results tab is deliberately absent from `field_index.TABS` (its
+#: controls select views of results that already exist -- see the note
+#: there), so `collect_screen_order` never reports its widgets and a
+#: field whose only home is there would be misread as "not on screen".
+#: `mask_reverse_flow_plots` is one: its only GUI control is a visible
+#: Results-tab checkbox (Results tab, disk-map controls) that stores the
+#: `.bemt` config key.
+ON_SCREEN_OUTSIDE_INDEXED_TABS = {
+    "mask_reverse_flow_plots": ("resultados", 0),
+}
+
 
 def dedicated_flags() -> dict:
     """{field name: [--flag, ...]} for the flags cli.py exposes by name.
@@ -147,6 +161,9 @@ def screen_order() -> dict:
     for tab, tab_fields in collect_screen_order().items():
         for i, (field_name, _anchor) in enumerate(tab_fields):
             position.setdefault(field_name, (tab, i))
+    # Fields the indexed tabs cannot report (see the table above).
+    for field_name, where in ON_SCREEN_OUTSIDE_INDEXED_TABS.items():
+        position.setdefault(field_name, where)
     return position
 
 

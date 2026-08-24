@@ -42,6 +42,80 @@ different rule.
   polars.
 - **SC-4** — Three synchronized interfaces (GUI, CLI, library) built on one engine,
   with GUI/CLI/`.bemt`-file parity as required by §3.3.
+- **SC-7** — Geometry comparison across labeled variants in a dedicated
+  Geometry Designer window. A chosen set of flight conditions (the
+  project's saved cases, one single condition, or one swept quantity)
+  runs over several blade planforms, and everything except the geometry
+  stays fixed: the same airfoil polar, mesh, inflow model and corrections
+  go into every run. Variants are override rows over the project's own
+  planform, or they come from a one-parameter variation sweep. A user
+  label (or an auto-generated `param=value` label) tags each variant in
+  the verdicts, plots and exports. After a run, the summary metric may be
+  ranked across variants at any condition of the run, not only the first.
+  The ranking default follows the mode convention: propeller efficiency
+  for propeller-convention runs, figure of merit otherwise. Beside the
+  ranking, the software draws each variant's percent change against the
+  base planform at that same condition, and it falls back to the absolute
+  difference when the base value is approximately zero. The comparison may
+  instead hold the loading constant across variants, at constant thrust or
+  constant `CT`. The first variant is then the reference and runs
+  untrimmed. Its thrust or `CT` at each condition becomes that condition's
+  target. Every other variant reaches the target by bisection over one
+  degree of freedom chosen automatically from the mode convention (RPM for
+  propellers, collective for rotors). A variant whose target falls outside
+  the search bracket raises a named error instead of converging outside
+  it. Trimmed summaries record the target, the solved degree of freedom
+  and its converged value. Variants may also come ready-made. The window
+  generates blades from the three parametric families (rectangular,
+  tapered, elliptic), and it imports the blade of any project folder,
+  either as one more variant or as a session-only replacement of the base
+  planform (the imported project file is only ever read). For a base
+  without a parametric generator, the window applies a planform parameter
+  in table space instead of failing. It reads the parameter as a target on
+  the radial table. The root and tip chord and twist parameters rebuild
+  the chord and twist tables so their endpoints meet the requested values,
+  `chord_norm` scales the chord uniformly to the mean chord, and
+  `max_chord_norm` scales it uniformly to the peak chord. The variant table
+  exposes each row's root cutout, radius, aspect ratio and solidity beside
+  its overrides, and every comparison result summary carries the blade aspect
+  ratio and the rotor solidity (`studies._blade_planform_metrics`), so the
+  ranking, the overlay figure and the CSV export can compare shape next to
+  performance. Comparison variants are session data. The project does not
+  persist them.
+- **SC-8** — Persisted design-optimization studies (`inputs/optimizations.bemt`)
+  drive one summary quantity on one flight condition through a bounded,
+  derivative-free search over parametric planform parameters (Powell or
+  Nelder-Mead). The search starts deterministically from the center of the
+  bounds, respects them throughout, and penalizes failed evaluations instead
+  of stopping. The GUI deliberately does not offer optimization.
+  Optimization runs as an outer loop from the CLI (`--optimize`) and the
+  library.
+- **SC-9** — XFOIL as an external polar engine. Polar generation may drive
+  the `xfoil` binary, which the software looks up through a four-place
+  chain: the `ZBEMT_XFOIL_BIN`
+  environment variable first, then the executable path remembered from a
+  previous GUI "Locate…" pick (stored between sessions in the application
+  settings file), then PATH, then the standard Windows install folders
+  (`%LOCALAPPDATA%\Programs\XFOIL` and `%ProgramFiles%\XFOIL`). Generation
+  writes one script per Reynolds number and applies the same
+  Prandtl-Glauert post-correction as NeuralFoil.
+  The XFOIL-only transition
+  inputs (`ncrit`, `xtr_top`, `xtr_bot`: the e^N criterion and forced
+  transition stations) reach the binary only on the XFOIL path. With
+  `--gen-neuralfoil`, the solver rejects them. Per PR-7, a missing binary
+  degrades only this feature. The failure raises a RuntimeError that names
+  the cause and the remedies.
+- **SC-10** — Analytic airfoil geometry families (PARSEC, Joukowski,
+  biconvex) join the NACA 4- and 5-digit codes, CST, Bézier and imported
+  contours. All families are reachable through one resolver grammar
+  (preset nicknames and prefixed forms) served by the CLI's
+  `--airfoil-geometry`. In the GUI, every family is a normal entry of the
+  contour Source dropdown and reveals its own editor rows. No parallel
+  specification-string field exists on screen. The software serializes the
+  parameters under the profile geometry (`generator_params` inside the
+  `geometry` block of
+  `inputs/airfoil.bemt`) so a saved contour can be regenerated without its
+  coordinate table.
 
 ### 1.2 The software must not support
 
@@ -194,7 +268,7 @@ different rule.
   help source, written in English. Every flag, module, project, batch and
   anchor it cites must exist.
 - **DC-2** — Structure: introduction (chapters 0-5), one chapter per GUI tab in tab order
-  (6-12), reference (13-14).
+  (6-12), the Geometry Designer window chapter (13), reference (14-15).
 - **DC-3** — A GUI page gets a chapter of its own. Its sections follow the order of the
   blocks and fields on screen. A page is never documented inside a physics
   chapter.

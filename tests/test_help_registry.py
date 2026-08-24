@@ -78,5 +78,105 @@ class TestClickableLabelInGeometry(unittest.TestCase):
                         f"tooltips: {[b.toolTip() for b in clickable][:3]}")
 
 
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestPopupNeverOverflowsScreen(unittest.TestCase):
+    """Regression: the field-help popup must never exceed the screen and
+    nothing inside its body may be cut off at the right edge.
+
+    House rule: "No text may ever be clipped or overflow its area".
+    The `geometry_spec` field reproduces the reported defect: grammar
+    strings like ``cst:a1,a2,...`` plus three analytic families packed
+    into one mathtext image pushed the body wider than the scroll
+    viewport (whose horizontal scrollbar is always off), so the tail of
+    every line vanished past the popup's right edge.
+    """
+
+    #: Hard readability cap asserted here; must match the engine's cap.
+    HARD_CAP_PX = 760
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def setUp(self):
+        from PyQt6.QtWidgets import QWidget
+        from zbemt.gui.help_popup import HelpPopup
+        self._host = QWidget()
+        self._host.move(0, 0)          # deterministic anchor at the origin
+        self._host.resize(400, 300)
+        self._host.show()
+        self.app.processEvents()
+        self.popup = HelpPopup.instance(self._host)
+        self.addCleanup(self._cleanup)
+
+    def _cleanup(self):
+        try:
+            self.popup.close_popup()
+        except RuntimeError:
+            pass
+        self._host.close()
+        self._host.deleteLater()
+
+    def _open_and_measure(self, field):
+        """Opens the real popup for `field` and returns
+        (availableGeometry, popup frameGeometry)."""
+        screen = self.app.primaryScreen()
+        self.assertIsNotNone(screen)
+        self.popup.show_field(field, self._host)
+        self.app.processEvents()
+        return screen.availableGeometry(), self.popup.frameGeometry()
+
+    def test_geometry_spec_width_respects_screen_fraction_and_cap(self):
+        avail, frame = self._open_and_measure("geometry_spec")
+        limit = min(int(avail.width() * 0.92) + 1, self.HARD_CAP_PX)
+        self.assertLessEqual(
+            frame.width(), limit,
+            f"popup is {frame.width()}px wide; cap is "
+            f"min(92% of {avail.width()}px, {self.HARD_CAP_PX}px) = {limit}px")
+
+    def test_geometry_spec_height_respects_available_height(self):
+        avail, frame = self._open_and_measure("geometry_spec")
+        self.assertLessEqual(
+            frame.height(), avail.height() + 1,
+            f"popup is {frame.height()}px tall on a "
+            f"{avail.height()}px-high screen")
+
+    def test_every_body_label_has_word_wrap(self):
+        from PyQt6.QtWidgets import QLabel
+        self._open_and_measure("geometry_spec")
+        nowrap = [lbl for lbl in self.popup._body_widget.findChildren(QLabel)
+                  if not lbl.wordWrap()]
+        self.assertEqual(
+            nowrap, [],
+            f"{len(nowrap)} body QLabel(s) without WordWrap: "
+            f"{[(l.text()[:30] or '<pixmap>') for l in nowrap]}")
+
+    def test_no_body_row_is_wider_than_the_viewport(self):
+        self._open_and_measure("geometry_spec")
+        viewport_w = self.popup._scroll.viewport().width()
+        wider = []
+        layout = self.popup._body_layout
+        for i in range(layout.count()):
+            item = layout.itemAt(i)
+            w = item.widget() if item else None
+            if w is None:
+                continue
+            min_w = w.minimumSizeHint().width()
+            if min_w > viewport_w + 2:
+                wider.append((i, min_w))
+        self.assertEqual(
+            wider, [],
+            f"rows wider than the {viewport_w}px viewport are cut at the "
+            f"right edge (horizontal scrollbar is always off): {wider}")
+
+    def test_second_content_heavy_field_also_fits(self):
+        from zbemt.gui.help_content import FIELD_HELP
+        key = "ncrit" if "ncrit" in FIELD_HELP else "bezier_control_points"
+        avail, frame = self._open_and_measure(key)
+        limit = min(int(avail.width() * 0.92) + 1, self.HARD_CAP_PX)
+        self.assertLessEqual(frame.width(), limit)
+        self.assertLessEqual(frame.height(), avail.height() + 1)
+
+
 if __name__ == "__main__":
     unittest.main()

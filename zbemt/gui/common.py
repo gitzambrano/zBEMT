@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import importlib
 import os
+import shutil
 import traceback
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QComboBox, QWidget, QVBoxLayout, QMessageBox,
+    QDialog, QLabel, QPushButton, QFileDialog, QHBoxLayout,
 )
 from PyQt6.QtCore import pyqtSignal, QEvent, QObject, QSize, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
@@ -55,6 +57,9 @@ from matplotlib.figure import Figure
 from .. import api
 from .. import nomenclature
 from .. import paths
+from ..external_solvers import (
+    known_xfoil_location_names, resolve_xfoil_binary, XFOIL_SETTINGS_KEY,
+)
 from ..models import Project, ResultEntry
 
 
@@ -728,6 +733,14 @@ def compact_form_fields(root) -> int:
     for w in root.findChildren(QComboBox):
         if getattr(w, "_width_capped", False):
             continue
+        if w.property("_form_width_stretch"):
+            # Flagged by the tab as a full-column field (vertical
+            # alignment rule): it must share the line edits' width, so
+            # the enum cap would defeat the size policy set on it.
+            # Qt dynamic property: setProperty/getProperty, not getattr.
+            w._width_capped = True
+            ajustados += 1
+            continue
         # `sizeHint` already embeds the longest option; the clearance
         # covers the dropdown arrow (styles.py) and the side padding.
         width = min(max(w.sizeHint().width() + 24, ENUM_MIN_WIDTH),
@@ -769,7 +782,14 @@ def align_headers_with_content(table, numeric_columns) -> None:
 
 
 def show_error(parent, title: str, exc: Exception):
-    QMessageBox.critical(parent, title, f"{exc}\n\n{traceback.format_exc(limit=3)}")
+    # Format the PASSED exception's own traceback. The previous
+    # `traceback.format_exc()` reads the AMBIENT exception context: called
+    # outside the `except` block that produced `exc` (the usual case for
+    # errors captured in a worker and surfaced later), it found nothing
+    # and printed the useless "NoneType: None" under the message.
+    detail = "".join(traceback.format_exception(
+        type(exc), exc, exc.__traceback__, limit=3))
+    QMessageBox.critical(parent, title, f"{exc}\n\n{detail}")
 
 
 # =============================================================================
@@ -1062,6 +1082,132 @@ def require_optional_package(widget: QWidget, feature: str) -> bool:
         f"This feature needs the optional package '{feature}', which is not installed, "
         f"so {description} is unavailable.\n\nInstall it with:\n\n    {command}\n\n"
         "Then restart zBEMT.")
+    return False
+
+
+class MissingBinaryDialog(QDialog):
+    """Asks the user to locate a missing external executable, after
+    listing every place zBEMT already looked.
+
+    A small QDialog local to this module on purpose:
+    `QMessageBox.information` cannot host a Locate button next to
+    clickable links. Headless tests drive it by patching `exec` (never
+    called for real here) and `QFileDialog.getOpenFileName`.
+
+    The caller reads `chosen_path` after `exec()` returns: it holds the
+    picked executable when the user located one, or ``None`` when the
+    dialog was closed without a valid pick."""
+
+    def __init__(self, parent: QWidget | None, feature: str,
+                 env_var: str) -> None:
+        super().__init__(parent)
+        self._feature = feature
+        self.chosen_path: str | None = None
+
+        self.setWindowTitle(f"{feature} executable not found")
+        self.setMinimumWidth(560)
+
+        # The four places resolve_xfoil_binary() already walked through,
+        # each with what it found. Reaching this dialog means the whole
+        # chain missed an existing file, so every state below is a miss.
+        env_state = os.environ.get(env_var, "").strip() or "(not set)"
+        remembered = paths.load_app_setting(XFOIL_SETTINGS_KEY)
+        remembered_state = remembered.strip() if (
+            isinstance(remembered, str) and remembered.strip()) else "(none)"
+        folders_state = ", ".join(known_xfoil_location_names())
+        message = (
+            f"<p>Generating polars with <b>{feature}</b> needs the "
+            f"'{feature.lower()}' executable. zBEMT looked for it in four "
+            "places:</p>"
+            "<ol>"
+            f"<li><b>{env_var}</b> environment variable: {env_state}</li>"
+            "<li><b>Remembered 'Locate…' choice</b>: "
+            f"{remembered_state}</li>"
+            f"<li><b>PATH</b> ('{feature.lower()}'): not found</li>"
+            f"<li><b>Standard install folders</b> ({folders_state}): "
+            "checked</li>"
+            "</ol>"
+            "<p>1. Already installed? Click <b>Locate…</b> and pick the "
+            "executable. The choice is remembered.</p>"
+            "<p>2. Not installed? Download XFOIL (free) from "
+            '<a href="https://web.mit.edu/drela/Public/web/xfoil/">'
+            "MIT Drela — XFOIL</a>, install it, then click <b>Locate…</b> "
+            f"(or add its folder to PATH, or set {env_var}).</p>"
+        )
+        text = QLabel(message)
+        text.setTextFormat(Qt.TextFormat.RichText)
+        text.setOpenExternalLinks(True)
+        text.setWordWrap(True)
+        # Kept as an attribute so tests can read the rendered text.
+        self.message_label = text
+
+        # Inline feedback for an invalid pick; hidden until needed.
+        self._feedback = QLabel("")
+        self._feedback.setWordWrap(True)
+
+        locate_btn = QPushButton(f"Locate {feature.lower()}…")
+        close_btn = QPushButton("Close")
+        locate_btn.clicked.connect(self._on_locate)
+        close_btn.clicked.connect(self.reject)
+
+        buttons = QHBoxLayout()
+        buttons.addWidget(locate_btn)
+        buttons.addStretch(1)
+        buttons.addWidget(close_btn)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(text)
+        layout.addWidget(self._feedback)
+        layout.addLayout(buttons)
+
+    def _on_locate(self) -> None:
+        """Opens the file picker. A valid pick is stored in
+        `chosen_path` and closes the dialog with Accepted; a pick that
+        fails the existence check reports inline and keeps the dialog
+        open so the user can try again."""
+        file_filter = ("Executables (*.exe *.bat *.cmd);;All files (*)"
+                       if os.name == "nt" else "All files (*)")
+        picked, _file_filter = QFileDialog.getOpenFileName(
+            self, f"Locate the {self._feature.lower()} executable", "",
+            file_filter)
+        if not picked:
+            return
+        if not Path(picked).is_file():
+            self._feedback.setText(
+                f"The selected file does not exist:\n{picked}")
+            self._feedback.setVisible(True)
+            return
+        self.chosen_path = picked
+        self.accept()
+
+
+def require_optional_binary(widget: QWidget, feature: str,
+                             env_var: str, download_hint: str = "") -> bool:
+    """True if the external executable for ``feature`` can be found;
+    otherwise opens a dialog that offers to LOCATE it and returns False
+    unless the user picks a valid executable.
+
+    Probing uses the engine's own resolver
+    (`external_solvers.resolve_xfoil_binary`): the ``env_var``
+    environment variable, the remembered 'Locate…' choice, ``PATH``,
+    then the standard install folders. A hit returns True before any
+    dialog appears, so a user whose binary sits in the official install
+    folder never sees this box at all.
+
+    When nothing resolves, the dialog lists those four places with what
+    each one held, and offers two numbered ways out: locate an already
+    installed executable (the pick is saved through
+    `paths.save_app_setting`, so the next lookup finds it), or follow
+    the download link first. ``download_hint`` remains in the signature
+    because call sites still pass it; its guidance moved into the
+    numbered options."""
+    if resolve_xfoil_binary() is not None:
+        return True
+    dialog = MissingBinaryDialog(widget, feature=feature, env_var=env_var)
+    dialog.exec()
+    if dialog.chosen_path and Path(dialog.chosen_path).is_file():
+        paths.save_app_setting(XFOIL_SETTINGS_KEY, dialog.chosen_path)
+        return True
     return False
 
 

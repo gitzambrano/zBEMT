@@ -11,7 +11,8 @@ tests.
 
 The Run Case tab is captured TWICE, in rotor and in propeller mode: that is
 the one page whose field labels rotate with the mode, and showing only one of
-them would document half the behaviour.
+them would document half the behaviour. The Geometry Designer window (Tools
+button) is captured separately, after the tabs: it lives outside the QTabWidget.
 
     python tools/gui_screenshots.py             # writes docs/img/gui/
     python tools/gui_screenshots.py --check     # fails if any is missing
@@ -51,6 +52,10 @@ SHOTS = [
     ("run-batch.png",            5, False),
     ("results.png",              6, False),
 ]
+
+#: The Geometry Designer window (Tools button), captured in addition to the
+#: tabs above -- it lives outside the QTabWidget, so it has no index.
+DESIGNER_SHOT = "designer.png"
 
 
 #: Where to look for fonts when the offscreen plugin ships without a font
@@ -151,17 +156,44 @@ def generate(destination: Path = OUTPUT_DIR) -> list:
         written.append(target)
         print(f"  {filename:<26} {target.stat().st_size // 1024:>5} KB")
 
+    written.append(_capture_designer(app, window,
+                                     api.open_project(str(PROJECT)),
+                                     destination))
+
     window.close()
     return written
 
 
+def _capture_designer(app, window, project, destination: Path) -> Path:
+    """Captures the Geometry Designer window (Tools button > Geometry Designer).
+
+    MainWindow builds it eagerly and parents it to itself, so opening it
+    repeats exactly what ``MainWindow.open_geometry_designer`` does.
+    """
+    window.state.set_project(project)
+    designer = window.geometry_designer
+    designer.resize(WIDTH, HEIGHT)
+    designer.show()
+    designer.raise_()
+    designer.activateWindow()
+    _settle(app)
+
+    target = destination / DESIGNER_SHOT
+    _crop(designer.grab(), designer).save(str(target))
+    if not target.exists() or target.stat().st_size == 0:
+        raise SystemExit(f"gui_screenshots: failed to write {target}")
+    print(f"  {DESIGNER_SHOT:<26} {target.stat().st_size // 1024:>5} KB")
+    return target
+
+
 def check_existing(destination: Path = OUTPUT_DIR) -> int:
-    missing = [f for f, _i, _h in SHOTS if not (destination / f).exists()]
+    names = [f for f, _i, _h in SHOTS] + [DESIGNER_SHOT]
+    missing = [f for f in names if not (destination / f).exists()]
     if missing:
         print("missing screenshots: " + ", ".join(missing))
         print("run: python tools/gui_screenshots.py")
         return 1
-    print(f"{len(SHOTS)} screenshots present in {destination}")
+    print(f"{len(names)} screenshots present in {destination}")
     return 0
 
 

@@ -43,19 +43,19 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
     QProgressBar,
     QSlider,
+    QSizePolicy,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QTimer
 
 from ... import api
 from ... import airfoils
-from ... import external_solvers
 from ... import validation
 from ...viz import plots
 from ...models import AirfoilDef, ProfileGeometry, PolarSlice, uses_full_range_extension
 from ...bemt import BEMTConfig
 
 from ..common import (parse_list, AppState, show_error, CanvasHost, set_row_visible,
-                      require_optional_package)
+                      require_optional_package, require_optional_binary)
 from ..dialogs import adjust_combo_width
 from ..workers import ExternalPolarWorker, launch_worker
 
@@ -120,10 +120,67 @@ def NACA_CATALOG_TEXT() -> str:
     code is typed.
 
     Derived, not copied: a new catalog entry (which the CLI also accepts in
-    `--airfoil-geometry`) appears here on its own."""
+    `--airfoil-geometry`) appears here on its own. Only the NACA families
+    are listed: this text sits in the NACA field's help, and the analytic
+    presets (parsec/joukowski/biconvex) carry generator parameters, not a
+    NACA code -- on screen they are Source options with their own rows."""
     return "; ".join(
         f"{preset['code']} ({preset['note'].split('--')[0].strip().rstrip('.').lower()})"
-        for _alias, preset in sorted(airfoils.AIRFOIL_PRESETS.items()))
+        for _alias, preset in sorted(airfoils.AIRFOIL_PRESETS.items())
+        if preset["family"] in ("naca4", "naca5"))
+
+
+class _XfoilPolarWorker(ExternalPolarWorker):
+    """``ExternalPolarWorker`` carrying the XFOIL-dedicated adjustment
+    inputs (ncrit, xtr_top, xtr_bot).
+
+    ``workers.ExternalPolarWorker`` keeps one engine-neutral signature;
+    this subclass adds the three XFOIL-only transition inputs and forwards
+    them to ``api.run_external_polar_from_geometry``, which passes them on
+    to the binary only on the xfoil path. Threading, cancellation and the
+    finished/failed protocol stay exactly the worker's own."""
+
+    def __init__(self, profile: ProfileGeometry, *, reynolds_list: list,
+                 mach_list: list, alpha_min_deg: float, alpha_max_deg: float,
+                 alpha_step_deg: float, ncrit: float, xtr_top: float,
+                 xtr_bot: float, diagnostics: list | None = None):
+        super().__init__(
+            profile, engine="xfoil",
+            reynolds_list=reynolds_list, mach_list=mach_list,
+            alpha_min_deg=alpha_min_deg, alpha_max_deg=alpha_max_deg,
+            alpha_step_deg=alpha_step_deg, diagnostics=diagnostics)
+        self.ncrit = ncrit
+        self.xtr_top = xtr_top
+        self.xtr_bot = xtr_bot
+
+    def run(self):
+        try:
+            slices = api.run_external_polar_from_geometry(
+                self.profile, engine="xfoil",
+                reynolds_list=self.reynolds_list, mach_list=self.mach_list,
+                alpha_min_deg=self.alpha_min_deg, alpha_max_deg=self.alpha_max_deg,
+                alpha_step_deg=self.alpha_step_deg,
+                ncrit=self.ncrit, xtr_top=self.xtr_top, xtr_bot=self.xtr_bot,
+                diagnostics=self.diagnostics,
+            )
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            return
+        self.finished.emit(slices)
+
+
+def _polar_generation_status(total_reynolds: int, diagnostics: list) -> str:
+    """One line stating what the polar sweep ACTUALLY produced.
+
+    The engine skips a Reynolds whose polar came back empty and used to
+    say so only through a stderr warning the windowed GUI never shows:
+    the user asked for three Reynolds, got two, and nobody said why.
+    This summary goes to the status label under the Run button."""
+    ok = total_reynolds - len(diagnostics)
+    text = f"{ok} of {total_reynolds} Reynolds converged."
+    if diagnostics:
+        text += " Failed: " + "; ".join(diagnostics)
+    return text
 
 
 # =============================================================================
@@ -142,6 +199,22 @@ class AirfoilTab(QWidget):
     #: splitter; the initial value gives some slack above that.
     _FORM_MIN_WIDTH = 520
     _FORM_INITIAL_WIDTH = 600
+
+    @staticmethod
+    def _stretch_to_form_width(combo) -> None:
+        """Vertical alignment rule: every field in a form column must
+        share the same left and right edges. A QLineEdit grabs the form's
+        spare width -- its horizontal size policy is Expanding -- while a
+        bare QComboBox only takes what its content needs, so next to line
+        edits it stayed short and broke the column's alignment."""
+        policy = combo.sizePolicy()
+        policy.setHorizontalPolicy(QSizePolicy.Policy.Expanding)
+        policy.setHorizontalStretch(1)
+        combo.setSizePolicy(policy)
+        # Tells common.compact_form_fields to skip the enum-width cap:
+        # capping this combo would defeat the policy above and break
+        # the column's shared edges again.
+        combo.setProperty("_form_width_stretch", True)
 
     def __init__(self, state: AppState):
         super().__init__()
@@ -179,8 +252,9 @@ class AirfoilTab(QWidget):
         # user picks a range in the combo, and from then on their choice
         # wins.
         self._alpha_range_chosen_by_user = False
-        # Item 15: same idea for the NeuralFoil Reynolds/Mach lists --
-        # suggested from the rotor until the user types their own list.
+        # Item 15: same idea for the generated-table Reynolds/Mach lists
+        # (NeuralFoil and XFOIL modes) -- suggested from the rotor until
+        # the user types their own list.
         self._re_mach_user_edited = False
 
         # Live preview (docs/plano_v3.md Part 5): state of the multi-axis
@@ -546,9 +620,18 @@ class AirfoilTab(QWidget):
         form.addRow("Airfoil name:", self.airfoil_name_edit)
 
         self.source_combo = QComboBox()
-        self.source_combo.addItems(["analytical", "table", "neuralfoil"])
+        self.source_combo.addItems(["analytical", "table", "neuralfoil", "xfoil"])
         self.source_combo.setMinimumWidth(150)
-        self.source_combo.setToolTip('"airfoil.source" — "analytical": analytical curves; "table": imported CSV; "neuralfoil": generate via NeuralFoil')
+        self._stretch_to_form_width(self.source_combo)
+        self.source_combo.setToolTip(
+            '"airfoil.source" — "analytical": analytical curves. '
+            '"table": imported CSV. "neuralfoil": generate the table via '
+            'NeuralFoil. "xfoil": generate the table via the XFOIL binary.\n\n'
+            '"xfoil" needs the XFOIL executable. zBEMT looks in four places: '
+            "the ZBEMT_XFOIL_BIN variable, your remembered Locate… choice, PATH, "
+            "and the standard install folders. The check happens when you click "
+            "Run. Without the binary, a dialog opens and offers Locate…, which "
+            "remembers the pick between sessions.")
         form.addRow("Data source:", self.source_combo)
 
         self.cl_alpha = QDoubleSpinBox(); self.cl_alpha.setRange(0.1, 10.0); self.cl_alpha.setValue(2 * np.pi); self.cl_alpha.setDecimals(3)
@@ -627,19 +710,22 @@ class AirfoilTab(QWidget):
         self._sync_alpha_range_to_extension()
 
     def _update_source_visibility(self, *_args):
-        """Item 6 (plano_v3.md Part 7): 'Source' now has 3 options --
-        analytical / table / neuralfoil -- each showing only the relevant
-        fields. 'neuralfoil' is NOT a separate `AirfoilDef.source` in the
-        data model (it remains `source='table'` internally, see
-        `_collect_airfoil_def`/`_load_form_from_airfoil_def`). It is a
-        GUI MODE that treats NeuralFoil as "a special table generated on
-        the fly" (per section, when Radial sections exist): shows geometry
-        (f) + the engine (g) to generate the table, and hides manual CSV
-        import (e), which makes no sense in this mode."""
-        mode = self.source_combo.currentText()  # "analytical" | "table" | "neuralfoil"
+        """Item 6 (plano_v3.md Part 7), extended to four options: 'Source'
+        now has analytical / table / neuralfoil / xfoil, each showing only
+        the relevant fields. 'neuralfoil' and 'xfoil' are NOT separate
+        `AirfoilDef.source` values in the data model (both remain
+        `source='table'` internally, see `_collect_airfoil_def`/
+        `_load_form_from_airfoil_def`). They are GUI MODES that treat the
+        external generator as "a special table generated on the fly" (per
+        section, when Radial sections exist): both show geometry (f) + the
+        engine (g) to generate the table, and hide manual CSV import (e),
+        which makes no sense in these modes. One decision, one control: the
+        hidden `engine_combo` is derived from the mode ("neuralfoil",
+        "xfoil", or "none")."""
+        mode = self.source_combo.currentText()  # "analytical" | "table" | "neuralfoil" | "xfoil"
         is_analytical = mode == "analytical"
-        is_table_like = mode in ("table", "neuralfoil")
-        is_neuralfoil = mode == "neuralfoil"
+        is_table_like = mode in ("table", "neuralfoil", "xfoil")
+        is_generated = mode in ("neuralfoil", "xfoil")
 
         for w in self._analytical_field_widgets:
             set_row_visible(self._analytical_form, w, is_analytical)
@@ -647,18 +733,22 @@ class AirfoilTab(QWidget):
         set_row_visible(self._analytical_form, self.extend_full_range, is_table_like)
         if hasattr(self, "table_box"):
             self.table_box.setVisible(is_table_like)
-            self.table_box.setTitle("Table generated by NeuralFoil (per section)" if is_neuralfoil
-                                     else "Data import / tabulated polar")
-            self._btn_import_csv.setVisible(not is_neuralfoil)
+            if mode == "neuralfoil":
+                self.table_box.setTitle("Table generated by NeuralFoil (per section)")
+            elif mode == "xfoil":
+                self.table_box.setTitle("Table generated by XFOIL (per section)")
+            else:
+                self.table_box.setTitle("Data import / tabulated polar")
+            self._btn_import_csv.setVisible(mode == "table")
         if hasattr(self, "geometry_box"):
-            self.geometry_box.setVisible(is_neuralfoil)
+            self.geometry_box.setVisible(is_generated)
         if hasattr(self, "external_box"):
-            self.external_box.setVisible(is_neuralfoil)
-        # 'neuralfoil' always runs with the 'neuralfoil' engine. There is
-        # no longer a separate "Engine" combo to choose it (that was the
-        # source of the reported confusion: two selectors for a single
-        # decision).
-        self.engine_combo.setCurrentText("neuralfoil" if is_neuralfoil else "none")
+            self.external_box.setVisible(is_generated)
+        # 'neuralfoil' always runs with the 'neuralfoil' engine and 'xfoil'
+        # with the XFOIL binary. There is no separate "Engine" combo to
+        # choose it (that was the source of the reported confusion: two
+        # selectors for a single decision).
+        self.engine_combo.setCurrentText(mode if is_generated else "none")
 
         self._update_viterna_visibility()
         self._update_dynamic_stall_enabled()
@@ -669,14 +759,14 @@ class AirfoilTab(QWidget):
         # through 'table'.
         self._update_prandtl_glauert_availability()
 
-        # Item 15: suggest Reynolds/Mach only on the TRANSITION into
-        # 'neuralfoil' mode. This method runs on every source/stall
-        # change. Without the transition guard, the suggestion would
-        # overwrite the list on every signal, including while loading a
-        # project.
+        # Item 15: suggest Reynolds/Mach only on the TRANSITION into one
+        # of the generated-table modes ('neuralfoil' or 'xfoil'). This
+        # method runs on every source/stall change. Without the
+        # transition guard, the suggestion would overwrite the list on
+        # every signal, including while loading a project.
         previous = getattr(self, "_previous_source_mode", None)
         self._previous_source_mode = mode
-        if is_neuralfoil and previous != "neuralfoil" and not getattr(self, "_loading", False):
+        if is_generated and previous != mode and not getattr(self, "_loading", False):
             self._suggest_re_mach(force=False)
 
     def _build_dynamic_stall_box(self) -> QGroupBox:
@@ -996,35 +1086,65 @@ class AirfoilTab(QWidget):
         "The points are used exactly as given: no reordering, no closing of "
         "the trailing edge, no rescaling. x should span 0 to 1.")
 
-    #: CONTOUR sources offered on screen. `cst` and `bezier` left the list
-    #: (user request: "the CST fields are never editable; a NACA code or an
-    #: imported .dat are enough"). They keep existing in
-    #: `airfoils.generate_cst`/`generate_bezier` and in `ProfileGeometry`,
-    #: for scripting and for old projects, and `_LEGACY_PROFILE_SOURCES`
-    #: offers them again when the OPEN project uses one of them: hiding an
-    #: option must never mean losing the data of someone who already used
-    #: it.
-    _PROFILE_SOURCES = ("naca4", "naca5", "imported")
-    _LEGACY_PROFILE_SOURCES = ("cst", "bezier")
+    #: CONTOUR sources offered on screen. EVERY way of generating a
+    #: contour is one option here, each revealing its own fields below
+    #: (user rule: one dropdown, no parallel text-grammar field -- the
+    #: old "Geometry spec" string was removed for exactly that reason;
+    #: the CLI keeps the `--airfoil-geometry` grammar for scripting).
+    _PROFILE_SOURCES = ("naca4", "naca5", "cst", "bezier", "parsec",
+                        "joukowski", "biconvex", "imported")
 
     def _build_geometry_box(self) -> QGroupBox:
         box = QGroupBox("2D Profile Geometry")
         self.geometry_box = box
         form = QFormLayout(box)
 
-        # No "typical preset" combo: the six entries of
-        # `airfoils.AIRFOIL_PRESETS` are ALL NACA codes (0009, 0012,
+        # Analytic families without a dedicated field of their own store
+        # their parameters in `ProfileGeometry.generator_params` (the
+        # generator's own keyword dictionary), so a saved contour can be
+        # regenerated without the coordinates. One row per family.
+        self.parsec_edit = QLineEdit()
+        self.parsec_edit.setToolTip(
+            '"generator_params" — PARSEC geometric parameters, nine numbers '
+            "separated by commas:\n"
+            "r_le, x_up, y_up, y_xx_up, x_lo, y_lo, y_xx_lo, th_te, beta_te_deg.\n"
+            "Leading-edge radius, crest position, height and curvature of each "
+            "surface, trailing-edge thickness and trailing-edge angle in "
+            "degrees. Defaults: 0.0158, 0.30, 0.0593, -0.475, 0.35, -0.047, "
+            "0.530, 0.0025, 8.0.")
+        form.addRow("PARSEC (9 values):", self.parsec_edit)
+
+        self.joukowski_edit = QLineEdit()
+        self.joukowski_edit.setToolTip(
+            '"generator_params" — Joukowski parameters, two numbers separated '
+            "by a comma:\n"
+            "epsilon, camber. Epsilon shapes the thickness, camber the "
+            "camber of the conformal-map section. Defaults: 0.08, 0.05.")
+        form.addRow("Joukowski (eps, camber):", self.joukowski_edit)
+
+        self.biconvex_edit = QLineEdit()
+        self.biconvex_edit.setToolTip(
+            '"generator_params" — Biconvex thickness t: the section is two '
+            "symmetric parabolic arcs y = ±2t·x·(1−x), sharp edges, maximum "
+            "thickness t at mid-chord. One number, and 0 gives a slit. "
+            "Default: 0.06.")
+        form.addRow("Biconvex (thickness):", self.biconvex_edit)
+
+        # No "typical preset" combo: the NACA entries of
+        # `airfoils.AIRFOIL_PRESETS` are all NACA codes (0009, 0012,
         # 0015, 0018, 23012, 4412), so the preset and the "NACA code"
         # field right below were two controls for a single decision --
         # choosing in the combo just wrote the code into the field. What
         # the preset added was the NOTE ("what is typical of what"), and
         # it moved to the NACA field's help, where it is read at the
         # moment the code is typed. The catalog keeps existing for the CLI
-        # (`--airfoil-geometry naca0012`) and for scripts.
+        # (`--airfoil-geometry naca0012`) and for scripts; on screen every
+        # family is a Source option with its own fields instead.
         self.profile_source_combo = QComboBox()
         for source_name in self._PROFILE_SOURCES:
             self.profile_source_combo.addItem(source_name)
         self.profile_source_combo.setMinimumWidth(130)
+        self._stretch_to_form_width(self.profile_source_combo)
         # No quoted token on purpose: the field is called `source`, the
         # same name as the POLAR's source, and `field_help._campo_do_widget`
         # only looks at the last segment -- the help would land on the
@@ -1033,7 +1153,25 @@ class AirfoilTab(QWidget):
             "How the 2D contour of the profile is described. The contour "
             "feeds the drawing and the external solver; it does not feed the "
             "engine directly, which reads lift and drag from the polar.")
-        form.addRow("Source:", self.profile_source_combo)
+        # The combo goes in wrapped in a stretch container, exactly like
+        # the wrapped line edits of this form: a bare QComboBox inside a
+        # QFormLayout took the row's leftover width inconsistently (it
+        # stayed ~180px short of the editors whenever a long-label row
+        # above was visible), breaking the column's shared edges. The
+        # container makes the row behave like every other field row.
+        src_row = QWidget()
+        src_lay = QHBoxLayout(src_row)
+        src_lay.setContentsMargins(0, 0, 0, 0)
+        src_lay.setSpacing(0)
+        src_lay.addWidget(self.profile_source_combo, 1)
+        src_lay.addStretch(0)
+        form.addRow("Source:", src_row)
+        # Progressive reveal must follow the combo LIVE: without this
+        # connection the editor rows only matched the selection at build
+        # time and on project load, and picking another source left the
+        # previous family's fields on screen (rot that stayed hidden while
+        # cst/bezier were out of the list, since naca4/naca5 share one row).
+        self.profile_source_combo.currentTextChanged.connect(self._update_profile_fields)
 
         self.naca_code_edit = QLineEdit("2412")
         self.naca_code_edit.setToolTip(
@@ -1084,7 +1222,8 @@ class AirfoilTab(QWidget):
         btn_generate_profile.setToolTip(
             "Builds the contour from the fields above and draws it in the "
             "Profile tab on the right. It only redraws the shape — the polar, "
-            "and with it the engine, changes only when NeuralFoil runs.")
+            "and with it the engine, changes only when the external engine "
+            "runs (NeuralFoil or XFOIL).")
         btn_generate_profile.clicked.connect(self._generate_profile)
         btn_import_dat = QPushButton("Import .dat…")
         btn_import_dat.setToolTip(self._DAT_IMPORT_TOOLTIP)
@@ -1102,16 +1241,22 @@ class AirfoilTab(QWidget):
         return box
 
     def _build_external_box(self) -> QGroupBox:
-        box = QGroupBox("Polar Generation via NeuralFoil")
+        box = QGroupBox("Polar Generation via External Engine")
         self.external_box = box
         form = QFormLayout(box)
-        available = external_solvers.is_available("neuralfoil")
 
-        # `engine_combo` is not displayed — its value is controlled by
-        # `_update_source_visibility`. Kept for compatibility with
-        # `_collect_airfoil_def` / `_load_form_from_airfoil_def`.
+        # `engine_combo` is not displayed — its value is DERIVED from the
+        # polar Source mode, one-to-one across the four options (see
+        # `_update_source_visibility`): 'neuralfoil' -> 'neuralfoil',
+        # 'xfoil' -> 'xfoil', anything else -> 'none'. Kept for
+        # compatibility with `_collect_airfoil_def` /
+        # `_load_form_from_airfoil_def`, which read it as the persisted
+        # `external_engine`.
+        # 'xfoil' runs the XFOIL binary; the GUI checks for it at the
+        # moment the user clicks Run, through the four-place lookup
+        # (ZBEMT_XFOIL_BIN, remembered choice, PATH, standard folders).
         self.engine_combo = QComboBox()
-        self.engine_combo.addItems(["none", "neuralfoil"])
+        self.engine_combo.addItems(["none", "neuralfoil", "xfoil"])
 
         self.re_list_edit = QLineEdit("1e5, 2e5, 5e5, 1e6")
         self.re_list_edit.setToolTip('"airfoil.external_reynolds_list" — Reynolds values suggested automatically based on the blade\'s typical envelope')
@@ -1145,21 +1290,75 @@ class AirfoilTab(QWidget):
         form.addRow("Maximum alpha [deg]:", self.ext_alpha_max)
         form.addRow("Alpha step [deg]:", self.ext_alpha_step)
 
+        # XFOIL-dedicated adjustment inputs (AirfoilDef.xfoil_ncrit /
+        # xfoil_xtr_top / xfoil_xtr_bot). The rows appear only when the
+        # engine is xfoil (see _update_xfoil_visibility); the values are
+        # collected and loaded like the sibling external_* fields, so they
+        # round-trip through airfoil.bemt even while hidden.
+        self.ext_ncrit = QDoubleSpinBox()
+        self.ext_ncrit.setRange(1.0, 15.0)
+        self.ext_ncrit.setDecimals(2)
+        self.ext_ncrit.setValue(9.0)
+        self.ext_ncrit.setSingleStep(0.5)
+        self.ext_ncrit.setToolTip(
+            '"xfoil_ncrit" — critical amplification factor N of the '
+            'e<sup>N</sup> transition criterion. The boundary layer turns '
+            'turbulent where the amplification of small disturbances reaches '
+            'e<sup>N</sup>. A lower N predicts earlier transition and higher '
+            'drag, and 9 approximates a clean flow (typical range: 1 to 15). This '
+            'input reaches only the XFOIL binary. NeuralFoil ignores it.')
+        form.addRow("Ncrit:", self.ext_ncrit)
+
+        self.ext_xtr_top = QDoubleSpinBox()
+        self.ext_xtr_top.setRange(0.01, 1.0)
+        self.ext_xtr_top.setDecimals(2)
+        self.ext_xtr_top.setValue(1.0)
+        self.ext_xtr_top.setSingleStep(0.05)
+        self.ext_xtr_top.setToolTip(
+            '"xfoil_xtr_top" — chord fraction where transition is forced on '
+            'the upper surface, in (0,&nbsp;1]. XFOIL fixes transition at that '
+            'station instead of predicting it, and 1 leaves free transition on the '
+            'whole surface. This input reaches only the XFOIL binary. NeuralFoil '
+            'ignores it.')
+        form.addRow("Xtr top:", self.ext_xtr_top)
+
+        self.ext_xtr_bot = QDoubleSpinBox()
+        self.ext_xtr_bot.setRange(0.01, 1.0)
+        self.ext_xtr_bot.setDecimals(2)
+        self.ext_xtr_bot.setValue(1.0)
+        self.ext_xtr_bot.setSingleStep(0.05)
+        self.ext_xtr_bot.setToolTip(
+            '"xfoil_xtr_bot" — chord fraction where transition is forced on '
+            'the lower surface, in (0,&nbsp;1]. XFOIL fixes transition at that '
+            'station instead of predicting it, and 1 leaves free transition on the '
+            'whole surface. This input reaches only the XFOIL binary. NeuralFoil '
+            'ignores it.')
+        form.addRow("Xtr bot:", self.ext_xtr_bot)
+        #: stored to hide the three rows above as a unit
+        #: (see `_update_xfoil_visibility`)
+        self._external_form = form
+        self.engine_combo.currentTextChanged.connect(self._update_xfoil_visibility)
+        self._update_xfoil_visibility()
+
         row = QHBoxLayout()
-        self.btn_run_external = QPushButton("Run NeuralFoil")
-        # Stays CLICKABLE even without the package: `_run_external` calls
-        # `require_optional_package`, which opens a dialog with the
-        # install command. A disabled button only stated the reason in a
-        # tooltip.
+        self.btn_run_external = QPushButton("Run polar generation")
+        # Stays CLICKABLE even without the package or the binary: the
+        # click opens a dialog explaining what is missing
+        # (`require_optional_package` for neuralfoil,
+        # `require_optional_binary` for xfoil). A disabled button only
+        # stated the reason in a tooltip.
         self.btn_run_external.setToolTip(
-            "Generates a Cl/Cd×α polar for each Reynolds×Mach combination via NeuralFoil (neural network)"
-            if available else "Requires the optional 'neuralfoil' package — click for install instructions")
+            "Generates a polar of Cl and Cd versus α for each Reynolds×Mach "
+            "combination with the "
+            "selected external engine (neuralfoil: neural network. xfoil: XFOIL "
+            "binary, looked up through ZBEMT_XFOIL_BIN, your remembered Locate… "
+            "choice, PATH, and the standard install folders)")
         self.btn_run_external.clicked.connect(self._run_external)
         self.btn_cancel_external = QPushButton("Cancel")
         self.btn_cancel_external.setVisible(False)
         self.btn_cancel_external.setToolTip(
-            "NeuralFoil cannot be interrupted mid-point (α) once it's already computing -- "
-            "cancel only discards the result when it finishes, instead of applying it.")
+            "The engine cannot interrupt a point (α) that it is already computing. "
+            "A cancel discards the result when it finishes, instead of applying it.")
         self.btn_cancel_external.clicked.connect(self._cancel_external)
         self.btn_export_external = QPushButton("Export generated table…")
         self.btn_export_external.setEnabled(False)
@@ -1170,11 +1369,21 @@ class AirfoilTab(QWidget):
         form.addRow(row)
         self.progress_external = QProgressBar()
         self.progress_external.setVisible(False)
-        self.progress_external.setRange(0, 0)  # indeterminate: NeuralFoil does not report per-point progress
+        self.progress_external.setRange(0, 0)  # indeterminate: the engine does not report per-point progress
         self.status_label_external = QLabel("")
         form.addRow(self.progress_external)
         form.addRow(self.status_label_external)
         return box
+
+    def _update_xfoil_visibility(self, *_args):
+        """Progressive disclosure: Ncrit and the two Xtr inputs describe
+        transition options of the XFOIL binary alone, so their rows appear
+        only when `engine_combo` is 'xfoil'. The rows hide through
+        `set_row_visible` so the label never stays on screen pointing at
+        nothing; the values themselves keep round-tripping while hidden."""
+        show = self.engine_combo.currentText() == "xfoil"
+        for w in (self.ext_ncrit, self.ext_xtr_top, self.ext_xtr_bot):
+            set_row_visible(self._external_form, w, show)
 
     #: RPM used in the item 15 estimate when the project has no saved
     #: case -- the same default as `cli.DEFAULT_RPM` and the RPM field in
@@ -1236,7 +1445,9 @@ class AirfoilTab(QWidget):
             return
         if getattr(self, "_applying_locally", False):
             return
-        if self.source_combo.currentText() != "neuralfoil":
+        # Both generated-table modes carry these lists ('neuralfoil' and
+        # 'xfoil'); in the other modes the fields do not even appear.
+        if self.source_combo.currentText() not in ("neuralfoil", "xfoil"):
             return
         self._suggesting = True
         try:
@@ -1245,14 +1456,14 @@ class AirfoilTab(QWidget):
             self._suggesting = False
 
     def _suggest_re_mach(self, force: bool = False):
-        """Item 15: fills the NeuralFoil Reynolds/Mach lists with three
-        values each, bracketing the blade's operating point
-        (`airfoils.suggest_reynolds_mach_lists` -- closed form, no
-        engine run).
+        """Item 15: fills the generated-table Reynolds/Mach lists (used by
+        both NeuralFoil and XFOIL) with three values each, bracketing the
+        blade's operating point (`airfoils.suggest_reynolds_mach_lists` --
+        closed form, no engine run).
 
-        With ``force=False`` (automatic call when entering 'neuralfoil'
-        mode) respects lists the user has already typed; the "Suggest
-        from rotor" button calls with ``force=True``."""
+        With ``force=False`` (automatic call when entering one of the
+        generated modes) respects lists the user has already typed; the
+        "Suggest from rotor" button calls with ``force=True``."""
         if not force and self._re_mach_user_edited:
             return
         project = self.state.project
@@ -1373,10 +1584,10 @@ class AirfoilTab(QWidget):
 
     def _airfoil_extend_full_range(self) -> bool:
         """Mirrors `models.uses_full_range_extension` from the GUI's
-        current state (before an AirfoilDef exists yet): source
-        'table' -> explicit toggle; any other source -> stall_model
-        == 'viterna'."""
-        if self.source_combo.currentText() in ("table", "neuralfoil"):
+        current state (before an AirfoilDef exists yet): the table-like
+        sources ('table', 'neuralfoil', 'xfoil') -> explicit toggle; any
+        other source -> stall_model == 'viterna'."""
+        if self.source_combo.currentText() in ("table", "neuralfoil", "xfoil"):
             return self.extend_full_range.isChecked()
         return self.stall_model_combo.currentText() == "viterna"
 
@@ -1439,14 +1650,15 @@ class AirfoilTab(QWidget):
         field is wrapped by the "?" help icon, and hiding only that
         left the label ("CST upper (coefs, comma):") orphaned on
         screen, pointing at nothing -- which was the defect reported as
-        "CST fields that can't be edited". Today `cst`/`bezier` don't
-        even appear in the combo, except in an old project that already
-        uses them (`_sync_profile_source`)."""
+        "CST fields that can't be edited"."""
         form = self._geometry_form
         set_row_visible(form, self.naca_code_edit, source in ("naca4", "naca5"))
         set_row_visible(form, self.cst_upper_edit, source == "cst")
         set_row_visible(form, self.cst_lower_edit, source == "cst")
         set_row_visible(form, self.bezier_points_edit, source == "bezier")
+        set_row_visible(form, self.parsec_edit, source == "parsec")
+        set_row_visible(form, self.joukowski_edit, source == "joukowski")
+        set_row_visible(form, self.biconvex_edit, source == "biconvex")
 
     # --- Embedded preview canvas (docs/plano_v3.md Part 5) ---------------
     # "Polar" tab (Cl/Cd x alpha, navigated slice + overlay from block d/e)
@@ -1767,18 +1979,21 @@ class AirfoilTab(QWidget):
     # --- actions ----------------------------------------------------------
 
     def _collect_airfoil_def(self, r_norm: float | None = None) -> AirfoilDef:
-        gui_mode = self.source_combo.currentText()  # "analytical" | "table" | "neuralfoil"
-        # 'neuralfoil' is a GUI MODE (item 6), not a separate `AirfoilDef.source`
-        # -- in the data model/`bemt.py` it IS a table (generated on-the-fly
-        # from geometry, one section at a time), so it maps to source='table'
-        # here (see `_update_source_visibility` for the mirror: engine_combo
-        # is set automatically by this mode).
-        source = "table" if gui_mode == "neuralfoil" else gui_mode
+        gui_mode = self.source_combo.currentText()  # "analytical" | "table" | "neuralfoil" | "xfoil"
+        # 'neuralfoil' and 'xfoil' are GUI MODES (item 6), not separate
+        # `AirfoilDef.source` values -- in the data model/`bemt.py` they ARE
+        # tables (generated on-the-fly from geometry, one section at a
+        # time), so both map to source='table' here; `external_engine`
+        # carries WHICH generator produced it (see
+        # `_update_source_visibility` for the mirror: engine_combo is set
+        # automatically by these modes).
+        source = "table" if gui_mode in ("neuralfoil", "xfoil") else gui_mode
         stall_model = self.stall_model_combo.currentText()
-        # extend_full_range is only an independent toggle for the user for
-        # source 'table'/'neuralfoil' -- for 'analytical' it is DERIVED from
-        # stall_model=='viterna' (see models.uses_full_range_extension),
-        # synchronized here so the value saved in the project stays consistent.
+        # extend_full_range is only an independent toggle for the user in
+        # the table-like modes ('table', 'neuralfoil', 'xfoil') -- for
+        # 'analytical' it is DERIVED from stall_model=='viterna' (see
+        # models.uses_full_range_extension), synchronized here so the value
+        # saved in the project stays consistent.
         extend_full_range = (self.extend_full_range.isChecked() if gui_mode != "analytical"
                               else stall_model == "viterna")
         return AirfoilDef(
@@ -1809,6 +2024,9 @@ class AirfoilTab(QWidget):
             external_alpha_min_deg=self.ext_alpha_min.value(),
             external_alpha_max_deg=self.ext_alpha_max.value(),
             external_alpha_step_deg=self.ext_alpha_step.value(),
+            xfoil_ncrit=self.ext_ncrit.value(),
+            xfoil_xtr_top=self.ext_xtr_top.value(),
+            xfoil_xtr_bot=self.ext_xtr_bot.value(),
         )
 
     def preview_options(self) -> dict:
@@ -1929,8 +2147,8 @@ class AirfoilTab(QWidget):
 
     def _update_prandtl_glauert_availability(self, *_args):
         """Disables the Prandtl-Glauert toggle when the polar IN USE already
-        carries Mach as data: table (or table generated by NeuralFoil) with
-        2+ slices of `PolarSlice.mach`. In that case the polar chosen in
+        carries Mach as data: table (or table generated by NeuralFoil/XFOIL)
+        with 2+ slices of `PolarSlice.mach`. In that case the polar chosen in
         each condition already comes compressible, and applying the empirical
         correction on top would count Mach twice. Same rule as
         `validation.validate_config` (which keeps warning if a `.bemt`
@@ -1951,7 +2169,7 @@ class AirfoilTab(QWidget):
             # construction -- the box is created in a block assembled later
             return
         machs = {s.mach for s in (self._imported_slices or []) if s.mach is not None}
-        uses_table = self.source_combo.currentText() in ("table", "neuralfoil")
+        uses_table = self.source_combo.currentText() in ("table", "neuralfoil", "xfoil")
         blocked = uses_table and len(machs) > 1
         if blocked:
             if self.cfg_use_compressibility.isEnabled():
@@ -2008,29 +2226,14 @@ class AirfoilTab(QWidget):
     def _sync_profile_source(self, profile) -> None:
         """Sets the "Source:" combo to the source of the LOADED outline.
 
-        Two things at once. First: the combo was not synchronized with the
-        project -- opening a project imported from .dat showed "naca4" over
-        an outline that was not NACA at all.
-
-        Second: `cst`/`bezier` left the offered list (see `_PROFILE_SOURCES`),
-        and an old project can use them. In that case the option RETURNS to
-        the list, just for that project: the outline stays intact in
-        `AirfoilDef.geometry` anyway (the tab passes the entire object), and
-        showing "naca4" over a CST outline would be a lie on screen."""
+        Without this the combo was not synchronized with the project --
+        opening a project imported from .dat showed "naca4" over an
+        outline that was not NACA at all."""
         source_name = (getattr(profile, "source", "") or "").strip()
         combo = self.profile_source_combo
-        # The list is REBUILT on each project, not just added to: open a
-        # CST project and then a NACA one, and an `addItem` would leave "cst"
-        # offered forever -- an option the tab no longer knows how to edit,
-        # inherited from a project that already closed.
         options = list(self._PROFILE_SOURCES)
-        if source_name in self._LEGACY_PROFILE_SOURCES:
-            options.append(source_name)
         target = source_name if source_name in options else combo.currentText()
         combo.blockSignals(True)
-        if [combo.itemText(i) for i in range(combo.count())] != options:
-            combo.clear()
-            combo.addItems(options)
         if target in options:
             combo.setCurrentText(target)
         combo.blockSignals(False)
@@ -2056,6 +2259,24 @@ class AirfoilTab(QWidget):
                     x_str, y_str = line.split(",")
                     pts.append([float(x_str), float(y_str)])
                 self._profile = airfoils.generate_bezier(pts)
+            elif source == "parsec":
+                vals = [float(v) for v in self.parsec_edit.text().split(",") if v.strip()]
+                if len(vals) != 9:
+                    raise ValueError(
+                        "PARSEC needs nine numbers: r_le, x_up, y_up, y_xx_up, "
+                        "x_lo, y_lo, y_xx_lo, th_te, beta_te_deg.")
+                self._profile = airfoils.generate_parsec(*vals)
+            elif source == "joukowski":
+                vals = [float(v) for v in self.joukowski_edit.text().split(",") if v.strip()]
+                if len(vals) != 2:
+                    raise ValueError("Joukowski needs two numbers: epsilon, camber.")
+                self._profile = airfoils.generate_joukowski(*vals)
+            elif source == "biconvex":
+                vals = [float(v) for v in self.biconvex_edit.text().split(",") if v.strip()]
+                if len(vals) != 1:
+                    raise ValueError(
+                        "Biconvex needs one number: the thickness t at mid-chord.")
+                self._profile = airfoils.generate_biconvex(vals[0])
             else:
                 QMessageBox.information(self, "Import", "Use the 'Import .dat…' button for this source.")
                 return
@@ -2082,13 +2303,26 @@ class AirfoilTab(QWidget):
         self._schedule_preview_refresh()
 
     def _run_external(self):
-        """C4 (production-plan.md): NeuralFoil runs in ``ExternalPolarWorker``
-        on a ``QThread`` (same pattern as ``BatchRunnerWorker``/
-        ``launch_worker`` used by RunCaseTab/RunBatchTab), no longer
-        synchronous on the GUI thread -- before it froze the window ("Not
-        responding") for minutes on a modest Reynolds×Mach×alpha sweep."""
-        if not require_optional_package(self, "neuralfoil"):
-            return
+        """C4 (production-plan.md): the external engine runs in
+        ``ExternalPolarWorker`` on a ``QThread`` (same pattern as
+        ``BatchRunnerWorker``/``launch_worker`` used by RunCaseTab/
+        RunBatchTab), no longer synchronous on the GUI thread -- before it
+        froze the window ("Not responding") for minutes on a modest
+        Reynolds×Mach×alpha sweep."""
+        engine = self.engine_combo.currentText()
+        # Availability is checked HERE, per engine, at the moment of the
+        # click: neuralfoil needs the Python package, xfoil needs the
+        # binary (four-place lookup: ZBEMT_XFOIL_BIN, remembered choice,
+        # PATH, standard folders). The dialog offers Locate… and says
+        # how to install; the button never goes dead.
+        if engine == "neuralfoil":
+            if not require_optional_package(self, "neuralfoil"):
+                return
+        elif engine == "xfoil":
+            if not require_optional_binary(
+                    self, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                    download_hint="Install XFOIL and set ZBEMT_XFOIL_BIN or add it to PATH."):
+                return
         if self._profile is None:
             QMessageBox.warning(self, "No geometry", "Generate or import the profile geometry (block 'f') first.")
             return
@@ -2098,7 +2332,7 @@ class AirfoilTab(QWidget):
             reynolds_list = [float(v) for v in self.re_list_edit.text().split(",") if v.strip()]
             mach_list = [float(v) for v in self.mach_list_edit.text().split(",") if v.strip()]
         except Exception as exc:
-            show_error(self, "Error running NeuralFoil", exc)
+            show_error(self, "Error running polar generation", exc)
             return
 
         self._ext_reynolds_list = reynolds_list
@@ -2108,15 +2342,27 @@ class AirfoilTab(QWidget):
         self.btn_cancel_external.setEnabled(True)
         self.progress_external.setVisible(True)
         self.status_label_external.setText(
-            f"Running NeuralFoil ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach)…")
+            f"Running {engine} ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach)…")
 
-        worker = ExternalPolarWorker(
-            self._profile, engine="neuralfoil",
-            reynolds_list=reynolds_list, mach_list=mach_list,
-            alpha_min_deg=self.ext_alpha_min.value(),
-            alpha_max_deg=self.ext_alpha_max.value(),
-            alpha_step_deg=self.ext_alpha_step.value(),
-        )
+        diagnostics: list = []
+        self._ext_diagnostics = diagnostics
+        if engine == "xfoil":
+            worker = _XfoilPolarWorker(
+                self._profile,
+                reynolds_list=reynolds_list, mach_list=mach_list,
+                alpha_min_deg=self.ext_alpha_min.value(),
+                alpha_max_deg=self.ext_alpha_max.value(),
+                alpha_step_deg=self.ext_alpha_step.value(),
+                ncrit=self.ext_ncrit.value(), xtr_top=self.ext_xtr_top.value(),
+                xtr_bot=self.ext_xtr_bot.value(), diagnostics=diagnostics)
+        else:
+            worker = ExternalPolarWorker(
+                self._profile, engine=engine,
+                reynolds_list=reynolds_list, mach_list=mach_list,
+                alpha_min_deg=self.ext_alpha_min.value(),
+                alpha_max_deg=self.ext_alpha_max.value(),
+                alpha_step_deg=self.ext_alpha_step.value(),
+                diagnostics=diagnostics)
         self._ext_worker = worker
         worker.finished.connect(self._on_external_finished)
         worker.failed.connect(self._on_external_failed)
@@ -2127,14 +2373,16 @@ class AirfoilTab(QWidget):
             self._ext_worker.cancel()
             self.btn_cancel_external.setEnabled(False)
             self.status_label_external.setText(
-                "Canceling… (NeuralFoil cannot interrupt a point mid-calculation; "
-                "result will be discarded when it finishes)")
+                "Canceling… (the engine cannot interrupt a point mid-calculation. "
+                "The result will be discarded when it finishes)")
 
     def _reset_external_run_ui(self):
         self.progress_external.setVisible(False)
         self.btn_cancel_external.setVisible(False)
         self.btn_cancel_external.setEnabled(True)
-        self.btn_run_external.setEnabled(external_solvers.is_available("neuralfoil"))
+        # Clickable again, whatever the availability: a click explains
+        # what is missing instead of leaving a dead button.
+        self.btn_run_external.setEnabled(True)
         self._ext_thread = None
         self._ext_worker = None
 
@@ -2144,37 +2392,54 @@ class AirfoilTab(QWidget):
         self.status_label_external.setText("")
         if cancelled:
             return
-        show_error(self, "Error running NeuralFoil", RuntimeError(message))
+        show_error(self, "Error running polar generation", RuntimeError(message))
 
     def _on_external_finished(self, slices: list):
         cancelled = self._ext_worker.cancel_requested if self._ext_worker is not None else False
         reynolds_list = getattr(self, "_ext_reynolds_list", [])
         mach_list = getattr(self, "_ext_mach_list", [])
+        engine = self.engine_combo.currentText() or "external engine"
         self._reset_external_run_ui()
         self.status_label_external.setText("")
         if cancelled:
-            self.status_label_external.setText("Canceled -- result discarded.")
+            self.status_label_external.setText("Canceled. The result is discarded.")
             return
 
         if not slices:
             QMessageBox.warning(self, "No points converged",
-                                 "NeuralFoil did not return any alpha points with sufficient confidence "
-                                 "for this geometry/range.")
+                                 f"{engine} did not return any alpha points with sufficient confidence "
+                                 "for this geometry and range.")
             return
 
         self._generated_external_slices = slices
         self.btn_export_external.setEnabled(True)
         self._imported_slices = list(slices)
+        # Say what the sweep ACTUALLY produced: a Reynolds that came back
+        # empty used to vanish into a stderr warning the GUI never shows.
+        diagnostics = list(getattr(self, "_ext_diagnostics", []))
+        status = _polar_generation_status(len(reynolds_list), diagnostics)
+        alphas = [a for s in slices for a in (s.alpha_deg or [])]
+        if alphas and (max(alphas) <= 1e-9 or min(alphas) >= -1e-9):
+            status += (" Warning: the table covers only one side of alpha=0. "
+                       "The full-range extension mirrors the stall anchor on "
+                       "the empty side. Regenerate with a wider alpha range "
+                       "for real data on both sides.")
+        self.status_label_external.setText(status)
+        self.status_label_external.setWordWrap(True)
         # The result becomes the active table immediately. This keeps the
-        # NeuralFoil mode and the generated slices together in the Project,
-        # allowing the case to run without manually going back to Table mode.
+        # generated-table mode (NeuralFoil or XFOIL) and the generated
+        # slices together in the Project, allowing the case to run without
+        # manually going back to Table mode.
         self._populate_slices_list()
-        self.source_combo.setCurrentText("neuralfoil")
+        # Stay in the generated mode that started the run: forcing
+        # 'neuralfoil' here would silently switch an XFOIL run's source.
+        if self.source_combo.currentText() not in ("neuralfoil", "xfoil"):
+            self.source_combo.setCurrentText("neuralfoil")
         # `setCurrentText` only writes to the project AS A SIDE EFFECT TABLE:
         # who calls `_apply_to_project` is the signal `currentTextChanged`.
-        # In the real flow the combo IS ALREADY in 'neuralfoil' (otherwise
-        # this generation block wouldn't even be visible), the signal doesn't
-        # fire, and the newly generated polars never reached
+        # In the real flow the combo IS ALREADY in the generated mode
+        # (otherwise this generation block wouldn't even be visible), the
+        # signal doesn't fire, and the newly generated polars never reached
         # `state.project.airfoil` -- the project continued with empty
         # table_slices and execution was blocked by "no polar was imported",
         # pointing the user back to 'table' mode. Applying explicitly does
@@ -2182,8 +2447,8 @@ class AirfoilTab(QWidget):
         self._apply_to_project()
         self._schedule_preview_refresh()
         QMessageBox.information(
-            self, "NeuralFoil completed",
-            f"{len(slices)} polar(s) generated ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach). "
+            self, f"{engine} completed",
+            f"{len(slices)} polar tables generated ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach). "
             # There is no 'Apply' button anymore: the line above already wrote
             # the slices to the project in memory. What's left for the user to
             # decide is whether to save to disk or not -- and that was what the
@@ -2194,14 +2459,14 @@ class AirfoilTab(QWidget):
     def _export_external_table(self):
         slices = getattr(self, "_generated_external_slices", None)
         if not slices:
-            QMessageBox.warning(self, "Nothing to export", "Run NeuralFoil first.")
+            QMessageBox.warning(self, "Nothing to export", "Run polar generation first.")
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Export NeuralFoil table", "", "CSV (*.csv)")
+        path, _ = QFileDialog.getSaveFileName(self, "Export generated table", "", "CSV (*.csv)")
         if not path:
             return
         try:
             out = api.export_polar_table(slices, path)
-            QMessageBox.information(self, "Exported", f"NeuralFoil table exported to {out}")
+            QMessageBox.information(self, "Exported", f"Generated table exported to {out}")
         except Exception as exc:
             show_error(self, "Error exporting table", exc)
 
@@ -2219,14 +2484,20 @@ class AirfoilTab(QWidget):
 
     def _load_form_from_airfoil_def(self, a: AirfoilDef):
         self.airfoil_name_edit.setText(a.name)
-        # Old projects with external_engine="xfoil" (engine removed in this
-        # version -- Phase 7) fall back to "none"; the original value stays in
-        # the .bemt until the user re-applies via GUI/CLI.
-        engine = a.external_engine if a.external_engine in ("none", "neuralfoil") else "none"
-        # Item 6: 'neuralfoil' is reconstructed here from
-        # source='table' + external_engine='neuralfoil' -- see
+        # Unknown/legacy engine values fall back to "none"; the original
+        # value stays in the .bemt until the user re-applies via GUI/CLI.
+        # "xfoil" is a first-class option again (the GUI offers it and
+        # checks for the binary at run time).
+        engine = a.external_engine if a.external_engine in ("none", "neuralfoil", "xfoil") else "none"
+        # Item 6: both generated modes are reconstructed here from
+        # source='table' + external_engine ('neuralfoil'/'xfoil') -- see
         # `_collect_airfoil_def` for the inverse mapping.
-        gui_mode = "neuralfoil" if (a.source == "table" and engine == "neuralfoil") else a.source
+        if a.source == "table" and engine == "neuralfoil":
+            gui_mode = "neuralfoil"
+        elif a.source == "table" and engine == "xfoil":
+            gui_mode = "xfoil"
+        else:
+            gui_mode = a.source
         self.source_combo.setCurrentText(gui_mode)
         self.cl_alpha.setValue(a.cl_alpha)
         self.alpha0_deg.setValue(a.alpha0_deg)
@@ -2262,10 +2533,37 @@ class AirfoilTab(QWidget):
         self.ext_alpha_min.setValue(a.external_alpha_min_deg)
         self.ext_alpha_max.setValue(a.external_alpha_max_deg)
         self.ext_alpha_step.setValue(a.external_alpha_step_deg)
+        self.ext_ncrit.setValue(a.xfoil_ncrit)
+        self.ext_xtr_top.setValue(a.xfoil_xtr_top)
+        self.ext_xtr_bot.setValue(a.xfoil_xtr_bot)
         self._imported_slices = list(a.table_slices)
         self._populate_slices_list()
         self._profile = a.geometry
         self._sync_profile_source(a.geometry)
+        self._load_generator_params(a.geometry)
+
+    def _load_generator_params(self, profile) -> None:
+        """Fills the three analytic-family rows from
+        ``ProfileGeometry.generator_params`` -- the generator's own keyword
+        dictionary, saved with the contour so it can be edited again."""
+        params = dict(getattr(profile, "generator_params", {}) or {})
+        source = (getattr(profile, "source", "") or "").strip()
+
+        def fmt(value) -> str:
+            try:
+                return f"{float(value):.6g}"
+            except (TypeError, ValueError):
+                return str(value) if value != "" else ""
+
+        if source == "parsec":
+            keys = ("r_le", "x_up", "y_up", "y_xx_up", "x_lo", "y_lo",
+                    "y_xx_lo", "th_te", "beta_te_deg")
+            self.parsec_edit.setText(", ".join(fmt(params.get(k, "")) for k in keys))
+        elif source == "joukowski":
+            self.joukowski_edit.setText(
+                ", ".join(fmt(params.get(k, "")) for k in ("epsilon", "camber")))
+        elif source == "biconvex":
+            self.biconvex_edit.setText(fmt(params.get("thickness", "")))
 
     def _refresh_from_project(self):
         if self.state.project is None:
@@ -2278,12 +2576,13 @@ class AirfoilTab(QWidget):
         finally:
             self._loading = False
         self._clear_dirty()
-        # Project saved in NeuralFoil mode and WITHOUT Reynolds/Mach lists
-        # opened with both fields blank and nothing filled them: automatic
-        # suggestion only fired on TRANSITION to the mode, which on this path
-        # never happens (the project already enters it). Here it runs after
-        # loading -- and only when the fields are empty, because a list from
-        # the project counts as user choice (see `_load_form_from_airfoil_def`).
+        # Project saved in a generated-table mode (NeuralFoil or XFOIL)
+        # and WITHOUT Reynolds/Mach lists opened with both fields blank
+        # and nothing filled them: automatic suggestion only fired on
+        # TRANSITION to the mode, which on this path never happens (the
+        # project already enters it). Here it runs after loading -- and
+        # only when the fields are empty, because a list from the project
+        # counts as user choice (see `_load_form_from_airfoil_def`).
         self._re_suggest_re_mach()
         # The preview does NOT redraw on its own here: `_loading` silences
         # precisely the field-change signals that would schedule it. Without

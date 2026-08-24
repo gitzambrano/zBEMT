@@ -294,6 +294,142 @@ class LegendPerCondition(unittest.TestCase):
         self.assertIn("Re=5e+05", curves[0]["label"])
 
 
+class ProfileSourceOptions(unittest.TestCase):
+    """CST and Bézier are first-class contour sources again.
+
+    The user decision reverses the older one that had removed them from
+    the dropdown. The tests check the combo list, the editor rows per
+    selection, and that 'Generate geometry' lands a contour in the
+    project."""
+
+
+    def _combo_items(self, combo):
+        return [combo.itemText(i) for i in range(combo.count())]
+
+    def test_profile_source_options_in_order(self):
+        tab, _ = _tab_with_project()
+        self.assertEqual(self._combo_items(tab.profile_source_combo),
+                         ["naca4", "naca5", "cst", "bezier", "parsec",
+                          "joukowski", "biconvex", "imported"])
+
+
+    def test_each_contour_source_shows_only_its_editor_rows(self):
+        tab, _ = _tab_with_project()
+        # Row-level visibility is asserted against the geometry box
+        # (`isVisibleTo`): with the polar source on 'analytical' the whole
+        # 2D Profile Geometry block is hidden, which would make every child
+        # report invisible no matter what its own row does.
+        expected = {
+            "naca4": dict(naca=True, cst=False, bezier=False),
+            "naca5": dict(naca=True, cst=False, bezier=False),
+            "cst": dict(naca=False, cst=True, bezier=False),
+            "bezier": dict(naca=False, cst=False, bezier=True),
+            "imported": dict(naca=False, cst=False, bezier=False),
+        }
+        for source, vis in expected.items():
+            tab.profile_source_combo.setCurrentText(source)
+            box = tab.geometry_box
+            self.assertEqual(tab.naca_code_edit.isVisibleTo(box), vis["naca"], source)
+            self.assertEqual(tab.cst_upper_edit.isVisibleTo(box), vis["cst"], source)
+            self.assertEqual(tab.cst_lower_edit.isVisibleTo(box), vis["cst"], source)
+            self.assertEqual(tab.bezier_points_edit.isVisibleTo(box), vis["bezier"],
+                             source)
+
+
+    def test_cst_generation_yields_a_contour_in_the_project(self):
+        # Known-good coefficients from tests/test_airfoils.py::TestCstBezier.
+        with patch_message_box_everywhere("QMessageBox"):
+            tab, state = _tab_with_project()
+            tab.profile_source_combo.setCurrentText("cst")
+            tab.cst_upper_edit.setText("0.15, 0.2, 0.15")
+            tab.cst_lower_edit.setText("-0.1, -0.12, -0.1")
+            tab._generate_profile()
+        self.assertIsNotNone(tab._profile, "no contour was generated for cst")
+        self.assertGreater(len(tab._profile.x), 0)
+        self.assertTrue(np.all(np.isfinite(tab._profile.x)))
+        d = tab._collect_airfoil_def()
+        self.assertIsNotNone(d.geometry, "contour did not reach the project")
+        self.assertEqual(d.geometry.source, "cst")
+
+
+    def test_bezier_generation_yields_a_contour_in_the_project(self):
+        # Known-good control points from tests/test_airfoils.py::TestCstBezier.
+        with patch_message_box_everywhere("QMessageBox"):
+            tab, state = _tab_with_project()
+            tab.profile_source_combo.setCurrentText("bezier")
+            tab.bezier_points_edit.setPlainText(
+                "1,0\n0.5,0.08\n0,0\n0.5,-0.05\n1,0")
+            tab._generate_profile()
+        self.assertIsNotNone(tab._profile, "no contour was generated for bezier")
+        self.assertGreater(len(tab._profile.x), 0)
+        self.assertTrue(np.all(np.isfinite(tab._profile.x)))
+        self.assertAlmostEqual(max(tab._profile.x), 1.0, places=6)
+        d = tab._collect_airfoil_def()
+        self.assertIsNotNone(d.geometry, "contour did not reach the project")
+        self.assertEqual(d.geometry.source, "bezier")
+
+
+class PolarSourceXfoilMode(unittest.TestCase):
+    """XFOIL as a FOURTH polar-generation source mode (user decision).
+
+    The mode behaves like 'neuralfoil': same generated-table handling, same
+    external box, same fields, but it drives the XFOIL binary and reveals
+    the XFOIL-dedicated rows. One decision, one control: the hidden engine
+    combo is derived from the source mode."""
+
+    def test_polar_source_options_in_order(self):
+        tab, _ = _tab_with_project()
+        items = [tab.source_combo.itemText(i) for i in range(tab.source_combo.count())]
+        self.assertEqual(items, ["analytical", "table", "neuralfoil", "xfoil"])
+
+    def test_xfoil_mode_selects_the_engine_and_reveals_its_rows(self):
+        tab, _ = _tab_with_project()
+        tab.show()
+        tab.source_combo.setCurrentText("xfoil")
+        self.assertEqual(tab.engine_combo.currentText(), "xfoil")
+        self.assertTrue(tab.ext_ncrit.isVisible(), "Ncrit row")
+        self.assertTrue(tab.ext_xtr_top.isVisible(), "Xtr top row")
+        self.assertTrue(tab.ext_xtr_bot.isVisible(), "Xtr bot row")
+        self.assertFalse(tab._btn_import_csv.isVisible(),
+                         "manual CSV import makes no sense in a generated mode")
+        self.assertTrue(tab.geometry_box.isVisible())
+        self.assertTrue(tab.external_box.isVisible())
+
+
+    def test_leaving_xfoil_hides_rows_and_resets_engine(self):
+        tab, _ = _tab_with_project()
+        tab.show()
+        tab.source_combo.setCurrentText("xfoil")
+        tab.source_combo.setCurrentText("table")
+        self.assertFalse(tab.ext_ncrit.isVisible())
+        self.assertEqual(tab.engine_combo.currentText(), "none")
+        tab.source_combo.setCurrentText("neuralfoil")
+        self.assertEqual(tab.engine_combo.currentText(), "neuralfoil")
+        self.assertFalse(tab.ext_ncrit.isVisible())
+
+
+    def test_generated_round_trip_keeps_the_xfoil_generator(self):
+        a = AirfoilDef(source="table", external_engine="xfoil", xfoil_ncrit=12.0)
+        tab, _ = _tab_with_project()
+        tab._load_form_from_airfoil_def(a)
+        self.assertEqual(tab.source_combo.currentText(), "xfoil")
+        self.assertAlmostEqual(tab.ext_ncrit.value(), 12.0)
+        d = tab._collect_airfoil_def()
+        self.assertEqual(d.source, "table",
+                         "generated modes stay source='table' internally")
+        self.assertEqual(d.external_engine, "xfoil")
+        self.assertAlmostEqual(d.xfoil_ncrit, 12.0)
+
+
+    def test_suggestion_fires_on_transition_into_xfoil_mode_too(self):
+        tab, state = _tab_with_project()
+        state.project.saved_cases = [FlightCondition(name="c", rpm=1200.0)]
+        before = tab.re_list_edit.text()
+        tab.source_combo.setCurrentText("xfoil")
+        self.assertNotEqual(tab.re_list_edit.text(), before,
+                            "entering 'xfoil' should suggest Re/Mach like 'neuralfoil'")
+
+
 class GeometryGenerationPopup(unittest.TestCase):
     """Items 1 and 2 of the GeometryGeneratorDialog popup."""
 
@@ -350,6 +486,23 @@ class GeometryGenerationPopup(unittest.TestCase):
         self.assertAlmostEqual(tab.radius_m.value(), 4.0)
         # and the mirroring must not trigger `_apply_constants` back
         self.assertEqual(tab.state.project.geometry.n_blades, 6)
+
+
+class TestPolarGenerationStatus(unittest.TestCase):
+    """The one-line summary under the Run button must say what the sweep
+    ACTUALLY produced -- "2 of 3 Reynolds converged", with the failures
+    named -- instead of leaving the drop invisible."""
+
+    def test_all_converged(self):
+        from zbemt.gui.tabs.airfoil import _polar_generation_status
+        self.assertEqual(_polar_generation_status(3, []),
+                         "3 of 3 Reynolds converged.")
+
+    def test_partial_convergence_names_the_failures(self):
+        from zbemt.gui.tabs.airfoil import _polar_generation_status
+        text = _polar_generation_status(3, ["Re=5e+05: no converged points"])
+        self.assertIn("2 of 3", text)
+        self.assertIn("Re=5e+05", text)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from PyQt6.QtCore import pyqtSignal, QObject, QThread
 
 from .. import api
 from ..bemt import SolveCancelled
-from ..models import Project, ProfileGeometry, BatchDefinition
+from ..models import Project, ProfileGeometry, BatchDefinition, OptimizationOutcome
 
 
 
@@ -100,7 +100,8 @@ class ExternalPolarWorker(QObject):
 
     def __init__(self, profile: ProfileGeometry, *, engine: str,
                  reynolds_list: list[float], mach_list: list[float],
-                 alpha_min_deg: float, alpha_max_deg: float, alpha_step_deg: float):
+                 alpha_min_deg: float, alpha_max_deg: float, alpha_step_deg: float,
+                 diagnostics: Optional[list] = None):
         super().__init__()
         self.profile = profile
         self.engine = engine
@@ -109,6 +110,11 @@ class ExternalPolarWorker(QObject):
         self.alpha_min_deg = alpha_min_deg
         self.alpha_max_deg = alpha_max_deg
         self.alpha_step_deg = alpha_step_deg
+        # Filled BY the engine with one line per partial result (a
+        # Reynolds that produced no points, dropped alphas); the tab
+        # reads it when `finished` arrives and tells the user what the
+        # sweep actually produced.
+        self.diagnostics = diagnostics if diagnostics is not None else []
         self.cancel_requested = False
 
     def cancel(self):
@@ -121,11 +127,99 @@ class ExternalPolarWorker(QObject):
                 reynolds_list=self.reynolds_list, mach_list=self.mach_list,
                 alpha_min_deg=self.alpha_min_deg, alpha_max_deg=self.alpha_max_deg,
                 alpha_step_deg=self.alpha_step_deg,
+                diagnostics=self.diagnostics,
             )
         except Exception as exc:
             self.failed.emit(str(exc))
             return
         self.finished.emit(slices)
+
+
+class CompareWorker(QObject):
+    """Runs ``api.compare_geometries`` outside the GUI thread.
+
+    Same pattern as ``BatchRunnerWorker``: the variants dict maps a
+    display label to a ``RotorGeometryDef``, every variant runs the same
+    ordered conditions on a ``QThread``, and the window keeps responding.
+    ``progress`` carries ``(cases done, total cases)`` so the caller can
+    show a determinate bar. ``cancel()`` asks for an interruption between
+    cases; the flag reaches the engine through the ``should_cancel``
+    closure. When the engine reports the cancellation,
+    ``finished`` arrives with an empty list. ``trim`` ("none"/"thrust"/
+    "CT") holds the loading constant across variants; the FIRST variant
+    is the reference every other one is trimmed to."""
+    finished = pyqtSignal(list)
+    failed = pyqtSignal(str)
+    # (cases done, total cases) -- emitted after EACH case.
+    progress = pyqtSignal(int, int)
+
+    def __init__(self, project: Project, variants: dict,
+                 conditions=None, *, trim: str = "none"):
+        super().__init__()
+        self.project = project
+        self.variants = variants
+        self.conditions = list(conditions) if conditions is not None else None
+        self.trim = trim
+        self.cancel_requested = False
+
+    def cancel(self):
+        self.cancel_requested = True
+
+    def run(self):
+        try:
+            results = api.compare_geometries(
+                self.project, self.variants, self.conditions,
+                trim=self.trim,
+                on_case_done=lambda done, total, _res: self.progress.emit(done, total),
+                should_cancel=lambda: self.cancel_requested)
+        except SolveCancelled:
+            self.finished.emit([])
+            return
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            return
+        self.finished.emit(results)
+
+
+class OptimizeWorker(QObject):
+    """Runs ``api.optimize_design`` outside the GUI thread.
+
+    Same pattern as ``CompareWorker``. ``progress`` carries
+    ``(evaluations done, max evaluations, best value so far)``, emitted
+    after each evaluation, so the caller updates its bar and its
+    convergence plot while the search runs. ``cancel()`` sets the flag
+    that the ``should_cancel`` closure reads; ``studies.optimize_design``
+    turns it into a normal outcome with ``message == "cancelled"``, which
+    still arrives through ``finished``."""
+    finished = pyqtSignal(object)
+    failed = pyqtSignal(str)
+    # (evals done, max evals, best value so far) -- after EACH evaluation.
+    progress = pyqtSignal(int, int, float)
+
+    def __init__(self, project: Project, definition):
+        super().__init__()
+        self.project = project
+        self.definition = definition
+        self.cancel_requested = False
+
+    def cancel(self):
+        self.cancel_requested = True
+
+    def run(self):
+        try:
+            outcome = api.optimize_design(
+                self.project, self.definition,
+                on_progress=lambda done, total, best: self.progress.emit(done, total, best),
+                should_cancel=lambda: self.cancel_requested)
+        except SolveCancelled:
+            outcome = OptimizationOutcome(
+                objective_key=self.definition.objective_key,
+                objective_kind=self.definition.objective_kind,
+                message="cancelled")
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            return
+        self.finished.emit(outcome)
 
 
 class ReportWorker(QObject):

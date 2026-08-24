@@ -20,6 +20,7 @@ import os
 import sys
 import time
 import unittest
+from pathlib import Path
 
 from tests import helpers
 import unittest.mock
@@ -742,13 +743,14 @@ class TestInflowCouplingComboRemoved(unittest.TestCase):
         self.assertEqual(tab._inflow_field_model_from_widgets(), "drees_local")
 
 
-    def test_source_combo_has_three_consolidated_options(self):
-        """Item 6 (plano_v3.md Part 7): analytical / table / neuralfoil
-        in a single selector -- no separate visible 'Engine' combo."""
+    def test_source_combo_has_four_consolidated_options(self):
+        """Item 6 (plano_v3.md Part 7), extended by user decision: analytical /
+        table / neuralfoil / xfoil in a single selector -- no separate visible
+        'Engine' combo."""
         state = self.gui.AppState()
         tab = self.gui.AirfoilTab(state)
         items = [tab.source_combo.itemText(i) for i in range(tab.source_combo.count())]
-        self.assertEqual(items, ["analytical", "table", "neuralfoil"])
+        self.assertEqual(items, ["analytical", "table", "neuralfoil", "xfoil"])
 
     def test_each_source_mode_shows_only_its_own_blocks(self):
         state = self.gui.AppState()
@@ -758,6 +760,7 @@ class TestInflowCouplingComboRemoved(unittest.TestCase):
             "analytical": dict(table=False, geometry=False, external=False),
             "table": dict(table=True, geometry=False, external=False),
             "neuralfoil": dict(table=True, geometry=True, external=True),
+            "xfoil": dict(table=True, geometry=True, external=True),
         }
         for mode, vis in expected.items():
             tab.source_combo.setCurrentText(mode)
@@ -804,11 +807,230 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
         from zbemt.gui import app as gui
         cls.gui = gui
 
-    def test_engine_combo_has_no_xfoil_option(self):
+    def test_engine_combo_offers_none_neuralfoil_and_xfoil(self):
+        """XFOIL returned as a first-class engine: the combo offers it and
+        the binary is required only when a run with it is requested."""
         state = self.gui.AppState()
         tab = self.gui.AirfoilTab(state)
         items = [tab.engine_combo.itemText(i) for i in range(tab.engine_combo.count())]
-        self.assertEqual(items, ["none", "neuralfoil"])
+        self.assertEqual(items, ["none", "neuralfoil", "xfoil"])
+
+    def test_xfoil_adjustment_fields_exist_and_follow_engine_visibility(self):
+        """The three XFOIL-dedicated adjustment inputs exist, start hidden
+        for engines that ignore them, and appear only when the engine is
+        xfoil."""
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        tab.show()
+        tab.source_combo.setCurrentText("neuralfoil")
+        tab.engine_combo.setCurrentText("neuralfoil")
+        self.assertFalse(tab.ext_ncrit.isVisible())
+        self.assertFalse(tab.ext_xtr_top.isVisible())
+        self.assertFalse(tab.ext_xtr_bot.isVisible())
+        tab.engine_combo.setCurrentText("xfoil")
+        self.assertTrue(tab.ext_ncrit.isVisible())
+        self.assertTrue(tab.ext_xtr_top.isVisible())
+        self.assertTrue(tab.ext_xtr_bot.isVisible())
+
+    def test_xfoil_adjustment_fields_have_ranges_defaults_and_keyed_tooltips(self):
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        self.assertEqual((tab.ext_ncrit.minimum(), tab.ext_ncrit.maximum()), (1.0, 15.0))
+        self.assertEqual(tab.ext_ncrit.value(), 9.0)
+        for widget in (tab.ext_xtr_top, tab.ext_xtr_bot):
+            self.assertEqual(widget.minimum(), 0.01)
+            self.assertEqual(widget.maximum(), 1.0)
+            self.assertEqual(widget.value(), 1.0)
+        self.assertTrue(tab.ext_ncrit.toolTip().startswith('"xfoil_ncrit"'))
+        self.assertTrue(tab.ext_xtr_top.toolTip().startswith('"xfoil_xtr_top"'))
+        self.assertTrue(tab.ext_xtr_bot.toolTip().startswith('"xfoil_xtr_bot"'))
+
+    def test_xfoil_adjustment_values_round_trip_through_airfoil_def(self):
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        a = AirfoilDef(source="table", external_engine="xfoil",
+                       xfoil_ncrit=11.5, xfoil_xtr_top=0.7, xfoil_xtr_bot=0.3)
+        tab._load_form_from_airfoil_def(a)
+        collected = tab._collect_airfoil_def()
+        self.assertAlmostEqual(collected.xfoil_ncrit, 11.5)
+        self.assertAlmostEqual(collected.xfoil_xtr_top, 0.7)
+        self.assertAlmostEqual(collected.xfoil_xtr_bot, 0.3)
+
+    def test_external_block_labels_are_engine_neutral(self):
+        """The block no longer promises NeuralFoil: with 'xfoil' selectable,
+        title and button say what they do, not which engine does it."""
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        self.assertEqual(tab.external_box.title(), "Polar Generation via External Engine")
+        self.assertEqual(tab.btn_run_external.text(), "Run polar generation")
+
+    def test_run_with_xfoil_requires_the_binary_before_running(self):
+        """`require_optional_binary` gates the xfoil path: without the
+        executable anywhere in the lookup chain, no worker is dispatched
+        and the actionable dialog opens (Locate… / download link)."""
+        from zbemt.gui import common
+        from zbemt import airfoils
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        tab.source_combo.setCurrentText("neuralfoil")
+        tab._profile = airfoils.generate_naca4("0012")
+        tab.engine_combo.setCurrentText("xfoil")
+        opened = []
+        def fake_exec(dialog):
+            opened.append(dialog)
+            return 0  # closed without locating anything
+        with unittest.mock.patch.object(common, "resolve_xfoil_binary",
+                                        return_value=None):
+            with unittest.mock.patch.object(common.MissingBinaryDialog,
+                                            "exec", fake_exec):
+                tab._run_external()
+        self.assertEqual(len(opened), 1, "the missing-binary dialog must open once")
+        self.assertIn("ZBEMT_XFOIL_BIN", opened[0].message_label.text())
+        self.assertIsNone(tab._ext_worker, "no worker should be dispatched without the binary")
+
+    def test_require_optional_binary_found_through_env_var(self):
+        import tempfile
+        from pathlib import Path
+        from zbemt.gui import common
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / ("xfoil.exe" if os.name == "nt" else "xfoil")
+            fake.write_bytes(b"stub")
+            with unittest.mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": str(fake)}):
+                with helpers.patch_message_box_everywhere("QMessageBox") as mb:
+                    ok = common.require_optional_binary(
+                        tab, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                        download_hint="Install XFOIL.")
+                    self.assertEqual(mb.information.call_count, 0)
+        self.assertTrue(ok)
+
+    def _fake_executable(self, tmp: str) -> str:
+        exe = Path(tmp) / ("xfoil.exe" if os.name == "nt" else "xfoil")
+        exe.write_bytes(b"stub binary")
+        return str(exe)
+
+    def test_no_dialog_when_the_binary_resolves_at_entry(self):
+        """A hit anywhere in the chain returns True before any dialog:
+        today's users whose XFOIL sits in the standard install folder
+        stop seeing the box at all."""
+        import tempfile
+        from zbemt.gui import common
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = self._fake_executable(tmp)
+            with unittest.mock.patch.object(common, "resolve_xfoil_binary",
+                                            return_value=fake):
+                with unittest.mock.patch.object(
+                        common.MissingBinaryDialog, "exec") as exec_mock:
+                    ok = common.require_optional_binary(
+                        tab, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                        download_hint="Install XFOIL.")
+        self.assertTrue(ok)
+        exec_mock.assert_not_called()
+
+    def test_locate_flow_saves_the_choice_and_returns_true(self):
+        """Picking a valid executable stores it (`paths.save_app_setting`)
+        and closes the request as satisfied, without restarting the
+        flow or needing a restart of zBEMT."""
+        import tempfile
+        from zbemt.gui import common
+        from zbemt import paths as paths_mod
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        with tempfile.TemporaryDirectory() as home, \
+                tempfile.TemporaryDirectory() as pick_dir:
+            fake = self._fake_executable(pick_dir)
+            def fake_exec(dialog):
+                dialog.chosen_path = fake
+                return 1  # Accepted
+            with unittest.mock.patch.dict(os.environ,
+                                          {"ZBEMT_HOME": home,
+                                           "ZBEMT_XFOIL_BIN": ""}):
+                with unittest.mock.patch.object(common, "resolve_xfoil_binary",
+                                                return_value=None):
+                    with unittest.mock.patch.object(common.MissingBinaryDialog,
+                                                    "exec", fake_exec):
+                        ok = common.require_optional_binary(
+                            tab, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                            download_hint="Install XFOIL.")
+                self.assertTrue(ok)
+                self.assertEqual(
+                    paths_mod.load_app_setting(common.XFOIL_SETTINGS_KEY),
+                    fake)
+
+    def test_cancel_leaves_the_settings_store_unchanged(self):
+        import tempfile
+        from pathlib import Path
+        from zbemt.gui import common
+        from zbemt import paths as paths_mod
+        state = self.gui.AppState()
+        tab = self.gui.AirfoilTab(state)
+        with tempfile.TemporaryDirectory() as home:
+            with unittest.mock.patch.dict(os.environ,
+                                          {"ZBEMT_HOME": home,
+                                           "ZBEMT_XFOIL_BIN": ""}):
+                with unittest.mock.patch.object(common, "resolve_xfoil_binary",
+                                                return_value=None):
+                    with unittest.mock.patch.object(
+                            common.MissingBinaryDialog, "exec",
+                            return_value=0):  # rejected, nothing picked
+                        ok = common.require_optional_binary(
+                            tab, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
+                            download_hint="Install XFOIL.")
+                self.assertFalse(ok)
+                self.assertIsNone(
+                    paths_mod.load_app_setting(common.XFOIL_SETTINGS_KEY))
+                self.assertFalse(
+                    Path(home, "settings.json").exists(),
+                    "a cancelled dialog must not write the store")
+
+    def test_invalid_pick_reports_inline_and_dialog_stays_open(self):
+        """A pick that fails the existence check never satisfies the
+        gate: inline feedback appears and Locate… keeps being offered."""
+        import tempfile
+        from PyQt6.QtWidgets import QDialog
+        from zbemt.gui import common
+        dialog = common.MissingBinaryDialog(None, feature="XFOIL",
+                                            env_var="ZBEMT_XFOIL_BIN")
+        with tempfile.TemporaryDirectory() as tmp:
+            real_pick = self._fake_executable(tmp)
+            ghost = str(Path(tmp, "ghost", "xfoil.exe"))
+            with unittest.mock.patch.object(
+                    common.QFileDialog, "getOpenFileName",
+                    return_value=(ghost, "")):
+                dialog._on_locate()
+            self.assertTrue(dialog._feedback.isVisibleTo(dialog))
+            self.assertIn("does not exist", dialog._feedback.text())
+            self.assertIsNone(dialog.chosen_path)
+            self.assertNotEqual(dialog.result(), QDialog.DialogCode.Accepted)
+            # A valid pick on the second try goes through.
+            with unittest.mock.patch.object(
+                    common.QFileDialog, "getOpenFileName",
+                    return_value=(real_pick, "")):
+                dialog._on_locate()
+            self.assertEqual(dialog.chosen_path, real_pick)
+            self.assertEqual(dialog.result(), QDialog.DialogCode.Accepted)
+
+    def test_dialog_lists_the_four_places_and_both_options(self):
+        import os
+        from unittest import mock
+        from zbemt.gui import common
+        # Hermetic: a machine with ZBEMT_XFOIL_BIN set globally (this
+        # dev machine) would show a resolved path instead of "(not set)".
+        with mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": ""}):
+            dialog = common.MissingBinaryDialog(None, feature="XFOIL",
+                                                env_var="ZBEMT_XFOIL_BIN")
+        text = dialog.message_label.text()
+        for expected in ("ZBEMT_XFOIL_BIN", "(not set)",
+                         "Remembered 'Locate…' choice",
+                         "PATH", "Standard install folders",
+                         "1. Already installed?",
+                         "2. Not installed?",
+                         "https://web.mit.edu/drela/Public/web/xfoil/",
+                         "The choice is remembered"):
+            self.assertIn(expected, text)
 
     def test_run_button_stays_clickable_without_the_optional_package(self):
         """Before the button was DISABLED when `neuralfoil` was missing, and the
@@ -874,7 +1096,8 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
         alphas = [-6.0, -4.0, -2.0, 0.0, 2.0, 4.0, 6.0]
 
         def fake_run_polar(engine, geometry, reynolds_list, mach_list,
-                            alpha_min_deg, alpha_max_deg, alpha_step_deg):
+                            alpha_min_deg, alpha_max_deg, alpha_step_deg,
+                            **_kwargs):   # diagnostics etc.
             return [
                 PolarSlice(alpha_deg=list(alphas), cl=[0.1 * a for a in alphas],
                            cd=[0.01] * len(alphas), reynolds=re, mach=ma)
@@ -911,3 +1134,45 @@ class TestNeuralFoilExternalBox(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+class TestToolsButton(unittest.TestCase):
+    """The QMenuBar hid itself against the dark theme strip (dark-gray
+    text on black), so the entry point of the dedicated design windows
+    was invisible. The Tools BUTTON next to Help -- same pill, same
+    size -- is the entry point now, and the menu bar is gone."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _window(self):
+        from zbemt.gui import app as gui
+        win = gui.MainWindow()
+        win.resize(1500, 900)
+        win.show()
+        for _ in range(6):
+            self.app.processEvents()
+        self.addCleanup(win.hide)
+        self.addCleanup(win.deleteLater)
+        return win
+
+    def test_menu_bar_is_gone_and_tools_sits_beside_help(self):
+        win = self._window()
+        self.assertEqual(len(win.menuBar().actions()), 0,
+                         "the invisible menu bar must not come back")
+        bar = win.flow_bar
+        self.assertTrue(bar.btn_tools.isVisible())
+        self.assertLessEqual(
+            abs(bar.btn_tools.width() - bar.btn_help.width()), 2,
+            "Tools and Help must share the same pill size")
+
+    def test_tools_click_opens_the_geometry_designer(self):
+        win = self._window()
+        self.assertFalse(win.geometry_designer.isVisible())
+        win.flow_bar.btn_tools.click()
+        for _ in range(6):
+            self.app.processEvents()
+        self.assertTrue(win.geometry_designer.isVisible())
+        win.geometry_designer.close()

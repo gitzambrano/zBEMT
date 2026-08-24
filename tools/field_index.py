@@ -48,6 +48,10 @@ TABS = {
     # airfoil's section. A generated index that sends the reader to the wrong
     # chapter is worse than no index, so this tab is left out until the map can
     # tell the two apart.
+    #
+    # The Geometry Designer window: absent for a different reason. It is a
+    # separate Tools-menu window, not one of the seven tabs of the main
+    # window's QTabWidget, so there is no tab index to walk here.
     "geometria": (1, "cap-2"),
     "aerofolio": (2, "cap-3"),
     "config": (3, "cap-4"),

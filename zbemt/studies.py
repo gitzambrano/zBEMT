@@ -23,14 +23,19 @@ Conventions and limitations:
 from __future__ import annotations
 
 import itertools
+import math
 import time
 from dataclasses import fields, replace
 from typing import Callable, Optional, Sequence
 
 import numpy as np
 
-from .models import Project, RotorGeometryDef, FlightCondition, BatchDefinition, Results
+from .models import (Project, RotorGeometryDef, FlightCondition,
+                     BatchDefinition, Results, OptimizationDefinition,
+                     OptimizationOutcome, DesignVariable, GEOMETRY_PARAMS,
+                     INTEGER_PARAMS)
 from . import airfoils
+from . import geometry as geometry_gen
 from . import nomenclature
 from .bemt import BEMTConfig, Rotor, solve_bemt, aggregate_results, SolveCancelled
 
@@ -785,3 +790,367 @@ def benchmark_solvers(project: Project, condition: FlightCondition,
         res.maps["benchmark_solver"] = solver_name
         results.append(res)
     return results
+
+
+# =============================================================================
+# Design tools: geometry comparison and design optimization
+# =============================================================================
+
+_DIRECT_GEOMETRY_PARAMS = ("n_blades", "radius_m", "root_cutout_norm")
+_PARAMETRIC_KINDS = ("rectangular", "tapered", "elliptic")
+_OPTIMIZATION_METHODS = ("powell", "nelder-mead")
+
+
+def _blade_planform_metrics(geometry: RotorGeometryDef) -> dict:
+    """Classic planform comparison metrics from the radial table.
+
+    With c(x) the chord distribution in units of R over x = r/R, the
+    blade integral is I = ∫c dx; the blade aspect ratio (alongamento)
+    is AR = 1/I and the rotor solidity is σ = n_blades·I/π. Every
+    geometry is a table, so these apply to generated, imported and
+    edited blades alike.
+    """
+    r = np.asarray(geometry.r_norm, dtype=float)
+    c = np.asarray(geometry.chord_norm, dtype=float)
+    trapezoid = getattr(np, "trapezoid", None)
+    integral = float(trapezoid(c, r)) if (trapezoid is not None and r.size >= 2) else 0.0
+    aspect = 1.0 / integral if integral > 1e-9 else float("nan")
+    return {"aspect_ratio": float(aspect),
+            "solidity": float(geometry.n_blades * integral / np.pi)}
+
+
+def _apply_table_space_planform(geom: RotorGeometryDef,
+                                overrides: dict) -> RotorGeometryDef:
+    """Applies planform overrides IN TABLE SPACE to a geometry that has
+    no parametric generator (origin 'table'/'editor'/'imported').
+
+    Every geometry, however it was born, IS a radial table (r_norm,
+    chord_norm, twist_deg) -- generators merely produce that table from
+    parameters. So the planform parameters keep meaning here, read as
+    targets on the table instead of generator inputs:
+
+    - ``root_chord_norm`` / ``tip_chord_norm``: SHAPE-PRESERVING endpoint
+      match — a scale factor interpolated linearly (in x) between the
+      root and tip targets rescales the chord, so the endpoints hit the
+      requested values and a non-linear distribution keeps its shape
+      (give only one target and the other endpoint keeps its factor);
+    - ``twist_root_deg`` / ``twist_tip_deg``: shape-preserving too — a
+      twist OFFSET interpolated linearly between the endpoint deltas
+      shifts the distribution without flattening it;
+    - ``chord_norm``: uniform scale so the MEAN chord equals the value
+      (the rectangular generator's reading);
+    - ``max_chord_norm``: uniform scale so the PEAK chord equals the
+      value.
+    """
+    r = np.asarray(geom.r_norm, dtype=float)
+    chord = np.asarray(geom.chord_norm, dtype=float)
+    twist = np.asarray(geom.twist_deg, dtype=float)
+    span = max(float(r[-1] - r[0]), 1e-9)
+    x = (r - r[0]) / span
+
+    if "root_chord_norm" in overrides or "tip_chord_norm" in overrides:
+        c_root = float(overrides.get("root_chord_norm", chord[0]))
+        c_tip = float(overrides.get("tip_chord_norm", chord[-1]))
+        f_root = c_root / chord[0] if abs(chord[0]) > 1e-12 else 1.0
+        f_tip = c_tip / chord[-1] if abs(chord[-1]) > 1e-12 else 1.0
+        chord = chord * (f_root + (f_tip - f_root) * x)
+    if "chord_norm" in overrides:
+        mean = max(float(np.mean(chord)), 1e-12)
+        chord = chord * (float(overrides["chord_norm"]) / mean)
+    if "max_chord_norm" in overrides:
+        peak = max(float(np.max(chord)), 1e-12)
+        chord = chord * (float(overrides["max_chord_norm"]) / peak)
+    if "twist_root_deg" in overrides or "twist_tip_deg" in overrides:
+        t_root = float(overrides.get("twist_root_deg", twist[0]))
+        t_tip = float(overrides.get("twist_tip_deg", twist[-1]))
+        twist = twist + (t_root - twist[0]) + \
+            ((t_tip - twist[-1]) - (t_root - twist[0])) * x
+    return replace(geom, chord_norm=chord.tolist(), twist_deg=twist.tolist())
+
+
+def variant_geometry(base_geometry: RotorGeometryDef,
+                     overrides: dict) -> RotorGeometryDef:
+    """Build one geometry variant by applying named parameter overrides.
+
+    Planform parameters (``root_chord_norm``, ``tip_chord_norm``,
+    ``twist_root_deg``, ``twist_tip_deg``, ``max_chord_norm``,
+    ``chord_norm``) are generator inputs for PARAMETRIC origins: they
+    regenerate the parametric table from ``origin_params`` and keep the
+    station count. For a geometry WITHOUT a generator (origin 'table',
+    'editor', an imported blade), the SAME parameters are applied in
+    TABLE SPACE instead -- every geometry is a radial table, so the
+    parameters are read as targets on that table (endpoint rescale for
+    chord/twist, uniform scale for chord_norm/max_chord_norm; see
+    `_apply_table_space_planform`). The direct fields ``n_blades``,
+    ``radius_m`` and ``root_cutout_norm`` apply to any geometry.
+    Unknown parameters raise ``ValueError``.
+    """
+    unknown = sorted(set(overrides) - set(GEOMETRY_PARAMS))
+    if unknown:
+        raise ValueError(
+            f"Unknown geometry parameter(s): {unknown}. "
+            f"Allowed parameters: {list(GEOMETRY_PARAMS)}.")
+    planform = {k: v for k, v in overrides.items()
+                if k not in _DIRECT_GEOMETRY_PARAMS}
+    direct = {k: v for k, v in overrides.items()
+              if k in _DIRECT_GEOMETRY_PARAMS}
+    kind = str(base_geometry.origin_params.get("kind", ""))
+    if planform and kind not in _PARAMETRIC_KINDS:
+        geom = _apply_table_space_planform(base_geometry, planform)
+    else:
+        geom = replace(base_geometry)
+    if planform and kind in _PARAMETRIC_KINDS:
+        gen_kwargs = dict(base_geometry.origin_params)
+        gen_kwargs.update(planform)
+        gen_kwargs["n_stations"] = len(base_geometry.r_norm)
+        gen_kwargs.setdefault("root_cutout_norm", base_geometry.root_cutout_norm)
+        gen_kwargs.setdefault("radius_m", base_geometry.radius_m)
+        gen_kwargs.setdefault("n_blades", base_geometry.n_blades)
+        gen_kwargs.setdefault("airfoil_name", base_geometry.airfoil_name)
+        gen_kwargs.pop("kind")
+        builders = {
+            "rectangular": geometry_gen.generate_rectangular,
+            "tapered": geometry_gen.generate_tapered,
+            "elliptic": geometry_gen.generate_elliptic,
+        }
+        try:
+            geom = builders[kind](**gen_kwargs)
+        except TypeError as exc:
+            raise ValueError(
+                f"Parameter(s) {sorted(planform)} are not valid for the "
+                f"{kind!r} generator: {exc}") from exc
+    if direct:
+        geom = replace(geom, **direct)
+    return geom
+
+
+def compare_geometries(project: Project,
+                       variants: dict,
+                       conditions: Optional[Sequence[FlightCondition]] = None,
+                       *,
+                       trim: str = "none",
+                       on_case_done=None,
+                       should_cancel=None) -> list:
+    """Run the same flight conditions across several geometries.
+
+    ``variants`` maps a display label to a ``RotorGeometryDef``. Every
+    variant runs the same ordered conditions (``conditions`` when given,
+    otherwise the project's saved cases, otherwise one default hover-like
+    case). Returns a flat ``list[Results]`` in variant order; each summary
+    carries ``geometry_label`` so plots, tables and reports can group the
+    series. Results stay in memory (AR-2).
+
+    ``trim`` extends the comparison from equal CONTROLS to equal LOADING:
+    ``"thrust"`` (or ``"CT"``) holds the absolute thrust (or the
+    coefficient) CONSTANT across every variant, which is the fair basis
+    for comparing efficiency. The FIRST variant label is the reference:
+    it runs every condition untrimmed, and its ``Thrust``/``CT`` at each
+    condition becomes the target every other variant must hit.
+    ``run_case_trimmed`` supplies the mechanics: bisection over ONE degree
+    of freedom, chosen automatically from the project convention --
+    ``solve_rpm`` for propellers (fixed-pitch machines throttle with rpm),
+    ``solve_collective`` for rotors (rpm governed, collective free). A
+    variant whose target lies outside the default bracket raises
+    ``ValueError`` naming the variant, the condition and the remedy
+    instead of converging outside the plausible interval. Trimmed
+    summaries record what was traded: ``trim_target``, ``trim_dof`` and
+    ``trim_dof_value``; reference summaries carry ``trim_reference``.
+    Trimming multiplies the cost of every non-reference case by the
+    bisection iteration count (typically ~10--20 solves).
+    """
+    if not variants:
+        raise ValueError("compare_geometries needs at least one variant.")
+    if conditions is None:
+        conditions = list(project.saved_cases) or [FlightCondition()]
+    conditions = list(conditions)
+    if trim != "none" and trim not in _TRIM_TARGET_KINDS:
+        raise ValueError(
+            f"compare_geometries: trim must be 'none', 'thrust' or 'CT' "
+            f"(got {trim!r}).")
+    # Fail fast with context instead of letting the first solve die deep
+    # inside _require_rpm: every condition here must carry an rpm.
+    for condition in conditions:
+        _require_rpm(condition.rpm,
+                     f"geometry comparison (condition {condition.name!r})")
+
+    summary_key = "Thrust" if trim == "thrust" else "CT"
+    labels = list(variants)
+    total = len(labels) * len(conditions)
+    done = 0
+
+    def _emit(res) -> None:
+        nonlocal done
+        done += 1
+        if on_case_done is not None:
+            on_case_done(done, total, res)
+
+    def _tag(res, label: str, condition: FlightCondition) -> None:
+        res.summary["geometry_label"] = label
+        res.condition_name = condition.name
+
+    # Reference pass: the first label defines, per condition, the
+    # thrust/CT every other variant is trimmed to. Its own results ARE
+    # the final ones -- they are never re-run.
+    base_label = labels[0]
+    base_project = replace(project, geometry=variants[base_label])
+    targets: dict[int, float] = {}
+    trim_mode: Optional[str] = None
+    results: list[Results] = []
+    for index, condition in enumerate(conditions):
+        res = run_single_case(base_project, condition,
+                              should_cancel=should_cancel)
+        _tag(res, base_label, condition)
+        res.summary.update(_blade_planform_metrics(variants[base_label]))
+        if trim != "none":
+            res.summary["trim_reference"] = True
+            targets[index] = float(res.summary[summary_key])
+            if trim_mode is None:
+                propeller = bool(res.summary.get("cfg_is_propeller"))
+                trim_mode = "solve_rpm" if propeller else "solve_collective"
+        results.append(res)
+        _emit(res)
+
+    for label in labels[1:]:
+        variant_project = replace(project, geometry=variants[label])
+        for index, condition in enumerate(conditions):
+            if trim == "none":
+                res = run_single_case(variant_project, condition,
+                                      should_cancel=should_cancel)
+            else:
+                try:
+                    res = run_case_trimmed(
+                        variant_project, condition,
+                        trim_mode=trim_mode, target_kind=trim,
+                        target_value=targets[index],
+                        should_cancel=should_cancel)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Geometry comparison trimmed to constant "
+                        f"{summary_key}: variant {label!r} at condition "
+                        f"{condition.name!r} could not reach the reference "
+                        f"{summary_key}={targets[index]!r}. {exc}") from exc
+                dof = "rpm" if trim_mode == "solve_rpm" else "collective_deg"
+                res.summary["trim_target"] = targets[index]
+                res.summary["trim_dof"] = dof
+                res.summary["trim_dof_value"] = float(res.summary[dof])
+            _tag(res, label, condition)
+            res.summary.update(_blade_planform_metrics(variants[label]))
+            results.append(res)
+            _emit(res)
+    return results
+
+
+def optimize_design(project: Project, definition: OptimizationDefinition,
+                    *, on_progress=None, should_cancel=None) -> OptimizationOutcome:
+    """Drive bounded geometry parameters toward the best objective value.
+
+    Each evaluation regenerates the geometry through ``variant_geometry``
+    and solves ONE flight condition (``definition.condition`` when given,
+    otherwise the first saved case). The objective reads a single summary
+    key. The search uses ``scipy.optimize.minimize`` with a derivative-free
+    method (Powell or Nelder-Mead), started from the center of the bounds;
+    it is deterministic for a fixed project and definition. Raises
+    ``ValueError`` for an invalid definition and ``SolveCancelled`` when
+    ``should_cancel`` fires between evaluations.
+    """
+    from scipy.optimize import minimize  # local import: optional at engine level
+
+    if definition.objective_kind not in ("maximize", "minimize"):
+        raise ValueError(
+            f"objective_kind must be 'maximize' or 'minimize' "
+            f"(got {definition.objective_kind!r}).")
+    if definition.method not in _OPTIMIZATION_METHODS:
+        raise ValueError(
+            f"method must be one of {_OPTIMIZATION_METHODS} "
+            f"(got {definition.method!r}).")
+    if definition.max_evals < 5:
+        raise ValueError("max_evals must be at least 5.")
+    if not definition.variables:
+        raise ValueError("The optimization needs at least one variable.")
+    names = []
+    lower = []
+    upper = []
+    for var in definition.variables:
+        if var.param not in GEOMETRY_PARAMS:
+            raise ValueError(
+                f"Unknown variable parameter {var.param!r}; "
+                f"allowed: {list(GEOMETRY_PARAMS)}.")
+        if not (math.isfinite(var.lower) and math.isfinite(var.upper)
+                and var.lower < var.upper):
+            raise ValueError(
+                f"Variable {var.param!r} needs finite bounds with "
+                f"lower < upper (got {var.lower}, {var.upper}).")
+        names.append(var.param)
+        lower.append(float(var.lower))
+        upper.append(float(var.upper))
+
+    condition = definition.condition or (
+        project.saved_cases[0] if project.saved_cases else FlightCondition())
+    rpm = _require_rpm(condition.rpm,
+                       f"optimization {definition.name!r} (set rpm on the "
+                       f"definition's condition)")
+    sign = -1.0 if definition.objective_kind == "maximize" else 1.0
+    penalty = 1e6 * abs(sign)
+
+    outcome = OptimizationOutcome(
+        objective_key=definition.objective_key,
+        objective_kind=definition.objective_kind)
+    best_finite = math.inf  # in minimized space
+    state = {"evals": 0}
+
+    def evaluate(x) -> float:
+        nonlocal best_finite
+        params = {}
+        for name, value in zip(names, x):
+            params[name] = int(round(value)) if name in INTEGER_PARAMS \
+                else float(value)
+        state["evals"] += 1
+        variant = variant_geometry(project.geometry, params)
+        sub_project = replace(project, geometry=variant)
+        try:
+            res = run_single_case(sub_project, condition,
+                                  should_cancel=should_cancel)
+            raw = float(res.summary.get(definition.objective_key, float("nan")))
+        except SolveCancelled:
+            raise
+        except Exception:
+            res = None
+            raw = float("nan")
+        if not math.isfinite(raw):
+            f_value = penalty + state["evals"]
+            res = None
+        else:
+            f_value = sign * raw
+            outcome.history.append({"eval": state["evals"], **params,
+                                    definition.objective_key: raw})
+        if f_value < best_finite:
+            best_finite = f_value
+            outcome.best_params = dict(params)
+            outcome.best_value = raw
+            outcome.best_results = res
+        if on_progress is not None:
+            on_progress(state["evals"], definition.max_evals, outcome.best_value)
+        return f_value
+
+    def check_cancel():
+        if should_cancel is not None and should_cancel():
+            raise SolveCancelled()
+
+    x0 = np.array([0.5 * (lo + hi) for lo, hi in zip(lower, upper)])
+    try:
+        minimize(evaluate, x0, method="Powell" if definition.method == "powell"
+                 else "Nelder-Mead",
+                 bounds=list(zip(lower, upper)),
+                 callback=lambda _: check_cancel(),
+                 options=({"maxfev": definition.max_evals}
+                          if definition.method == "powell"
+                          else {"maxiter": definition.max_evals}))
+        outcome.message = (f"finished after {state['evals']} evaluations")
+    except SolveCancelled:
+        outcome.message = "cancelled"
+    except ValueError as exc:
+        # Powell/Nelder-Mead can stop early on degenerate bounds; keep what
+        # was evaluated instead of losing the whole study.
+        outcome.message = f"stopped early: {exc}"
+    outcome.n_evals = state["evals"]
+    return outcome

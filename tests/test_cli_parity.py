@@ -19,10 +19,13 @@ import unittest
 import contextlib
 import shutil
 from pathlib import Path
+from unittest import mock
 
 from zbemt import api
 from zbemt import cli as main_batch
-from zbemt.models import BatchDefinition, FlightCondition
+from zbemt.models import (BatchDefinition, DesignVariable, FlightCondition,
+                          OptimizationDefinition)
+from tests.helpers import make_api_fast_project
 
 
 class TestGeometryFlags(unittest.TestCase):
@@ -612,3 +615,314 @@ class TestPrintedSummaryFollowsTheProjectMode(unittest.TestCase):
         self.assertIn("FM=", output)
         self.assertIn("CT=", output)
         self.assertNotIn("eta_prop=", output)
+
+
+class TestDesignToolsFlags(unittest.TestCase):
+    """--compare / --optimize / --gen-xfoil: the Design tools group.
+    Each mode runs headless through the same api.py calls as the GUI and
+    exits right after writing its artifacts."""
+
+    def _fast_project(self, path, name):
+        """Tiny persisted project: small mesh so every solve costs
+        milliseconds, meta name set explicitly (the name is what labels
+        the variant after save/reopen), and one saved case WITH rpm
+        (RPM is mandatory for every solve)."""
+        project = make_api_fast_project(str(path))
+        project.name = name
+        project.config["Ne"] = 6
+        project.config["Npsi"] = 8
+        project.saved_cases = [FlightCondition(name="hover", mu_x=0.0,
+                                                collective_deg=8.0, rpm=600.0)]
+        api.save_project(project)
+        return project
+
+    def _with_optimization(self, path):
+        """Persists the fast project plus one small optimization study."""
+        project = self._fast_project(path, "proj")
+        project.optimizations = [OptimizationDefinition(
+            name="fm_study",
+            objective_kind="maximize",
+            objective_key="FM",
+            variables=[DesignVariable(param="tip_chord_norm",
+                                       lower=0.02, upper=0.08)],
+            method="powell",
+            max_evals=6,
+            condition=FlightCondition(name="opt_hover", mu_x=0.0,
+                                       collective_deg=8.0, rpm=600.0),
+        )]
+        api.save_project(project)
+        return project
+
+    def test_compare_writes_csv_html_and_prints_labels(self):
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            other_path = os.path.join(d, "other_rotor")
+            self._fast_project(base_path, "base_rotor")
+            other = self._fast_project(other_path, "other_rotor")
+            other.geometry.radius_m = 0.8   # visibly different planform
+            api.save_project(other)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", base_path,
+                                         "--compare", other_path])
+            self.assertEqual(code, 0)
+            out = buf.getvalue()
+            # One line per variant at the first condition: the listed
+            # projects keep their project NAME as label, and the geometry
+            # of --project joins them under the fixed label 'base'.
+            self.assertIn("[hover] other_rotor: CT=", out)
+            self.assertIn("FM=", out)
+            self.assertIn("[hover] base: CT=", out)
+            outputs = os.path.join(base_path, "outputs")
+            self.assertTrue(os.path.exists(os.path.join(outputs,
+                                                         "comparison.csv")))
+            self.assertTrue(os.path.exists(os.path.join(outputs,
+                                                         "comparison.html")))
+
+    def test_compare_with_nonexistent_path_fails_mentioning_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            self._fast_project(base_path, "base_rotor")
+            ghost = os.path.join(d, "ghost_proj")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", base_path,
+                                         "--compare", ghost])
+            self.assertEqual(code, 2)
+            self.assertIn(ghost, err.getvalue())
+            self.assertNotIn("Traceback", err.getvalue())
+
+    def _compare_capturing_trim(self, extra_args):
+        """Runs --compare over two fast projects with
+        api.compare_geometries wrapped in a spy that forwards to the real
+        function and records the ``trim`` kwarg the CLI passed."""
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            other_path = os.path.join(d, "other_rotor")
+            self._fast_project(base_path, "base_rotor")
+            self._fast_project(other_path, "other_rotor")
+            captured = {}
+            real = main_batch.api.compare_geometries
+
+            def spy(project, variants, conditions=None, **kwargs):
+                captured["trim"] = kwargs.get("trim")
+                return real(project, variants, conditions, **kwargs)
+
+            buf = io.StringIO()
+            with mock.patch.object(main_batch.api, "compare_geometries",
+                                    side_effect=spy), \
+                    contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", base_path,
+                                         "--compare", other_path]
+                                        + list(extra_args))
+            self.assertEqual(code, 0)
+            return captured["trim"]
+
+    def test_compare_trim_thrust_is_forwarded_to_the_engine(self):
+        trim = self._compare_capturing_trim(["--trim", "thrust"])
+        self.assertEqual(trim, "thrust")
+
+    def test_compare_trim_ct_is_forwarded_to_the_engine(self):
+        trim = self._compare_capturing_trim(["--trim", "CT"])
+        self.assertEqual(trim, "CT")
+
+    def test_compare_without_the_flag_sends_none(self):
+        trim = self._compare_capturing_trim([])
+        self.assertEqual(trim, "none")
+
+    def test_compare_rejects_an_unknown_trim_value(self):
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            other_path = os.path.join(d, "other_rotor")
+            self._fast_project(base_path, "base_rotor")
+            self._fast_project(other_path, "other_rotor")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err), \
+                    self.assertRaises(SystemExit) as ctx:
+                main_batch.main(["--project", base_path,
+                                  "--compare", other_path,
+                                  "--trim", "lift"])
+            self.assertEqual(ctx.exception.code, 2)
+            self.assertIn("invalid choice", err.getvalue())
+            self.assertIn("lift", err.getvalue())
+
+    def test_optimize_runs_saved_definition_and_writes_report(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_optimization(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", path, "--optimize"])
+            self.assertEqual(code, 0)
+            out = buf.getvalue()
+            # Without NAME the FIRST study runs, but the report slug still
+            # comes from that STUDY's own name, never from a constant.
+            outputs = os.path.join(path, "outputs")
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "fm_study_optimization.html")))
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "fm_study_optimization_history.csv")))
+            self.assertIn("Best parameters: tip_chord_norm=", out)
+            self.assertIn("Best FM (maximize): ", out)
+
+    def test_optimize_with_unknown_name_fails_with_the_lookup_message(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_optimization(path)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", path,
+                                         "--optimize", "nao_existe"])
+            self.assertEqual(code, 1)
+            self.assertIn("nao_existe", err.getvalue())
+            self.assertIn("not found", err.getvalue())
+            self.assertNotIn("Traceback", err.getvalue())
+
+    def test_max_evals_override_runs_and_writes_report(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_optimization(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", path,
+                                         "--optimize", "fm_study",
+                                         "--max-evals", "7"])
+            self.assertEqual(code, 0)
+            self.assertTrue(os.path.exists(os.path.join(
+                path, "outputs", "fm_study_optimization.html")))
+
+    def test_gen_xfoil_missing_required_flags_returns_error_code(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                code = main_batch.main(["--project", path, "--gen-xfoil"])
+            self.assertEqual(code, 2)
+            self.assertIn("--airfoil-geometry", buf.getvalue())
+
+    def test_gen_xfoil_without_binary_fails_with_clear_message(self):
+        """Patched BEFORE invoking main: ALL resolution sources are
+        covered (ZBEMT_XFOIL_BIN emptied, remembered choice pointed at an
+        empty settings home, PATH lookup mocked to None, standard folders
+        mocked away), so the failure happens no matter what is installed
+        here."""
+        from zbemt import external_solvers
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            out_csv = os.path.join(d, "out.csv")
+            err = io.StringIO()
+            with mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": "",
+                                              "ZBEMT_HOME": d}):
+                with mock.patch.object(external_solvers.shutil, "which",
+                                       return_value=None):
+                    with mock.patch.object(external_solvers,
+                                           "_known_xfoil_candidates",
+                                           return_value=[]):
+                        with contextlib.redirect_stderr(err):
+                            code = main_batch.main([
+                                "--project", path, "--gen-xfoil",
+                                "--airfoil-geometry", "naca0012",
+                                "--reynolds", "1e6", "--mach", "0.1",
+                                "--alpha-range", "-6:6:2.0",
+                                "--export-table", out_csv,
+                            ])
+            self.assertEqual(code, 1)
+            self.assertIn("'xfoil' executable", err.getvalue())
+            self.assertNotIn("Traceback", err.getvalue())
+            self.assertFalse(os.path.exists(out_csv))
+
+    def test_gen_xfoil_forwards_given_adjustments_to_run_polar(self):
+        """--ncrit/--xtr-top/--xtr-bot reach external_solvers.run_polar as
+        keyword arguments; an option omitted on the command line falls
+        back to the library default instead of being invented here."""
+        from zbemt import external_solvers
+        from zbemt.models import PolarSlice
+        fake = PolarSlice(alpha_deg=[0.0], cl=[0.5], cd=[0.01],
+                          reynolds=1e6, mach=0.1, label="x")
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            out_csv = os.path.join(d, "out.csv")
+            with mock.patch.object(external_solvers, "run_polar",
+                                   return_value=[fake]) as run_mock:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = main_batch.main([
+                        "--project", path, "--gen-xfoil",
+                        "--airfoil-geometry", "naca0012",
+                        "--reynolds", "1e6", "--mach", "0.1",
+                        "--alpha-range", "-4:4:2.0",
+                        "--export-table", out_csv,
+                        "--ncrit", "12", "--xtr-top", "0.7",
+                    ])
+            self.assertEqual(code, 0)
+            self.assertEqual(run_mock.call_count, 1)
+            kwargs = run_mock.call_args.kwargs
+            self.assertEqual(kwargs["engine"], "xfoil")
+            self.assertEqual(kwargs["ncrit"], 12.0)
+            self.assertEqual(kwargs["xtr_top"], 0.7)
+            # Not given: the library's own default flows through.
+            self.assertEqual(kwargs["xtr_bot"], 1.0)
+            self.assertTrue(os.path.exists(out_csv))
+
+    def test_gen_xfoil_without_adjustment_flags_uses_library_defaults(self):
+        from zbemt import external_solvers
+        from zbemt.models import PolarSlice
+        fake = PolarSlice(alpha_deg=[0.0], cl=[0.5], cd=[0.01],
+                          reynolds=1e6, mach=0.1, label="x")
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            out_csv = os.path.join(d, "out.csv")
+            with mock.patch.object(external_solvers, "run_polar",
+                                   return_value=[fake]) as run_mock:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = main_batch.main([
+                        "--project", path, "--gen-xfoil",
+                        "--airfoil-geometry", "naca0012",
+                        "--reynolds", "1e6", "--mach", "0.1",
+                        "--alpha-range", "-4:4:2.0",
+                        "--export-table", out_csv,
+                    ])
+            self.assertEqual(code, 0)
+            kwargs = run_mock.call_args.kwargs
+            self.assertEqual(kwargs["ncrit"], 9.0)
+            self.assertEqual(kwargs["xtr_top"], 1.0)
+            self.assertEqual(kwargs["xtr_bot"], 1.0)
+
+    def test_xfoil_adjustment_flags_are_rejected_with_gen_neuralfoil(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main([
+                    "--project", path, "--gen-neuralfoil",
+                    "--airfoil-geometry", "naca0012",
+                    "--reynolds", "1e6", "--mach", "0.1",
+                    "--export-table", os.path.join(d, "out.csv"),
+                    "--ncrit", "12",
+                ])
+            self.assertEqual(code, 2)
+            self.assertIn("--ncrit/--xtr-top/--xtr-bot apply to --gen-xfoil",
+                          err.getvalue())
+            self.assertFalse(os.path.exists(os.path.join(d, "out.csv")))
+
+    def test_design_tool_modes_are_mutually_exclusive(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", path,
+                                         "--gen-neuralfoil", "--gen-xfoil"])
+            self.assertEqual(code, 2)
+            self.assertIn("mutually exclusive", err.getvalue())

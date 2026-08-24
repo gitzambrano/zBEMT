@@ -239,11 +239,12 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "",
         "equation": r"C_l,\ C_d = f(\alpha,\ Re,\ M)",
         "effect": "Changing the source alters how the blade element forces are computed at each radial station and flight condition.",
-        "range": "analytical, table, or neuralfoil",
+        "range": "analytical, table, neuralfoil, or xfoil",
         "options": {
             "analytical": "Polynomial analytical model with stall transition. Fast and smooth, best for preliminary design.",
             "table": "Precomputed polar curves at fixed Reynolds and Mach slices. Accurate, but it requires data and interpolation.",
-            "neuralfoil": "NeuralFoil external solver generates the polar on demand. High fidelity but slower, and it requires an external installation."
+            "neuralfoil": "The NeuralFoil external solver generates the polar on demand. It gives high fidelity, runs slower than the analytical model, and it requires an external installation.",
+            "xfoil": "The XFOIL binary generates the polar on demand, with transition settings of its own (Ncrit and the two Xtr stations). Its fidelity is higher than NeuralFoil's, but it needs the executable installed. zBEMT looks for it through ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders. Locate… remembers your pick between sessions. The check happens when Run is clicked."
         }
     },
     "cl_alpha": {
@@ -435,6 +436,36 @@ FIELD_HELP: dict[str, dict] = {
     # NeuralFoil mode, and none of them had an entry here or anchor in
     # HTML, so the "?" never appeared on the line. Section 6.7 of the
     # documentation already described them -- the link was missing.
+    "generator_params": {
+        "title": "Analytic Family Parameters",
+        "definition": (
+            "The parameters of the analytic contour families that have no list "
+            "of their own. PARSEC takes nine numbers (r_le, x_up, y_up, "
+            "y_xx_up, x_lo, y_lo, y_xx_lo, th_te, beta_te_deg): the leading-edge "
+            "radius, crest position, height and curvature of each surface, "
+            "the trailing-edge thickness, and the trailing-edge angle in degrees. "
+            "Joukowski takes two numbers: epsilon (thickness) and camber. "
+            "Biconvex takes one number: the thickness t at mid-chord."),
+        "unit": "-",
+        "equation": (
+            r"y(x) = \sum_{k=1}^{6} a_k\,x^{k-\frac{1}{2}} \quad \text{(PARSEC)},\quad "
+            r"z = \zeta + \frac{1}{\zeta} \quad \text{(Joukowski)},\quad "
+            r"y = \pm 2t\,x(1-x) \quad \text{(biconvex)}"),
+        "effect": (
+            "Each Source option reveals its row. Generate geometry rebuilds the "
+            "contour from these numbers and stores them with it, so a saved "
+            "section can be regenerated and edited again without the "
+            "coordinates.\n\n"
+            "Note: the contour reaches the engine only through the polar "
+            "generated from it. Changing the numbers changes nothing until "
+            "polar generation runs again."),
+        "range": (
+            "PARSEC: nine finite numbers (defaults 0.0158, 0.30, 0.0593, "
+            "-0.475, 0.35, -0.047, 0.530, 0.0025, 8.0). Joukowski: epsilon and "
+            "camber (defaults 0.08, 0.05). Biconvex: thickness (default 0.06; "
+            "0 gives a slit)."),
+        "options": None
+    },
     "naca_code": {
         "title": "NACA Code",
         "definition": (
@@ -451,9 +482,9 @@ FIELD_HELP: dict[str, dict] = {
             "Camber shifts the zero-lift angle negative and raises Cl at a given "
             "angle. Thickness governs how gently the section stalls and how much "
             "profile drag it carries.\n\n"
-            "Careful: the contour only reaches the engine through the polar "
-            "generated from it. Changing the code changes nothing until "
-            "NeuralFoil runs again."),
+            "Note: the contour reaches the engine only through the polar "
+            "generated from it. Changing the code changes nothing until polar "
+            "generation runs again."),
         "range": (
             "4 or 5 digits.\n\n"
             "Sections in common rotor use: 0009 (thin symmetric, high-speed tip), "
@@ -470,9 +501,9 @@ FIELD_HELP: dict[str, dict] = {
         "effect": (
             "The first weight governs the leading-edge radius and the last the "
             "trailing-edge angle.\n\n"
-            "Offered on screen only for a project that already uses this source: "
-            "new contours are described by a NACA code or imported from a "
-            "coordinate file."),
+            "The field appears while 'cst' is the selected Source of the 2D "
+            "profile geometry; press Generate geometry to rebuild the contour "
+            "from it."),
         "range": "typically 0.1–0.3, one value per Bernstein term",
         "options": None
     },
@@ -485,7 +516,7 @@ FIELD_HELP: dict[str, dict] = {
             "Negative values put the surface below the chord line; the gap "
             "between the two sets at a station is the local thickness and their "
             "mean is the camber.\n\n"
-            "Same availability note as the upper set."),
+            "Same availability as the upper set: visible while Source is 'cst'."),
         "range": "typically −0.3 to 0.0, one value per Bernstein term",
         "options": None
     },
@@ -497,8 +528,9 @@ FIELD_HELP: dict[str, dict] = {
         "effect": (
             "The curve is pulled toward each point without passing through it, "
             "so points crowded near the nose sharpen the leading-edge radius.\n\n"
-            "Offered on screen only for a project that already uses this "
-            "source."),
+            "The editor appears while 'bezier' is the selected Source of the 2D "
+            "profile geometry; press Generate geometry to rebuild the contour "
+            "from it."),
         "range": "4+ points, x from 0 to 1",
         "options": None
     },
@@ -689,6 +721,64 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\Delta\alpha",
         "effect": "Decreasing the step size increases polar resolution and computation time; finer steps reduce interpolation error.",
         "range": "0.5–5°",
+        "options": None
+    },
+    "xfoil_ncrit": {
+        "title": "XFOIL Ncrit",
+        "definition": (
+            "Critical amplification factor N of the e<sup>N</sup> transition "
+            "criterion, used only by the XFOIL engine.\n\n"
+            "The boundary layer turns turbulent where small disturbances inside "
+            "it have grown by the factor e<sup>N</sup>. A lower N describes a "
+            "flow with many disturbances and predicts earlier transition with "
+            "higher drag. A higher N lets the layer stay laminar longer.\n\n"
+            "NeuralFoil ignores this input."),
+        "unit": "—",
+        "equation": r"A(x) = e^{N}, \quad N = N_{crit}",
+        "effect": (
+            "Lowering Ncrit predicts earlier transition and a drag level nearer "
+            "the fully turbulent one. Raising it extends laminar flow and lowers "
+            "predicted skin friction.\n\n"
+            "The value reaches only the XFOIL binary; other engines ignore it."),
+        "range": "1–15 (default 9, a clean flow)",
+        "options": None
+    },
+    "xfoil_xtr_top": {
+        "title": "XFOIL Xtr Top",
+        "definition": (
+            "Chord fraction x/c where transition is forced on the upper "
+            "surface, used only by the XFOIL engine.\n\n"
+            "XFOIL fixes the laminar-to-turbulent transition at that station "
+            "instead of predicting it. The default 1 leaves free transition on "
+            "the whole surface.\n\n"
+            "NeuralFoil ignores this input."),
+        "unit": "x/c",
+        "equation": r"x_{tr}/c \in (0,\ 1]",
+        "effect": (
+            "A value below 1 pins transition there, so everything downstream "
+            "turns turbulent at once: drag rises toward the fully turbulent "
+            "level. This models a trip strip or reproduces a measurement with "
+            "fixed transition."),
+        "range": "(0, 1] (default 1 = free transition)",
+        "options": None
+    },
+    "xfoil_xtr_bot": {
+        "title": "XFOIL Xtr Bottom",
+        "definition": (
+            "Chord fraction x/c where transition is forced on the lower "
+            "surface, used only by the XFOIL engine.\n\n"
+            "XFOIL fixes the laminar-to-turbulent transition at that station "
+            "instead of predicting it. The default 1 leaves free transition on "
+            "the whole surface.\n\n"
+            "NeuralFoil ignores this input."),
+        "unit": "x/c",
+        "equation": r"x_{tr}/c \in (0,\ 1]",
+        "effect": (
+            "A value below 1 pins transition there, so everything downstream "
+            "turns turbulent at once: drag rises toward the fully turbulent "
+            "level. This models a trip strip or reproduces a measurement with "
+            "fixed transition."),
+        "range": "(0, 1] (default 1 = free transition)",
         "options": None
     },
     "table_slices": {
