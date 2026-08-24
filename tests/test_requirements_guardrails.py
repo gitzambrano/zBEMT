@@ -269,7 +269,12 @@ class TestMissingBinaryDialogOffersAWayOut(_WindowBase):
 
     def test_found_binary_returns_true_without_dialog(self):
         from zbemt.gui import common
-        with unittest.mock.patch.object(common, "MissingBinaryDialog") as marker:
+        # A patched resolver keeps this independent of a real XFOIL install
+        # (the CI runners have none): what is under test is the early-True
+        # path, before any dialog could appear.
+        with unittest.mock.patch.object(common, "resolve_xfoil_binary",
+                                        return_value="/xfoil/found/by/the/test"), \
+             unittest.mock.patch.object(common, "MissingBinaryDialog") as marker:
             self.assertTrue(common.require_optional_binary(
                 self.win, feature="XFOIL", env_var="ZBEMT_XFOIL_BIN",
                 download_hint="unused"))

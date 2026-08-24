@@ -759,7 +759,13 @@ class TestPlanformMetricsInComparison(unittest.TestCase):
         metrics = studies._blade_planform_metrics(geom)
         r = np.asarray(geom.r_norm)
         c = np.asarray(geom.chord_norm)
-        trapz = getattr(np, "trapezoid", np.trapz)
+        # getattr's default is evaluated eagerly, so `getattr(np,
+        # "trapezoid", np.trapz)` touches np.trapz even when trapezoid
+        # exists -- and numpy >= 2.x raises for the expired alias.
+        if hasattr(np, "trapezoid"):
+            trapz = np.trapezoid
+        else:                                   # pragma: no cover
+            trapz = np.trapz
         integral = float(trapz(c, r))
         self.assertAlmostEqual(metrics["aspect_ratio"], 1.0 / integral, places=9)
         self.assertAlmostEqual(metrics["solidity"], 3 * integral / np.pi, places=9)

@@ -630,6 +630,7 @@ class TestRunBatchFieldAlignment(unittest.TestCase):
             self.assertLessEqual(spin.width(), tab._VALUE_WIDTH)
 
 
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
 class TestRunCaseFieldAlignment(unittest.TestCase):
     """Run Case uses the same numeric column for the four controls."""
 

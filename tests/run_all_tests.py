@@ -92,8 +92,10 @@ def _run_one(test_file: Path, env: dict) -> tuple[bool, str, str]:
     # pytest returns 5 when it collected NOTHING. For a file whose whole
     # module skips itself -- every GUI test file, in the CI job that installs
     # the base dependencies only to prove the engine runs without Qt -- that
-    # is the correct outcome, not a crash.
-    all_skipped = proc.returncode == 5 and " skipped" in raw_output
+    # is the correct outcome, not a crash. A file that guards its classes
+    # with a module-level `if _HAS_QT:` collects zero items instead of
+    # collecting skips, so nothing needs to have been reported as skipped.
+    all_skipped = proc.returncode == 5
 
     # A native fault AFTER pytest has already reported every test as passing
     # is the Qt/matplotlib teardown-ordering crash this runner exists to
@@ -120,7 +122,10 @@ def _run_one(test_file: Path, env: dict) -> tuple[bool, str, str]:
                    f"0x{proc.returncode & 0xFFFFFFFF:08X} AFTER all tests "
                    f"passed (Qt/matplotlib teardown-ordering crash, unrelated "
                    f"to the code under test). {summary}")
-    elif proc.returncode not in (0, 1) and not all_skipped:
+    elif all_skipped:
+        summary = ("OK -- pytest collected no tests in this file "
+                   "(expected for GUI-only files without Qt). " + summary)
+    elif proc.returncode not in (0, 1):
         summary = (f"exit code {proc.returncode} (0x{proc.returncode & 0xFFFFFFFF:08X}) "
                    f"-- not a normal pytest outcome, probably a native crash "
                    f"(access violation / segfault). {summary}")
