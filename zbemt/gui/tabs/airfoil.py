@@ -624,13 +624,13 @@ class AirfoilTab(QWidget):
         self.source_combo.setMinimumWidth(150)
         self._stretch_to_form_width(self.source_combo)
         self.source_combo.setToolTip(
-            '"airfoil.source" — "analytical": analytical curves; '
-            '"table": imported CSV; "neuralfoil": generate the table via '
-            'NeuralFoil; "xfoil": generate the table via the XFOIL binary.\n\n'
+            '"airfoil.source" — "analytical": analytical curves. '
+            '"table": imported CSV. "neuralfoil": generate the table via '
+            'NeuralFoil. "xfoil": generate the table via the XFOIL binary.\n\n'
             '"xfoil" needs the XFOIL executable. zBEMT looks in four places: '
             "the ZBEMT_XFOIL_BIN variable, your remembered Locate… choice, PATH, "
             "and the standard install folders. The check happens when you click "
-            "Run; without the binary, a dialog opens and offers Locate…, which "
+            "Run. Without the binary, a dialog opens and offers Locate…, which "
             "remembers the pick between sessions.")
         form.addRow("Data source:", self.source_combo)
 
@@ -1108,7 +1108,7 @@ class AirfoilTab(QWidget):
             '"generator_params" — PARSEC geometric parameters, nine numbers '
             "separated by commas:\n"
             "r_le, x_up, y_up, y_xx_up, x_lo, y_lo, y_xx_lo, th_te, beta_te_deg.\n"
-            "Leading-edge radius, crest position/height/curvature of each "
+            "Leading-edge radius, crest position, height and curvature of each "
             "surface, trailing-edge thickness and trailing-edge angle in "
             "degrees. Defaults: 0.0158, 0.30, 0.0593, -0.475, 0.35, -0.047, "
             "0.530, 0.0025, 8.0.")
@@ -1126,7 +1126,7 @@ class AirfoilTab(QWidget):
         self.biconvex_edit.setToolTip(
             '"generator_params" — Biconvex thickness t: the section is two '
             "symmetric parabolic arcs y = ±2t·x·(1−x), sharp edges, maximum "
-            "thickness t at mid-chord. One number; 0 gives a slit. "
+            "thickness t at mid-chord. One number, and 0 gives a slit. "
             "Default: 0.06.")
         form.addRow("Biconvex (thickness):", self.biconvex_edit)
 
@@ -1305,8 +1305,8 @@ class AirfoilTab(QWidget):
             'e<sup>N</sup> transition criterion. The boundary layer turns '
             'turbulent where the amplification of small disturbances reaches '
             'e<sup>N</sup>. A lower N predicts earlier transition and higher '
-            'drag; 9 approximates a clean flow (typical range: 1 to 15). This '
-            'input reaches only the XFOIL binary; NeuralFoil ignores it.')
+            'drag, and 9 approximates a clean flow (typical range: 1 to 15). This '
+            'input reaches only the XFOIL binary. NeuralFoil ignores it.')
         form.addRow("Ncrit:", self.ext_ncrit)
 
         self.ext_xtr_top = QDoubleSpinBox()
@@ -1315,10 +1315,10 @@ class AirfoilTab(QWidget):
         self.ext_xtr_top.setValue(1.0)
         self.ext_xtr_top.setSingleStep(0.05)
         self.ext_xtr_top.setToolTip(
-            '"xfoil_xtr_top" — chord fraction where transition is FORCED on '
+            '"xfoil_xtr_top" — chord fraction where transition is forced on '
             'the upper surface, in (0,&nbsp;1]. XFOIL fixes transition at that '
-            'station instead of predicting it; 1 leaves free transition on the '
-            'whole surface. This input reaches only the XFOIL binary; NeuralFoil '
+            'station instead of predicting it, and 1 leaves free transition on the '
+            'whole surface. This input reaches only the XFOIL binary. NeuralFoil '
             'ignores it.')
         form.addRow("Xtr top:", self.ext_xtr_top)
 
@@ -1328,10 +1328,10 @@ class AirfoilTab(QWidget):
         self.ext_xtr_bot.setValue(1.0)
         self.ext_xtr_bot.setSingleStep(0.05)
         self.ext_xtr_bot.setToolTip(
-            '"xfoil_xtr_bot" — chord fraction where transition is FORCED on '
+            '"xfoil_xtr_bot" — chord fraction where transition is forced on '
             'the lower surface, in (0,&nbsp;1]. XFOIL fixes transition at that '
-            'station instead of predicting it; 1 leaves free transition on the '
-            'whole surface. This input reaches only the XFOIL binary; NeuralFoil '
+            'station instead of predicting it, and 1 leaves free transition on the '
+            'whole surface. This input reaches only the XFOIL binary. NeuralFoil '
             'ignores it.')
         form.addRow("Xtr bot:", self.ext_xtr_bot)
         #: stored to hide the three rows above as a unit
@@ -1348,16 +1348,17 @@ class AirfoilTab(QWidget):
         # `require_optional_binary` for xfoil). A disabled button only
         # stated the reason in a tooltip.
         self.btn_run_external.setToolTip(
-            "Generates a Cl/Cd×α polar for each Reynolds×Mach combination with the "
-            "selected external engine (neuralfoil: neural network; xfoil: XFOIL "
+            "Generates a polar of Cl and Cd versus α for each Reynolds×Mach "
+            "combination with the "
+            "selected external engine (neuralfoil: neural network. xfoil: XFOIL "
             "binary, looked up through ZBEMT_XFOIL_BIN, your remembered Locate… "
             "choice, PATH, and the standard install folders)")
         self.btn_run_external.clicked.connect(self._run_external)
         self.btn_cancel_external = QPushButton("Cancel")
         self.btn_cancel_external.setVisible(False)
         self.btn_cancel_external.setToolTip(
-            "The engine cannot be interrupted mid-point (α) once it's already computing -- "
-            "cancel only discards the result when it finishes, instead of applying it.")
+            "The engine cannot interrupt a point (α) that it is already computing. "
+            "A cancel discards the result when it finishes, instead of applying it.")
         self.btn_cancel_external.clicked.connect(self._cancel_external)
         self.btn_export_external = QPushButton("Export generated table…")
         self.btn_export_external.setEnabled(False)
@@ -2372,8 +2373,8 @@ class AirfoilTab(QWidget):
             self._ext_worker.cancel()
             self.btn_cancel_external.setEnabled(False)
             self.status_label_external.setText(
-                "Canceling… (the engine cannot interrupt a point mid-calculation; "
-                "result will be discarded when it finishes)")
+                "Canceling… (the engine cannot interrupt a point mid-calculation. "
+                "The result will be discarded when it finishes)")
 
     def _reset_external_run_ui(self):
         self.progress_external.setVisible(False)
@@ -2401,13 +2402,13 @@ class AirfoilTab(QWidget):
         self._reset_external_run_ui()
         self.status_label_external.setText("")
         if cancelled:
-            self.status_label_external.setText("Canceled -- result discarded.")
+            self.status_label_external.setText("Canceled. The result is discarded.")
             return
 
         if not slices:
             QMessageBox.warning(self, "No points converged",
                                  f"{engine} did not return any alpha points with sufficient confidence "
-                                 "for this geometry/range.")
+                                 "for this geometry and range.")
             return
 
         self._generated_external_slices = slices
@@ -2419,8 +2420,8 @@ class AirfoilTab(QWidget):
         status = _polar_generation_status(len(reynolds_list), diagnostics)
         alphas = [a for s in slices for a in (s.alpha_deg or [])]
         if alphas and (max(alphas) <= 1e-9 or min(alphas) >= -1e-9):
-            status += (" Warning: the table covers only ONE side of alpha=0; "
-                       "the full-range extension mirrors the stall anchor on "
+            status += (" Warning: the table covers only one side of alpha=0. "
+                       "The full-range extension mirrors the stall anchor on "
                        "the empty side. Regenerate with a wider alpha range "
                        "for real data on both sides.")
         self.status_label_external.setText(status)
@@ -2447,7 +2448,7 @@ class AirfoilTab(QWidget):
         self._schedule_preview_refresh()
         QMessageBox.information(
             self, f"{engine} completed",
-            f"{len(slices)} polar(s) generated ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach). "
+            f"{len(slices)} polar tables generated ({len(reynolds_list)} Reynolds x {len(mach_list)} Mach). "
             # There is no 'Apply' button anymore: the line above already wrote
             # the slices to the project in memory. What's left for the user to
             # decide is whether to save to disk or not -- and that was what the

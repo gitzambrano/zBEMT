@@ -243,8 +243,8 @@ FIELD_HELP: dict[str, dict] = {
         "options": {
             "analytical": "Polynomial analytical model with stall transition. Fast and smooth, best for preliminary design.",
             "table": "Precomputed polar curves at fixed Reynolds and Mach slices. Accurate, but it requires data and interpolation.",
-            "neuralfoil": "NeuralFoil external solver generates the polar on demand. High fidelity but slower, and it requires an external installation.",
-            "xfoil": "The XFOIL binary generates the polar on demand, with transition settings of its own (Ncrit and the two Xtr stations). Highest fidelity, but it needs the executable installed. zBEMT looks for it through ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders. Locate… remembers your pick between sessions. The check happens when Run is clicked."
+            "neuralfoil": "The NeuralFoil external solver generates the polar on demand. It gives high fidelity, runs slower than the analytical model, and it requires an external installation.",
+            "xfoil": "The XFOIL binary generates the polar on demand, with transition settings of its own (Ncrit and the two Xtr stations). Its fidelity is higher than NeuralFoil's, but it needs the executable installed. zBEMT looks for it through ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders. Locate… remembers your pick between sessions. The check happens when Run is clicked."
         }
     },
     "cl_alpha": {
@@ -440,10 +440,10 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Analytic Family Parameters",
         "definition": (
             "The parameters of the analytic contour families that have no list "
-            "of their own. PARSEC takes nine numbers: r_le, x_up, y_up, "
-            "y_xx_up, x_lo, y_lo, y_xx_lo, th_te, beta_te_deg — leading-edge "
+            "of their own. PARSEC takes nine numbers (r_le, x_up, y_up, "
+            "y_xx_up, x_lo, y_lo, y_xx_lo, th_te, beta_te_deg): the leading-edge "
             "radius, crest position, height and curvature of each surface, "
-            "trailing-edge thickness, and trailing-edge angle in degrees. "
+            "the trailing-edge thickness, and the trailing-edge angle in degrees. "
             "Joukowski takes two numbers: epsilon (thickness) and camber. "
             "Biconvex takes one number: the thickness t at mid-chord."),
         "unit": "-",
@@ -452,11 +452,11 @@ FIELD_HELP: dict[str, dict] = {
             r"z = \zeta + \frac{1}{\zeta} \quad \text{(Joukowski)},\quad "
             r"y = \pm 2t\,x(1-x) \quad \text{(biconvex)}"),
         "effect": (
-            "Each Source option reveals its row; Generate geometry rebuilds the "
+            "Each Source option reveals its row. Generate geometry rebuilds the "
             "contour from these numbers and stores them with it, so a saved "
             "section can be regenerated and edited again without the "
             "coordinates.\n\n"
-            "Careful: the contour only reaches the engine through the polar "
+            "Note: the contour reaches the engine only through the polar "
             "generated from it. Changing the numbers changes nothing until "
             "polar generation runs again."),
         "range": (
@@ -482,7 +482,7 @@ FIELD_HELP: dict[str, dict] = {
             "Camber shifts the zero-lift angle negative and raises Cl at a given "
             "angle. Thickness governs how gently the section stalls and how much "
             "profile drag it carries.\n\n"
-            "Careful: the contour only reaches the engine through the polar "
+            "Note: the contour reaches the engine only through the polar "
             "generated from it. Changing the code changes nothing until polar "
             "generation runs again."),
         "range": (
@@ -729,9 +729,9 @@ FIELD_HELP: dict[str, dict] = {
             "Critical amplification factor N of the e<sup>N</sup> transition "
             "criterion, used only by the XFOIL engine.\n\n"
             "The boundary layer turns turbulent where small disturbances inside "
-            "it have grown by the factor e<sup>N</sup>. A lower N stands for a "
+            "it have grown by the factor e<sup>N</sup>. A lower N describes a "
             "flow with many disturbances and predicts earlier transition with "
-            "higher drag; a higher N lets the layer stay laminar longer.\n\n"
+            "higher drag. A higher N lets the layer stay laminar longer.\n\n"
             "NeuralFoil ignores this input."),
         "unit": "—",
         "equation": r"A(x) = e^{N}, \quad N = N_{crit}",
@@ -746,7 +746,7 @@ FIELD_HELP: dict[str, dict] = {
     "xfoil_xtr_top": {
         "title": "XFOIL Xtr Top",
         "definition": (
-            "Chord fraction x/c where transition is FORCED on the upper "
+            "Chord fraction x/c where transition is forced on the upper "
             "surface, used only by the XFOIL engine.\n\n"
             "XFOIL fixes the laminar-to-turbulent transition at that station "
             "instead of predicting it. The default 1 leaves free transition on "
@@ -765,7 +765,7 @@ FIELD_HELP: dict[str, dict] = {
     "xfoil_xtr_bot": {
         "title": "XFOIL Xtr Bottom",
         "definition": (
-            "Chord fraction x/c where transition is FORCED on the lower "
+            "Chord fraction x/c where transition is forced on the lower "
             "surface, used only by the XFOIL engine.\n\n"
             "XFOIL fixes the laminar-to-turbulent transition at that station "
             "instead of predicting it. The default 1 leaves free transition on "

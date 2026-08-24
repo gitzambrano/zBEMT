@@ -910,7 +910,7 @@ zbemt --help                               # every flag</code></pre>
       <li>Without <b>PyVista</b>, the three-dimensional view is unavailable and the two-dimensional plots
         carry on as normal.</li>
       <li>Without <b>NeuralFoil</b>, or without the XFOIL executable when XFOIL is the chosen
-        engine, polar generation states at the click what is missing and how to install it.
+        engine, polar generation reports at the click what is missing and how to install it.
         Analytical polars and imported tables are unaffected.</li>
       <li>Without <b>Plotly</b>, reports are generated with static figures instead of interactive
         ones.</li>
@@ -1213,7 +1213,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       <a href="#sec-10-run-case"><b>5. Run Case</b><br>a flight condition</a>
       <a href="#sec-11-run-batch"><b>6. Run Batch</b><br>generate, review, run</a>
       <a href="#results-section"><b>7. Results</b><br>compare and report</a>
-      <a href="#cap-designer"><b>Geometry Designer</b><br>compare blade variants. Open: the <b>Tools</b> button in the main window's top bar, next to <span class="gui">Help</span>.</a>
+      <a href="#cap-designer"><b>Geometry Designer</b><br>compare blade variants</a>
       <a href="#cap-metodo"><b>The method</b><br>equations and assumptions</a>
       <a href="#cap-nomenclatura-helice"><b>Propeller mode</b><br>what differs from a rotor</a>
     </nav>
@@ -3685,7 +3685,7 @@ formats and limitations of each polar source.</p>
     <p><b>Configuration and valid range.</b> A fraction of the radius between $0$ and $1$, in practice between $0.10$
       and $0.25$ for a helicopter rotor and often larger for a propeller with a substantial spinner. The
       default is $0.15$. The value must not lie above the first station of the radial table, since a
-      cutout that swallows part of the table leaves those stations outside the integration.</p>
+      cutout past that station leaves it and any station before it outside the integration.</p>
 
     <p><b>Where the table begins.</b> The three parametric generators place the first radial station of the
       table exactly at the cutout: the stations run from $r_{cut}$ to $1.0$ in equal steps. No station
@@ -4128,7 +4128,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       source interpolates supplied data. A generated source runs an external solver once over the profile
       shape and then behaves as a tabulated source. The dropdown offers that generated source twice,
       as <code>neuralfoil</code> and as <code>xfoil</code>, one entry per external engine. Nothing
-      downstream of this choice depends on it: every option answers the same question at the same point
+      downstream of this choice depends on it. Every option supplies the same quantity at the same point
       in the calculation, which is what makes them interchangeable.</p>
 
     <p><b>The mathematics.</b> An analytical source represents attached-flow lift with the slope
@@ -4206,7 +4206,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
         <tr>
           <td><code>xfoil</code></td>
           <td>The same table-generating workflow, run through the XFOIL binary instead. Its transition settings are
-            described in 8.8.2.
+            described in <a class="xref" href="#cap-3-8-xfoil" title="8.8.2 The XFOIL source and the transition settings">Section
+              8.8.2</a>.
           </td>
           <td>No measured data exist, the profile shape is known, and the higher fidelity of the boundary-element
             solution is worth its runtime.</td>
@@ -5255,7 +5256,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   coordinates. A <i>Source</i> dropdown selects the family, and each family reveals the
                   fields that describe it. On screen the whole block appears only while the polar
                   <span class="gui">Data source</span> is a generated one, NeuralFoil or XFOIL,
-                  because those are the engines that read the shape; with an analytical or
+                  because those are the engines that read the shape. With an analytical or
                   imported polar the block stays out of the way.</p>
 
                 <p><b>A NACA code</b> is the quickest, and covers most conventional sections. The four-digit family
@@ -5282,8 +5283,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   edge over the upper surface, around the leading edge and back along the lower
                   surface to the trailing edge. It is pulled toward each control point without passing
                   through it, so points crowded near the nose sharpen the leading-edge radius, and
-                  points near $x=1$ set the trailing edge. It is the most direct way to draw a shape by
-                  hand.</p>
+                  points near $x=1$ set the trailing edge. It is the source to choose when a shape is
+                  drawn by hand.</p>
 
                 <p><b>The three analytic families</b> build the contour from geometric parameters
                   instead of coordinates or codes. PARSEC sets the leading-edge radius and the crest
@@ -5333,7 +5334,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <code>bezier_control_points</code>, a list of coordinate pairs in file order. For the
                   three analytic families, <code>generator_params</code> holds the family's parameters as
                   named values, listed with each family in its section below.
-                  <code>imported_path</code> for a file. And <code>n_points</code>, default
+                  <code>imported_path</code> for a file. <code>n_points</code>, default
                   $200$.
                 </p>
 
@@ -5377,9 +5378,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p id="cap-3-7-1"><b>The preset nicknames.</b> The catalog of typical blade sections
                   survives in the command-line grammar: nicknames such as <code>naca0012</code>,
                   <code>naca23012</code>, <code>parsec_default</code>, <code>joukowski_t8c5</code> and
-                  <code>biconvex_t6</code> resolve to a ready set of parameters. On screen no preset
+                  <code>biconvex_t6</code> resolve to a predefined set of parameters. On screen no preset
                   picker exists: every family is a <i>Source</i> option that reveals its own fields, and
-                  the notes on where each typical section is used travel in the help of the NACA code
+                  the notes about where each typical section is used are in the help of the NACA code
                   field.</p>
 
                 <p><span class="gui">GUI</span>: the <i>Profile 2D geometry</i> block: the <i>Source</i>
@@ -5396,7 +5397,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> accepts every
                   family of the block, the analytic ones included, through the grammars given in each
                   family's section below. It is used together with <code>--gen-neuralfoil</code> or
-                  <code>--gen-xfoil</code>, described in 8.8.
+                  <code>--gen-xfoil</code>, described in
+                  <a class="xref" href="#cap-3-8" title="8.8 External polar generation">Section 8.8</a>.
                 </p>
 
                 <h4 id="cap-3-7-8">8.7.3 The PARSEC parameters</h4>
@@ -5417,7 +5419,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   $y_{lo} &lt; 0$ below it. Each curvature enters as a second derivative at its crest,
                   typically negative on the upper surface and positive on the lower one. The angle is
                   measured per surface from the chord line, so the total wedge between the surfaces is
-                  twice it, and the leading-edge radius pins the nose radius exactly through the first
+                  twice it. The leading-edge radius pins the nose radius exactly through the first
                   basis term.</p>
 
                 <p><b>Options and ranges.</b> The row takes nine numbers, comma-separated, in the order
@@ -5429,8 +5431,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   stations lie strictly between 0 and 1, the thickness is zero or positive, and the
                   angle stays strictly between −90° and 90°. The defaults 0.0158, 0.30, 0.0593, −0.475,
                   0.35, −0.047, 0.530, 0.0025 and 8.0 reproduce a conventional section of about twelve
-                  per cent thickness with slight camber. A parameter set whose surfaces would cross is
-                  rejected with a message when the geometry is generated.</p>
+                  per cent thickness with slight camber. If the surfaces of a parameter set would
+                  cross, generation stops with a message.</p>
 
                 <p><span class="gui">GUI</span>: choose <code>parsec</code> in the <i>Source</i>
                   dropdown of the <i>Profile 2D geometry</i> block. One row appears, <i>PARSEC (9
@@ -5462,20 +5464,20 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   the conformal transformation</p>
                 <div class="eqn">$$z = \zeta + \frac{1}{\zeta},$$</div>
                 <p>and the image of the circle is an airfoil-shaped closed curve. Two numbers place the
-                  circle: $\epsilon$ offsets it from the point $\zeta = 1$ and thickens the section,
-                  while the camber lifts it off the axis and bows the mean line upward. The radius is
+                  circle: $\epsilon$ offsets it from the point $\zeta = 1$ and thickens the section.
+                  The camber lifts it off the axis and bows the mean line upward. The radius is
                   chosen so that the circle passes exactly through $\zeta = 1$, the point where the
-                  transformation folds the two surfaces together. The trailing edge therefore comes out
-                  a cusp by construction: zero included angle, both surfaces meeting tangentially. The
-                  maximum thickness is approximately $1.3\,\epsilon$ in the thin-section limit and
-                  drops slowly as $\epsilon$ grows, so treat $\epsilon$ as the thickness control rather
-                  than an exact thickness. The classical value of the family is theoretical: it has an
-                  exact conformal-map solution, which makes it a common check case for
-                  two-dimensional solvers.</p>
+                  transformation folds the two surfaces together. The trailing edge is therefore
+                  a cusp by construction: the included angle is zero, and the two surfaces meet
+                  tangentially. The maximum thickness is approximately $1.3\,\epsilon$ in the
+                  thin-section limit and drops slowly as $\epsilon$ grows, so $\epsilon$ is the
+                  thickness control rather than an exact thickness. The family is a common check case
+                  for two-dimensional solvers, because its classical solution is an exact conformal
+                  map.</p>
 
                 <p><b>Options and ranges.</b> The row takes two numbers, comma-separated:
                   <code>epsilon</code>, which controls the thickness, and <code>camber</code>, which
-                  bows the mean line. Both must be finite, and $\epsilon$ must be positive; the camber
+                  bows the mean line. Both must be finite, and $\epsilon$ must be positive. The camber
                   may be negative for a section loaded downward. The defaults 0.08 and 0.05 give a
                   section of roughly ten per cent thickness with camber.</p>
 
@@ -5506,9 +5508,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   either edge, reaches exactly $t$ at mid-chord and returns to zero at both edges, so
                   one number describes the whole section: the mid-chord thickness $t$, in chord units.
                   This is the classical thin supersonic section, with no camber and sharp edges, and it
-                  stands behind the linearized supersonic airfoil theory found in textbooks. A value of
-                  zero is accepted deliberately and produces a slit, the thinnest possible reference
-                  section; negative values are rejected.</p>
+                  underlies the linearized supersonic airfoil theory found in textbooks. A value of
+                  zero is accepted deliberately and produces a slit, a reference section of zero
+                  thickness. Negative values are rejected.</p>
 
                 <p><b>Options and ranges.</b> The row takes one number: the thickness
                   <code>thickness</code> at mid-chord, as a fraction of the chord, zero or positive.
@@ -5533,9 +5535,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <h3 id="cap-3-8">8.8 External polar generation</h3>
                 <p>Two external engines estimate a two-dimensional airfoil polar from profile coordinates,
                   Reynolds number, Mach number and an angle-of-attack sweep. <b>NeuralFoil</b> is a neural-network
-                  surrogate of XFOIL: milliseconds per evaluation, so a dense sweep costs seconds. <b>XFOIL</b>
-                  runs the classic boundary-element binary directly: higher fidelity where it converges, minutes
-                  instead of milliseconds, and it needs the executable installed on the machine. Neither is a flow
+                  surrogate of XFOIL. One evaluation costs milliseconds, so a dense sweep costs seconds.
+                  <b>XFOIL</b>
+                  runs the classic boundary-element binary directly. It gives higher fidelity where it converges,
+                  takes minutes instead of milliseconds, and it needs the executable installed on the machine.
+                  Neither is a flow
                   solver and neither replaces validated measurements in a certification or high-consequence
                   analysis. The output of both is a set of $C_l$ and $C_d$ samples that the blade-element method
                   uses by the same tabulated interpolation as an imported polar.</p>
@@ -5546,14 +5550,14 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   the <code>ZBEMT_XFOIL_BIN</code> environment variable, the path remembered from a previous
                   <i>Locate&hellip;</i> pick, the system <code>PATH</code>, and the standard install folders.
                   The
-                  <span class="gui">GUI</span> keeps the run button clickable in every case; when the lookup finds
+                  <span class="gui">GUI</span> keeps the run button clickable in every case. When the lookup finds
                   nothing, a dialog states what was checked and offers to locate the executable.</p>
                 <p><b>How the sweep runs and how it fails.</b> Both engines run incompressibly, so each
                   generated slice receives the Prandtl-Glauert correction afterwards,
                   $C_l \rightarrow C_l/\beta$ and $C_d \rightarrow C_d/\beta$ with
                   $\beta = \sqrt{1-M^2}$, and a slice whose Mach number would make the factor diverge
-                  is dropped. One Reynolds number that produces no converged points warns and
-                  continues. A sweep that produces no usable point at all fails the generation. Each
+                  is dropped. Generation warns and continues when one Reynolds number produces no
+                  converged points, and it fails when a sweep produces no usable point at all. Each
                   engine invocation runs under a wall-clock timeout, so a hung subprocess cannot stop
                   the program.</p>
 
@@ -5561,7 +5565,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>Prerequisite: 2D geometry already generated/imported (<a class="xref" href="#cap-3-7"
                     title="8.7 Profile 2D geometry">Section 8.7</a>). The "Run
                   polar generation" button generates a polar for the <b>currently selected section</b> with the
-                  engine of the polar source selected in 8.2.1, <code>neuralfoil</code> or <code>xfoil</code>
+                  engine of the polar source selected in
+                  <a class="xref" href="#cap-3-2-1" title="8.2.1 Polar source and linear coefficients">Section 8.2.1</a>,
+                  <code>neuralfoil</code> or <code>xfoil</code>
                   (<a class="xref" href="#cap-3-1-3" title="8.1.3 Radial position of a section">Section 8.1.3</a>).
                   With multiple sections, repeat the run per section. The sweep covers
                   Reynolds and Mach lists and an $\alpha$ range.</p>
@@ -5607,7 +5613,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p>where $A(x)$ is the amplification of the disturbances up to the station $x$.
                   NeuralFoil accepts no transition input and always works from its own trained
-                  approximation; the three settings below belong to XFOIL alone.</p>
+                  approximation. The three settings below belong to XFOIL alone.</p>
 
                 <p><b>Choosing XFOIL.</b> XFOIL is selected in the polar <i>Data source</i> dropdown of
                   <a class="xref" href="#cap-3-2-1" title="8.2.1 Polar source and linear coefficients">Section
@@ -5619,25 +5625,25 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><b>N<sub>crit</sub>, the critical amplification factor.</b> This number is the
                   exponent $N$ of the criterion above. It measures how much disturbance growth the
-                  flow tolerates before the layer turns turbulent. A low value stands for a flow
-                  with many disturbances, such as a wind tunnel of high turbulence or a dirty
+                  flow tolerates before the layer turns turbulent. A low value describes a flow
+                  with many disturbances, such as a wind tunnel of high turbulence or a rough
                   surface, and it predicts early transition with drag near the fully turbulent
-                  level. A high value stands for a clean, low-turbulence flow and lets the layer
+                  level. A high value describes a clean, low-turbulence flow and lets the layer
                   stay laminar longer. The field in the <span class="gui">GUI</span> accepts values
                    from 1 to 15. The <span class="bemt">.bemt</span> file and the
                    <span class="cli">CLI</span> accept any number greater than zero. The default 9
                    approximates a clean flow and reproduces the classic XFOIL setting.</p>
 
                 <p><b>Xtr top and Xtr bot, the forced transition stations.</b> Each one fixes the
-                  chord fraction $x/c$ where transition is FORCED on one surface, the upper or the
+                  chord fraction $x/c$ where transition is forced on one surface, the upper or the
                   lower one. The value lies between 0 and 1, bounds excluded at 0 and included at
                   1. The default 1 leaves the transition free, so the $e^N$ criterion alone decides
                   where it falls. Any smaller value pins the transition at that station and
                   everything downstream of it turns turbulent at once. This models a trip strip or
-                  a rough leading edge, and it is how a measurement in which transition was fixed
-                  at a known station is reproduced. In the <span class="gui">GUI</span>, the two
-                  fields start at 0.01 and move in steps of 0.05, so a value closer to zero needs
-                  the file or the command line.</p>
+                  a rough leading edge, and it reproduces a measurement with transition fixed at a
+                  known station. In the <span class="gui">GUI</span>, the two
+                  fields start at 0.01 and move in steps of 0.05, so values closer to zero must be
+                  set in the <span class="bemt">.bemt</span> file or on the command line.</p>
 
                 <p><b>Finding the executable.</b> XFOIL runs as an external program, and zBEMT looks
                   for it in four places, in this order:</p>
@@ -5655,7 +5661,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   opens before any solver work starts. The dialog lists the four places with what each
                   one held on this machine, links the XFOIL download page, and offers a
                   <i>Locate xfoil&hellip;</i> button. Picking the executable there stores the choice, so
-                  the next run finds it without the dialog again.</p>
+                  the next run finds the executable without showing the dialog again.</p>
 
                 <p><span class="gui">GUI</span>: select <code>xfoil</code> in the polar <i>Data source</i>
                   dropdown of the <i>Aerodynamic model</i> block. The fields <i>Ncrit</i>, <i>Xtr top</i>
@@ -5669,7 +5675,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   NeuralFoil ignores them.</p>
 
                 <p><span class="cli">CLI</span>: <code>--gen-xfoil --ncrit FLOAT --xtr-top FLOAT
-                    --xtr-bot FLOAT</code>. Each flag is optional; an option left out keeps its
+                    --xtr-bot FLOAT</code>. Each flag is optional. An option left out keeps its
                   default. Given together with <code>--gen-neuralfoil</code>, the command stops
                   with the error <code>--ncrit/--xtr-top/--xtr-bot apply to --gen-xfoil.</code>
                   The same three values are also reachable as project fields, with
@@ -5687,9 +5693,12 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <li><b>Generation.</b> One polar is produced for each combination of the Reynolds and Mach values
                     requested, over the angle sweep given. The result exists only in the session.</li>
                   <li><b>Preview and project, in one step.</b> The generated polars join the same list a manual CSV
-                    import fills, described in 8.6. The <i>Data source</i> selector stays on the generated mode
-                    that ran, <code>neuralfoil</code> or <code>xfoil</code>; the preview of 8.9 redraws on the new
-                    curves. And the same polars become
+                    import fills, described in <a class="xref" href="#cap-3-6"
+                      title="8.6 Data import / tabulated polar">Section 8.6</a>. The <i>Data source</i> selector stays on the generated mode
+                    that ran, <code>neuralfoil</code> or <code>xfoil</code>, and the preview of
+                    <a class="xref" href="#cap-3-9" title="8.9 Preview of the polar and the profile">Section 8.9</a>
+                    redraws on the new
+                    curves. The same polars become
                     the polar table of the section currently selected. There is no separate confirmation to press, so
                     the generated polar is usable from Run Case immediately.
                   </li>
@@ -5748,19 +5757,19 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   limits or switching an axis between linear and logarithmic.</p>
 
                 <p><b>The drawing-aid strip above the canvas.</b> Four controls sit in a compact
-                  strip above the preview panels. They decide how the curves are drawn; none of them
+                  strip above the preview panels. They decide how the curves are drawn. None of them
                   changes a result or a stored value.</p>
 
                 <ul>
                   <li><b><i>Alpha</i></b> sets the angle-of-attack span the polar curves are computed
                     over: Typical ($-30^\circ$ to $30^\circ$), Extended ($-90^\circ$ to $90^\circ$)
                     or Full range ($-180^\circ$ to $180^\circ$). It recomputes the curves over the
-                    chosen span, which zooming the axes never does, so Full range is the only way to
-                    see what the full-range extension built. When that extension is active, the
+                    chosen span, which zooming the axes never does. Full range is therefore the only
+                    way to see what the full-range extension produced. When that extension is active, the
                     control follows it to Full range unless it was last set by hand.</li>
                   <li><b><i>Auto-fit Y</i></b>, checked by default, lets each axis fit its own
-                    curves. Unchecked, $C_l$ and $C_d$ keep fixed spans, so two previews stay
-                    comparable instead of each one filling its own frame.</li>
+                    curves. When it is unchecked, $C_l$ and $C_d$ keep fixed spans, so the two
+                    previews stay comparable.</li>
                   <li><b><i>Reverse-flow branch</i></b>, checked by default, overlays the curve the
                     engine actually uses where the section sees reverse flow ($U_t &lt; 0$), as
                     selected by the Reverse flow model of the form
@@ -5770,7 +5779,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     of $U_t$.</li>
                   <li><b><i>Machs</i></b> takes a comma-separated list of Mach numbers and overlays
                     one curve per value on the lift and drag axes, so the effect of compressibility
-                    on the section can be seen at a glance. It is a drawing aid only: it does not
+                    on the section can be seen directly. It is a drawing aid only: it does not
                     reproduce the correction the solver applies during a run, described in
                     <a class="xref" href="#cap-3-5" title="8.5 Compressibility">Section 8.5</a>,
                     and changing it alters no result.</li>
@@ -7022,8 +7031,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       the right experiment when the question is how the rotor responds while it must
                       keep delivering one load, for example a thrust requirement held fixed while the
                       advance ratio is swept. It also removes loading as a confounder between
-                      configurations: a rotor making more thrust always draws more power, so a sweep
-                      that lets the load drift can mistake the extra loading for a worse design.</p>
+                      configurations: a rotor making more thrust always draws more power, so when
+                      the load drifts during a sweep, the extra loading can be mistaken for a
+                      worse design.</p>
 
                     <p><b>The mathematics.</b> The trim loop wraps the whole element solve. It adjusts
                       the one control left free and re-solves until</p>
@@ -7038,12 +7048,12 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <p><b>The three run modes.</b> The <i>Run mode</i> dropdown offers them:</p>
 
                     <ul>
-                      <li><b>Fixed collective &amp; RPM</b>, the default. Direct run, no trim loop;
-                        every quantity is exactly as entered.</li>
-                      <li><b>Fixed RPM, target thrust/CT</b>. The loop solves the collective; the
+                      <li><b>Fixed collective &amp; RPM</b>, the default. The run is direct, with
+                        no trim loop, and every quantity is exactly as entered.</li>
+                      <li><b>Fixed RPM, target thrust/CT</b>. The loop solves the collective. The
                         rotational speed keeps its entered value.</li>
                       <li><b>Fixed collective, target thrust/CT</b>. The loop solves the rotational
-                        speed; the collective keeps its entered value.</li>
+                        speed. The collective keeps its entered value.</li>
                     </ul>
 
                     <p>With either solving mode, <i>Target is</i> chooses whether the target is a
@@ -7137,7 +7147,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       <i>step</i>) and a <i>fill</i> button generate an evenly spaced list into it:
                       pressing <i>fill</i> replaces the list with every value from <i>from</i> to
                       <i>to</i>, spaced by <i>step</i>, both bounds included. The three fields
-                      retune to a plausible range for whichever quantity the row is set to, so a
+                      adapt to a default range for whichever quantity the row is set to, so a
                       fill written for an advance ratio is not offered to a sweep in degrees or in
                       rev/min.</p>
 
@@ -7387,7 +7397,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                             <li><b>3D</b> is for spatial inspection and export. It is another view of the same solved
                               loads, not a higher-fidelity solve.</li>
                             <li><b>Convergence</b> answers whether the solve itself can be trusted. Select one
-                              case and read how the residual fell; if the run stored no history, turn recording on
+                              case and read how the residual fell. If the run stored no history, turn recording on
                               from the same strip and run the case again.</li>
                           </ul>
                           <p>The summary table is the global integral. For a rotor, read $C_T$ together with $C_Q$ and
@@ -7610,7 +7620,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           then shows the summary diagnostics of the final state instead of the
                           iteration curves. The strip above the figure carries the <i>Enable
                             convergence history</i> button for that situation. Pressing it turns the
-                          recording switch (<code>collect_history</code>) on in the open project; the
+                          recording switch (<code>collect_history</code>) on in the open project. The
                           next run of the case then fills in the per-iteration curves. The switch is
                           documented in the Config/Engine chapter, and nothing turns it on by itself
                           for a run started from the <span class="gui">GUI</span>.</p>
@@ -7620,7 +7630,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           which converge no further by iterating.</p>
 
                         <p><span class="bemt">.bemt</span>: none. The view reads results that already
-                          exist in memory; only the recording switch behind it is project data.</p>
+                          exist in memory. Only the recording switch behind it is project data.</p>
 
                         <p><span class="cli">CLI</span>: none for the view itself. The batch export
                           reaches the same curves through its plots choice, described in the Run
@@ -7634,7 +7644,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p>Plotly needs an optional package. Selecting it without the package
                           installed opens a dialog that states what is missing and shows the command
-                          that installs it; the dropdown then returns to Matplotlib by itself. No
+                          that installs it. The dropdown then returns to Matplotlib by itself. No
                           plot is lost and nothing else changes.</p>
 
                         <p><span class="gui">GUI</span>: the <i>Plot backend</i> dropdown beside the
@@ -7660,7 +7670,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           selection spans more than one condition, whether it holds a single batch,
                           several single cases, or a mix of both, an extra <i>Choose condition to
                             plot</i> selector appears and picks which of those conditions the views
-                          display; each entry keeps the name it carries everywhere else, so picking
+                          display. Each entry keeps the name it carries everywhere else, so picking
                           which batch condition to draw needs no re-running. The sweep view and the
                           table are unaffected, since they show the whole selection by
                           construction.</p>
@@ -7700,10 +7710,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                             </tr>
                             <tr>
                               <td><i>Copy figure</i>, or <i>Copy table</i> in Table mode</td>
-                              <td>Puts what is on screen on the clipboard: in the plot modes the
-                                figure as an image, ready to paste into a document or a slide; in
-                                Table mode the summary table tab-separated, ready to paste into a
-                                spreadsheet.</td>
+                              <td>Puts what is on screen on the clipboard. In the plot modes this
+                                is the figure as an image, ready to paste into a document or a
+                                slide. In Table mode it is the summary table, tab-separated and
+                                ready to paste into a spreadsheet.</td>
                               <td>Whenever at least one entry is selected.</td>
                             </tr>
                           </table>
@@ -7712,12 +7722,12 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>The report settings dialog.</b> After the destination file is chosen,
                           a settings dialog opens. Its resolution dropdown sets the DPI of the
                           embedded figures, from 72 to 300, with 150 preselected. Seven checkboxes
-                          choose which figure groups travel inside the file: blade geometry, airfoil
+                          choose which figure groups go into the file: blade geometry, airfoil
                           polars, performance coefficients, loads along azimuth, loads along blade
                           span, disk maps, and convergence. Two defaults adapt to the size of the
-                          selection: performance coefficients arrives checked when more than one case
-                          is selected, and disk maps arrives unchecked when more than twelve are,
-                          because thirteen figures per case grow quickly. Everything else starts
+                          selection: the performance-coefficients box arrives checked when more than one case
+                          is selected, and the disk-maps box arrives unchecked when more than twelve are,
+                          because thirteen figures per case add up quickly. Everything else starts
                           checked. The report itself is assembled off the main thread behind a
                           progress window, so the interface stays usable while it is written.</p>
 
@@ -7734,7 +7744,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <i>Export plots&hellip;</i> and the figures embedded in the report are
                           chosen independently. Exporting no images does not empty the report, and
                           generating a report writes no loose images. The first controls what sits
-                          on disk as PNG files, the second what travels inside the HTML.</p>
+                          on disk as PNG files. The second controls what is embedded in the HTML.</p>
 
                         <p><b>Reading the plots before exporting them.</b> Every plot in this tab carries the standard
                           controls (zoom, pan, and an axis dialog for limits and for switching an axis between
@@ -7743,8 +7753,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           exported figure is drawn afresh.</p>
 
                         <p>In the <span class="gui">GUI</span>, the buttons <i>Export
-                            plots&hellip;</i>/<i>Export table&hellip;</i>, <i>Generate report</i> and
-                          <i>Copy figure</i>/<i>Copy table</i>, below the results panel, with the
+                            plots&hellip;</i> or <i>Export table&hellip;</i>, <i>Generate report</i> and
+                          <i>Copy figure</i> or <i>Copy table</i>, below the results panel, with the
                           <i>Plot backend</i> dropdown at their left
                           (<a class="xref" href="#cap-7-backend" title="12.1.6 Plot backend">Section
                             12.1.6</a>) and the condition selector appearing above whenever the
@@ -8106,24 +8116,23 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           the blade count, receives rounded values with duplicates removed. The
                           bounds span from -10 to 10 with four decimals, and the count runs from 1
                           to 50. <i>Build variants</i> validates every value against the
-                           session base planform before it appends the row, so an
-                           unacceptable value stops the build with a message instead of
-                           leaving rows that fail only at run time.
-                           Each appended row starts as a copy of the base row, carries its value in
-                           the matching cell, and takes a label that names the parameter and the
-                           value, such as <code>tip_chord_norm=0.040</code>.</p>
+                           session base planform before it appends the row, so the
+                           builder rejects an unacceptable value with a message instead
+                           of leaving rows that fail only at run time.
+                            Each appended row starts as a copy of the base row, carries its value in
+                            the matching cell, and takes a label that names the parameter and the
+                            value, such as <code>tip_chord_norm=0.040</code>.</p>
 
-                        <p><b>Planform values on a base without a generator.</b> The sweep
-                          validates every value against the session base planform before it
-                          appends anything. When that blade has a parametric generator, the
+                        <p><b>Planform values on a base without a generator.</b> When the
+                          session base has a parametric generator, the
                           value regenerates the planform from its parameters, as everywhere
                           else in this chapter. When it has none (an imported blade, or a
-                          table edited by hand), the planform parameters are applied in table
-                          space instead of failing: every geometry is a radial table, so each
-                          parameter is read as a target on that table. The root chord and the
+                          table edited by hand), the window applies the planform parameters in table
+                          space instead of failing. Every geometry is a radial table, so it reads
+                          each parameter as a target on that table. The root chord and the
                           tip chord fix the two ends of the chord table, and a scale
                           factor interpolated between root and tip rescales the
-                          distribution to meet them — the endpoints hit the requested
+                          distribution to meet them. The endpoints hit the requested
                           values and the shape of the blade in between is preserved, so
                           an elliptic blade stays elliptic. Requesting one end alone
                           leaves the other end at its present scale. The twist root and
@@ -8157,10 +8166,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           and asks for that peak in <i>Max chord [c/R]</i>, which starts at
                           0.10. Only the planform fields of the selected family stay on
                           screen, and switching families hides the rest. Every family shares the
-                          remaining settings: <i>Twist root [deg]</i> and <i>Twist tip
-                          [deg]</i>, which start at 12.0 and 4.0 and interpolate linearly
-                          along the span, then <i>Radius [m]</i>, <i>Blades</i>, <i>Root
-                          cutout [r/R]</i> and <i>Stations</i>, the number of radial stations
+                          remaining settings. <i>Twist root [deg]</i> and <i>Twist tip
+                          [deg]</i> start at 12.0 and 4.0 and interpolate linearly
+                          along the span. <i>Radius [m]</i>, <i>Blades</i>, <i>Root
+                          cutout [r/R]</i> and <i>Stations</i> complete the block, where
+                          <i>Stations</i> is the number of radial stations
                           of the generated table, from 4 to 60. When a project opens, the
                           window seeds the radius, the blade count, the root cutout and the
                           station count from that project's own blade.</p>
@@ -8168,18 +8178,18 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>Built rows.</b> <i>Add as variant</i> builds the blade from these
                           fields and appends it as one row that carries the generated
                           geometry itself, not overrides over the base. The label counts the
-                          blades built per family, so the first rectangular blade lands as
-                          <code>rectangular 1</code>. Every cell except the label stays
-                          read-only, because the row states a complete planform; the derived
+                          blades built per family, so the first rectangular blade appears
+                          as <code>rectangular 1</code>. Every cell except the label stays
+                          read-only, because the row states a complete planform. The derived
                           columns show its aspect ratio and its solidity like any other row,
                           and <i>Duplicate</i> copies it verbatim. The generated blade
                           inherits the airfoil of the session base, so a comparison against
                           it isolates the planform.</p>
 
                         <p>In the <span class="gui">GUI</span>: pick the family in the
-                          <i>Generate variant</i> panel, fill the fields it reveals, adjust
-                          the shared radius, blade count, root cutout, twist and station
-                          count if the defaults do not match the study, then press <i>Add as
+                          <i>Generate variant</i> panel and fill the fields it reveals.
+                          Adjust the shared radius, blade count, root cutout, twist and station
+                          count if the defaults do not match the study. Then press <i>Add as
                             variant</i>.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: none. A generated
@@ -8193,15 +8203,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><b><i>Import from project&hellip;</i></b> The button beside <i>Add
                           as variant</i> brings another project's blade into this
-                          comparison. Press it and pick the folder of the other project. A
-                          folder without the project's inputs is refused: the window expects
+                          comparison. Press it and pick the folder of the other project.
+                          The window refuses a folder without the project's inputs: it expects
                           the <code>.bemt</code> files of a project inside an
                           <code>inputs</code> subfolder, and its error message says exactly
                           that. After the folder opens, a dialog asks what the imported
                           blade should become. <i>Add as variant</i> appends it as one more
                           complete-geometry row under the name of its project.
-                          <i>Replace base</i> makes it the base planform of this session:
-                          every override row now builds on it, the base row reseeds from it,
+                          <i>Replace base</i> makes it the base planform of this session.
+                          Every override row now builds on it, the base row reseeds from it,
                           and it is the reference the run ranks the others against. The
                           substitution lives in the window only. The imported project file on
                           disk is never modified, and opening another project drops the
@@ -8214,29 +8224,30 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           lasts.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: none. An imported
-                          blade exists in the session only, whichever button received it, and
+                          blade exists in the session only, whichever button added it, and
                           nothing is ever written back to the folder it came from.</p>
 
                         <p>From the <span class="cli">CLI</span>: <code>--compare PATHS</code>
                           accepts project folders as variants. Each comma-separated folder
                           contributes its blade as one variant named after the project it
                           holds, beside the variant <code>base</code> that carries the
-                          geometry of <code>--project</code>. This automates the import flow;
-                          the command always adds the folders as extra variants
+                          geometry of <code>--project</code>. This automates the import flow.
+                          The command always adds the folders as extra variants
                           and never replaces its own base.</p>
 
                         <p>In the <span class="gui">GUI</span>: pick the parameter in the
-                          <i>Variation sweep</i> panel, set Start, End and Count, or type explicit
-                          numbers in <i>Values</i>, then press <i>Build variants</i>. Edit any cell
-                          of any row afterwards. Manage rows with <i>Add</i>, <i>Duplicate</i> and
-                          <i>Remove</i>, and watch the preview to confirm what each variant looks
+                          <i>Variation sweep</i> panel. Set Start, End and Count, or type
+                          explicit numbers in <i>Values</i>. Then press <i>Build variants</i>.
+                          Edit any cell
+                          of any row afterwards. Manage rows with <i>Add</i>, <i>Duplicate</i>
+                          and <i>Remove</i>, and watch the preview to confirm what each variant looks
                           like.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: comparison variants are not
                           persisted. The table rebuilds itself from the project's own geometry every
                           time the project opens, and the labels live only in the session. A
-                          comparison worth repeating must be kept through its exports, which land in
-                          the outputs folder of the project.</p>
+                          comparison worth repeating persists only through its exports, which are
+                          written into the outputs folder of the project.</p>
 
                         <p>From the <span class="cli">CLI</span>: <code>--compare PATHS</code>
                           compares whole projects instead of table rows. The value is a
@@ -8262,8 +8273,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                             case = 4 solves</code>, or names the reason a run cannot start.</p>
 
                         <p><b>Saved cases.</b> The panel shows how many cases the project stores.
-                          The run refuses to start when none are stored, and it refuses equally
-                          when a stored case lacks a rotational speed, naming the cases without
+                          The run refuses to start when none are stored. It also refuses to
+                          start when a stored case lacks a rotational speed, and the message
+                          names the cases without
                           one. Cases are created and stored on the Run Case tab of the main
                           window.</p>
 
@@ -8298,8 +8310,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <h4 id="designer-trim">13.2.1 Thrust matching</h4>
 
                         <p><b>The physics.</b> A comparison at equal controls does not, by itself,
-                          compare efficiency fairly: a planform that happens to make more thrust
-                          also draws more power, so an ordinary ranking rewards whichever variant
+                          hold the loading constant: a planform that happens to make more thrust
+                          also draws more power, so an ordinary ranking favors whichever variant
                           loads its blade most heavily. Holding the loading constant removes that
                           advantage. With <i>Thrust matching</i> set to <i>Thrust</i> or to
                           <i>CT</i>, every variant of the run produces the same thrust, or the same
@@ -8327,9 +8339,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <i>Thrust</i> and <i>CT</i>, and starts at <i>(off)</i>, which runs every
                           variant with the same entered controls. A trimmed case bisects its control
                           instead of solving once, so each case outside the base row costs roughly
-                          ten direct solves, about 10 to 20 engine solves in practice; the estimate
-                          line extends with that factor when trimming is on. A variant whose target
-                          lies outside the plausible bracket stops the run with an error naming the
+                          ten direct solves, about 10 to 20 engine solves in practice. The estimate
+                          line extends with that factor when trimming is on. A target
+                          outside the plausible bracket stops the run with an error naming the
                           variant, the condition and the remedy, instead of returning a solution
                           outside it. Trimmed results record what was traded: the columns
                           <code>trim_target</code>, <code>trim_dof</code> and
@@ -8350,9 +8362,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>none</code> as the default.</p>
 
                         <p>In the <span class="gui">GUI</span>: check one of the three radio
-                          buttons at the top of the page. Fill the panel that appears below it, choose
+                          buttons at the top of the page and fill the panel that appears below
+                          it. Choose
                           the <i>Thrust matching</i> option if the variants must be compared at equal
-                          loading, and read the estimate line to confirm the number of solves before
+                          loading. Read the estimate line to confirm the number of solves before
                           moving on.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: the saved cases are real
@@ -8370,7 +8383,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <h3 id="designer-run">13.3 Run &amp; results</h3>
 
                         <p><b>The physics.</b> One solve covers one variant at one condition, so a
-                          comparison costs variants times conditions complete solves. Nothing is
+                          comparison costs one complete solve per pair of variant and condition. Nothing is
                           interpolated between them and no result stands in for another: every
                           number shown after a run comes from a full solution. The results live in
                           memory for the rest of the session.</p>
@@ -8381,22 +8394,21 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           stops the run cleanly. All of it happens off the main thread, so the
                           window keeps responding while the solver works. When the run ends, the
                           verdict strip, the ranking figure, the delta figure and the overlay figure
-                          fill
-                          themselves.</p>
+                          fill in.</p>
 
                         <div class="eqn">$$\eta_{prop}=\frac{J_x\,C_{T,prop}}{C_{P,prop}},
                             \qquad J_x=\frac{\pi V_x}{\Omega R}.$$</div>
 
                         <p><b>The verdict strip.</b> The strip holds one chip per variant, read at
                           the reference condition, which is the first case of the ordered run. A
-                          chip collects the badges its variant wins. <i>Best thrust</i> goes to the
+                          chip shows the badges its variant wins. <i>Best thrust</i> goes to the
                           largest thrust coefficient or force, <i>best figure of merit</i> to the
                           largest $FM$, <i>lowest power</i> to the smallest power coefficient or
                           power, and <i>best propeller efficiency</i> to the largest $\eta_{prop}$
                           computed by the formula above. The propeller-efficiency badge appears only
                           when the project runs in propeller convention, because $\eta_{prop}$ ranks
-                          designs only where thrust does useful work along the shaft. One sentence
-                          below the chips gathers the winners per design goal.</p>
+                          designs only where thrust does useful work along the shaft. Below the
+                          chips, a short text names the winner per design goal.</p>
 
                         <p><b>The ranking figure.</b> Two dropdowns above the figure decide what it
                           ranks and where. The <i>Rank by</i> dropdown lists the summary quantities
@@ -8425,8 +8437,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           ranking figure, each variant is drawn as its percent change against the
                           base planform,
                           $$100\,\frac{v - v_{base}}{|v_{base}|},$$
-                          with an emphasized line at zero marking "equal to base". It answers directly
-                          how many per cent a variant buys or costs over the project's own geometry.
+                          with an emphasized line at zero marking "equal to base". It states directly
+                          how many per cent a variant gains or loses against the project's own geometry.
                           The figure redraws by itself after every run and whenever either dropdown
                           changes. When the base value at that condition is approximately zero, a
                           percentage would divide by zero. The figure then falls back to the plain
@@ -8446,7 +8458,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>The exports.</b> <i>Export report</i> writes a self-contained HTML
                           report into the outputs folder of the project, with the metadata of the
                           run, the full summary table and the overlay figure embedded inside the
-                          file itself.                           <i>Export CSV</i> writes one row per geometry and condition
+                          file itself. <i>Export CSV</i> writes one row per geometry and condition
                           beside it, and every row carries the aspect ratio and the solidity of
                           its geometry next to the performance columns, so shape and results can be
                           compared in one place. Both names start with <code>geometry_comparison_</code> and
@@ -8456,8 +8468,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p>In the <span class="gui">GUI</span>: press <i>Run comparison</i> and wait
                           for the finished message on the status line. Read the verdict chips at
-                          the reference condition, choose a quantity in <i>Rank by</i> and a case in
-                          <i>Condition</i>, read how far each variant departs from the base in the
+                          the reference condition. Choose a quantity in <i>Rank by</i> and a case in
+                          <i>Condition</i>. Read how far each variant departs from the base in the
                           delta panel, and compare
                           the curves of the overlay figure across the conditions. Press <i>Export
                             report</i> or <i>Export CSV</i> to keep the run.</p>

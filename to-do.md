@@ -14,22 +14,25 @@
 
 ## Done (on `feature/design-tools`)
 
-- ~~**XFoil support.**~~ Engine `xfoil` alongside NeuralFoil: dedicated transition
-  inputs (`xfoil_ncrit`, `xfoil_xtr_top`, `xfoil_xtr_bot`), four-place binary lookup
-  (`ZBEMT_XFOIL_BIN`, remembered Locate… pick, PATH, standard install folders), CLI
-  `--gen-xfoil` with `--ncrit/--xtr-top/--xtr-bot`, same table pipeline (SC-9).
-- ~~**Compare different geometries.**~~ Dedicated Geometry Designer window (Tools
-  button in the main window's top bar): variants over nine planform parameters,
-  generate-from-family and import-from-project variants, any set of flight conditions,
-  ranking at any condition, overlay panels, delta-vs-base figure, HTML report and CSV
-  export; optional constant-thrust/CT trimming so efficiency compares fairly (SC-7).
-- ~~**Design mode: geometry factorial sweep.**~~ Sweep builder in the same window;
-  optimization stays an outer loop through the CLI (`--compare`, `--optimize`) and the
-  library, deliberately outside the GUI (SC-8).
+- ~~**XFoil support.**~~ The engine runs `xfoil` alongside NeuralFoil, with dedicated
+  transition inputs (`xfoil_ncrit`, `xfoil_xtr_top`, `xfoil_xtr_bot`) and a four-place
+  binary lookup (`ZBEMT_XFOIL_BIN`, remembered Locate… pick, PATH, standard install
+  folders). The CLI gains `--gen-xfoil` with `--ncrit`, `--xtr-top` and `--xtr-bot`,
+  and the table pipeline stays the same (SC-9).
+- ~~**Compare different geometries.**~~ A dedicated Geometry Designer window opens from
+  the Tools button in the main window's top bar. It compares variants over nine planform
+  parameters, generates variants from a planform family, imports variants from another
+  project, runs any set of flight conditions, ranks at any condition, draws overlay
+  panels and a delta-to-base figure, and writes an HTML report and a CSV export.
+  Optional trimming holds thrust or `CT` constant so efficiency is compared at equal
+  loading (SC-7).
+- ~~**Design mode: geometry factorial sweep.**~~ The sweep builder lives in the same
+  window. Optimization stays an outer loop through the CLI (`--compare`, `--optimize`)
+  and the library, deliberately outside the GUI (SC-8).
 - ~~**Offer CST and Bézier profile sources in the GUI.**~~ Eight contour sources
   (naca4, naca5, cst, bezier, parsec, joukowski, biconvex, imported) with editable
   per-family fields (SC-10).
-- ~~**Surface partial external-polar convergence in the GUI.**~~ Every Reynolds the
-  engine drops leaves a line in a diagnostics list; the polar-generation status label
-  reports "N of M Reynolds converged" with the failures named, and the CLI prints the
-  same lines (SC-9).
+- ~~**Surface partial external-polar convergence in the GUI.**~~ The engine writes a
+  line to a diagnostics list for every Reynolds number it drops. The polar-generation
+  status label reports "N of M Reynolds converged" with the failures named, and the CLI
+  prints the same lines (SC-9).

@@ -1132,7 +1132,7 @@ class MissingBinaryDialog(QDialog):
             "<p>2. Not installed? Download XFOIL (free) from "
             '<a href="https://web.mit.edu/drela/Public/web/xfoil/">'
             "MIT Drela — XFOIL</a>, install it, then click <b>Locate…</b> "
-            f"(or add its folder to PATH / set {env_var}).</p>"
+            f"(or add its folder to PATH, or set {env_var}).</p>"
         )
         text = QLabel(message)
         text.setTextFormat(Qt.TextFormat.RichText)

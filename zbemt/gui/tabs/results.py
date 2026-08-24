@@ -1445,9 +1445,10 @@ class ResultsTab(QWidget):
         self.axis_mode_xy_check = QCheckBox("Custom X-Y (instead of coefficient grid)")
         self.axis_mode_xy_check.setToolTip(
             "Swaps the fixed coefficient grid for one free plot: choose any "
-            "two summary quantities as X and Y, optionally splitting the "
-            "points into one curve per a third quantity. Session-only "
-            "display choice; nothing is written to the project.")
+            "two summary quantities as X and Y, and optionally split the "
+            "points into one curve per value of a third quantity. This "
+            "display choice lasts for the session only, and "
+            "nothing is written to the project.")
         self.axis_mode_xy_check.toggled.connect(self._on_axis_mode_changed)
         mode_row.addWidget(self.axis_mode_xy_check)
         mode_row.addStretch(1)

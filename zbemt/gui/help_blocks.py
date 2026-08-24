@@ -251,7 +251,7 @@ BLOCK_HELP: dict[str, dict] = {
     "polar_generation": {
         "title": "Polar Generation (External Engines)",
         "body": [
-            "Two external engines generate the polar from the 2D contour. <b>NeuralFoil</b> is a neural network trained on a large body of XFOIL runs: given the contour and (α, Re, M) it returns Cl and Cd in milliseconds. <b>XFOIL</b> runs the classic boundary-element binary directly — higher fidelity where it converges, minutes instead of milliseconds, and it needs the executable installed (zBEMT looks in ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders).",
+            "Two external engines generate the polar from the 2D contour. <b>NeuralFoil</b> is a neural network trained on a large body of XFOIL runs: given the contour and (α, Re, M) it returns Cl and Cd in milliseconds. <b>XFOIL</b> runs the classic boundary-element binary directly. It gives higher fidelity where it converges and takes minutes instead of milliseconds, and it needs the executable installed (zBEMT looks in ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders).",
             "What comes out is an ordinary tabulated polar: one complete Cl(α), Cd(α) curve per (Re, M) pair. From that point on the engine treats it exactly like an imported table: linear interpolation in α, selection/interpolation of the slice by local Re, M and r/R.",
             "Because it is a table, the same two limits apply: nothing outside the swept α range is known (hold-edge behavior unless the Viterna full-range extension is on), and Cl_α and α₀ used by the rotational-augmentation correction are re-estimated numerically from the generated curve.",
             "Accuracy is best for conventional sections at −5° &lt; α &lt; 25°; it degrades at extreme α, very thin sections and unusual shapes. For production cases, validate one operating point against measured or XFOIL data.",
@@ -263,7 +263,7 @@ BLOCK_HELP: dict[str, dict] = {
         "body": [
             "The contour x/c ∈ [0,1] with upper/lower ordinates y/c. It is <b>not</b> the blade geometry (chord, twist, planform) — it is the shape of one section.",
             "The contour never enters the blade element equations. It matters in exactly two places: drawing, and generating a polar with NeuralFoil. Once a polar exists, the engine only ever sees Cl(α, Re, M) and Cd(α, Re, M).",
-            "Sources: NACA 4/5-digit codes, CST (class-shape transformation) coefficients, Bézier control points, the analytic PARSEC/Joukowski/biconvex families, or imported .dat coordinates (Selig/Lednicer). Each one is a Source option of its own and reveals its fields; Import in chord-normalized units — scale first if the file is in mm or inches.",
+            "Sources: NACA 4- and 5-digit codes, CST (class-shape transformation) coefficients, Bézier control points, the analytic PARSEC, Joukowski and biconvex families, or imported .dat coordinates (Selig or Lednicer). Each one is a Source option of its own and reveals its fields. Import reads chord-normalized units, so scale the file first when it uses mm or inches.",
         ],
         "anchor": "cap-3-7",
     },
@@ -416,13 +416,13 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-7",
     },
     "geometry_comparison": {
-        "title": "Geometry comparison — one condition set, several planforms",
+        "title": "Geometry comparison: one condition set, several planforms",
         "body": [
             "This window runs one set of flight conditions over several blade geometries in one pass. Everything except the blade geometry is held identical: the same airfoil polar, the same mesh, the same inflow model and the same solver settings go into every run. Any difference between two results therefore has a geometric cause.",
-            "The table holds one row per geometry. The first row is <b>base</b>, the project's own planform; each cell states an override over it, and an empty cell keeps the project value. Use <b>Add variant</b> to copy the base row under a new label, edit the copy, and use <b>Remove selected</b> to delete rows. The variation sweep builder turns ONE parameter into several rows at once: pick the parameter, give a Start/End/Count range or explicit values, and press <b>Build variants</b>. Each appended row is validated against the project's own generator before it is added.",
+            "The table holds one row per geometry. The first row is <b>base</b>, the project's own planform. Each cell states an override over it, and an empty cell keeps the project value. Use <b>Add variant</b> to copy the base row under a new label, then edit the copy. Use <b>Remove selected</b> to delete rows. The variation sweep builder turns one parameter into several rows at once: pick the parameter, give a Start, End and Count range or explicit values, and press <b>Build variants</b>. The builder validates each appended row against the project's own generator before it adds the row.",
             "The label is what names the geometry in the verdict chips, in the figures and in the exports, so give every variant a name that states its design idea.",
             "The <b>Conditions</b> page decides what every variant runs: the project's saved cases, one single condition built from four fields, or a sweep of one quantity. The estimate line states variants × cases = solves before anything runs.",
-            "<b>Run comparison</b> solves every condition of every geometry on a worker thread, reports progress, and can be cancelled. The verdict strip reads the first condition of each geometry; the ranking figure bars the chosen summary quantity against the reference case; the overlay figure draws every curve across all conditions. <b>Export report</b> writes a self-contained HTML file with the full summary, and <b>Export CSV</b> writes one row per geometry per condition, both into the project's outputs folder.",
+            "<b>Run comparison</b> solves every condition of every geometry on a worker thread, reports progress, and can be canceled. The verdict strip reads the first condition of each geometry. The ranking figure draws the chosen summary quantity for every geometry at the reference case. The overlay figure draws every curve across all conditions. <b>Export report</b> writes a self-contained HTML file with the full summary, and <b>Export CSV</b> writes one row per geometry per condition, both into the project's outputs folder.",
             "Comparison variants are not persisted. The table is rebuilt from the project's own geometry on every load, so a comparison worth keeping should be re-created deliberately or exported before closing. Design optimization is not part of this window: it runs as an outer loop from the command line or the library.",
         ],
         "anchor": "designer-variants",

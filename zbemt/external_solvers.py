@@ -166,7 +166,7 @@ def _parse_xfoil_polar(text: str) -> tuple[list[float], list[float], list[float]
     if header_index is None:
         raise ValueError(
             "XFOIL polar dump has no column-header line starting with "
-            "'alpha'; the content is not a recognizable polar output."
+            "'alpha'. The content is not a recognizable polar output."
         )
     alpha_deg: list[float] = []
     cl: list[float] = []
@@ -320,8 +320,8 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
             "click 'Locate…' in the Airfoil tab and pick the executable there "
             "(zBEMT remembers the choice), or add the XFOIL folder to PATH, or "
             "set ZBEMT_XFOIL_BIN to the full path of the executable. "
-            "Alternatively, import a CSV/experimental table instead of using an "
-            "external engine."
+            "Alternatively, import a CSV or experimental table instead of using "
+            "an external engine."
         )
 
     coordinates = _coordinates_from_geometry(geometry)
@@ -391,7 +391,7 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
         raise RuntimeError(
             "XFOIL produced no usable polar points for any Reynolds in the "
             "requested sweep. Check the airfoil geometry and the requested "
-            "Reynolds/alpha ranges."
+            "Reynolds and alpha ranges."
         )
     return slices
 
@@ -458,7 +458,8 @@ def run_polar(engine: str, geometry: ProfileGeometry,
         raise RuntimeError(
             "The 'neuralfoil' package is not installed in this environment. "
             "Install with `pip install neuralfoil` to generate polars via NeuralFoil "
-            "(alternatively: import a CSV/experimental table instead of using external engine)."
+            "(alternatively: import a CSV or experimental table instead of using an "
+            "external engine)."
         )
 
     import neuralfoil as nf

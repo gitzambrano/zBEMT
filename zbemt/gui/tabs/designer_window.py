@@ -264,10 +264,11 @@ class GeometryDesignerWindow(QWidget):
         self.variants_table.setHorizontalHeaderLabels(self._VARIANT_COLUMNS)
         self.variants_table.setToolTip(
             "One row per blade geometry.\n\n"
-            "Each cell states an override over the project's own planform; "
-            "an empty cell keeps the project value. The rectangular "
+            "Each cell states an override over the project's own planform. "
+            "An empty cell keeps the project value. The rectangular "
             "generator takes a single chord parameter, so its two chord "
-            "cells name the same value and the root cell wins when they "
+            "cells state the same value and the root cell takes precedence "
+            "when they "
             "differ. The elliptic generator has no tip-chord parameter, "
             "which is why that cell stays disabled there. Blades accepts "
             "a whole number. Root cutout and Radius are direct "
@@ -348,19 +349,21 @@ class GeometryDesignerWindow(QWidget):
 
         self.vsweep_param_combo = QComboBox()
         self.vsweep_param_combo.setToolTip(
-            "Geometry parameter varied across the generated rows. Each "
-            "value is validated against the base planform and becomes "
+            "Geometry parameter varied across the generated rows. The "
+            "builder validates each value against the base planform and "
+            "turns it into "
             "one new table row. On a base without a parametric generator "
-            "(an imported blade, a hand-edited table) the planform "
-            "parameters are applied in table space: the chord and twist "
-            "distributions are rescaled so their endpoints hit the "
+            "(an imported blade, a hand-edited table) the window applies "
+            "the planform "
+            "parameters in table space: it rescales the chord and twist "
+            "distributions so their endpoints hit the "
             "requested values.")
         for name in GEOMETRY_PARAMS:
             self.vsweep_param_combo.addItem(name, userData=name)
         self.vsweep_param_combo.setCurrentText("tip_chord_norm")
         form.addRow("Parameter:", self.vsweep_param_combo)
 
-        start_end_tooltip = "Range of the generated values, both included."
+        start_end_tooltip = "The generated values run between these two bounds, both included."
         self.vsweep_start = QDoubleSpinBox()
         self.vsweep_start.setRange(-10.0, 10.0)
         self.vsweep_start.setDecimals(4)
@@ -385,10 +388,11 @@ class GeometryDesignerWindow(QWidget):
         form.addRow("Count:", self.vsweep_count)
 
         self.vsweep_values_edit = QLineEdit()
-        self.vsweep_values_edit.setPlaceholderText("e.g. 0.04, 0.06, 0.09")
+        self.vsweep_values_edit.setPlaceholderText("0.04, 0.06, 0.09")
         self.vsweep_values_edit.setToolTip(
-            "Optional explicit values, comma separated. When this field "
-            "has content it replaces Start/End/Count.")
+            "Optional explicit values, comma separated, for example "
+            "0.04, 0.06, 0.09. When this field "
+            "has content it replaces Start, End and Count.")
         form.addRow("Values:", self.vsweep_values_edit)
 
         self.btn_build_sweep = QPushButton("Build variants")
@@ -442,8 +446,8 @@ class GeometryDesignerWindow(QWidget):
         self.gen_family_combo.addItems(list(self._GENERATE_FAMILIES))
         self.gen_family_combo.setToolTip(
             "Planform family of the generated blade: rectangular keeps "
-            "one chord along the span, tapered interpolates root to tip "
-            "chord, elliptic peaks at the root.")
+            "one chord along the span. Tapered interpolates the chord "
+            "from root to tip. Elliptic peaks at the root.")
         form.addRow("Family:", self.gen_family_combo)
 
         def add_chord_spin(attr, label, default):
@@ -461,7 +465,7 @@ class GeometryDesignerWindow(QWidget):
             "as c/R.")
         add_chord_spin("gen_root_chord_spin", "Root chord [c/R]:",
                         0.10).setToolTip(
-            '"root_chord_norm" — Chord at the root station, as c/R; the '
+            '"root_chord_norm" — Chord at the root station, as c/R. The '
             "tip chord interpolates linearly toward it.")
         add_chord_spin("gen_tip_chord_spin", "Tip chord [c/R]:",
                         0.04).setToolTip(
@@ -487,7 +491,7 @@ class GeometryDesignerWindow(QWidget):
         self.gen_twist_tip_spin.setSingleStep(0.5)
         self.gen_twist_tip_spin.setValue(4.0)
         self.gen_twist_tip_spin.setToolTip(
-            '"twist_tip_deg" — Pitch angle at the tip station; the twist '
+            '"twist_tip_deg" — Pitch angle at the tip station. The twist '
             "interpolates linearly from the root value.")
         form.addRow("Twist tip [deg]:", self.gen_twist_tip_spin)
 
@@ -1376,14 +1380,15 @@ class GeometryDesignerWindow(QWidget):
             self.trim_combo.addItem(choice)
         self.trim_combo.setCurrentText("(off)")
         self.trim_combo.setToolTip(
-            "Holds the loading constant across every variant, so "
-            "efficiency compares fairly.\n\n"
-            "Thrust or CT is read from the FIRST variant of the table "
+            "Holds the loading constant across every variant, so every "
+            "variant runs at the same loading and efficiency stays "
+            "comparable.\n\n"
+            "Thrust or CT is read from the first variant of the table "
             "(the base row), which is the reference: at every condition, "
             "each other variant re-solves one control to hit that "
-            "target. Propellers solve RPM; rotors solve collective. "
-            "This is a choice of this run only -- it is not stored in "
-            "the project and has no .bemt key.\n\n"
+            "target. Propellers solve RPM. Rotors solve collective. "
+            "This is a choice of this run only. The project does not "
+            "store it, and it has no .bemt key.\n\n"
             "Each trimmed case bisects its control, multiplying the "
             "runtime roughly tenfold per non-reference case.")
         self.trim_combo.currentIndexChanged.connect(
@@ -1452,7 +1457,7 @@ class GeometryDesignerWindow(QWidget):
         self.vz_spin.setValue(0.0)
         self.vz_spin.setToolTip(
             '"Vz" — Velocity along the shaft, in m/s. Zero gives axial '
-            'flight; climb is positive.')
+            'flight, and climb is positive.')
         self._single_form.addRow("axial V [m/s]:", self.vz_spin)
 
         self.rpm_spin = QDoubleSpinBox()
@@ -1474,7 +1479,7 @@ class GeometryDesignerWindow(QWidget):
         self.sweep_axis_combo = QComboBox()
         self.sweep_axis_combo.setToolTip(
             "Quantity carried through evenly spaced values. mu_x sweeps "
-            "the edgewise flow; collective sweeps the blade pitch.")
+            "the edgewise flow, and collective sweeps the blade pitch.")
         for key in ("mu_x", "collective_deg"):
             self.sweep_axis_combo.addItem(key, userData=key)
         self.sweep_axis_combo.currentIndexChanged.connect(
@@ -1485,14 +1490,14 @@ class GeometryDesignerWindow(QWidget):
         self.sweep_start.setRange(-1000.0, 1000.0)
         self.sweep_start.setDecimals(3)
         self.sweep_start.setValue(0.0)
-        self.sweep_start.setToolTip("First value of the sweep, included.")
+        self.sweep_start.setToolTip("The first value of the sweep is included.")
         form.addRow("Start:", self.sweep_start)
 
         self.sweep_stop = QDoubleSpinBox()
         self.sweep_stop.setRange(-1000.0, 1000.0)
         self.sweep_stop.setDecimals(3)
         self.sweep_stop.setValue(0.2)
-        self.sweep_stop.setToolTip("Last value of the sweep, included.")
+        self.sweep_stop.setToolTip("The last value of the sweep is included.")
         form.addRow("Stop:", self.sweep_stop)
 
         self.sweep_count = QSpinBox()
@@ -1545,7 +1550,8 @@ class GeometryDesignerWindow(QWidget):
             start, stop = float(self.sweep_start.value()), float(self.sweep_stop.value())
             count = int(self.sweep_count.value())
             if stop < start:
-                raise ValueError("The sweep needs stop >= start.")
+                raise ValueError(
+                    "Stop must be greater than or equal to Start.")
             prefix = "mu" if axis == "mu_x" else "theta"
             names = {axis: f"{prefix}={{v:.2f}}"}
             fixed = dict(mu_x=self.mu_x_spin.value(),
@@ -1594,7 +1600,7 @@ class GeometryDesignerWindow(QWidget):
         # wall-clock estimate is a multiple of the case count. The base
         # row runs untrimmed; this is the rough ceiling.
         if self._selected_trim() != "none":
-            text += f" · ≈ {total} solves × ~15 (trim)"
+            text += f" · ≈ {total} solves × about 15 (trim)"
         self.summary_label.setText(text)
 
     # --- mode reactivity -------------------------------------------------
@@ -1791,7 +1797,7 @@ class GeometryDesignerWindow(QWidget):
             return
         self._populate_results(results)
         self.compare_status.setText(
-            f"Comparison finished: {len(results)} case(s).")
+            f"Comparison finished: {len(results)} solves.")
 
     def _on_compare_failed(self, message: str):
         self._reset_compare_ui()
@@ -1904,7 +1910,7 @@ class GeometryDesignerWindow(QWidget):
 
     @staticmethod
     def _compose_guidance(winners: dict[str, str]) -> str:
-        """One sentence that names the winner per design goal."""
+        """One short line that names the winner per design goal."""
         parts = []
         if "best thrust" in winners:
             parts.append(f"for thrust pick {winners['best thrust']}")
@@ -1918,9 +1924,8 @@ class GeometryDesignerWindow(QWidget):
             parts.append(f"{winners['lowest power']} needs the least power")
         if not parts:
             return ""
-        head = parts[0].capitalize()
-        tail = "".join(f"; {part}" for part in parts[1:]) + "."
-        return head + tail
+        sentences = [part[0].upper() + part[1:] for part in parts]
+        return ". ".join(sentences) + "."
 
     # --- ranking -------------------------------------------------------------
 
@@ -2132,7 +2137,7 @@ class GeometryDesignerWindow(QWidget):
         project = self.state.project
         count = len(project.saved_cases) if project is not None else 0
         if count:
-            self.saved_count_label.setText(f"{count} saved case(s)")
+            self.saved_count_label.setText(f"{count} saved cases")
         else:
             self.saved_count_label.setText("none stored in the project")
 

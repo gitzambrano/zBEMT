@@ -149,12 +149,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--gen-xfoil", action="store_true",
         help="Generate a polar table via XFOIL for --airfoil-geometry and exit "
              "(does not run BEMT). Shares every option of this group with "
-             "--gen-neuralfoil; only the engine differs. The three transition "
-             "options below apply to XFOIL only. Stops with a clear error "
+             "--gen-neuralfoil. Only the engine differs. The three transition "
+             "options below apply to XFOIL only. Stops with an error "
              "when XFOIL support is not available.")
     polar_group.add_argument(
         "--airfoil-geometry", metavar="SPEC", default=None,
-        help="Airfoil geometry: NACA4/5 code (for example 'naca2412', 'naca23012') "
+        help="Airfoil geometry: a NACA 4-digit or 5-digit code (for example "
+             "'naca2412', 'naca23012') "
              f"or a typical rotor-blade preset ({', '.join(sorted(airfoils.AIRFOIL_PRESETS))}).")
     polar_group.add_argument(
         "--reynolds", metavar="R1,R2,...", default=None,
@@ -174,18 +175,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ncrit", type=float, metavar="FLOAT", default=None,
         help="XFOIL only (--gen-xfoil): critical amplification factor N of the "
              "e^N transition criterion. A lower N predicts earlier transition and "
-             "a more conservative drag level (default: 9). Rejected with "
-             "--gen-neuralfoil.")
+             "a more conservative drag level (default: 9). The option is rejected "
+             "together with --gen-neuralfoil.")
     polar_group.add_argument(
         "--xtr-top", type=float, metavar="FLOAT", default=None,
         help="XFOIL only (--gen-xfoil): chord fraction where transition is forced "
-             "on the UPPER surface, in (0, 1]. 1 leaves free transition (default: 1). "
-             "Rejected with --gen-neuralfoil.")
+             "on the upper surface, in (0, 1]. A value of 1 leaves free transition "
+             "(default: 1). The option is rejected together with --gen-neuralfoil.")
     polar_group.add_argument(
         "--xtr-bot", type=float, metavar="FLOAT", default=None,
         help="XFOIL only (--gen-xfoil): chord fraction where transition is forced "
-             "on the LOWER surface, in (0, 1]. 1 leaves free transition (default: 1). "
-             "Rejected with --gen-neuralfoil.")
+             "on the lower surface, in (0, 1]. A value of 1 leaves free transition "
+             "(default: 1). The option is rejected together with --gen-neuralfoil.")
 
     # --- Design tools: geometry comparison and saved optimization
     # studies. Same early-exit pattern as the group above: they never
@@ -194,10 +195,10 @@ def _build_parser() -> argparse.ArgumentParser:
     design_group.add_argument(
         "--compare", metavar="PROJECTS", default=None,
         help="Compare blade geometries and exit (no batch is run). PROJECTS is a "
-             "comma-separated list of OTHER project folders. Each folder becomes one "
+             "comma-separated list of other project folders. Each folder becomes one "
              "geometry variant, named after its folder, and the geometry of --project "
              "joins the comparison as the variant named 'base'. Every variant runs the "
-             "saved cases of --project; when there are none, pass --rpm to compare at "
+             "saved cases of --project. When there are none, pass --rpm to compare at "
              "one default condition. Writes comparison.html and comparison.csv to "
              "the outputs folder of --project.")
     design_group.add_argument(
@@ -212,13 +213,13 @@ def _build_parser() -> argparse.ArgumentParser:
     design_group.add_argument(
         "--trim", choices=["none", "thrust", "CT"], default="none",
         help="Loading held constant across the --compare variants, so efficiency "
-             "compares fairly. 'thrust' or 'CT' reads the target from the FIRST "
-             "variant (the reference: the geometry of --project, named 'base') and, "
-             "at every condition, trims each other variant to it -- propellers "
-             "solve RPM, rotors solve collective. Trimmed summaries record "
-             "trim_target/trim_dof/trim_dof_value; each trimmed case bisects one "
-             "control and costs roughly ten times a direct solve. Default none: "
-             "every variant runs the same controls.")
+             "is compared at equal loading. 'thrust' or 'CT' reads the target from the "
+             "first variant (the reference: the geometry of --project, named 'base') "
+             "and, at every condition, trims each other variant to it. Propellers "
+             "solve RPM, and rotors solve collective. Trimmed summaries record "
+             "the columns trim_target, trim_dof and trim_dof_value. Each trimmed "
+             "case bisects one control and costs roughly ten times a direct "
+             "solve. With the default none, every variant runs the same controls.")
     # NOTE: --rpm already exists below (ad hoc condition speed). --compare
     # reuses it when the project has no saved cases; see _run_compare.
 
@@ -761,7 +762,8 @@ def _run_gen_polar(project, project_path, args, engine: str) -> int:
               file=sys.stderr)
         return 2
     if not args.airfoil_geometry:
-        print(f"Error: {flag} requires --airfoil-geometry (NACA4/5 code or preset).",
+        print(f"Error: {flag} requires --airfoil-geometry "
+              "(a NACA 4-digit or 5-digit code, or a preset).",
               file=sys.stderr)
         return 2
     if not args.reynolds or not args.mach:
@@ -809,7 +811,7 @@ def _run_gen_polar(project, project_path, args, engine: str) -> int:
     for line in diagnostics:
         print(f"Warning: {line}", file=sys.stderr)
 
-    print(f"{_GEN_POLAR_NAMES[engine]}: {len(slices)} polar(s) generated "
+    print(f"{_GEN_POLAR_NAMES[engine]}: {len(slices)} polar tables generated "
           f"for {args.airfoil_geometry!r} "
           f"({len(reynolds_list)} Reynolds x {len(mach_list)} Mach).")
 
