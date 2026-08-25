@@ -194,9 +194,33 @@ class RunCaseTab(QWidget):
             '"rpm"<br><br>'
             'Rotational speed of the rotor or propeller in revolutions per minute.<br><br>'
             'It defines Ω and the velocity scale ΩR used by the dimensionless ratios.')
+
+        # --- cyclic pitch (SC-11): the 1/rev harmonics theta_1c/theta_1s ---
+        # Visible and DISABLED on a rigid blade (PR-2: a real-but-blocked
+        # control teaches that the option exists), enabled as soon as the
+        # Geometry tab gives the blade a flap freedom.
+        self.cyclic_c_spin = QDoubleSpinBox(); self.cyclic_c_spin.setRange(-30, 30); self.cyclic_c_spin.setValue(0.0)
+        self.cyclic_c_spin.setSingleStep(0.5)
+        self.cyclic_c_spin.setToolTip(
+            '"cyclic_c_deg" — Cyclic pitch, cosine harmonic.<br><br>'
+            'Pitch that varies with azimuth as θ<sub>1c</sub>·cos(ψ), in degrees. '
+            'It tilts the blade response and, with a flapping blade, is one of '
+            'the two trim controls. It requires flap freedom: with a rigid '
+            'blade it stays available but disabled.')
+        self.cyclic_s_spin = QDoubleSpinBox(); self.cyclic_s_spin.setRange(-30, 30); self.cyclic_s_spin.setValue(0.0)
+        self.cyclic_s_spin.setSingleStep(0.5)
+        self.cyclic_s_spin.setToolTip(
+            '"cyclic_s_deg" — Cyclic pitch, sine harmonic.<br><br>'
+            'Pitch that varies with azimuth as θ<sub>1s</sub>·sin(ψ), in degrees. '
+            'It requires flap freedom: with a rigid blade it stays available '
+            'but disabled.')
         self._size_field(self.collective_spin)
         self._size_field(self.rpm_spin)
+        self._size_field(self.cyclic_c_spin)
+        self._size_field(self.cyclic_s_spin)
         form.addRow("Collective [deg]:", self._with_unit_indent(self.collective_spin))
+        form.addRow("Cyclic θ₁c [deg]:", self._with_unit_indent(self.cyclic_c_spin))
+        form.addRow("Cyclic θ₁s [deg]:", self._with_unit_indent(self.cyclic_s_spin))
         form.addRow("RPM:", self._with_unit_indent(self.rpm_spin))
 
         self.trim_target_kind_combo = QComboBox()
@@ -334,8 +358,13 @@ class RunCaseTab(QWidget):
         # before writing the value, or the number lands on the wrong scale.
         self.state.project_changed.connect(self._refresh_mode_defaults)
         self.state.project_changed.connect(self._adopt_project_condition)
+        # Cyclic pitch availability follows the blade's flap freedom
+        # (SC-11): re-evaluated when the project or its geometry changes.
+        self.state.project_changed.connect(self._refresh_cyclic_availability)
+        self.state.geometry_changed.connect(self._refresh_cyclic_availability)
         self._refresh_mode_defaults()
         self._refresh_saved_cases_combo()
+        self._refresh_cyclic_availability()
 
     def _size_field(self, field) -> None:
         """Fixes the same width for condition fields in both tabs."""
@@ -423,6 +452,16 @@ class RunCaseTab(QWidget):
         set_row_visible(self._run_form, self.trim_target_kind_combo, is_trim)
         set_row_visible(self._run_form, self.trim_target_value, is_trim)
 
+    def _refresh_cyclic_availability(self):
+        """Cyclic pitch needs flap freedom (SC-11): visible and DISABLED on
+        a rigid blade (PR-2), enabled as soon as the Geometry tab gives the
+        blade a hinge offset or a spring."""
+        dynamics = getattr(self.state.project.geometry, "dynamics", None) \
+            if self.state.project else None
+        flapping = bool(dynamics and dynamics.flap_model != "rigid")
+        self.cyclic_c_spin.setEnabled(flapping)
+        self.cyclic_s_spin.setEnabled(flapping)
+
     def _refresh_mode_defaults(self):
         propeller = self.state.is_propeller()
         self.advance.set_default_unit(propeller)
@@ -462,6 +501,8 @@ class RunCaseTab(QWidget):
         if saved_case.rpm:
             self.rpm_spin.setValue(float(saved_case.rpm))
         self.collective_spin.setValue(saved_case.collective_deg)
+        self.cyclic_c_spin.setValue(getattr(saved_case, "cyclic_c_deg", 0.0))
+        self.cyclic_s_spin.setValue(getattr(saved_case, "cyclic_s_deg", 0.0))
         apply_condition_pair(self.advance, self.axial, saved_case.mu_x, saved_case.Vz,
                                  self.rpm_spin.value(), project_state.geometry.radius_m)
 
@@ -471,7 +512,9 @@ class RunCaseTab(QWidget):
                                            self.rpm_spin.value(), radius_m)
         return FlightCondition(name="case", mu_x=mu_x,
                                 collective_deg=self.collective_spin.value(),
-                                Vz=Vz, rpm=self.rpm_spin.value())
+                                Vz=Vz, rpm=self.rpm_spin.value(),
+                                cyclic_c_deg=self.cyclic_c_spin.value(),
+                                cyclic_s_deg=self.cyclic_s_spin.value())
 
     # --- saved cases (docs/plano_v3.md Part 3.2) -------------------------
 
@@ -500,6 +543,8 @@ class RunCaseTab(QWidget):
                                  self.rpm_spin.value(),
                                  self.state.project.geometry.radius_m)
         self.collective_spin.setValue(case.collective_deg)
+        self.cyclic_c_spin.setValue(getattr(case, "cyclic_c_deg", 0.0))
+        self.cyclic_s_spin.setValue(getattr(case, "cyclic_s_deg", 0.0))
 
     def _save_current_as_case(self):
         if not require_project(self, self.state):
@@ -653,7 +698,8 @@ class RunCaseTab(QWidget):
                        ["mu_x", "J_x", "Vx",
                         "mu_z", "J_z", "Vz", "lambda_z",
                         "alpha_rotor_deg", "alpha_disk_deg",
-                        "collective_deg", "rpm"])
+                        "collective_deg", "cyclic_c_deg", "cyclic_s_deg",
+                        "rpm"])
     _INFLOW_GROUP = ("Inflow (solved)", ["lambda_i", "lambda_total", "Vi", "Vz_total"])
     _GEOMETRY_GROUP = ("Rotor geometry (resolved)",
                         ["rotor_R", "rotor_D", "rotor_Nb", "rotor_Omega",

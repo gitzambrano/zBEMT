@@ -1339,5 +1339,283 @@ FIELD_HELP: dict[str, dict] = {
             "the sweep whenever rpm changes."),
         "range": "100–3000 rpm (highly design dependent)",
         "options": None
-    }
+    },
+    # --- blade dynamics (SC-11) ------------------------------------------
+    "flap_model": {
+        "title": "Flap Model",
+        "definition": (
+            "How much rigid-body flap freedom the blade has.\n\n"
+            "Rigid keeps the plain disk of every project saved before this "
+            "model existed. Hinge offset pins the blade on an offset hinge; "
+            "Root spring restrains a hinge at the shaft with a spring; "
+            "Offset and spring combines both. The response is periodic in "
+            "azimuth and quasi-steady: each revolution repeats the previous "
+            "one, and there is no transient."),
+        "unit": "—",
+        "equation": r"\ddot\beta + \nu_\beta^{2}\,\beta = M_\beta(\psi)/(I_\beta\Omega^{2})",
+        "effect": (
+            "With any freedom other than Rigid the blade answers loading "
+            "with motion: a coning angle appears in hover, the disk tilts in "
+            "edgewise flight, and part of the load reaches the hub as a "
+            "structural moment through the hinge or the spring."),
+        "range": "rigid, offset, spring, offset_spring",
+        "options": {
+            "rigid": "No flap freedom at all: the behavior of every earlier project.",
+            "offset": "Blade on an offset flap hinge; needs a positive inertia.",
+            "spring": "Hinge at the shaft with a root spring K.",
+            "offset_spring": "Offset hinge and root spring together.",
+        }
+    },
+    "hinge_offset_norm": {
+        "title": "Hinge Offset",
+        "definition": (
+            "Distance of the flap (and lag) hinge from the shaft, as a "
+            "fraction of the radius.\n\n"
+            "It stiffens the flap mode and opens the structural path that "
+            "carries part of the blade load into the hub as a moment."),
+        "unit": "r/R",
+        "equation": r"\nu_\beta^{2} = 1 + \tfrac{3}{2}\,\dfrac{e}{1-e} + \dfrac{K_\beta}{I_\beta\Omega^{2}}",
+        "effect": (
+            "Increasing the offset raises the flap frequency ratio away from "
+            "1, which moves the response off resonance and grows the hub "
+            "moment proportional to (ν²−1)."),
+        "range": "0 to 0.3 (articulated rotors 0.03–0.08)",
+        "options": None
+    },
+    "flap_spring_nm_per_rad": {
+        "title": "Flap Spring",
+        "definition": (
+            "Stiffness of a spring restraining the flap hinge, in newton "
+            "metres per radian."),
+        "unit": "N·m/rad",
+        "equation": r"+\,\dfrac{K_\beta}{I_\beta\Omega^{2}} \text{ in } \nu_\beta^{2}",
+        "effect": (
+            "Adds restoring stiffness without moving the hinge: a soft "
+            "spring already moves the first flap mode away from the "
+            "resonance at ν = 1."),
+        "range": "0 to 1e9 N·m/rad",
+        "options": None
+    },
+    "inertia_source": {
+        "title": "Inertia Source",
+        "definition": (
+            "Where the flap inertia I comes from: converted back from a "
+            "Lock number with the airfoil's lift-curve slope and the chord "
+            "at r/R = 0.75, given directly, or estimated from a uniform "
+            "blade mass over the flapping part of the blade."),
+        "unit": "—",
+        "equation": r"I_\beta=\rho a c_{ref}R^{4}/\gamma \;\;\|\;\; m_b(R-eR)^{2}/3",
+        "effect": (
+            "The inertia normalizes the flap equation: light blades (large "
+            "Lock number) respond more strongly to the same aerodynamic "
+            "moment."),
+        "range": "lock, inertia, blade_mass",
+        "options": {
+            "lock": "Convert from the Lock number (typical rotors 5–12).",
+            "inertia": "Give the value directly, in kg·m².",
+            "blade_mass": "Estimate from one blade's mass in kg.",
+        }
+    },
+    "lock_number": {
+        "title": "Lock Number",
+        "definition": (
+            "Ratio between aerodynamic and inertial response of the blade, "
+            "built from the chord at r/R = 0.75."),
+        "unit": "-",
+        "equation": r"\gamma = \rho\,a\,c_{ref}\,R^{4}/I_\beta",
+        "effect": (
+            "Larger γ means air forces move the blade more: bigger coning, "
+            "stronger 1/rev response, and more aerodynamic damping "
+            "(proportional to γ/6 for the offset hinge)."),
+        "range": "1 to 20 (most rotors 5–12)",
+        "options": None
+    },
+    "flap_inertia_kg_m2": {
+        "title": "Flap Inertia",
+        "definition": (
+            "Inertia of one blade about its flap hinge, used directly when "
+            "the inertia source is the value itself."),
+        "unit": "kg·m²",
+        "equation": r"\ddot\beta + \nu_\beta^{2}\beta = M_\beta/(I_\beta\Omega^{2})",
+        "effect": (
+            "Smaller inertia amplifies the response to the same moment and "
+            "raises the resonance risk when the spring term is small."),
+        "range": "1e-6 to 1e6 kg·m²",
+        "options": None
+    },
+    "blade_mass_kg": {
+        "title": "Blade Mass",
+        "definition": (
+            "Mass of one blade, treated as uniform over the flapping part, "
+            "when the inertia source is the blade mass."),
+        "unit": "kg",
+        "equation": r"I_\beta = m_b\,(R-eR)^{2}/3",
+        "effect": (
+            "Heavier blades mean larger inertia and a calmer response for "
+            "the same aerodynamics."),
+        "range": "0.001 to 10000 kg",
+        "options": None
+    },
+    "pitch_flap_coupling_deg": {
+        "title": "Pitch-Flap Coupling (delta-3)",
+        "definition": (
+            "Kinematic coupling between flap and pitch: a blade flapped up "
+            "by β loses tan(δ₃)·β of local pitch."),
+        "unit": "deg",
+        "equation": r"\theta_{eff} = \theta - \tan(\delta_3)\,\beta",
+        "effect": (
+            "Positive values add aerodynamic damping and stabilize the flap "
+            "response; large values reduce the response to cyclic pitch."),
+        "range": "−60° to +60°",
+        "options": None
+    },
+    "harmonics": {
+        "title": "Harmonic Count",
+        "definition": (
+            "Number of harmonics kept in the Fourier balance of the flap "
+            "(and lag) response."),
+        "unit": "-",
+        "equation": r"\beta(\psi)=\beta_0+\sum_{n=1}^{N_h}\left[\beta_{nc}\cos n\psi+\beta_{ns}\sin n\psi\right]",
+        "effect": (
+            "Two harmonics describe most rotors. Each extra harmonic costs "
+            "one solve per outer iteration and must stay below the "
+            "resonance guard."),
+        "range": "1 to 5",
+        "options": None
+    },
+    "outer_max_iter": {
+        "title": "Outer Iterations",
+        "definition": (
+            "Maximum exchanges between the inflow solution and the blade "
+            "motion before the solver gives up and reports the residual."),
+        "unit": "-",
+        "equation": None,
+        "effect": (
+            "The flapped solution feeds back into the loads, so the two "
+            "must agree; raise this if the reported residual has not met "
+            "the tolerance."),
+        "range": "5 to 200",
+        "options": None
+    },
+    "outer_tol_deg": {
+        "title": "Outer Tolerance",
+        "definition": (
+            "Convergence tolerance of the outer loop, measured as the "
+            "largest coefficient change in degrees."),
+        "unit": "deg",
+        "equation": None,
+        "effect": (
+            "Tighter tolerances cost more iterations. Solver noise puts a "
+            "floor around 0.001 degrees; going below it wastes time."),
+        "range": "1e-8 to 1e-1 deg",
+        "options": None
+    },
+    "outer_relax": {
+        "title": "Outer Relaxation",
+        "definition": (
+            "Fraction of each solved correction applied per outer "
+            "iteration."),
+        "unit": "-",
+        "equation": None,
+        "effect": (
+            "Values below 1 damp oscillation between inflow and blade "
+            "motion at the cost of more iterations."),
+        "range": "0.05 to 1.0",
+        "options": None
+    },
+    "lag_enabled": {
+        "title": "Lead-Lag Freedom",
+        "definition": (
+            "Adds an in-plane hinge at the same offset as the flap hinge, "
+            "with its own spring, damper and inertia. The lag moment comes "
+            "from the tangential force distribution."),
+        "unit": "—",
+        "equation": r"\nu_\zeta^{2} = \tfrac{3}{2}\,\dfrac{e}{1-e} + \dfrac{K_\zeta}{I_\zeta\Omega^{2}}",
+        "effect": (
+            "Without thrust restoring, a lag freedom needs an offset or a "
+            "spring: with neither, its frequency ratio is zero and the "
+            "response is undefined."),
+        "range": "on / off",
+        "options": None
+    },
+    "lag_spring_nm_per_rad": {
+        "title": "Lag Spring",
+        "definition": (
+            "Stiffness of the lag root spring, in newton metres per radian."),
+        "unit": "N·m/rad",
+        "equation": r"+\,\dfrac{K_\zeta}{I_\zeta\Omega^{2}} \text{ in } \nu_\zeta^{2}",
+        "effect": (
+            "Keeps the lag angle defined on a rotor whose lag hinge sits at "
+            "the shaft."),
+        "range": "0 to 1e9 N·m/rad",
+        "options": None
+    },
+    "lag_damping_nms_per_rad": {
+        "title": "Lag Damping",
+        "definition": (
+            "Damping of the lag freedom, in newton metre seconds per "
+            "radian. It couples the sine and cosine parts of each harmonic "
+            "into a two-by-two solve."),
+        "unit": "N·m·s/rad",
+        "equation": r"C_\zeta/(I_\zeta\Omega) \text{ per harmonic}",
+        "effect": (
+            "Real rotors carry a lag damper: without enough of it the lag "
+            "motion stays marginal."),
+        "range": "0 to 1e9 N·m·s/rad",
+        "options": None
+    },
+    "lag_inertia_kg_m2": {
+        "title": "Lag Inertia",
+        "definition": (
+            "Inertia of one blade about the lag hinge, required whenever "
+            "lead-lag is enabled."),
+        "unit": "kg·m²",
+        "equation": r"M_\zeta/(I_\zeta\Omega^{2})",
+        "effect": (
+            "Normalizes the lag moment exactly as the flap inertia does for "
+            "flapping."),
+        "range": "1e-6 to 1e6 kg·m²",
+        "options": None
+    },
+    "lag_feeds_back": {
+        "title": "Lag Rate Feedback",
+        "definition": (
+            "When set, the lag rate modifies the tangential speed of each "
+            "element, closing the loop between lag motion and "
+            "aerodynamics."),
+        "unit": "—",
+        "equation": r"U_T \mathrel{+}= (r-eR)\,\dot\zeta",
+        "effect": (
+            "Leaving it on is the consistent choice; turning it off turns "
+            "the lag into a diagnostic that does not act back on the loads."),
+        "range": "on / off",
+        "options": None
+    },
+    "cyclic_c_deg": {
+        "title": "Cyclic Pitch, Cosine",
+        "definition": (
+            "Pitch that varies once per revolution as θ₁c·cos(ψ), applied "
+            "on top of the collective and the twist."),
+        "unit": "deg",
+        "equation": r"\theta(\psi)=\theta_0+\theta_{1c}\cos\psi+\theta_{1s}\sin\psi",
+        "effect": (
+            "Tilts the blade response fore-aft. With flap freedom it is one "
+            "of the two controls the zero-flapping trim solves for; on a "
+            "rigid blade it enters only as azimuthal pitch."),
+        "range": "−30° to +30°",
+        "options": None
+    },
+    "cyclic_s_deg": {
+        "title": "Cyclic Pitch, Sine",
+        "definition": (
+            "Pitch that varies once per revolution as θ₁s·sin(ψ), applied "
+            "on top of the collective and the twist."),
+        "unit": "deg",
+        "equation": r"\theta(\psi)=\theta_0+\theta_{1c}\cos\psi+\theta_{1s}\sin\psi",
+        "effect": (
+            "Tilts the blade response sideways. Together with the cosine "
+            "harmonic it forms the pair the trim solves."),
+        "range": "−30° to +30°",
+        "options": None
+    },
 }

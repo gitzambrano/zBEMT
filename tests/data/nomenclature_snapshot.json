@@ -106,10 +106,30 @@
         "mathtext": "$M_x$ [N$\\cdot$m]",
         "text": "Mₓ [N·m]"
       },
+      "Mx_hub": {
+        "html": "M<sub>x,hub</sub> [N·m]",
+        "mathtext": "$M_{x,hub}$ [N·m]",
+        "text": "Mx,hub [N·m]"
+      },
+      "Mx_total": {
+        "html": "M<sub>x,total</sub> [N·m]",
+        "mathtext": "$M_{x,total}$ [N·m]",
+        "text": "Mx,total [N·m]"
+      },
       "My": {
         "html": "M<sub>y</sub> [N&middot;m]",
         "mathtext": "$M_y$ [N$\\cdot$m]",
         "text": "My [N·m]"
+      },
+      "My_hub": {
+        "html": "M<sub>y,hub</sub> [N·m]",
+        "mathtext": "$M_{y,hub}$ [N·m]",
+        "text": "My,hub [N·m]"
+      },
+      "My_total": {
+        "html": "M<sub>y,total</sub> [N·m]",
+        "mathtext": "$M_{y,total}$ [N·m]",
+        "text": "My,total [N·m]"
       },
       "Power": {
         "html": "P [W]",
@@ -170,6 +190,61 @@
         "html": "&alpha;<sub>rotor</sub> [deg]",
         "mathtext": "$\\alpha_{rotor}$ [deg]",
         "text": "αᵣₒₜₒᵣ [deg]"
+      },
+      "beta_0_deg": {
+        "html": "&beta;<sub>0</sub> [deg]",
+        "mathtext": "$\\beta_0$ [deg]",
+        "text": "β₀ [deg]"
+      },
+      "beta_1c_deg": {
+        "html": "&beta;<sub>1c</sub> [deg]",
+        "mathtext": "$\\beta_{1c}$ [deg]",
+        "text": "β1c [deg]"
+      },
+      "beta_1s_deg": {
+        "html": "&beta;<sub>1s</sub> [deg]",
+        "mathtext": "$\\beta_{1s}$ [deg]",
+        "text": "β₁ₛ [deg]"
+      },
+      "beta_2c_deg": {
+        "html": "&beta;<sub>2c</sub> [deg]",
+        "mathtext": "$\\beta_{2c}$ [deg]",
+        "text": "β2c [deg]"
+      },
+      "beta_2s_deg": {
+        "html": "&beta;<sub>2s</sub> [deg]",
+        "mathtext": "$\\beta_{2s}$ [deg]",
+        "text": "β₂ₛ [deg]"
+      },
+      "beta_3c_deg": {
+        "html": "&beta;<sub>3c</sub> [deg]",
+        "mathtext": "$\\beta_{3c}$ [deg]",
+        "text": "β3c [deg]"
+      },
+      "beta_3s_deg": {
+        "html": "&beta;<sub>3s</sub> [deg]",
+        "mathtext": "$\\beta_{3s}$ [deg]",
+        "text": "β₃ₛ [deg]"
+      },
+      "beta_4c_deg": {
+        "html": "&beta;<sub>4c</sub> [deg]",
+        "mathtext": "$\\beta_{4c}$ [deg]",
+        "text": "β4c [deg]"
+      },
+      "beta_4s_deg": {
+        "html": "&beta;<sub>4s</sub> [deg]",
+        "mathtext": "$\\beta_{4s}$ [deg]",
+        "text": "β₄ₛ [deg]"
+      },
+      "beta_5c_deg": {
+        "html": "&beta;<sub>5c</sub> [deg]",
+        "mathtext": "$\\beta_{5c}$ [deg]",
+        "text": "β5c [deg]"
+      },
+      "beta_5s_deg": {
+        "html": "&beta;<sub>5s</sub> [deg]",
+        "mathtext": "$\\beta_{5s}$ [deg]",
+        "text": "β₅ₛ [deg]"
       },
       "cfg_Ne": {
         "html": "cfg_Ne",
@@ -416,6 +491,16 @@
         "mathtext": "convergence [%]",
         "text": "convergence [%]"
       },
+      "cyclic_c_deg": {
+        "html": "&theta;<sub>1c</sub> [deg]",
+        "mathtext": "$\\theta_{1c}$ [deg]",
+        "text": "θ1c [deg]"
+      },
+      "cyclic_s_deg": {
+        "html": "&theta;<sub>1s</sub> [deg]",
+        "mathtext": "$\\theta_{1s}$ [deg]",
+        "text": "θ₁ₛ [deg]"
+      },
       "elapsed_s": {
         "html": "elapsed [s]",
         "mathtext": "elapsed [s]",
@@ -425,6 +510,11 @@
         "html": "&eta;<sub>prop</sub> [-]",
         "mathtext": "$\\eta_{prop}$ [-]",
         "text": "ηₚᵣₒₚ [-]"
+      },
+      "flap_inertia_kg_m2": {
+        "html": "I_&beta; [kg·m²]",
+        "mathtext": "$I_\\beta$ [kg·m²]",
+        "text": "Iβ [kg·m²]"
       },
       "inflow_coupling": {
         "html": "inflow_coupling",
@@ -446,6 +536,11 @@
         "mathtext": "$\\lambda_x$ [-]",
         "text": "λₓ [-]"
       },
+      "lock_number": {
+        "html": "&gamma; [-]",
+        "mathtext": "$\\gamma$ [-]",
+        "text": "γ [-]"
+      },
       "mean_iter": {
         "html": "mean iterations [-]",
         "mathtext": "mean iterations [-]",
@@ -460,6 +555,16 @@
         "html": "&mu;<sub>x</sub> [-]",
         "mathtext": "$\\mu_x$ [-]",
         "text": "μₓ [-]"
+      },
+      "nu_beta": {
+        "html": "&nu;_&beta; [-]",
+        "mathtext": "$\\nu_\\beta$ [-]",
+        "text": "νβ [-]"
+      },
+      "nu_zeta": {
+        "html": "&nu;_&zeta; [-]",
+        "mathtext": "$\\nu_\\zeta$ [-]",
+        "text": "νζ [-]"
       },
       "rotor_D": {
         "html": "D [m]",
@@ -500,6 +605,31 @@
         "html": "solver",
         "mathtext": "solver",
         "text": "solver"
+      },
+      "tpp_tilt_lat_deg": {
+        "html": "&theta;<sub>TPP,lat</sub> [deg]",
+        "mathtext": "$\\theta_{TPP,lat}$ [deg]",
+        "text": "θTPP,lat [deg]"
+      },
+      "tpp_tilt_long_deg": {
+        "html": "&theta;<sub>TPP,long</sub> [deg]",
+        "mathtext": "$\\theta_{TPP,long}$ [deg]",
+        "text": "θTPP,long [deg]"
+      },
+      "zeta_0_deg": {
+        "html": "&zeta;<sub>0</sub> [deg]",
+        "mathtext": "$\\zeta_0$ [deg]",
+        "text": "ζ₀ [deg]"
+      },
+      "zeta_1c_deg": {
+        "html": "&zeta;<sub>1c</sub> [deg]",
+        "mathtext": "$\\zeta_{1c}$ [deg]",
+        "text": "ζ1c [deg]"
+      },
+      "zeta_1s_deg": {
+        "html": "&zeta;<sub>1s</sub> [deg]",
+        "mathtext": "$\\zeta_{1s}$ [deg]",
+        "text": "ζ₁ₛ [deg]"
       }
     },
     "rotor": {
@@ -608,10 +738,30 @@
         "mathtext": "$M_x$ [N$\\cdot$m]",
         "text": "Mₓ [N·m]"
       },
+      "Mx_hub": {
+        "html": "M<sub>x,hub</sub> [N·m]",
+        "mathtext": "$M_{x,hub}$ [N·m]",
+        "text": "Mx,hub [N·m]"
+      },
+      "Mx_total": {
+        "html": "M<sub>x,total</sub> [N·m]",
+        "mathtext": "$M_{x,total}$ [N·m]",
+        "text": "Mx,total [N·m]"
+      },
       "My": {
         "html": "M<sub>y</sub> [N&middot;m]",
         "mathtext": "$M_y$ [N$\\cdot$m]",
         "text": "My [N·m]"
+      },
+      "My_hub": {
+        "html": "M<sub>y,hub</sub> [N·m]",
+        "mathtext": "$M_{y,hub}$ [N·m]",
+        "text": "My,hub [N·m]"
+      },
+      "My_total": {
+        "html": "M<sub>y,total</sub> [N·m]",
+        "mathtext": "$M_{y,total}$ [N·m]",
+        "text": "My,total [N·m]"
       },
       "Power": {
         "html": "P [W]",
@@ -672,6 +822,61 @@
         "html": "&alpha;<sub>rotor</sub> [deg]",
         "mathtext": "$\\alpha_{rotor}$ [deg]",
         "text": "αᵣₒₜₒᵣ [deg]"
+      },
+      "beta_0_deg": {
+        "html": "&beta;<sub>0</sub> [deg]",
+        "mathtext": "$\\beta_0$ [deg]",
+        "text": "β₀ [deg]"
+      },
+      "beta_1c_deg": {
+        "html": "&beta;<sub>1c</sub> [deg]",
+        "mathtext": "$\\beta_{1c}$ [deg]",
+        "text": "β1c [deg]"
+      },
+      "beta_1s_deg": {
+        "html": "&beta;<sub>1s</sub> [deg]",
+        "mathtext": "$\\beta_{1s}$ [deg]",
+        "text": "β₁ₛ [deg]"
+      },
+      "beta_2c_deg": {
+        "html": "&beta;<sub>2c</sub> [deg]",
+        "mathtext": "$\\beta_{2c}$ [deg]",
+        "text": "β2c [deg]"
+      },
+      "beta_2s_deg": {
+        "html": "&beta;<sub>2s</sub> [deg]",
+        "mathtext": "$\\beta_{2s}$ [deg]",
+        "text": "β₂ₛ [deg]"
+      },
+      "beta_3c_deg": {
+        "html": "&beta;<sub>3c</sub> [deg]",
+        "mathtext": "$\\beta_{3c}$ [deg]",
+        "text": "β3c [deg]"
+      },
+      "beta_3s_deg": {
+        "html": "&beta;<sub>3s</sub> [deg]",
+        "mathtext": "$\\beta_{3s}$ [deg]",
+        "text": "β₃ₛ [deg]"
+      },
+      "beta_4c_deg": {
+        "html": "&beta;<sub>4c</sub> [deg]",
+        "mathtext": "$\\beta_{4c}$ [deg]",
+        "text": "β4c [deg]"
+      },
+      "beta_4s_deg": {
+        "html": "&beta;<sub>4s</sub> [deg]",
+        "mathtext": "$\\beta_{4s}$ [deg]",
+        "text": "β₄ₛ [deg]"
+      },
+      "beta_5c_deg": {
+        "html": "&beta;<sub>5c</sub> [deg]",
+        "mathtext": "$\\beta_{5c}$ [deg]",
+        "text": "β5c [deg]"
+      },
+      "beta_5s_deg": {
+        "html": "&beta;<sub>5s</sub> [deg]",
+        "mathtext": "$\\beta_{5s}$ [deg]",
+        "text": "β₅ₛ [deg]"
       },
       "cfg_Ne": {
         "html": "cfg_Ne",
@@ -918,6 +1123,16 @@
         "mathtext": "convergence [%]",
         "text": "convergence [%]"
       },
+      "cyclic_c_deg": {
+        "html": "&theta;<sub>1c</sub> [deg]",
+        "mathtext": "$\\theta_{1c}$ [deg]",
+        "text": "θ1c [deg]"
+      },
+      "cyclic_s_deg": {
+        "html": "&theta;<sub>1s</sub> [deg]",
+        "mathtext": "$\\theta_{1s}$ [deg]",
+        "text": "θ₁ₛ [deg]"
+      },
       "elapsed_s": {
         "html": "elapsed [s]",
         "mathtext": "elapsed [s]",
@@ -927,6 +1142,11 @@
         "html": "&eta;<sub>prop</sub> [-]",
         "mathtext": "$\\eta_{prop}$ [-]",
         "text": "ηₚᵣₒₚ [-]"
+      },
+      "flap_inertia_kg_m2": {
+        "html": "I_&beta; [kg·m²]",
+        "mathtext": "$I_\\beta$ [kg·m²]",
+        "text": "Iβ [kg·m²]"
       },
       "inflow_coupling": {
         "html": "inflow_coupling",
@@ -948,6 +1168,11 @@
         "mathtext": "$\\lambda_z$ [-]",
         "text": "λz [-]"
       },
+      "lock_number": {
+        "html": "&gamma; [-]",
+        "mathtext": "$\\gamma$ [-]",
+        "text": "γ [-]"
+      },
       "mean_iter": {
         "html": "mean iterations [-]",
         "mathtext": "mean iterations [-]",
@@ -962,6 +1187,16 @@
         "html": "&mu;<sub>z</sub> [-]",
         "mathtext": "$\\mu_z$ [-]",
         "text": "μz [-]"
+      },
+      "nu_beta": {
+        "html": "&nu;_&beta; [-]",
+        "mathtext": "$\\nu_\\beta$ [-]",
+        "text": "νβ [-]"
+      },
+      "nu_zeta": {
+        "html": "&nu;_&zeta; [-]",
+        "mathtext": "$\\nu_\\zeta$ [-]",
+        "text": "νζ [-]"
       },
       "rotor_D": {
         "html": "D [m]",
@@ -1002,6 +1237,31 @@
         "html": "solver",
         "mathtext": "solver",
         "text": "solver"
+      },
+      "tpp_tilt_lat_deg": {
+        "html": "&theta;<sub>TPP,lat</sub> [deg]",
+        "mathtext": "$\\theta_{TPP,lat}$ [deg]",
+        "text": "θTPP,lat [deg]"
+      },
+      "tpp_tilt_long_deg": {
+        "html": "&theta;<sub>TPP,long</sub> [deg]",
+        "mathtext": "$\\theta_{TPP,long}$ [deg]",
+        "text": "θTPP,long [deg]"
+      },
+      "zeta_0_deg": {
+        "html": "&zeta;<sub>0</sub> [deg]",
+        "mathtext": "$\\zeta_0$ [deg]",
+        "text": "ζ₀ [deg]"
+      },
+      "zeta_1c_deg": {
+        "html": "&zeta;<sub>1c</sub> [deg]",
+        "mathtext": "$\\zeta_{1c}$ [deg]",
+        "text": "ζ1c [deg]"
+      },
+      "zeta_1s_deg": {
+        "html": "&zeta;<sub>1s</sub> [deg]",
+        "mathtext": "$\\zeta_{1s}$ [deg]",
+        "text": "ζ₁ₛ [deg]"
       }
     }
   },
@@ -1143,6 +1403,8 @@
       "alpha_rotor_deg",
       "alpha_disk_deg",
       "collective_deg",
+      "cyclic_c_deg",
+      "cyclic_s_deg",
       "rpm",
       "lambda_i",
       "lambda_total",
@@ -1292,9 +1554,25 @@
         "M<sub>x</sub>",
         "Pitch moment about the hub [N&middot;m], positive nose up"
       ],
+      "Mx_hub": [
+        "M<sub>x,hub</sub>",
+        "Hub moment carried through the flap hinge or root spring [N·m], about the axis pointing to &psi;=0: (N<sub>b</sub>/2)&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub><sup>2</sup>&minus;1)&beta;<sub>1c</sub>. This structural path is absent on a rigid-blade run and dominates on hingeless rotors"
+      ],
+      "Mx_total": [
+        "M<sub>x,total</sub>",
+        "Total tilting moment about the &psi;=0 axis [N·m]: the aerodynamic moment M<sub>x</sub> plus the hub moment carried through the flap hinge or root spring M<sub>x,hub</sub>"
+      ],
       "My": [
         "M<sub>y</sub>",
         "Roll moment about the hub [N&middot;m], positive toward the advancing side"
+      ],
+      "My_hub": [
+        "M<sub>y,hub</sub>",
+        "Hub moment carried through the flap hinge or root spring [N·m], about the &psi;=90&deg; axis: (N<sub>b</sub>/2)&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub><sup>2</sup>&minus;1)&beta;<sub>1s</sub>"
+      ],
+      "My_total": [
+        "M<sub>y,total</sub>",
+        "Total tilting moment about the &psi;=90&deg; axis [N·m]: the aerodynamic moment M<sub>y</sub> plus the hub moment carried through the flap hinge or root spring M<sub>y,hub</sub>"
       ],
       "Power": [
         "P",
@@ -1343,6 +1621,50 @@
       "alpha_rotor_deg": [
         "&alpha;<sub>rotor</sub>",
         "ROTOR angle of attack [deg]: angle between the free stream and the DISK PLANE, &alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>). This is THE angle of rotor mode -- 0 in a helicopter's level forward flight, and POSITIVE when the flow arrives from below the disk. Its propeller-mode counterpart is &alpha;<sub>disk</sub>, measured from the shaft; the two are complementary and each mode shows only its own"
+      ],
+      "beta_0_deg": [
+        "&beta;<sub>0</sub>",
+        "Coning angle [deg]: the mean flap angle &beta;<sub>0</sub>, the constant part of &beta;(&psi;) = &beta;<sub>0</sub> + &beta;<sub>1c</sub>cos&psi; + &beta;<sub>1s</sub>sin&psi;. Positive with the blades up. It grows with thrust and falls with the square of the flap frequency ratio"
+      ],
+      "beta_1c_deg": [
+        "&beta;<sub>1c</sub>",
+        "First cosine flap coefficient [deg]: the fore-aft 1/rev part of &beta;(&psi;). The longitudinal tip-path-plane tilt is its NEGATIVE (&theta;<sub>TPP,long</sub> = &minus;&beta;<sub>1c</sub>)"
+      ],
+      "beta_1s_deg": [
+        "&beta;<sub>1s</sub>",
+        "First sine flap coefficient [deg]: the lateral 1/rev part of &beta;(&psi;). The lateral tip-path-plane tilt is its NEGATIVE (&theta;<sub>TPP,lat</sub> = &minus;&beta;<sub>1s</sub>)"
+      ],
+      "beta_2c_deg": [
+        "&beta;<sub>2c</sub>",
+        "Cosine flap coefficient of harmonic 2 [deg], from the harmonic balance of &beta;(&psi;) = &beta;<sub>0</sub> + &Sigma;<sub>n</sub>[&beta;<sub>nc</sub>cos(n&psi;) + &beta;<sub>ns</sub>sin(n&psi;)]"
+      ],
+      "beta_2s_deg": [
+        "&beta;<sub>2s</sub>",
+        "Sine flap coefficient of harmonic 2 [deg], from the harmonic balance of &beta;(&psi;)."
+      ],
+      "beta_3c_deg": [
+        "&beta;<sub>3c</sub>",
+        "Cosine flap coefficient of harmonic 3 [deg], from the harmonic balance of &beta;(&psi;) = &beta;<sub>0</sub> + &Sigma;<sub>n</sub>[&beta;<sub>nc</sub>cos(n&psi;) + &beta;<sub>ns</sub>sin(n&psi;)]"
+      ],
+      "beta_3s_deg": [
+        "&beta;<sub>3s</sub>",
+        "Sine flap coefficient of harmonic 3 [deg], from the harmonic balance of &beta;(&psi;)."
+      ],
+      "beta_4c_deg": [
+        "&beta;<sub>4c</sub>",
+        "Cosine flap coefficient of harmonic 4 [deg], from the harmonic balance of &beta;(&psi;) = &beta;<sub>0</sub> + &Sigma;<sub>n</sub>[&beta;<sub>nc</sub>cos(n&psi;) + &beta;<sub>ns</sub>sin(n&psi;)]"
+      ],
+      "beta_4s_deg": [
+        "&beta;<sub>4s</sub>",
+        "Sine flap coefficient of harmonic 4 [deg], from the harmonic balance of &beta;(&psi;)."
+      ],
+      "beta_5c_deg": [
+        "&beta;<sub>5c</sub>",
+        "Cosine flap coefficient of harmonic 5 [deg], from the harmonic balance of &beta;(&psi;) = &beta;<sub>0</sub> + &Sigma;<sub>n</sub>[&beta;<sub>nc</sub>cos(n&psi;) + &beta;<sub>ns</sub>sin(n&psi;)]"
+      ],
+      "beta_5s_deg": [
+        "&beta;<sub>5s</sub>",
+        "Sine flap coefficient of harmonic 5 [deg], from the harmonic balance of &beta;(&psi;)."
       ],
       "cfg_Ne": [
         "N<sub>e</sub>",
@@ -1540,6 +1862,14 @@
         "conv.",
         "Percentage of mesh elements where the inflow fixed point converged [%]"
       ],
+      "cyclic_c_deg": [
+        "&theta;<sub>1c</sub>",
+        "Cyclic pitch, cosine harmonic [deg]: pitch that varies once per revolution as &theta;<sub>1c</sub>cos&psi;. With flap freedom it tilts the blade response fore-aft and is one of the two controls the zero-flapping trim solves"
+      ],
+      "cyclic_s_deg": [
+        "&theta;<sub>1s</sub>",
+        "Cyclic pitch, sine harmonic [deg]: pitch that varies once per revolution as &theta;<sub>1s</sub>sin&psi;. Together with the cosine harmonic it forms the pair the trim solves"
+      ],
       "elapsed_s": [
         "t<sub>cpu</sub>",
         "Wall-clock solve time [s]"
@@ -1547,6 +1877,10 @@
       "eta_prop": [
         "&eta;<sub>prop</sub>",
         "Propulsive efficiency: &eta; = T&middot;V<sub>x</sub>/P = J<sub>x</sub>&middot;C<sub>T,prop</sub>/C<sub>P,prop</sub>. Built from the airspeed ALONG THE SHAFT, since thrust acts there; meaningful with V<sub>x</sub> &gt; 0"
+      ],
+      "flap_inertia_kg_m2": [
+        "I_&beta;",
+        "Resolved flap inertia of one blade about its hinge [kg·m²], whichever inertia source was chosen. It normalizes the flap moment in the harmonic balance"
       ],
       "inflow_coupling": [
         "coupling",
@@ -1564,6 +1898,10 @@
         "&lambda;<sub>x</sub>",
         "Inflow ratio along x, from the free stream alone: &lambda;<sub>x</sub> = V<sub>x</sub>/(&Omega;R). In propeller mode x is the shaft, so this is the axial inflow -- an input datum, known before any aerodynamics. THE SAME NUMBER as &mu;<sub>x</sub>, in the inflow vocabulary"
       ],
+      "lock_number": [
+        "&gamma;",
+        "Lock number: &gamma; = &rho;&middot;a&middot;c<sub>ref</sub>&middot;R<sup>4</sup>/I<sub>&beta;</sub>, the ratio of aerodynamic to inertial blade response, built from the chord at r/R = 0.75. It sets how strongly the air moves the blade"
+      ],
       "mean_iter": [
         "iter<sub>avg</sub>",
         "Mean number of solver iterations per mesh element"
@@ -1575,6 +1913,14 @@
       "mu_z": [
         "&mu;<sub>x</sub>",
         "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R), the airspeed normalized by tip speed. THE SAME NUMBER as &lambda;<sub>x</sub>, in the advance-ratio vocabulary"
+      ],
+      "nu_beta": [
+        "&nu;_&beta;",
+        "Flap frequency ratio: &nu;<sub>&beta;</sub><sup>2</sup> = 1 + (3/2)&middot;e/(1&minus;e) + K<sub>&beta;</sub>/(I<sub>&beta;</sub>&Omega;<sup>2</sup>). How far the first flap mode sits above the rotor rotation. An articulated rotor has exactly 1, which is why its first harmonic resonates"
+      ],
+      "nu_zeta": [
+        "&nu;_&zeta;",
+        "Lead-lag frequency ratio: &nu;<sub>&zeta;</sub><sup>2</sup> = (3/2)&middot;e/(1&minus;e) + K<sub>&zeta;</sub>/(I<sub>&zeta;</sub>&Omega;<sup>2</sup>). No leading 1: the lag freedom gets no restoring term from the thrust"
       ],
       "rotor_D": [
         "D",
@@ -1607,6 +1953,26 @@
       "solver": [
         "solver",
         "Fixed-point solver used for the inflow equation"
+      ],
+      "tpp_tilt_lat_deg": [
+        "&theta;<sub>TPP,lat</sub>",
+        "Lateral tip-path-plane tilt [deg]: how far the disk tilts sideways under flapping, &theta;<sub>TPP,lat</sub> = &minus;&beta;<sub>1s</sub>. On a rotor it reflects the classic response to the advancing/retreating load asymmetry"
+      ],
+      "tpp_tilt_long_deg": [
+        "&theta;<sub>TPP,long</sub>",
+        "Longitudinal tip-path-plane tilt [deg]: how far the disk tilts fore-aft under flapping, &theta;<sub>TPP,long</sub> = &minus;&beta;<sub>1c</sub>. Negative usually means the disk blows back relative to the shaft"
+      ],
+      "zeta_0_deg": [
+        "&zeta;<sub>0</sub>",
+        "Mean lead-lag angle [deg]: the constant part of &zeta;(&psi;). Positive against the direction of rotation"
+      ],
+      "zeta_1c_deg": [
+        "&zeta;<sub>1c</sub>",
+        "First cosine lead-lag coefficient [deg] of &zeta;(&psi;) = &zeta;<sub>0</sub> + &zeta;<sub>1c</sub>cos&psi; + &zeta;<sub>1s</sub>sin&psi;"
+      ],
+      "zeta_1s_deg": [
+        "&zeta;<sub>1s</sub>",
+        "First sine lead-lag coefficient [deg] of &zeta;(&psi;)"
       ]
     },
     "rotor": {
@@ -1694,9 +2060,25 @@
         "M<sub>x</sub>",
         "Pitch moment about the hub [N&middot;m], positive nose up"
       ],
+      "Mx_hub": [
+        "M<sub>x,hub</sub>",
+        "Hub moment carried through the flap hinge or root spring [N·m], about the axis pointing to &psi;=0: (N<sub>b</sub>/2)&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub><sup>2</sup>&minus;1)&beta;<sub>1c</sub>. This structural path is absent on a rigid-blade run and dominates on hingeless rotors"
+      ],
+      "Mx_total": [
+        "M<sub>x,total</sub>",
+        "Total tilting moment about the &psi;=0 axis [N·m]: the aerodynamic moment M<sub>x</sub> plus the hub moment carried through the flap hinge or root spring M<sub>x,hub</sub>"
+      ],
       "My": [
         "M<sub>y</sub>",
         "Roll moment about the hub [N&middot;m], positive toward the advancing side"
+      ],
+      "My_hub": [
+        "M<sub>y,hub</sub>",
+        "Hub moment carried through the flap hinge or root spring [N·m], about the &psi;=90&deg; axis: (N<sub>b</sub>/2)&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub><sup>2</sup>&minus;1)&beta;<sub>1s</sub>"
+      ],
+      "My_total": [
+        "M<sub>y,total</sub>",
+        "Total tilting moment about the &psi;=90&deg; axis [N·m]: the aerodynamic moment M<sub>y</sub> plus the hub moment carried through the flap hinge or root spring M<sub>y,hub</sub>"
       ],
       "Power": [
         "P",
@@ -1745,6 +2127,50 @@
       "alpha_rotor_deg": [
         "&alpha;<sub>rotor</sub>",
         "ROTOR angle of attack [deg]: angle between the free stream and the DISK PLANE, &alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>). This is THE angle of rotor mode -- 0 in a helicopter's level forward flight, and POSITIVE when the flow arrives from below the disk. Its propeller-mode counterpart is &alpha;<sub>disk</sub>, measured from the shaft; the two are complementary and each mode shows only its own"
+      ],
+      "beta_0_deg": [
+        "&beta;<sub>0</sub>",
+        "Coning angle [deg]: the mean flap angle &beta;<sub>0</sub>, the constant part of &beta;(&psi;) = &beta;<sub>0</sub> + &beta;<sub>1c</sub>cos&psi; + &beta;<sub>1s</sub>sin&psi;. Positive with the blades up. It grows with thrust and falls with the square of the flap frequency ratio"
+      ],
+      "beta_1c_deg": [
+        "&beta;<sub>1c</sub>",
+        "First cosine flap coefficient [deg]: the fore-aft 1/rev part of &beta;(&psi;). The longitudinal tip-path-plane tilt is its NEGATIVE (&theta;<sub>TPP,long</sub> = &minus;&beta;<sub>1c</sub>)"
+      ],
+      "beta_1s_deg": [
+        "&beta;<sub>1s</sub>",
+        "First sine flap coefficient [deg]: the lateral 1/rev part of &beta;(&psi;). The lateral tip-path-plane tilt is its NEGATIVE (&theta;<sub>TPP,lat</sub> = &minus;&beta;<sub>1s</sub>)"
+      ],
+      "beta_2c_deg": [
+        "&beta;<sub>2c</sub>",
+        "Cosine flap coefficient of harmonic 2 [deg], from the harmonic balance of &beta;(&psi;) = &beta;<sub>0</sub> + &Sigma;<sub>n</sub>[&beta;<sub>nc</sub>cos(n&psi;) + &beta;<sub>ns</sub>sin(n&psi;)]"
+      ],
+      "beta_2s_deg": [
+        "&beta;<sub>2s</sub>",
+        "Sine flap coefficient of harmonic 2 [deg], from the harmonic balance of &beta;(&psi;)."
+      ],
+      "beta_3c_deg": [
+        "&beta;<sub>3c</sub>",
+        "Cosine flap coefficient of harmonic 3 [deg], from the harmonic balance of &beta;(&psi;) = &beta;<sub>0</sub> + &Sigma;<sub>n</sub>[&beta;<sub>nc</sub>cos(n&psi;) + &beta;<sub>ns</sub>sin(n&psi;)]"
+      ],
+      "beta_3s_deg": [
+        "&beta;<sub>3s</sub>",
+        "Sine flap coefficient of harmonic 3 [deg], from the harmonic balance of &beta;(&psi;)."
+      ],
+      "beta_4c_deg": [
+        "&beta;<sub>4c</sub>",
+        "Cosine flap coefficient of harmonic 4 [deg], from the harmonic balance of &beta;(&psi;) = &beta;<sub>0</sub> + &Sigma;<sub>n</sub>[&beta;<sub>nc</sub>cos(n&psi;) + &beta;<sub>ns</sub>sin(n&psi;)]"
+      ],
+      "beta_4s_deg": [
+        "&beta;<sub>4s</sub>",
+        "Sine flap coefficient of harmonic 4 [deg], from the harmonic balance of &beta;(&psi;)."
+      ],
+      "beta_5c_deg": [
+        "&beta;<sub>5c</sub>",
+        "Cosine flap coefficient of harmonic 5 [deg], from the harmonic balance of &beta;(&psi;) = &beta;<sub>0</sub> + &Sigma;<sub>n</sub>[&beta;<sub>nc</sub>cos(n&psi;) + &beta;<sub>ns</sub>sin(n&psi;)]"
+      ],
+      "beta_5s_deg": [
+        "&beta;<sub>5s</sub>",
+        "Sine flap coefficient of harmonic 5 [deg], from the harmonic balance of &beta;(&psi;)."
       ],
       "cfg_Ne": [
         "N<sub>e</sub>",
@@ -1942,6 +2368,14 @@
         "conv.",
         "Percentage of mesh elements where the inflow fixed point converged [%]"
       ],
+      "cyclic_c_deg": [
+        "&theta;<sub>1c</sub>",
+        "Cyclic pitch, cosine harmonic [deg]: pitch that varies once per revolution as &theta;<sub>1c</sub>cos&psi;. With flap freedom it tilts the blade response fore-aft and is one of the two controls the zero-flapping trim solves"
+      ],
+      "cyclic_s_deg": [
+        "&theta;<sub>1s</sub>",
+        "Cyclic pitch, sine harmonic [deg]: pitch that varies once per revolution as &theta;<sub>1s</sub>sin&psi;. Together with the cosine harmonic it forms the pair the trim solves"
+      ],
       "elapsed_s": [
         "t<sub>cpu</sub>",
         "Wall-clock solve time [s]"
@@ -1949,6 +2383,10 @@
       "eta_prop": [
         "&eta;<sub>prop</sub>",
         "Propulsive efficiency: &eta; = T&middot;V<sub>z</sub>/P = J<sub>z</sub>&middot;C<sub>T,prop</sub>/C<sub>P,prop</sub>. Built from the AXIAL free-stream, since thrust acts along the shaft; meaningful in propeller mode with V<sub>z</sub> &gt; 0"
+      ],
+      "flap_inertia_kg_m2": [
+        "I_&beta;",
+        "Resolved flap inertia of one blade about its hinge [kg·m²], whichever inertia source was chosen. It normalizes the flap moment in the harmonic balance"
       ],
       "inflow_coupling": [
         "coupling",
@@ -1966,6 +2404,10 @@
         "&lambda;<sub>z</sub>",
         "Inflow ratio along z, from the free stream alone: &lambda;<sub>z</sub> = V<sub>z</sub>/(&Omega;R). In rotor mode z is the shaft, so this is the climb inflow -- an input datum, known before any aerodynamics. THE SAME NUMBER as &mu;<sub>z</sub>, in the inflow vocabulary instead of the advance-ratio one"
       ],
+      "lock_number": [
+        "&gamma;",
+        "Lock number: &gamma; = &rho;&middot;a&middot;c<sub>ref</sub>&middot;R<sup>4</sup>/I<sub>&beta;</sub>, the ratio of aerodynamic to inertial blade response, built from the chord at r/R = 0.75. It sets how strongly the air moves the blade"
+      ],
       "mean_iter": [
         "iter<sub>avg</sub>",
         "Mean number of solver iterations per mesh element"
@@ -1977,6 +2419,14 @@
       "mu_z": [
         "&mu;<sub>z</sub>",
         "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R). In rotor mode z is the SHAFT direction, so this is climb (positive) or descent (negative). Same number as &lambda;<sub>z</sub>, written in the advance-ratio vocabulary instead of the inflow one"
+      ],
+      "nu_beta": [
+        "&nu;_&beta;",
+        "Flap frequency ratio: &nu;<sub>&beta;</sub><sup>2</sup> = 1 + (3/2)&middot;e/(1&minus;e) + K<sub>&beta;</sub>/(I<sub>&beta;</sub>&Omega;<sup>2</sup>). How far the first flap mode sits above the rotor rotation. An articulated rotor has exactly 1, which is why its first harmonic resonates"
+      ],
+      "nu_zeta": [
+        "&nu;_&zeta;",
+        "Lead-lag frequency ratio: &nu;<sub>&zeta;</sub><sup>2</sup> = (3/2)&middot;e/(1&minus;e) + K<sub>&zeta;</sub>/(I<sub>&zeta;</sub>&Omega;<sup>2</sup>). No leading 1: the lag freedom gets no restoring term from the thrust"
       ],
       "rotor_D": [
         "D",
@@ -2009,6 +2459,26 @@
       "solver": [
         "solver",
         "Fixed-point solver used for the inflow equation"
+      ],
+      "tpp_tilt_lat_deg": [
+        "&theta;<sub>TPP,lat</sub>",
+        "Lateral tip-path-plane tilt [deg]: how far the disk tilts sideways under flapping, &theta;<sub>TPP,lat</sub> = &minus;&beta;<sub>1s</sub>. On a rotor it reflects the classic response to the advancing/retreating load asymmetry"
+      ],
+      "tpp_tilt_long_deg": [
+        "&theta;<sub>TPP,long</sub>",
+        "Longitudinal tip-path-plane tilt [deg]: how far the disk tilts fore-aft under flapping, &theta;<sub>TPP,long</sub> = &minus;&beta;<sub>1c</sub>. Negative usually means the disk blows back relative to the shaft"
+      ],
+      "zeta_0_deg": [
+        "&zeta;<sub>0</sub>",
+        "Mean lead-lag angle [deg]: the constant part of &zeta;(&psi;). Positive against the direction of rotation"
+      ],
+      "zeta_1c_deg": [
+        "&zeta;<sub>1c</sub>",
+        "First cosine lead-lag coefficient [deg] of &zeta;(&psi;) = &zeta;<sub>0</sub> + &zeta;<sub>1c</sub>cos&psi; + &zeta;<sub>1s</sub>sin&psi;"
+      ],
+      "zeta_1s_deg": [
+        "&zeta;<sub>1s</sub>",
+        "First sine lead-lag coefficient [deg] of &zeta;(&psi;)"
       ]
     }
   },
@@ -2034,7 +2504,11 @@
     "J_x": "<th class=\"un\">[-]</th>",
     "J_z": "<th class=\"un\">[-]</th>",
     "Mx": "<th class=\"un\">[N&middot;m]</th>",
+    "Mx_hub": "<th class=\"un\">[N·m]</th>",
+    "Mx_total": "<th class=\"un\">[N·m]</th>",
     "My": "<th class=\"un\">[N&middot;m]</th>",
+    "My_hub": "<th class=\"un\">[N·m]</th>",
+    "My_total": "<th class=\"un\">[N·m]</th>",
     "Power": "<th class=\"un\">[W]</th>",
     "Power_i": "<th class=\"un\">[W]</th>",
     "Power_p": "<th class=\"un\">[W]</th>",
@@ -2047,6 +2521,17 @@
     "Y": "<th class=\"un\">[N]</th>",
     "alpha_disk_deg": "<th class=\"un\">[deg]</th>",
     "alpha_rotor_deg": "<th class=\"un\">[deg]</th>",
+    "beta_0_deg": "<th class=\"un\">[deg]</th>",
+    "beta_1c_deg": "<th class=\"un\">[deg]</th>",
+    "beta_1s_deg": "<th class=\"un\">[deg]</th>",
+    "beta_2c_deg": "<th class=\"un\">[deg]</th>",
+    "beta_2s_deg": "<th class=\"un\">[deg]</th>",
+    "beta_3c_deg": "<th class=\"un\">[deg]</th>",
+    "beta_3s_deg": "<th class=\"un\">[deg]</th>",
+    "beta_4c_deg": "<th class=\"un\">[deg]</th>",
+    "beta_4s_deg": "<th class=\"un\">[deg]</th>",
+    "beta_5c_deg": "<th class=\"un\">[deg]</th>",
+    "beta_5s_deg": "<th class=\"un\">[deg]</th>",
     "cfg_Ne": "<th class=\"un\">[-]</th>",
     "cfg_Npsi": "<th class=\"un\">[-]</th>",
     "cfg_a_sound": "<th class=\"un\">[m/s]</th>",
@@ -2096,15 +2581,21 @@
     "collective_deg": "<th class=\"un\">[deg]</th>",
     "condition": "<th class=\"un\"></th>",
     "convergence_pct": "<th class=\"un\">[%]</th>",
+    "cyclic_c_deg": "<th class=\"un\">[deg]</th>",
+    "cyclic_s_deg": "<th class=\"un\">[deg]</th>",
     "elapsed_s": "<th class=\"un\">[s]</th>",
     "eta_prop": "<th class=\"un\">[-]</th>",
+    "flap_inertia_kg_m2": "<th class=\"un\">[kg·m²]</th>",
     "inflow_coupling": "<th class=\"un\"></th>",
     "lambda_i": "<th class=\"un\">[-]</th>",
     "lambda_total": "<th class=\"un\">[-]</th>",
     "lambda_z": "<th class=\"un\">[-]</th>",
+    "lock_number": "<th class=\"un\">[-]</th>",
     "mean_iter": "<th class=\"un\">[-]</th>",
     "mu_x": "<th class=\"un\">[-]</th>",
     "mu_z": "<th class=\"un\">[-]</th>",
+    "nu_beta": "<th class=\"un\">[-]</th>",
+    "nu_zeta": "<th class=\"un\">[-]</th>",
     "rotor_D": "<th class=\"un\">[m]</th>",
     "rotor_Nb": "<th class=\"un\">[-]</th>",
     "rotor_Omega": "<th class=\"un\">[rad/s]</th>",
@@ -2112,7 +2603,12 @@
     "rotor_R": "<th class=\"un\">[m]</th>",
     "rotor_rpm": "<th class=\"un\">[rev/min]</th>",
     "rpm": "<th class=\"un\">[rev/min]</th>",
-    "solver": "<th class=\"un\"></th>"
+    "solver": "<th class=\"un\"></th>",
+    "tpp_tilt_lat_deg": "<th class=\"un\">[deg]</th>",
+    "tpp_tilt_long_deg": "<th class=\"un\">[deg]</th>",
+    "zeta_0_deg": "<th class=\"un\">[deg]</th>",
+    "zeta_1c_deg": "<th class=\"un\">[deg]</th>",
+    "zeta_1s_deg": "<th class=\"un\">[deg]</th>"
   },
   "suppressed_columns": {
     "propeller": [

@@ -454,7 +454,11 @@ def validate_blade_dynamics(dynamics: BladeDynamicsDef, geom: RotorGeometryDef,
             "first harmonic, and the periodic response has no finite "
             "solution. Give the hinge an offset or add a root spring.")))
 
-    inertia = geometry_gen.flap_inertia_from(dynamics, geom, rho, cl_alpha)
+    inertia = float("nan")
+    try:
+        inertia = geometry_gen.flap_inertia_from(dynamics, geom, rho, cl_alpha)
+    except (ValueError, IndexError):
+        pass   # degenerate radial table: reported through the inertia check
     if not rigid:
         if not (math.isfinite(inertia) and inertia > 0.0):
             issues.append(Issue("error", prefix + (

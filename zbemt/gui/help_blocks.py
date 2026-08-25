@@ -36,6 +36,23 @@ BLOCK_HELP: dict[str, dict] = {
         ],
         "anchor": "cap-2-1",
     },
+    "blade_dynamics": {
+        "title": "Blade Dynamics - the rigid blade's flap and lead-lag freedoms",
+        "body": [
+            "A real blade is never bolted stiff to the hub: it flaps out of the disk plane and lags against the rotation. This block gives the rigid blade those two rigid-body freedoms, solved as one periodic response that repeats every revolution. The blade does not bend; only its hinge motion acts on the flow.",
+            "Flapping answers thrust with a coning angle &beta;<sub>0</sub>, tilts the disk in edgewise flight through its 1/rev harmonics, and - when the hinge carries an offset or a spring - feeds a structural moment back into the hub: M<sub>hub</sub> = (N<sub>b</sub>/2)&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub><sup>2</sup>&minus;1)&beta;<sub>1</sub>. Lead-lag follows the same scheme in the disk plane, with a damper instead of thrust restoring.",
+            "The defaults keep the blade fully rigid, which reproduces every result computed before this block existed. Enable a flap model and the panel beside the inputs shows the resolved frequency ratio, inertia and natural frequency as you type.",
+        ],
+        "anchor": "sec-blade-dynamics",
+    },
+    "flap_plots": {
+        "title": "Blade dynamics plots - what the flap response did",
+        "body": [
+            "Three figures read the blade-dynamics part of a result. The <b>flap response</b> draws &beta;(&psi;) over one revolution as a polar curve, with each harmonic's amplitude annotated. The <b>effect of flapping</b> re-solves the same condition once more with a rigid blade and puts the two disk maps side by side, so the change is visible where it happens.",
+            "The <b>convergence</b> figure shows the outer-loop trace: how large a correction each exchange between inflow and blade motion tried to apply, until it met the tolerance. A trace that falls smoothly means the coupling agreed; a trace that stalls names its residual honestly.",
+        ],
+        "anchor": "sec-blade-dynamics",
+    },
     "radial_table": {
         "title": "Radial Distribution Table — how the blade varies along the span",
         "body": [

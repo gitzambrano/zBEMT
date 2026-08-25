@@ -814,7 +814,9 @@ class TestRunCaseAlignedWithTheSummary(unittest.TestCase):
     def test_condition_opens_with_the_x_component_and_without_repeats(self):
         """x first (the PRIMARY one in both modes), then z, then the
         angles. And each quantity ONCE: `mu_x`/`J_x` used to appear
-        twice while the engine had two keys for the same number."""
+        twice while the engine had two keys for the same number. The
+        cyclic harmonics sit beside the collective since SC-11 gave the
+        condition its own 1/rev pitch controls."""
         from zbemt.gui.tabs.run_case import RunCaseTab
         keys = dict(RunCaseTab._build_groups(False))["Flight condition"]
         self.assertEqual(
@@ -822,7 +824,8 @@ class TestRunCaseAlignedWithTheSummary(unittest.TestCase):
             ["mu_x", "J_x", "Vx",
              "mu_z", "J_z", "Vz", "lambda_z",
              "alpha_rotor_deg", "alpha_disk_deg",
-             "collective_deg", "rpm"])
+             "collective_deg", "cyclic_c_deg", "cyclic_s_deg",
+             "rpm"])
         self.assertEqual(len(keys), len(set(keys)), "repeated quantity")
 
     def test_inflow_triad_has_its_own_group(self):

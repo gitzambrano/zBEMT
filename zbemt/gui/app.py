@@ -370,6 +370,7 @@ class MainWindow(QMainWindow):
             "Operation Mode":                        "operation_mode",
             # Geometry tab
             "Global Geometry":                       "global_geometry",
+            "Blade Dynamics":                        "blade_dynamics",
             "Radial Distribution Table":             "radial_table",
             # Airfoil tab
             "Radial Sections":                       "radial_sections",
@@ -405,6 +406,7 @@ class MainWindow(QMainWindow):
             "Geometry comparison":                   "geometry_comparison",
             # Results tab
             "Results from this session":             "results",
+            "Blade dynamics":                        "flap_plots",
             "3D view":                               "view_3d",
         }
         for i in range(self.tabs.count()):

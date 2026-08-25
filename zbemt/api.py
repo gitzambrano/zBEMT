@@ -1384,7 +1384,7 @@ _MAIN_COLUMNS = (
     "mu_x", "J_x", "Vx",
     "mu_z", "J_z", "Vz", "lambda_z",
     "alpha_rotor_deg", "alpha_disk_deg",
-    "collective_deg", "rpm",
+    "collective_deg", "cyclic_c_deg", "cyclic_s_deg", "rpm",
     # --- 2. RESOLVED axial flow (the manual's triad, Section 2.6.2) --
     "lambda_i", "lambda_total", "Vi", "Vz_total",
     # --- 3. coefficients, ROTOR convention ------------------------------

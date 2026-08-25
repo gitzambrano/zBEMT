@@ -2543,6 +2543,7 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
     iterations = 0
     coeffs_flap = None
     coeffs_lag = None
+    outer_history = []
 
     for iterations in range(1, max_iter + 1):
         if should_cancel is not None and should_cancel():
@@ -2566,6 +2567,7 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
                 hinge_offset_norm=e_norm)
 
         residual_deg = _coeff_delta_deg(new_coeffs, _vector_coeffs(state))
+        outer_history.append(residual_deg)
         state = state + relax * (_coeffs_vector(new_coeffs) - state)
         beta_ang, _unused_rate = _reconstruct(_vector_coeffs(state), psi_nodes)
         motion, _rn, psi_nodes, _RN, _PSI = build_motion_grid(
@@ -2594,6 +2596,7 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
 
     maps["flap_outer_iterations"] = iterations
     maps["flap_outer_residual_deg"] = residual_deg
+    maps["flap_outer_history"] = outer_history
     maps["nu_beta"] = float(np.sqrt(max(nu_beta_sq, 0.0)))
     maps["nu_beta_squared"] = float(nu_beta_sq)
     maps["lock_number"] = float(lock_number)

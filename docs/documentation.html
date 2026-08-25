@@ -696,11 +696,12 @@
 <li><a href="#sec-5-geometry">7. Geometry</a>
 <ol>
 <li><a href="#cap-2-1">7.1 Number of blades and radius</a></li>
-<li><a href="#cap-2-5">7.2 Root cutout</a></li>
-<li><a href="#cap-2-3">7.3 The radial table</a></li>
-<li><a href="#cap-2-2">7.4 Generating the table from a preset</a></li>
-<li><a href="#cap-2-6">7.5 The blade section</a></li>
-<li><a href="#cap-2-4">7.6 Preview</a></li>
+<li><a href="#sec-blade-dynamics">7.2 Blade dynamics</a></li>
+<li><a href="#cap-2-5">7.3 Root cutout</a></li>
+<li><a href="#cap-2-3">7.4 The radial table</a></li>
+<li><a href="#cap-2-2">7.5 Generating the table from a preset</a></li>
+<li><a href="#cap-2-6">7.6 The blade section</a></li>
+<li><a href="#cap-2-4">7.7 Preview</a></li>
 </ol></li>
 <li><a href="#sec-6-airfoil">8. Airfoil</a>
 <ol>
@@ -728,10 +729,11 @@
 <li><a href="#cap-5-1">10.1 In-plane flow — the first row</a></li>
 <li><a href="#cap-5-2">10.2 Along-shaft flow — the second row</a></li>
 <li><a href="#cap-5-3">10.3 Collective pitch</a></li>
-<li><a href="#cap-5-4">10.4 Rotational speed</a></li>
-<li><a href="#cap-5-5">10.5 Run mode and trim</a></li>
-<li><a href="#cap-5-6">10.6 Saved cases</a></li>
-<li><a href="#cap-5-7">10.7 The summary table</a></li>
+<li><a href="#sec-cyclic-pitch">10.4 Cyclic pitch</a></li>
+<li><a href="#cap-5-4">10.5 Rotational speed</a></li>
+<li><a href="#cap-5-5">10.6 Run mode and trim</a></li>
+<li><a href="#cap-5-6">10.7 Saved cases</a></li>
+<li><a href="#cap-5-7">10.8 The summary table</a></li>
 </ol></li>
 <li><a href="#sec-11-run-batch">11. Run Batch</a>
 <ol>
@@ -2472,7 +2474,13 @@ record of the mesh, solver, and rotor used (<a class="xref" href="#cap-6-6" titl
 
     <h2 id="cap-metodo">5. The method</h2>
 
-    <h3 id="sec-23-disk-discretization-radial-azimuthal-mesh">5.1 Disk discretization: radial-azimuthal mesh</h3>
+    <p>The method described next is quasi-steady twice over: the inflow reacts without inertia
+      inside one solve, and the blade, when it carries a flap or lag freedom, answers with a
+      periodic response that repeats every revolution instead of a transient. Both limits
+      belong to the model, not to an approximation of it, and they are what keep a
+      blade-element momentum solution consistent.</p>
+
+<h3 id="sec-23-disk-discretization-radial-azimuthal-mesh">5.1 Disk discretization: radial-azimuthal mesh</h3>
 
     <p>BEMT solves the physics on an elemental basis: a local equation is written at each point
       $(r,\psi)$ and the result is integrated numerically over the disk by means of a double Riemann integral
@@ -2601,7 +2609,7 @@ record of the mesh, solver, and rotor used (<a class="xref" href="#cap-6-6" titl
     <p>$\theta(r)$ is the geometric incidence of the blade chord with respect to the disk reference plane,
       at radial station $r$. It comprises two added components: the built-in twist
       $\theta_{tw}(r)$, embedded in the physical blade geometry and typically decreasing from root to tip
-      (<a class="xref" href="#cap-2-3" title="7.3 The radial table">Section 7.3</a>), and the pitch control commanded by
+      (<a class="xref" href="#cap-2-3" title="7.4 The radial table">Section 7.4</a>), and the pitch control commanded by
       the pilot or control system, which may have
       a collective component (uniform in $r$ and $\psi$) and a cyclic component (varying with $\psi$, used
       for attitude control in forward flight). $\theta(r)$ is, throughout the formulation, a pure
@@ -3604,8 +3612,8 @@ formats and limitations of each polar source.</p>
 
     <!-- INDICE-DE-CAMPOS:geometria -->
 <div class="boxed">
-<b>Fields in this tab, in the order they appear on screen</b> (2). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>n_blades</code> &rarr; <a href="#cap-2-1">7.1</a></li><li><code>radius_m</code> &rarr; <a href="#cap-2-1">7.1</a></li></ol>
+<b>Fields in this tab, in the order they appear on screen</b> (19). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>n_blades</code> &rarr; <a href="#cap-2-1">7.1</a></li><li><code>radius_m</code> &rarr; <a href="#cap-2-1">7.1</a></li><li><code>hinge_offset_norm</code> &rarr; <a href="#sec-bd-hinge-offset">7.2.2</a></li><li><code>flap_spring_nm_per_rad</code> &rarr; <a href="#sec-bd-flap-spring">7.2.3</a></li><li><code>inertia_source</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>lock_number</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>flap_inertia_kg_m2</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>blade_mass_kg</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>pitch_flap_coupling_deg</code> &rarr; <a href="#sec-bd-delta3">7.2.5</a></li><li><code>harmonics</code> &rarr; <a href="#sec-bd-harmonics">7.2.6</a></li><li><code>lag_enabled</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>lag_spring_nm_per_rad</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>lag_damping_nms_per_rad</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>lag_inertia_kg_m2</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>lag_feeds_back</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>outer_max_iter</code> &rarr; <a href="#sec-bd-harmonics">7.2.6</a></li><li><code>outer_tol_deg</code> &rarr; <a href="#sec-bd-harmonics">7.2.6</a></li><li><code>outer_relax</code> &rarr; <a href="#sec-bd-harmonics">7.2.6</a></li><li><code>flap_model</code> &rarr; <a href="#sec-bd-flap-model">7.2.1</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:geometria -->
     <p class="boxed"><b>Editorial scope.</b> Each field section below defines the quantity, identifies
@@ -3613,7 +3621,7 @@ formats and limitations of each polar source.</p>
       limitations, lists options, and separates <span class="gui">GUI</span>,
       <span class="bemt">.bemt</span>, and <span class="cli">CLI</span> configuration. The list above
       covers the fields that sit directly on the tab. The chapter also documents the radial table itself
-      (<a class="xref" href="#cap-2-3" title="7.3 The radial table">Section 7.3</a>) and the fields of the <i>Generate
+      (<a class="xref" href="#cap-2-3" title="7.4 The radial table">Section 7.4</a>) and the fields of the <i>Generate
         Table</i> dialog (7.4.1 and 7.4.2), which carry their own
       help where they appear.
     </p>
@@ -3667,7 +3675,193 @@ formats and limitations of each polar source.</p>
       <code>--geom-radius R</code>. Both can be combined with a preset, or applied on top of a geometry
       loaded from a file.
     </p>
-    <h3 id="cap-2-5">7.2 Root cutout</h3>
+    <h3 id="sec-blade-dynamics">7.2 Blade dynamics</h3>
+
+    <p><b>The physics.</b> Up to here the blade has been fixed to the hub: it rotates about the
+      shaft but cannot bend upwards or swing backwards. A real blade is hinged or flexible
+      enough to move. This block gives the rigid blade two rigid-body freedoms, solved as one
+      periodic response around the azimuth: flapping, an out-of-plane rotation $\beta(\psi)$
+      about a hinge at offset $e$, and lead-lag, an in-plane rotation $\zeta(\psi)$ at the same
+      offset. The blade itself stays rigid &mdash; it does not bend &mdash; and the response
+      carries no transient: each revolution repeats the previous one. The aerodynamics of one
+      station stays steady; only the motion adds terms to the local flow,</p>
+    <div class="eqn">$$U_P \mathrel{+}= (r-eR)\,\dot\beta + V_\infty\,\beta\cos\psi,
+      \qquad U_T \mathrel{+}= (r-eR)\,\dot\zeta,$$</div>
+    <p>so a moving blade changes what every downstream model sees.</p>
+
+    <p><b>The mathematics.</b> The flap motion obeys</p>
+    <div class="eqn">$$\ddot\beta + \nu_\beta^{2}\,\beta + d_\beta\,\dot\beta =
+      \frac{M_\beta(\psi)}{I_\beta\,\Omega^{2}}, \qquad
+      \nu_\beta^{2} = 1 + \frac{3}{2}\,\frac{e}{1-e} +
+      \frac{K_\beta}{I_\beta\Omega^{2}},$$</div>
+    <p>where $M_\beta(\psi)$ is the moment of the normal force about the hinge, $I_\beta$ the
+      flap inertia of one blade, and $d_\beta=(\gamma/6)(1-3e+3e^2)$ the aerodynamic damping
+      that the blade's own flapping rate produces. The response is written as a truncated
+      Fourier series, $\beta(\psi)=\beta_0+\sum_n[\beta_{nc}\cos n\psi+\beta_{ns}\sin n\psi]$,
+      which turns the equation algebraic per harmonic; because a flapping blade changes its own
+      loading, the solver exchanges the inflow solution with the blade solution until both stop
+      moving. The lag freedom follows the same scheme without the leading $1$:
+      $\nu_\zeta^{2}=\tfrac{3}{2}\,e/(1-e)+K_\zeta/(I_\zeta\Omega^{2})$. Two limits are worth
+      remembering. First, the resonance limit: when $|\nu_\beta^2-n^2|$ falls below $10^{-3}$
+      for any kept harmonic $n$, the response of that harmonic is undefined &mdash; this is
+      exactly the plain articulated rotor, whose $\nu_\beta$ equals $1$, and the software
+      rejects it by name instead of returning a large number. Second, the sign convention of
+      every reported angle: $\beta(\psi)=\beta_0+\beta_{1c}\cos\psi+\beta_{1s}\sin\psi$ with
+      positive up, and each tip-path-plane tilt is the negative of its first harmonic. The
+      coning angle raises thrust slightly in hover and tilts the disk in edgewise flight; the
+      hinge also opens a structural path through which part of the load reaches the hub as a
+      moment.</p>
+
+    <p><b>Configuration and valid range.</b> The hinge offset runs from $0$ to $0.3$;
+      typical articulated rotors sit near $0.03$ to $0.08$. Lock numbers between $5$ and $12$
+      cover most rotors. Keep at least two harmonics; more cost one solve each per outer
+      iteration. The defaults keep the blade fully rigid, which reproduces every result
+      computed before this block existed.</p>
+
+    <h4 id="sec-bd-flap-model">7.2.1 Flap model</h4>
+    <p><code>flap_model</code> chooses how much freedom the blade has: <b>Rigid</b> keeps the
+      plain rigid disk; <b>Hinge offset</b> pins the blade on an offset flap hinge;
+      <b>Root spring</b> restrains a flap hinge at the shaft with a spring;
+      <b>Offset and spring</b> combines both. The choice sets which other fields apply, and it
+      decides what the solver computes at all: a rigid disk reports only aerodynamic moments,
+      while a hinged or sprung blade also answers with motion. Use <i>Rigid</i> for propellers
+      and stiff eVTOL rotors whose first flap mode sits far above the rotation; use an offset
+      or a spring whenever the blades are articulated, or when the structural load that a
+      hinge carries into the hub is part of the question. The response is periodic in azimuth
+      and quasi-steady, so the model answers "where does the disk tilt" but not "how does it
+      get there".</p>
+    <p><span class="gui">GUI</span>: the <i>Flap model</i> dropdown of the Blade Dynamics
+      group on the Geometry tab.</p>
+    <p><span class="bemt">.bemt</span>: key <code>flap_model</code> inside
+      <code>dynamics</code> in <code>geom.bemt</code>; one of
+      <code>rigid</code>, <code>offset</code>, <code>spring</code>,
+      <code>offset_spring</code>.</p>
+    <p><span class="cli">CLI</span>: <code>--flap-model offset_spring</code>, or
+      <code>--set geom.dynamics.flap_model=offset_spring</code>.</p>
+
+    <h4 id="sec-bd-hinge-offset">7.2.2 Hinge offset</h4>
+    <p><code>hinge_offset_norm</code> is the flap (and lag) hinge distance from the shaft as a
+      fraction of the radius. It enters the frequency ratio through
+      $\tfrac{3}{2}e/(1-e)$, which grows quickly as the offset approaches unity, and it
+      shortens the moment arm of the inner stations because stations inboard of the hinge
+      carry no flap moment at all. The same offset opens the structural path that carries part
+      of the blade load into the hub as a moment proportional to $(\nu_\beta^2-1)\beta_1$:
+      on a hingeless-like rotor this path dominates the hub moments, which is why the offset
+      is the single most consequential value in the block. Zero together with no spring is the
+      articulated resonance named above, and the software refuses it rather than returning an
+      arbitrarily large response.</p>
+    <p><span class="gui">GUI</span>: <i>Hinge offset</i>, shown when the model uses an
+      offset.</p>
+    <p><span class="bemt">.bemt</span>: key <code>hinge_offset_norm</code> inside
+      <code>dynamics</code> in <code>geom.bemt</code>, default $0.0$.</p>
+    <p><span class="cli">CLI</span>: <code>--hinge-offset 0.05</code>, or
+      <code>--set geom.dynamics.hinge_offset_norm=0.05</code>.</p>
+
+    <h4 id="sec-bd-flap-spring">7.2.3 Flap spring</h4>
+    <p><code>flap_spring_nm_per_rad</code> is the stiffness $K_\beta$ of a spring restraining
+      the flap hinge, in newton metres per radian. It adds
+      $K_\beta/(I_\beta\Omega^2)$ to the square of the flap frequency ratio, so a soft spring
+      already moves the first flap mode away from resonance without changing the blades. The
+      term falls with the square of the rotation speed: a spring that matters at model scale
+      may vanish next to the centrifugal stiffness of a full-size rotor, which is why the
+      readout panel shows the resulting ratio rather than the raw value. Choose it together
+      with the inertia source, since the two decide the ratio jointly; the spring term uses
+      whatever inertia the chosen source resolves.</p>
+    <p><span class="gui">GUI</span>: <i>Flap spring</i>, shown for the spring models.</p>
+    <p><span class="bemt">.bemt</span>: key <code>flap_spring_nm_per_rad</code> inside
+      <code>dynamics</code> in <code>geom.bemt</code>, default $0$.</p>
+    <p><span class="cli">CLI</span>:
+      <code>--set geom.dynamics.flap_spring_nm_per_rad=250</code>.</p>
+
+    <h4 id="sec-bd-inertia">7.2.4 Flap inertia</h4>
+    <p><code>inertia_source</code> decides how $I_\beta$ is obtained. With <b>Lock number</b>,
+      <code>lock_number</code> ($\gamma$) converts back through
+      $I_\beta=\rho\,a\,c_{ref}R^{4}/\gamma$, using the lift-curve slope of the airfoil and the
+      chord at $r/R=0.75$. With <b>Flap inertia</b>, <code>flap_inertia_kg_m2</code> is used
+      directly. With <b>Blade mass</b>, <code>blade_mass_kg</code> spreads a uniform mass over
+      the flapping part: $I_\beta=m_b(R-eR)^{2}/3$. Whichever source runs, the resolved value
+      and the corresponding Lock number appear beside the inputs.</p>
+    <p>The three sources agree through one quantity, and they must: the Lock number fixes
+      how strongly air moves the blade, and it also sets the aerodynamic damping
+      $d_\beta=(\gamma/6)(1-3e+3e^2)$ that keeps the periodic response finite. A light blade
+      (large $\gamma$) responds more, damps more, and cones further under the same thrust;
+      a heavy blade barely answers. Whichever source is chosen, the panel beside the inputs
+      shows the resolved pair &mdash; the inertia and the Lock number &mdash; so a value typed
+      in one vocabulary can be read in the other before any solve runs.</p>
+    <p><span class="gui">GUI</span>: the <i>Inertia from</i> dropdown plus the field it
+      reveals (<i>Lock number</i>, <i>Flap inertia</i> or <i>Blade mass</i>).</p>
+    <p><span class="bemt">.bemt</span>: keys <code>inertia_source</code>,
+      <code>lock_number</code>, <code>flap_inertia_kg_m2</code> and
+      <code>blade_mass_kg</code> inside <code>dynamics</code> in
+      <code>geom.bemt</code>.</p>
+    <p><span class="cli">CLI</span>: <code>--lock-number 8.0</code>, or
+      <code>--set geom.dynamics.inertia_source=inertia</code> together with
+      <code>--set geom.dynamics.flap_inertia_kg_m2=0.09</code>.</p>
+
+    <h4 id="sec-bd-delta3">7.2.5 Pitch-flap coupling</h4>
+    <p><code>pitch_flap_coupling_deg</code> is the delta-three angle $\delta_3$: kinematic
+      coupling that reduces the local pitch by $\tan(\delta_3)\,\beta$ when the blade flaps
+      up. The lost pitch removes lift exactly where the blade flapped up, so the coupling acts
+      as an extra aerodynamic spring on top of any mechanical spring: positive values stabilize
+      the flap response and raise its effective frequency, while negative values soften it.
+      The price of stabilization is authority, because every degree of flapping now costs
+      $\tan(\delta_3)$ degrees of effective collective, and large angles push the tip sections
+      toward stall on the retreating side. Values within $\pm45^\circ$ cover the couplings
+      seen in practice.</p>
+    <p><span class="gui">GUI</span>: <i>Pitch-flap coupling</i>, from $-60$ to $60$
+      degrees.</p>
+    <p><span class="bemt">.bemt</span>: key <code>pitch_flap_coupling_deg</code> inside
+      <code>dynamics</code> in <code>geom.bemt</code>, default $0$.</p>
+    <p><span class="cli">CLI</span>:
+      <code>--set geom.dynamics.pitch_flap_coupling_deg=-30</code>.</p>
+
+    <h4 id="sec-bd-harmonics">7.2.6 Harmonics and outer-loop controls</h4>
+    <p><code>harmonics</code> is $N_h$, the number of harmonics kept in the balance. The
+      loading of a rotor varies mostly once per revolution, so $N_h=2$ already describes the
+      response of most designs; each extra harmonic resolves sharper azimuthal features at
+      the cost of one solve per outer iteration, and each one must sit off its own resonance,
+      since the guard checks every kept harmonic. <code>outer_max_iter</code>,
+      <code>outer_tol_deg</code> and <code>outer_relax</code> govern the exchange between
+      inflow and blade motion: iteration limit, convergence tolerance measured as the largest
+      coefficient change in degrees, and relaxation factor applied to each correction. The
+      achieved iteration count and residual travel with the results, and the Results tab draws
+      the trace. Raise the tolerance or the iteration count if the residual never settles, and
+      lower the relaxation if the trace oscillates instead of falling.</p>
+    <p><span class="gui">GUI</span>: <i>Harmonics</i>, <i>Outer iterations</i>, <i>Outer
+      tolerance</i> and <i>Outer relaxation</i> in the Blade Dynamics group.</p>
+    <p><span class="bemt">.bemt</span>: keys <code>harmonics</code>,
+      <code>outer_max_iter</code>, <code>outer_tol_deg</code> and
+      <code>outer_relax</code> inside <code>dynamics</code> in
+      <code>geom.bemt</code>.</p>
+    <p><span class="cli">CLI</span>:
+      <code>--set geom.dynamics.harmonics=3</code>.</p>
+
+    <h4 id="sec-bd-lead-lag">7.2.7 Lead-lag</h4>
+    <p>Toggling <code>lag_enabled</code> adds the in-plane freedom at the same offset. Its
+      equation mirrors the flap one without thrust restoring: nothing in steady flight pulls
+      the blade back against lead-lag, so the leading $1$ disappears from the frequency ratio
+      and the freedom needs either an offset or a spring &mdash; with neither, the ratio is
+      zero and the response is undefined. <code>lag_spring_nm_per_rad</code> ($K_\zeta$)
+      supplies restoring stiffness, <code>lag_damping_nms_per_rad</code> ($C_\zeta$) plays the
+      role a mechanical damper plays on real rotors and couples the sine and cosine parts of
+      each harmonic into a small two-by-two solve, and <code>lag_inertia_kg_m2</code>
+      ($I_\zeta$) normalizes the moment. When <code>lag_feeds_back</code> is set, the lag rate
+      modifies the tangential speed of each element, closing the loop between lag motion and
+      aerodynamics; leaving it off turns the lag into a diagnostic that does not act back on
+      the loads.</p>
+    <p><span class="gui">GUI</span>: the <i>Enable lead-lag freedom</i> check box and the four
+      fields beneath it.</p>
+    <p><span class="bemt">.bemt</span>: keys <code>lag_enabled</code>,
+      <code>lag_spring_nm_per_rad</code>, <code>lag_damping_nms_per_rad</code>,
+      <code>lag_inertia_kg_m2</code> and <code>lag_feeds_back</code> inside
+      <code>dynamics</code> in <code>geom.bemt</code>.</p>
+    <p><span class="cli">CLI</span>:
+      <code>--set geom.dynamics.lag_enabled=true</code>.</p>
+
+    <p>An example project with an articulated blade lives at
+      <a href="#cap-projeto" title="6. Project"><code>projects/flapping_rotor</code></a>.</p>
+
+    <h3 id="cap-2-5">7.3 Root cutout</h3>
 
     <p><b>The physics.</b> The blade does not begin at the axis. The innermost part of the span is
       occupied by the hub, the grips and the pitch bearings, which carry no aerofoil section and produce
@@ -3704,7 +3898,7 @@ formats and limitations of each polar source.</p>
     </p>
 
     <p><span class="cli">CLI</span>: <code>--geom-root-cutout X</code>.</p>
-    <h3 id="cap-2-3">7.3 The radial table</h3>
+    <h3 id="cap-2-3">7.4 The radial table</h3>
 
     <p><b>The physics.</b> The table is the blade. Each row gives, at one radial station, the chord and
       the twist of the section there. Chord decides how much area that station has to generate lift with,
@@ -3742,7 +3936,7 @@ formats and limitations of each polar source.</p>
 r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial position, the
       normalized chord and the twist separated by colons. <code>--geom-file PATH</code> loads a complete
       geometry that has already been saved.</p>
-    <h3 id="cap-2-2">7.4 Generating the table from a preset</h3>
+    <h3 id="cap-2-2">7.5 Generating the table from a preset</h3>
 
     <p><b>The physics.</b> Rather than typing a table, a blade can be generated from a planform
       description. The three presets are the three classical planforms, and they differ in how the chord
@@ -3802,7 +3996,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       <code>--geom-max-chord C</code>, <code>--geom-twist-root T0</code> and
       <code>--geom-twist-tip T1</code> supplying the parameters the chosen preset uses.
     </p>
-    <h4 id="cap-2-2-0">7.4.1 The dialog's fields</h4>
+    <h4 id="cap-2-2-0">7.5.1 The dialog's fields</h4>
 
     <p><b>The planform.</b> <code>kind</code> selects which of the three shapes is generated, and
       decides which of the fields below are read. A rectangular blade needs only its chord. A tapered one
@@ -3857,7 +4051,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       set with <code>--set</code>, for example <code>--set geom.origin_params=...</code>.
     </p>
 
-    <h4 id="cap-2-2-1">7.4.2 Solidity and blade aspect ratio</h4>
+    <h4 id="cap-2-2-1">7.5.2 Solidity and blade aspect ratio</h4>
 
     <p>The same dialog can size the chord from a target solidity or a target blade aspect ratio instead
       of from a chord in metres. For $N_b$ blades of radius $R$ and planform area $S_b$ each,</p>
@@ -3883,7 +4077,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       load per unit of disk area but raises profile drag and therefore power. Higher aspect ratio tends
       to reduce the induced loss for a comparable distribution of lift.</p>
 
-    <h3 id="cap-2-6">7.5 The blade section</h3>
+    <h3 id="cap-2-6">7.6 The blade section</h3>
 
     <p><b>Definition.</b> The geometry records which aerofoil the blade uses. It is a label rather than
       a shape: the aerodynamic behavior of the section, its lift and drag against angle of attack, is
@@ -3903,7 +4097,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
     <p><span class="cli">CLI</span>: <code>--set geom.airfoil_name=NAME</code>.</p>
 
-    <h3 id="cap-2-4">7.6 Preview</h3>
+    <h3 id="cap-2-4">7.7 Preview</h3>
 
     <p>The panel on the right redraws whenever the geometry changes, and it is the quickest check that
       a table is what was intended. <i>Plan View</i> draws the planform of every blade in the disk, so an
@@ -6630,8 +6824,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                     <!-- INDICE-DE-CAMPOS:run_case -->
 <div class="boxed">
-<b>Fields in this tab, in the order they appear on screen</b> (4). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.4</a></li></ol>
+<b>Fields in this tab, in the order they appear on screen</b> (6). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:run_case -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below follows the visible order and
@@ -6644,7 +6838,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       <ol>
                         <li>Choose the <b>run mode</b>: the direct mode, in which the collective is an input and the
                           thrust is a result, or a trim mode, in which the collective is solved for a requested thrust
-                          (<a class="xref" href="#cap-5-5" title="10.5 Run mode and trim">Section 10.5</a>).</li>
+                          (<a class="xref" href="#cap-5-5" title="10.6 Run mode and trim">Section 10.6</a>).</li>
                         <li>Fill the <b>two flow rows</b>. Together they define a single operating point. Each row has a
                           dropdown that selects how the value is expressed. Changing it converts the number on screen
                           and
@@ -6850,7 +7044,37 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       flow, so it has no reason to follow the shaft.</p>
 
                     <p><span class="cli">CLI</span>: <code>--collective X</code>.</p>
-                    <h3 id="cap-5-4">10.4 Rotational speed</h3>
+                    <h3 id="sec-cyclic-pitch">10.4 Cyclic pitch</h3>
+
+    <p><b>The physics.</b> Collective pitch is the same at every azimuth; cyclic pitch varies
+      once per revolution as $\theta_{1c}\cos\psi+\theta_{1s}\sin\psi$ on top of it. Because
+      the pitch the blade sees now depends on where the blade is, cyclic pitch tilts the blade
+      response: it is the control that holds the disk where it should be.</p>
+
+    <p><b>The mathematics.</b> The two harmonics reach the engine through the same blade-motion
+      path as flapping, entering the local pitch directly. With flap freedom enabled they are
+      genuine controls: the run mode <i>Solve cyclic (zero flapping)</i> of Section
+      <a href="#cap-5-5" title="10.6 Run mode and trim">10.6</a> solves both angles until the
+      first flap harmonics vanish. On a fully rigid blade the angles still enter as azimuthal
+      pitch, but no blade responds to them dynamically, so the fields stay disabled there.
+      The flap freedom itself is configured on another page; see the Blade Dynamics block of
+      this project's Geometry tab.</p>
+
+    <p><b>Configuration and valid range.</b> Both fields accept $-30$ to $30$ degrees and
+      default to $0$. They are saved with every condition and batch entry.</p>
+
+    <p><span class="gui">GUI</span>: the <i>Cyclic &theta;<sub>1c</sub></i> and
+      <i>Cyclic &theta;<sub>1s</sub></i> fields of the Run Case tab, next to the collective.
+      They stay visible but disabled while the blade has no flap freedom.</p>
+
+    <p><span class="bemt">.bemt</span>: keys <code>cyclic_c_deg</code> and
+      <code>cyclic_s_deg</code>, stored beside the collective pitch in each saved
+      condition of <code>saved_cases.bemt</code> and <code>batches.bemt</code>.</p>
+
+    <p><span class="cli">CLI</span>: <code>--cyclic C S</code> takes both angles in degrees
+      for the ad hoc condition.</p>
+
+    <h3 id="cap-5-4">10.5 Rotational speed</h3>
                     <a id="cap-5-3-2"></a>
 
                     <p><b>The physics.</b> The rotational speed sets the scale of every velocity in the problem. It is
@@ -6886,7 +7110,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <p><span class="cli">CLI</span>: <code>--rpm X</code>. It is also required whenever a flow
                       component is given as a speed in m/s or as an angle, since both of those need the tip speed before
                       they can be converted.</p>
-                    <h3 id="cap-5-5">10.5 Run mode and trim</h3>
+                    <h3 id="cap-5-5">10.6 Run mode and trim</h3>
 
                     <p><b>The physics.</b> A rotor is not usually specified by its collective but by the thrust it has
                       to produce. The run mode chooses between the two ways of expressing that. In the direct mode the
@@ -6922,7 +7146,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       Exactly one of <code>--trim-target-thrust X</code> in newtons or <code>--trim-target-ct X</code>
                       must be given. In a batch every queued condition is trimmed independently.</p>
 
-                    <h3 id="cap-5-6">10.6 Saved cases</h3>
+                    <h3 id="cap-5-6">10.7 Saved cases</h3>
 
                     <p>A saved case is a named operating point kept with the project, so that a condition worth
                       repeating does not have to be retyped. Saving records the four fields above as one entry. Loading
@@ -6945,7 +7169,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       exits, and <code>--from-bemt-case NAME</code> runs one of them instead of building a condition
                       from flags.</p>
 
-                    <h3 id="cap-5-7">10.7 The summary table</h3>
+                    <h3 id="cap-5-7">10.8 The summary table</h3>
 
                     <p>After a run, the table lists the condition that was solved together with the integrated
                       results: the thrust, torque and power coefficients $C_T$, $C_Q$ and $C_P$, the figure of merit
@@ -6986,7 +7210,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <!-- INDICE-DE-CAMPOS:run_batch -->
 <div class="boxed">
 <b>Fields in this tab, in the order they appear on screen</b> (4). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.4</a></li></ol>
+<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:run_batch -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below explains how the control changes

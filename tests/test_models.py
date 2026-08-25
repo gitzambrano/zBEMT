@@ -15,7 +15,7 @@ from pathlib import Path
 
 from zbemt.models import (
     RotorGeometryDef, AirfoilDef, ProfileGeometry, PolarSlice,
-    FlightCondition, BatchDefinition, Project,
+    FlightCondition, BatchDefinition, Project, BladeDynamicsDef,
     save_bemt, load_bemt, save_bemt_list, load_bemt_list, default_project_paths,
     migrate_config_raw,
 )
@@ -43,6 +43,47 @@ class TestSaveLoadRoundtrip(unittest.TestCase):
         save_bemt(geom, path)
         loaded = load_bemt(RotorGeometryDef, path)
         self.assertEqual(loaded, geom)
+
+    def test_blade_dynamics_roundtrip(self):
+        """SC-11: the blade-dynamics block survives save/load as a nested
+        dataclass inside the geometry (PA-2)."""
+        geom = RotorGeometryDef(
+            r_norm=[0.2, 0.6, 1.0], chord_norm=[0.1, 0.07, 0.04],
+            twist_deg=[10.0, 5.0, 1.0],
+            dynamics=BladeDynamicsDef(
+                flap_model="offset_spring", hinge_offset_norm=0.08,
+                flap_spring_nm_per_rad=250.0,
+                inertia_source="inertia", lock_number=7.0,
+                flap_inertia_kg_m2=0.12, blade_mass_kg=3.5,
+                pitch_flap_coupling_deg=-30.0, harmonics=4,
+                outer_max_iter=45, outer_tol_deg=1e-3, outer_relax=0.45,
+                lag_enabled=True, lag_spring_nm_per_rad=900.0,
+                lag_damping_nms_per_rad=60.0, lag_inertia_kg_m2=0.05,
+                lag_feeds_back=False),
+        )
+        path = self._path("geom_dyn.bemt")
+        save_bemt(geom, path)
+        loaded = load_bemt(RotorGeometryDef, path)
+        self.assertIsInstance(loaded.dynamics, BladeDynamicsDef)
+        self.assertEqual(loaded.dynamics, geom.dynamics)
+
+    def test_old_geometry_file_without_dynamics_loads_rigid(self):
+        """A geom.bemt saved before SC-11 has no ``dynamics`` key: it must
+        load with the default block, which is exactly a rigid blade -- the
+        behavior of every project that predates flapping."""
+        legacy = {
+            "r_norm": [0.2, 0.6, 1.0],
+            "chord_norm": [0.1, 0.07, 0.04],
+            "twist_deg": [10.0, 5.0, 1.0],
+            "n_blades": 2, "radius_m": 1.2, "root_cutout_norm": 0.2,
+        }
+        path = self._path("geom_legacy.bemt")
+        import json
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(legacy, handle)
+        loaded = load_bemt(RotorGeometryDef, path)
+        self.assertEqual(loaded.dynamics.flap_model, "rigid")
+        self.assertEqual(loaded.dynamics, BladeDynamicsDef())
 
     def test_airfoil_def_with_nested_objects_roundtrip(self):
         # T6: ALL fields filled with non-default values, and

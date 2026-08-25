@@ -86,6 +86,47 @@ class TestConfigFlags(unittest.TestCase):
             self.assertFalse(project.airfoil.use_dynamic_stall)
 
 
+class TestNestedSetWalksDataclasses(unittest.TestCase):
+    """PA-1/PA-3: --set must reach fields of NESTED dataclasses (the
+    blade-dynamics block of SC-11), not only top-level ones."""
+
+    def test_set_descends_into_geometry_dynamics(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path, "--rpm", "600",
+                                  "--set", "geom.dynamics.flap_model=offset",
+                                  "--set", "geom.dynamics.hinge_offset_norm=0.07",
+                                  "--save-as", path])
+            project = api.open_project(path)
+            self.assertEqual(project.geometry.dynamics.flap_model, "offset")
+            self.assertAlmostEqual(
+                project.geometry.dynamics.hinge_offset_norm, 0.07)
+
+    def test_set_rejects_an_unknown_nested_field_by_name(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()), \
+                 contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    main_batch.main(["--new", path, "--rpm", "600",
+                                      "--set", "geom.dynamics.not_a_field=1"])
+
+    def test_flap_flags_and_cyclic_flag(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path, "--rpm", "600",
+                                  "--flap-model", "spring",
+                                  "--hinge-offset", "0.0",
+                                  "--lock-number", "9.5",
+                                  "--save-as", path])
+            project = api.open_project(path)
+            dynamics = project.geometry.dynamics
+            self.assertEqual(dynamics.flap_model, "spring")
+            self.assertEqual(dynamics.lock_number, 9.5)
+
+
 class TestStallModelFlagsAreDistinct(unittest.TestCase):
     """AirfoilDef.stall_model (STATIC polar shape past stall) and
     BEMTConfig.dynamic_stall_model (DYNAMIC stall model) are distinct

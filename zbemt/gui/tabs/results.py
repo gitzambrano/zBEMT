@@ -440,8 +440,10 @@ class ResultsTab(QWidget):
     _SELECT_ONE_MESSAGE = (
         "Select at least one result in the list on the left.")
 
-    _MODES = ["Disk map", "Coefficients vs axis", "Azimuth / Radius", "3D", "Table", "Convergence"]
-    _SINGLE_RESULT_MODES = {"Disk map", "Azimuth / Radius", "3D", "Convergence"}
+    _MODES = ["Disk map", "Coefficients vs axis", "Azimuth / Radius", "3D",
+              "Table", "Convergence", "Blade dynamics"]
+    _SINGLE_RESULT_MODES = {"Disk map", "Azimuth / Radius", "3D", "Convergence",
+                            "Blade dynamics"}
     _FACTORIAL_AXES = ["mu_x", "alpha_deg", "collective_deg", "rpm"]
 
     # Bug 4: names aligned with the actual keys of result.maps and with
@@ -595,7 +597,8 @@ class ResultsTab(QWidget):
         self.options_stack = QStackedWidget()
         for builder in (self._build_disk_options, self._build_axis_options,
                         self._build_sweep_options, self._build_3d_options,
-                        self._build_table_options, self._build_convergence_options):
+                        self._build_table_options, self._build_convergence_options,
+                        self._build_flap_options):
             self.options_stack.addWidget(builder())
         # The options strip occupies the height of the CURRENT panel, not
         # the tallest one. A `QStackedWidget` requests the height of the
@@ -829,6 +832,8 @@ class ResultsTab(QWidget):
                 self._refresh_table()
             elif mode == "Convergence":
                 self._refresh_convergence()
+            elif mode == "Blade dynamics":
+                self._refresh_flap_response()
         except Exception as exc:
             self.canvas_host.show_message(f"Could not draw this view: {exc}")
 
@@ -1851,6 +1856,138 @@ class ResultsTab(QWidget):
         self.canvas_host.show_figure(
             ("sweep", self._selection_signature(), per_radius, tuple(targets)), factory)
 
+    # --- 5b) Blade dynamics (SC-11) ------------------------------------
+
+    #: Fields the effect-of-flapping comparison can draw.
+    _FLAP_EFFECT_FIELDS = ["alpha_eff", "Cl", "Cd", "Fn", "Ft"]
+
+    def _build_flap_options(self) -> QWidget:
+        box = QGroupBox("Blade dynamics")
+        layout = QVBoxLayout(box)
+        note = QLabel(
+            "Plots of the blade's flap response. The effect comparison "
+            "re-runs this same condition once more with flapping switched "
+            "off, so the two disks show exactly what the blade motion "
+            "changed.")
+        note.setWordWrap(True)
+        note.setStyleSheet("color: gray;")
+        layout.addWidget(note)
+        row1 = QHBoxLayout()
+        row1.addWidget(QLabel("Effect field:"))
+        self.flap_effect_field_combo = QComboBox()
+        self.flap_effect_field_combo.addItems(self._FLAP_EFFECT_FIELDS)
+        self.flap_effect_field_combo.setToolTip(
+            "Quantity drawn in the two disk maps of 'Effect of flapping': "
+            "effective angle of attack, section coefficients, or forces.")
+        row1.addWidget(self.flap_effect_field_combo, 1)
+        layout.addLayout(row1)
+        row2 = QHBoxLayout()
+        btn_response = QPushButton("Flap response")
+        btn_response.setToolTip(
+            "Polar plot of the flap angle over one revolution, with the "
+            "harmonic amplitudes annotated.")
+        btn_response.clicked.connect(self._refresh_flap_response)
+        row2.addWidget(btn_response)
+        btn_effect = QPushButton("Effect of flapping")
+        btn_effect.setToolTip(
+            "Two disk maps side by side — the same condition with the blade "
+            "rigid and with the flap solution — of the field chosen above.")
+        btn_effect.clicked.connect(self._refresh_flap_effect)
+        row2.addWidget(btn_effect)
+        row2.addStretch(1)
+        layout.addLayout(row2)
+        row3 = QHBoxLayout()
+        btn_conv = QPushButton("Convergence")
+        btn_conv.setToolTip(
+            "Outer-loop trace: how large a correction each iteration tried "
+            "to apply to the flap coefficients, until it met the tolerance.")
+        btn_conv.clicked.connect(self._refresh_flap_convergence)
+        row3.addWidget(btn_conv)
+        row3.addStretch(1)
+        layout.addLayout(row3)
+        return box
+
+    def _flap_condition_of(self, result):
+        """Rebuilds the FlightCondition a result was solved at, so the
+        effect comparison can re-run it without flapping."""
+        from dataclasses import replace as dc_replace
+        summary = result.summary
+        rpm = summary.get("rpm") or summary.get("rotor_rpm")
+        return dc_replace(
+            api.FlightCondition(),
+            name=result.condition_name or "case",
+            mu_x=float(summary.get("mu_x", 0.0)),
+            Vz=float(result.maps.get("Vz", 0.0)),
+            collective_deg=float(summary.get("collective_deg", 8.0)),
+            cyclic_c_deg=float(summary.get("cyclic_c_deg", 0.0)),
+            cyclic_s_deg=float(summary.get("cyclic_s_deg", 0.0)),
+            rpm=(float(rpm) if rpm else None),
+        )
+
+    def _require_flapping_result(self):
+        result = self._resolve_single_result()
+        if result is None:
+            self.canvas_host.show_message(self._SELECT_ONE_MESSAGE)
+            return None
+        if not result.maps.get("beta_coeffs"):
+            self.canvas_host.show_message(
+                "This condition has no blade-dynamics solution. Choose a "
+                "flap model other than 'rigid' in the Geometry tab and run "
+                "the case again.")
+            return None
+        return result
+
+    def _refresh_flap_response(self):
+        self.canvas_stack.setCurrentIndex(0)
+        result = self._require_flapping_result()
+        if result is None:
+            return
+        self.canvas_host.show_figure(
+            ("flap_response", self._selection_signature()),
+            lambda: plots.plot_flap_response(result.maps))
+
+    def _refresh_flap_convergence(self):
+        self.canvas_stack.setCurrentIndex(0)
+        result = self._require_flapping_result()
+        if result is None:
+            return
+        tol = float(self.state.project.geometry.dynamics.outer_tol_deg) \
+            if self.state.project else None
+        self.canvas_host.show_figure(
+            ("flap_conv", self._selection_signature()),
+            lambda: plots.plot_flap_convergence(
+                result.maps.get("flap_outer_history"), tol_deg=tol))
+
+    def _refresh_flap_effect(self):
+        self.canvas_stack.setCurrentIndex(0)
+        result = self._require_flapping_result()
+        if result is None:
+            return
+        project = self.state.project
+        if project is None:
+            self.canvas_host.show_message("No project open.")
+            return
+        field = self.flap_effect_field_combo.currentText()
+
+        def factory():
+            # Re-run the SAME condition with the blade rigid: nothing is
+            # written to disk, the variant lives only in memory.
+            from dataclasses import replace as dc_replace
+            rigid_dyn = dc_replace(project.geometry.dynamics,
+                                    flap_model="rigid")
+            rigid_project = dc_replace(
+                project,
+                geometry=dc_replace(project.geometry, dynamics=rigid_dyn))
+            res_off = api.run_case(rigid_project,
+                                    self._flap_condition_of(result))
+            return plots.plot_flap_effect_map(result.maps, res_off.maps,
+                                               field=field)
+
+        self.canvas_host.show_message(
+            "Re-solving the condition without flapping…")
+        self.canvas_host.show_figure(
+            ("flap_effect", self._selection_signature(), field), factory)
+
     # --- 6) 3D --------------------------------------------------------
 
     def _build_3d_options(self) -> QWidget:
@@ -2420,6 +2557,13 @@ class ResultsTab(QWidget):
             "Copy figure",
             "Copies the convergence plot on screen to the clipboard as an "
             "image."),
+        "Blade dynamics": (
+            "Export plots…",
+            "Saves the blade-dynamics plot on screen (flap response, effect "
+            "comparison, or convergence trace) to an image file.",
+            "Copy figure",
+            "Copies the blade-dynamics plot on screen to the clipboard as "
+            "an image."),
     }
 
     #: Modes whose export is ONE FILE PER CONDITION: the screen shows

@@ -95,3 +95,4 @@ venv.bak/
 
 # build artifact: setup.py copies docs/ here when packaging
 /zbemt/docs/
+!/projects/flapping_rotor/

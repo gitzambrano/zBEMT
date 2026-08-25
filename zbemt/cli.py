@@ -290,6 +290,14 @@ def _build_parser() -> argparse.ArgumentParser:
                                    "Rotor mode only; a propeller reads --alpha-disk-deg. "
                                    "(--disk-alpha-deg is kept as an alias of this flag.)")
     p.add_argument("--collective", type=float, default=8.0, help="Collective pitch [deg] for ad hoc.")
+    p.add_argument("--cyclic", dest="cyclic", nargs=2, type=float, default=None,
+                   metavar=("C", "S"),
+                   help="Cyclic pitch for the ad hoc condition: the cosine and "
+                        "sine 1/rev harmonics (theta_1c theta_1s), both in "
+                        "degrees. It reaches the engine through the blade-motion "
+                        "path, so it takes effect on a rigid blade only as an "
+                        "azimuthal pitch; with flap freedom (SC-11) it is one "
+                        "of the cyclic controls.")
 
     # --- Geometry (RotorGeometryDef) -- Part 3.3, geometry group ---------
     p.add_argument("--geom-preset", choices=["rectangular", "tapered", "elliptic", "custom"],
@@ -319,6 +327,21 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--geom-custom-points", metavar="r:c:t,r:c:t,...", default=None,
                     help="Point-by-point table (custom preset): r/R:chord_norm:twist_deg, "
                          "separated by comma.")
+
+    # --- Blade dynamics (RotorGeometryDef.dynamics) -- SC-11 -------------
+    p.add_argument("--flap-model", choices=["rigid", "offset", "spring", "offset_spring"],
+                   default=None,
+                   help="Choose the blade's flap freedom "
+                        "(RotorGeometryDef.dynamics.flap_model): a rigid disk, a "
+                        "hinge offset, a root spring, or both together.")
+    p.add_argument("--hinge-offset", type=float, default=None,
+                   help="Flap hinge offset e, as a fraction of the radius "
+                        "(dynamics.hinge_offset_norm), 0 to 0.3.")
+    p.add_argument("--lock-number", type=float, default=None,
+                   help="Lock number gamma of the blade "
+                        "(dynamics.lock_number); sets the aerodynamic-to-"
+                        "inertial response ratio when the inertia source is "
+                        "the Lock number.")
 
     # --- Airfoil (AirfoilDef) -- Part 3.3 -------------------------------
     p.add_argument("--airfoil-source", choices=["analytical", "table"], default=None,
@@ -586,6 +609,15 @@ def _apply_geometry_flags(project, args) -> None:
         if args.geom_n_blades is not None:
             g.n_blades = args.geom_n_blades
 
+    # --- blade dynamics (SC-11): the three fields a user changes most ----
+    d = project.geometry.dynamics
+    if args.flap_model is not None:
+        d.flap_model = args.flap_model
+    if args.hinge_offset is not None:
+        d.hinge_offset_norm = args.hinge_offset
+    if args.lock_number is not None:
+        d.lock_number = args.lock_number
+
 
 def _apply_airfoil_flags(project, args) -> None:
     a = project.airfoil
@@ -685,11 +717,23 @@ def _convert_set_value(raw_value: str, py_type, field_name: str):
 
 def _apply_set_flags(project, args) -> None:
     """Applies all --set flags, AFTER the dedicated flags (precedence
-    documented in --help): in case of conflict, --set wins."""
+    documented in --help): in case of conflict, --set wins.
+
+    The key walks NESTED dataclasses: ``geom.dynamics.flap_model=offset``
+    descends ``project.geometry.dynamics`` field by field. This keeps a
+    new nested block (SC-11 and friends) reachable from the CLI without a
+    dedicated flag per field (PA-1/PA-3). ``config`` stays a flat
+    namespace: it is a dict of BEMTConfig entries."""
     if not args.set:
         return
 
     type_hints_cache: dict = {}
+
+    def _hints(cls):
+        if cls not in type_hints_cache:
+            type_hints_cache[cls] = typing.get_type_hints(cls)
+        return type_hints_cache[cls]
+
     for item in args.set:
         if "=" not in item:
             raise SystemExit(
@@ -700,35 +744,60 @@ def _apply_set_flags(project, args) -> None:
             raise SystemExit(
                 f"--set: {key!r} needs a namespace (config./airfoil./geom.), "
                 f"for example --set config.{key}=...")
-        ns, field_name = key.split(".", 1)
-        dataclass_type = _SET_NAMESPACE_DATACLASS.get(ns)
-        if dataclass_type is None:
+        ns, path = key.split(".", 1)
+        if ns not in _SET_NAMESPACE_DATACLASS:
             raise SystemExit(
                 f"--set: invalid namespace {ns!r}. Valid: "
                 f"{', '.join(sorted(_SET_NAMESPACE_DATACLASS))}.")
-
-        valid_fields = {f.name for f in dataclasses.fields(dataclass_type)}
-        if field_name not in valid_fields:
-            raise SystemExit(
-                f"--set: field '{ns}.{field_name}' does not exist in "
-                f"{dataclass_type.__name__}. Valid fields: "
-                f"{', '.join(sorted(valid_fields))}.")
-
-        if dataclass_type not in type_hints_cache:
-            type_hints_cache[dataclass_type] = typing.get_type_hints(dataclass_type)
-        py_type = type_hints_cache[dataclass_type][field_name]
-
-        try:
-            value = _convert_set_value(raw_value, py_type, field_name)
-        except ValueError as exc:
-            raise SystemExit(f"--set: {exc}")
+        steps = path.split(".")
 
         if ns == "config":
-            project.config[field_name] = value           # dict (asdict of BEMTConfig)
-        elif ns == "airfoil":
-            setattr(project.airfoil, field_name, value)
-        elif ns == "geom":
-            setattr(project.geometry, field_name, value)
+            # Flat namespace: one level over a BEMTConfig-shaped dict.
+            if len(steps) != 1:
+                raise SystemExit(
+                    f"--set config.{path}: the config namespace does not "
+                    "descend into sub-objects.")
+            field_name = steps[0]
+            valid_fields = {f.name for f in dataclasses.fields(BEMTConfig)}
+            if field_name not in valid_fields:
+                raise SystemExit(
+                    f"--set: field 'config.{field_name}' does not exist in "
+                    f"BEMTConfig. Valid fields: "
+                    f"{', '.join(sorted(valid_fields))}.")
+            try:
+                value = _convert_set_value(
+                    raw_value, _hints(BEMTConfig)[field_name], field_name)
+            except ValueError as exc:
+                raise SystemExit(f"--set: {exc}")
+            project.config[field_name] = value
+            continue
+
+        owner = {"airfoil": project.airfoil, "geom": project.geometry}.get(ns)
+        current = owner
+        current_type = _SET_NAMESPACE_DATACLASS[ns]
+        for depth, field_name in enumerate(steps):
+            last = depth == len(steps) - 1
+            valid_fields = {f.name for f in dataclasses.fields(current_type)}
+            where = ".".join((ns,) + tuple(steps[:depth + 1]))
+            if field_name not in valid_fields:
+                raise SystemExit(
+                    f"--set: field '{where}' does not exist in "
+                    f"{current_type.__name__}. Valid fields: "
+                    f"{', '.join(sorted(valid_fields))}.")
+            py_type = _unwrap_optional(_hints(current_type)[field_name])
+            if not last:
+                if not dataclasses.is_dataclass(py_type):
+                    raise SystemExit(
+                        f"--set: '{where}' is not a nested dataclass; "
+                        "the path cannot descend further.")
+                current = getattr(current, field_name)
+                current_type = py_type
+                continue
+            try:
+                value = _convert_set_value(raw_value, py_type, field_name)
+            except ValueError as exc:
+                raise SystemExit(f"--set: {exc}")
+            setattr(current, field_name, value)
 
 
 # =============================================================================
@@ -1134,6 +1203,8 @@ def main(argv=None, options=None) -> int:
         condition = FlightCondition(
             name="cli", rpm=args.rpm, mu_x=mu_x, Vz=Vz,
             collective_deg=args.collective,
+            cyclic_c_deg=(args.cyclic[0] if args.cyclic else 0.0),
+            cyclic_s_deg=(args.cyclic[1] if args.cyclic else 0.0),
         )
         batch = BatchDefinition(name="cli_adhoc", conditions=[condition])
 

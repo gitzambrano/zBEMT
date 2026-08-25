@@ -227,10 +227,117 @@ _QUANTITIES: tuple = (
            "plus the induced part. Its dimensional counterpart is "
            "V<sub>x,total</sub> = &lambda;<sub>total</sub>&middot;(&Omega;R)")),
 
+    # --- blade dynamics (SC-11): flap and lead-lag response -----------------
+    # Sign convention for the whole family: beta(psi) = beta_0 +
+    # beta_1c*cos(psi) + beta_1s*sin(psi), positive up, and each
+    # tip-path-plane tilt is the NEGATIVE of its first harmonic.
+    _q("beta_0_deg", "invariant", r"\beta_0", unit="deg", name_unit="°",
+       rotor_description=(
+           "Coning angle [deg]: the mean flap angle &beta;<sub>0</sub>, the "
+           "constant part of &beta;(&psi;) = &beta;<sub>0</sub> + "
+           "&beta;<sub>1c</sub>cos&psi; + &beta;<sub>1s</sub>sin&psi;. Positive "
+           "with the blades up. It grows with thrust and falls with the square "
+           "of the flap frequency ratio")),
+    _q("beta_1c_deg", "invariant", r"\beta_{1c}", unit="deg", name_unit="°",
+       rotor_description=(
+           "First cosine flap coefficient [deg]: the fore-aft 1/rev part of "
+           "&beta;(&psi;). The longitudinal tip-path-plane tilt is its "
+           "NEGATIVE (&theta;<sub>TPP,long</sub> = &minus;&beta;<sub>1c</sub>)")),
+    _q("beta_1s_deg", "invariant", r"\beta_{1s}", unit="deg", name_unit="°",
+       rotor_description=(
+           "First sine flap coefficient [deg]: the lateral 1/rev part of "
+           "&beta;(&psi;). The lateral tip-path-plane tilt is its NEGATIVE "
+           "(&theta;<sub>TPP,lat</sub> = &minus;&beta;<sub>1s</sub>)")),
+    _q("tpp_tilt_long_deg", "invariant", r"\theta_{TPP,long}", unit="deg",
+       name_unit="°",
+       rotor_description=(
+           "Longitudinal tip-path-plane tilt [deg]: how far the disk tilts "
+           "fore-aft under flapping, &theta;<sub>TPP,long</sub> = "
+           "&minus;&beta;<sub>1c</sub>. Negative usually means the disk blows "
+           "back relative to the shaft")),
+    _q("tpp_tilt_lat_deg", "invariant", r"\theta_{TPP,lat}", unit="deg",
+       name_unit="°",
+       rotor_description=(
+           "Lateral tip-path-plane tilt [deg]: how far the disk tilts sideways "
+           "under flapping, &theta;<sub>TPP,lat</sub> = &minus;&beta;<sub>1s"
+           "</sub>. On a rotor it reflects the classic response to the "
+           "advancing/retreating load asymmetry")),
+    _q("nu_beta", "invariant", r"\nu_\beta", unit="-",
+       rotor_description=(
+           "Flap frequency ratio: &nu;<sub>&beta;</sub><sup>2</sup> = 1 + "
+           "(3/2)&middot;e/(1&minus;e) + K<sub>&beta;</sub>/(I<sub>&beta;</sub>"
+           "&Omega;<sup>2</sup>). How far the first flap mode sits above the "
+           "rotor rotation. An articulated rotor has exactly 1, which is why "
+           "its first harmonic resonates")),
+    _q("nu_zeta", "invariant", r"\nu_\zeta", unit="-",
+       rotor_description=(
+           "Lead-lag frequency ratio: &nu;<sub>&zeta;</sub><sup>2</sup> = "
+           "(3/2)&middot;e/(1&minus;e) + K<sub>&zeta;</sub>/(I<sub>&zeta;</sub>"
+           "&Omega;<sup>2</sup>). No leading 1: the lag freedom gets no "
+           "restoring term from the thrust")),
+    _q("lock_number", "invariant", r"\gamma", unit="-",
+       rotor_description=(
+           "Lock number: &gamma; = &rho;&middot;a&middot;c<sub>ref</sub>"
+           "&middot;R<sup>4</sup>/I<sub>&beta;</sub>, the ratio of aerodynamic "
+           "to inertial blade response, built from the chord at r/R = 0.75. "
+           "It sets how strongly the air moves the blade")),
+    _q("flap_inertia_kg_m2", "invariant", r"I_\beta", unit="kg·m²",
+       rotor_description=(
+           "Resolved flap inertia of one blade about its hinge [kg·m²], "
+           "whichever inertia source was chosen. It normalizes the flap "
+           "moment in the harmonic balance")),
+    _q("zeta_0_deg", "invariant", r"\zeta_0", unit="deg", name_unit="°",
+       rotor_description=(
+           "Mean lead-lag angle [deg]: the constant part of &zeta;(&psi;). "
+           "Positive against the direction of rotation")),
+    _q("zeta_1c_deg", "invariant", r"\zeta_{1c}", unit="deg", name_unit="°",
+       rotor_description=(
+           "First cosine lead-lag coefficient [deg] of "
+           "&zeta;(&psi;) = &zeta;<sub>0</sub> + &zeta;<sub>1c</sub>cos&psi; + "
+           "&zeta;<sub>1s</sub>sin&psi;")),
+    _q("zeta_1s_deg", "invariant", r"\zeta_{1s}", unit="deg", name_unit="°",
+       rotor_description=(
+           "First sine lead-lag coefficient [deg] of "
+           "&zeta;(&psi;)")),
+    _q("Mx_hub", "invariant", r"M_{x,hub}", unit="N·m",
+       rotor_description=(
+           "Hub moment carried through the flap hinge or root spring [N·m], "
+           "about the axis pointing to &psi;=0: (N<sub>b</sub>/2)"
+           "&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub>"
+           "<sup>2</sup>&minus;1)&beta;<sub>1c</sub>. This structural path is "
+           "absent on a rigid-blade run and dominates on hingeless rotors")),
+    _q("My_hub", "invariant", r"M_{y,hub}", unit="N·m",
+       rotor_description=(
+           "Hub moment carried through the flap hinge or root spring [N·m], "
+           "about the &psi;=90&deg; axis: (N<sub>b</sub>/2)"
+           "&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub>"
+           "<sup>2</sup>&minus;1)&beta;<sub>1s</sub>")),
+    _q("Mx_total", "invariant", r"M_{x,total}", unit="N·m",
+       rotor_description=(
+           "Total tilting moment about the &psi;=0 axis [N·m]: the "
+           "aerodynamic moment M<sub>x</sub> plus the hub moment carried "
+           "through the flap hinge or root spring M<sub>x,hub</sub>")),
+    _q("My_total", "invariant", r"M_{y,total}", unit="N·m",
+       rotor_description=(
+           "Total tilting moment about the &psi;=90&deg; axis [N·m]: the "
+           "aerodynamic moment M<sub>y</sub> plus the hub moment carried "
+           "through the flap hinge or root spring M<sub>y,hub</sub>")),
+
     # --- the operating point's non-axis inputs ------------------------------
     _q("collective_deg", "invariant", r"\theta_0", unit="deg", name_unit="°",
        rotor_description=("Collective pitch [deg], added on top of the "
-                          "built-in blade twist")),
+                           "built-in blade twist")),
+    _q("cyclic_c_deg", "invariant", r"\theta_{1c}", unit="deg", name_unit="°",
+       rotor_description=(
+           "Cyclic pitch, cosine harmonic [deg]: pitch that varies once per "
+           "revolution as &theta;<sub>1c</sub>cos&psi;. With flap freedom it "
+           "tilts the blade response fore-aft and is one of the two controls "
+           "the zero-flapping trim solves")),
+    _q("cyclic_s_deg", "invariant", r"\theta_{1s}", unit="deg", name_unit="°",
+       rotor_description=(
+           "Cyclic pitch, sine harmonic [deg]: pitch that varies once per "
+           "revolution as &theta;<sub>1s</sub>sin&psi;. Together with the "
+           "cosine harmonic it forms the pair the trim solves")),
     _q("rpm", "invariant", r"RPM", unit="rev/min",
        rotor_description=(
            "Rotational speed of the rotor for this condition [rev/min] -- the "
@@ -250,6 +357,30 @@ _QUANTITIES: tuple = (
 
 #: `engine_key -> AxisQuantity`, the table every surface reads.
 QUANTITIES: dict = {q.engine_key: q for q in _QUANTITIES}
+
+#: Higher flap harmonics (n = 2..MAX_FLAP_HARMONICS), registered here so a
+#: `beta_2c_deg` column carries the same rendered symbol and unit as the
+#: first-harmonic ones instead of falling back to its raw key. The GUI caps
+#: the harmonic count at MAX_FLAP_HARMONICS.
+MAX_FLAP_HARMONICS = 5
+for _n in range(2, MAX_FLAP_HARMONICS + 1):
+    QUANTITIES[f"beta_{_n}c_deg"] = AxisQuantity(
+        engine_key=f"beta_{_n}c_deg", slot="invariant",
+        rotor_latex=rf"\beta_{{{_n}c}}",
+        unit="deg",
+        rotor_description=(
+            f"Cosine flap coefficient of harmonic {_n} [deg], from the "
+            "harmonic balance of &beta;(&psi;) = &beta;<sub>0</sub> + "
+            "&Sigma;<sub>n</sub>[&beta;<sub>nc</sub>cos(n&psi;) + "
+            "&beta;<sub>ns</sub>sin(n&psi;)]"))
+    QUANTITIES[f"beta_{_n}s_deg"] = AxisQuantity(
+        engine_key=f"beta_{_n}s_deg", slot="invariant",
+        rotor_latex=rf"\beta_{{{_n}s}}",
+        unit="deg",
+        rotor_description=(
+            f"Sine flap coefficient of harmonic {_n} [deg], from the "
+            "harmonic balance of &beta;(&psi;)."))
+del _n
 
 for _quantity in _QUANTITIES:
     if _quantity.alias_of:
@@ -276,6 +407,7 @@ _GREEK_UNICODE = {
     r"\theta": "θ", r"\lambda": "λ", r"\mu": "μ", r"\nu": "ν",
     r"\pi": "π", r"\rho": "ρ", r"\sigma": "σ", r"\phi": "φ",
     r"\psi": "ψ", r"\omega": "ω", r"\Omega": "Ω", r"\eta": "η",
+    r"\zeta": "ζ",
     r"\infty": "∞", r"\cdot": "·", r"\times": "×", r"\pm": "±",
     r"\circ": "°",
 }
@@ -289,6 +421,7 @@ _GREEK_HTML = {
     r"\mu": "&mu;", r"\nu": "&nu;", r"\pi": "&pi;", r"\rho": "&rho;",
     r"\sigma": "&sigma;", r"\phi": "&phi;", r"\psi": "&psi;",
     r"\omega": "&omega;", r"\Omega": "&Omega;", r"\eta": "&eta;",
+    r"\zeta": "&zeta;",
     r"\infty": "&infin;", r"\cdot": "&middot;", r"\times": "&times;",
     r"\pm": "&plusmn;", r"\circ": "&deg;",
 }

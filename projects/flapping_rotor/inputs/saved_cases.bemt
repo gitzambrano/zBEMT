@@ -1,0 +1,20 @@
+[
+  {
+    "name": "hover",
+    "mu_x": 0.0,
+    "collective_deg": 8.0,
+    "Vz": 0.0,
+    "rpm": 1400.0,
+    "cyclic_c_deg": 0.0,
+    "cyclic_s_deg": 0.0
+  },
+  {
+    "name": "forward 0.25",
+    "mu_x": 0.25,
+    "collective_deg": 8.0,
+    "Vz": 0.0,
+    "rpm": 1400.0,
+    "cyclic_c_deg": 0.0,
+    "cyclic_s_deg": 0.0
+  }
+]

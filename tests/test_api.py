@@ -1104,15 +1104,15 @@ class TestColumnNomenclatureAndOrder(unittest.TestCase):
     def test_inputs_come_first_in_the_stated_order(self):
         """The inputs that define the operating point open the table: the
         x component first (the PRIMARY one in both modes), then z,
-        then the two angles, then collective and RPM. `lambda_z` comes
-        alongside `mu_z` because it is the SAME number in a different
-        vocabulary."""
+        then the two angles, then collective, the cyclic harmonics and
+        RPM. `lambda_z` comes alongside `mu_z` because it is the SAME
+        number in a different vocabulary."""
         self.assertEqual(
-            tuple(api.SUMMARY_PRIMARY_KEYS[:11]),
+            tuple(api.SUMMARY_PRIMARY_KEYS[:13]),
             ("mu_x", "J_x", "Vx",
              "mu_z", "J_z", "Vz", "lambda_z",
              "alpha_rotor_deg", "alpha_disk_deg",
-             "collective_deg", "rpm"))
+             "collective_deg", "cyclic_c_deg", "cyclic_s_deg", "rpm"))
 
     def test_no_quantity_appears_twice_in_the_order(self):
         """A repeated key makes `{k: i for i, k in enumerate(...)}` keep

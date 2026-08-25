@@ -2394,3 +2394,123 @@ def plot_optimization_convergence(history, objective_key: str, *,
     ax.grid(True, alpha=0.3)
     ax.set_title("Optimization convergence")
     return _finish(ax, fig, fname)
+
+
+# =============================================================================
+# 12. BLADE DYNAMICS PLOTS (SC-11)
+# =============================================================================
+
+def _beta_angle_history(maps: dict) -> "np.ndarray | None":
+    """Reconstructs beta(psi) [deg] on the psi grid from the flap
+    coefficients stored in ``maps``; None on a rigid run."""
+    coeffs = maps.get("beta_coeffs")
+    psi_nodes = maps.get("psi_nodes")
+    if not coeffs or psi_nodes is None:
+        return None
+    psi = np.asarray(psi_nodes, dtype=float)
+    angle = np.full_like(psi, float(coeffs[0][0]), dtype=float)
+    for n, (cn, sn) in coeffs.items():
+        if n == 0:
+            continue
+        angle = angle + cn * np.cos(n * psi) + sn * np.sin(n * psi)
+    return np.degrees(angle)
+
+
+def plot_flap_response(maps: dict, ax=None, fname=None):
+    """Polar plot of the flap angle over the azimuth, harmonics annotated.
+
+    The curve is beta(psi) = beta_0 + sum_n [b_nc cos(n psi) + b_ns
+    sin(n psi)] reconstructed from `maps['beta_coeffs']`; each harmonic's
+    amplitude is annotated beside the legend, so the reader sees which
+    orders the balance kept. A rigid run has nothing to draw."""
+    beta_deg = _beta_angle_history(maps)
+    if beta_deg is None:
+        raise ValueError(
+            "This result carries no blade-dynamics solution. Run a case "
+            "with a flap model other than 'rigid' first.")
+    psi = np.asarray(maps["psi_nodes"], dtype=float)
+    psi_closed = np.concatenate([psi, [2.0 * np.pi]])
+    beta_closed = np.concatenate([beta_deg, beta_deg[:1]])
+
+    if ax is None:
+        fig, ax = _new_figure((5.4, 4.6))
+        ax.remove()
+        ax = fig.add_subplot(111, projection="polar")
+        fig_out = fig
+    else:
+        fig_out = ax.figure
+    if not hasattr(ax, "set_theta_zero_location"):
+        # A non-polar axes was passed in (embedded canvas): replace its
+        # content with a polar subplot of the same figure.
+        fig_out = ax.figure
+        fig_out.clear()
+        ax = fig_out.add_subplot(111, projection="polar")
+    ax.plot(psi_closed, beta_closed, color="tab:blue", linewidth=1.6)
+    ax.fill(psi_closed, beta_closed, color="tab:blue", alpha=0.15)
+    ax.set_theta_zero_location("E")
+    ax.set_theta_direction(1)
+    ax.set_ylabel(r"$\beta$ [deg]", fontsize=9)
+
+    parts = [rf"$\beta_0$={float(maps['beta_coeffs'][0][0]):.3f}$^\circ$"]
+    from math import hypot
+    for n in sorted(k for k in maps["beta_coeffs"] if k):
+        cn, sn = maps["beta_coeffs"][n]
+        parts.append(rf"$|\beta_{n}|$={hypot(cn, sn):.3f}$^\circ$")
+    ax.legend([r"$\beta(\psi)$"], loc="lower left", fontsize=8,
+              bbox_to_anchor=(-0.1, -0.12))
+    ax.set_title(", ".join(parts), fontsize=8, pad=14)
+    condition = describe_condition(maps)
+    fig_out.suptitle(("Flap response — " + condition)
+                     if condition else "Flap response",
+                     fontsize=11, fontweight="bold")
+    return _finish(ax, fig_out, fname)
+
+
+def plot_flap_effect_map(maps_on: dict, maps_off: dict, field: str = "alpha_eff",
+                          ax=None, fname=None):
+    """Two disk maps of one field side by side, flapping OFF and ON.
+
+    This is the figure that shows what the blade motion changes: the same
+    condition solved twice, once with a rigid disk and once with the
+    blade's flap response. The overall title states the flight condition,
+    as always."""
+    fig, axes = _new_figure((11.0, 4.6), 1, 2)
+    axes = np.atleast_1d(axes).ravel()
+    for ax_i, (maps, label) in zip(axes, ((maps_off, "flapping OFF"),
+                                           (maps_on, "flapping ON"))):
+        plt.sca(ax_i)
+        plot_disk_map(maps, field=field, ax=ax_i, compact=True)
+        ax_i.set_title(label, fontsize=10, pad=26)
+    condition = describe_condition(maps_on)
+    fig.suptitle((f"Effect of flapping on {disk_field_label(field)} — "
+                  + condition) if condition else "Effect of flapping",
+                 fontsize=12, fontweight="bold")
+    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    return _finish_fig(fig, fname)
+
+
+def plot_flap_convergence(history, tol_deg: float | None = None,
+                           ax=None, fname=None):
+    """Outer-loop trace: largest coefficient change [deg] per iteration."""
+    history = [float(v) for v in (history or [])]
+    ax, fig = _resolve_ax(ax, fname, figsize=(6, 4))
+    if not history:
+        ax.text(0.5, 0.5, "No outer-loop history recorded\n(rigid run?)",
+                ha="center", va="center", fontsize=10, color="0.35",
+                transform=ax.transAxes)
+    else:
+        ax.semilogy(range(1, len(history) + 1),
+                    [max(v, 1e-12) for v in history],
+                    marker="o", markersize=3.5, linewidth=1.3,
+                    color="tab:purple")
+        if tol_deg is not None and tol_deg > 0:
+            ax.axhline(tol_deg, color="tab:red", linestyle="--",
+                       linewidth=1.0)
+            ax.annotate(f"tolerance {tol_deg:g}°", xy=(len(history), tol_deg),
+                        fontsize=7, color="tab:red",
+                        xytext=(2, 4), textcoords="offset points")
+    ax.set_xlabel("Outer iteration")
+    ax.set_ylabel(r"max $|\Delta\beta_n|$ [deg]")
+    ax.grid(True, alpha=0.3)
+    ax.set_title("Flapping outer-loop convergence")
+    return _finish(ax, fig, fname)
