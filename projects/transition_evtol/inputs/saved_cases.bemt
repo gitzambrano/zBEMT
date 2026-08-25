@@ -11,7 +11,7 @@
   {
     "name": "cruise",
     "mu_x": 0.35,
-    "collective_deg": 6.0,
+    "collective_deg": 8.0,
     "Vz": 0.0,
     "rpm": 2600.0,
     "cyclic_c_deg": 0.0,

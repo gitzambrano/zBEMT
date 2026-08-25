@@ -1171,7 +1171,13 @@ class TestToolsButton(unittest.TestCase):
     def test_tools_click_opens_the_geometry_designer(self):
         win = self._window()
         self.assertFalse(win.geometry_designer.isVisible())
-        win.flow_bar.btn_tools.click()
+        # The Tools pill hangs a menu off it: the click opens the menu,
+        # and the MENU ACTION carries the request (tools_requested with
+        # the window's key). Triggering the action is what a user's pick
+        # does, so that is what the test drives.
+        actions = {a.text(): a for a in win.flow_bar.btn_tools.menu().actions()}
+        self.assertIn("Geometry Designer", actions)
+        actions["Geometry Designer"].trigger()
         for _ in range(6):
             self.app.processEvents()
         self.assertTrue(win.geometry_designer.isVisible())
