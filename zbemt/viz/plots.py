@@ -2396,6 +2396,113 @@ def plot_optimization_convergence(history, objective_key: str, *,
     return _finish(ax, fig, fname)
 
 
+def plot_pareto_front(front_values, objective_keys: list[str], *,
+                      all_values=None, ax=None, fname=None):
+    """Scatter view of one multi-objective optimization's Pareto front.
+
+    ``front_values`` is a list of dicts keyed by the objective keys, in
+    the RAW user direction recorded by ``studies.optimize_design_multi``
+    (maximized objectives already un-negated). ``objective_keys`` picks
+    the two objectives: index 0 becomes the horizontal axis, index 1 the
+    vertical one. The front is sorted along the horizontal key and drawn
+    as markers joined in front order. ``all_values``, when given, draws
+    every evaluated design behind the front as faded dots, so dominated
+    designs stay visible against the trade-off curve.
+
+    The ``ax`` and ``fname`` parameters follow the module convention
+    stated at the top of this file. The axis is returned.
+    """
+    if len(objective_keys) != 2:
+        raise ValueError(
+            f"Pareto plotting needs exactly two objective keys "
+            f"(got {len(objective_keys)}).")
+    x_key, y_key = objective_keys
+    ax, fig = _resolve_ax(ax, fname)
+
+    def _pairs(rows):
+        pts = []
+        for row in rows or []:
+            try:
+                xv = float(row[x_key])
+                yv = float(row[y_key])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if np.isfinite(xv) and np.isfinite(yv):
+                pts.append((xv, yv))
+        return pts
+
+    if all_values:
+        bg = _pairs(all_values)
+        if bg:
+            ax.scatter([p[0] for p in bg], [p[1] for p in bg],
+                       s=14, color="0.7", alpha=0.6, linewidths=0,
+                       label="evaluated designs", zorder=1)
+    front = sorted(_pairs(front_values), key=lambda p: p[0])
+    if front:
+        ax.plot([p[0] for p in front], [p[1] for p in front],
+                "o-", color="tab:red", markersize=5, linewidth=1.4,
+                label="Pareto front", zorder=2)
+        ax.legend(fontsize=8)
+    else:
+        ax.text(0.5, 0.5, "No finite front member recorded", ha="center",
+                va="center", fontsize=10, color="0.35", transform=ax.transAxes)
+    ax.set_xlabel(_summary_axis_label(x_key))
+    ax.set_ylabel(_summary_axis_label(y_key))
+    ax.grid(True, alpha=0.3)
+    ax.set_title("Pareto front")
+    return _finish(ax, fig, fname)
+
+
+def plot_parallel_coordinates(front_values, keys: list[str], *,
+                              param_names=None, ax=None, fname=None):
+    """Parallel-coordinates view of one Pareto front.
+
+    One vertical axis per entry of ``keys`` (variables first when
+    ``param_names`` is given, then the objectives). Each front member
+    becomes one polyline; every axis is min-max normalized over the
+    front, so quantities with different units share the picture. A
+    member is then read as: high where it wins, low where it pays.
+    Crossings between neighbouring axes are the visible trade-off.
+
+    The ``ax`` and ``fname`` parameters follow the module convention
+    stated at the top of this file. The axis is returned.
+    """
+    names = [*(param_names or []), *keys] if param_names else list(keys)
+    rows = []
+    for values in front_values or []:
+        try:
+            row = [float(values.get(k, float("nan"))) for k in names]
+        except (TypeError, ValueError):
+            continue
+        if all(np.isfinite(row)):
+            rows.append(row)
+    ax, fig = _resolve_ax(ax, fname)
+    if not rows or len(names) < 2:
+        ax.text(0.5, 0.5, "No finite front member to draw", ha="center",
+                va="center", fontsize=10, color="0.35",
+                transform=ax.transAxes)
+        return _finish(ax, fig, fname)
+
+    data = np.asarray(rows, dtype=float)
+    lows = data.min(axis=0)
+    highs = data.max(axis=0)
+    span = np.where(highs > lows, highs - lows, 1.0)
+    normed = (data - lows) / span
+
+    x = np.arange(len(names), dtype=float)
+    for row in normed:
+        ax.plot(x, row, color="tab:blue", alpha=0.55, linewidth=1.3,
+                 marker="o", markersize=3.5)
+    ax.set_xticks(x)
+    ax.set_xticklabels([_summary_axis_label(k) for k in names],
+                        fontsize=8)
+    ax.set_ylabel("Normalized position on the front")
+    ax.set_ylim(-0.05, 1.05)
+    ax.grid(True, axis="x", alpha=0.3)
+    ax.set_title("Front members across parameters and objectives")
+    return _finish(ax, fig, fname)
+
+
 # =============================================================================
 # 12. BLADE DYNAMICS PLOTS (SC-11)
 # =============================================================================

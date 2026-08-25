@@ -734,6 +734,7 @@
 <li><a href="#cap-5-5">10.6 Run mode and trim</a></li>
 <li><a href="#cap-5-6">10.7 Saved cases</a></li>
 <li><a href="#cap-5-7">10.8 The summary table</a></li>
+<li><a href="#sec-perturbation-inputs">10.9 Perturbation inputs: sideslip and hub rates</a></li>
 </ol></li>
 <li><a href="#sec-11-run-batch">11. Run Batch</a>
 <ol>
@@ -757,12 +758,23 @@
 <li><a href="#designer-conditions">13.2 Conditions</a></li>
 <li><a href="#designer-run">13.3 Run & results</a></li>
 </ol></li>
-<li><a href="#sec-15-outside-the-gui">14. Command-line reference</a>
+<li><a href="#cap-optimization">14. Design Optimization</a>
 <ol>
-<li><a href="#cap-8-1">14.1 Running from the command line</a></li>
-<li><a href="#cap-8-3">14.2 Validation rules</a></li>
+<li><a href="#cap-opt-objectives">14.1 Objectives</a></li>
+<li><a href="#cap-opt-constraints">14.2 Constraints</a></li>
+<li><a href="#cap-opt-variables">14.3 Design variables</a></li>
+<li><a href="#cap-opt-condition">14.4 Condition</a></li>
+<li><a href="#cap-opt-algorithm">14.5 Algorithm</a></li>
+<li><a href="#cap-opt-budget">14.6 Population, generations and seed</a></li>
+<li><a href="#cap-opt-operators">14.7 Crossover and mutation</a></li>
+<li><a href="#cap-opt-run">14.8 The run page: front table, trade-off plot and exports</a></li>
 </ol></li>
-<li><a href="#limitations">15. Limitations</a>
+<li><a href="#sec-15-outside-the-gui">15. Command-line reference</a>
+<ol>
+<li><a href="#cap-8-1">15.1 Running from the command line</a></li>
+<li><a href="#cap-8-3">15.2 Validation rules</a></li>
+</ol></li>
+<li><a href="#limitations">16. Limitations</a>
 <ol>
 </ol></li>
 <li><a href="#sec-references">References</a>
@@ -4122,8 +4134,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     </figure>
     <!-- INDICE-DE-CAMPOS:aerofolio -->
 <div class="boxed">
-<b>Fields in this tab, in the order they appear on screen</b> (34). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>generator_params</code> &rarr; <a href="#cap-3-7-biconvex">8.7.5</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-1-3">8.1.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
+<b>Fields in this tab, in the order they appear on screen</b> (37). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>generator_params</code> &rarr; <a href="#cap-3-7-biconvex">8.7.5</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-1-3">8.1.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_time_march_revolutions</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>dynamic_stall_time_march_avg_last</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>dynamic_stall_method</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:aerofolio -->
     <p class="boxed"><b>Editorial scope.</b> Each field section below is self-contained. It gives the
@@ -5980,7 +5992,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 </ul>
 
                 <p><b>The checks panel.</b> Below the preview, a panel lists the findings of the validation rules
-                  of <a class="xref" href="#cap-8-3" title="14.2 Validation rules">Section 14.2</a> that concern the
+                  of <a class="xref" href="#cap-8-3" title="15.2 Validation rules">Section 15.2</a> that concern the
                   airfoil: combinations that are mutually exclusive,
                   redundant, or physically inconsistent. It re-runs after every edit, so the verdict on screen is
                   never stale.</p>
@@ -6410,6 +6422,27 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <code>--pitt-peters-outer-iter N</code>, <code>--pitt-peters-relax X</code> and
                   <code>--pitt-peters-tol X</code>.
                 </p>
+
+                <h4 id="cap-4-2-sideslip">In-plane sideslip of the free stream</h4>
+
+                <p>The in-plane component of the free stream does not have to point along the hub's
+                  longitudinal axis. The sideslip angle $\psi_w$ rotates its direction: the tangential speed at
+                  each azimuth becomes $U_T = \Omega r + V\sin(\psi - \psi_w)$, and the radial-flow correction,
+                  when enabled, follows with $\cos(\psi - \psi_w)$. A lateral velocity $v$ is then an in-plane
+                  speed at $\psi_w = 90°$. This is one of the perturbation inputs of a stability-derivative
+                  study; per condition, the angle travels inside the saved case instead (see
+                  <a class="xref" href="#sec-perturbation-inputs" title="10.9 Perturbation inputs: sideslip and hub rates">Section 10.9</a>).
+                  The default of zero leaves every solve untouched.</p>
+
+                <p><span class="gui">GUI</span>: this engine field stays at zero on screen; a case-specific
+                  sideslip is a property of the saved case, which carries it through every surface a case
+                  reaches.</p>
+
+                <p><span class="bemt">.bemt</span>, in <code>config.bemt</code>:
+                  <code>inflow_sideslip_deg</code>, default $0$, in degrees.</p>
+
+                <p><span class="cli">CLI</span>: <code>--set config.inflow_sideslip_deg</code> with the
+                  angle in degrees.</p>
 
                 <h3 id="cap-4-3">9.3 Tip and root loss</h3>
 
@@ -7181,6 +7214,36 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <p>This table is a first diagnostic rather than the place the analysis is done. The distributions
                       along the blade, the convergence history, the disk maps and the sweep curves all live in the
                       Results tab, which also keeps every run of the session in its history.</p>
+
+                    <h3 id="sec-perturbation-inputs">10.9 Perturbation inputs: sideslip and hub rates</h3>
+
+                    <p>Three further quantities describe the state a rotor flies in, and a saved case may carry them
+                      beside the familiar advance ratio and collective. The <b>sideslip angle</b>
+                      $\psi_w$ rotates the direction of the in-plane free stream: the tangential speed at each azimuth
+                      becomes $U_T = \Omega r + V\sin(\psi - \psi_w)$, so a case with $\psi_w = 90°$ flies with its
+                      advance coming from the side, and the in-plane force $H$ trades places with the side force $Y$
+                      while thrust and torque stay put. The <b>hub roll rate</b> $p$ and the <b>hub pitch rate</b> $q$
+                      tilt the hub while the blade turns: every blade element then moves out of the disk plane by
+                      $r\,(q\cos\psi - p\sin\psi)$, and the flap balance receives a gyroscopic forcing of its own.
+                      Their first use is the stability-derivative study, where small perturbations of exactly these
+                      states are what a derivative means; a rotor with no flap freedom still feels their aerodynamic
+                      effect. All three default to zero, which is the plain edgewise case and reproduces every result
+                      computed without them.</p>
+
+                    <p>In the <span class="gui">GUI</span>: these three travel inside a saved case wherever it goes,
+                      and they appear in the conditions row of the results table with the other inputs of the
+                      operating point.</p>
+
+                    <p>In the <span class="bemt">.bemt</span> file: add
+                      <code>sideslip_deg</code>, <code>p_rate_deg_s</code> or
+                      <code>q_rate_deg_s</code> to any entry of
+                      <code>inputs/saved_cases.bemt</code> (degrees and degrees per second). Absent fields mean zero,
+                      so every case saved before these keys existed keeps its exact behavior.</p>
+
+                    <p>From the <span class="cli">CLI</span>: a saved case is data, so the perturbation
+                      inputs travel with it wherever the case is used; the engine-side carrier accepts
+                      <code>--set config.inflow_sideslip_deg</code> directly, which sets the sideslip for
+                      every condition of the project at once.</p>
 
                     <hr>
 
@@ -8253,8 +8316,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           geometries to compare. <i>Conditions</i> decides what every variant
                           runs. <i>Run &amp; results</i> executes the solves and reads them. The
                           window compares geometries. It does not search for one: design
-                          optimization remains an outer loop driven from the
-                          <span class="cli">CLI</span> or the library.</p>
+                          optimization lives in its own window,
+                          <a class="xref" href="#cap-optimization"
+                          title="14. Design Optimization">Chapter 14</a>.</p>
 
                         <figure>
                           <img src="img/gui/designer.png" alt="Geometry Designer window">
@@ -8711,7 +8775,264 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <hr>
 
 
-                        <h2 id="sec-15-outside-the-gui">14. Command-line reference</h2>
+                                                <hr>
+
+
+                        <h2 id="cap-optimization">14. Design Optimization</h2>
+                        <p>The Design Optimization window searches for the blade geometry that best
+                          satisfies two goals at once. One goal alone is a single-objective study: the
+                          software has always been able to maximize the figure of merit or minimize the
+                          power coefficient through the command line. Two goals at once are different in
+                          kind. More thrust generally costs more torque, and the lightest chord rarely
+                          carries the best efficiency, so no single design wins everything. The window
+                          therefore returns a <i>Pareto front</i>: the set of designs for which no
+                          improvement on one objective is possible without paying for it on the other.</p>
+
+                        <p>The search varies bounded planform parameters, regenerates the blade for every
+                          candidate and solves one flight condition per candidate, so every evaluation is
+                          an ordinary steady solution of the method of <a class="xref" href="#cap-metodo"
+                          title="5. The method">Chapter 5</a>. The flight condition itself comes from a
+                          saved case of the project; its definition lives on the Run Case tab, and this
+                          window never edits it.</p>
+
+                        <p>The mathematics that orders candidates is the <i>domination rule</i>. A design
+                          $A$ dominates a design $B$ when $A$ is at least as good on every objective and
+                          strictly better on at least one. The front is the set of designs dominated by
+                          nobody. When a constraint exists, the rule extends: any feasible design beats
+                          any infeasible one, two infeasible designs compare by how far they break the
+                          constraint, and two feasible designs compare by plain domination. A failed
+                          solve counts as infinitely infeasible, so one broken point can never win.</p>
+
+                        <figure>
+                          <img src="img/gui/optimizer.png" alt="Design Optimization window">
+                          <figcaption>The Design Optimization window, opened from the
+                            <b>Tools</b> button in the main window's top bar. The Study page
+                            is open: the study list, the two objective rows and the constraint
+                            table on the left; the variables, the search settings and the cost
+                            estimate on the right.</figcaption>
+                        </figure>
+
+                        <h3 id="cap-opt-objectives">14.1 Objectives</h3>
+                        <p>An objective names one quantity of the results summary and states which
+                          direction is better. The first row is required. The second row turns the run
+                          into a Pareto search: an empty second key keeps the single-result search, and
+                          a filled key switches to the front. Any summary quantity works, and the usual
+                          choices trade against each other: figure of merit against thrust coefficient,
+                          or power coefficient against thrust. The direction is a property of the goal,
+                          not of the quantity: the same $FM$ is maximized in hover work and could be
+                          minimized in a study of its abuse.</p>
+
+                        <p>In the <span class="gui">GUI</span>: type the summary key, for example
+                          <code>FM</code>, into the key box of Objective 1, and choose Maximize or
+                          Minimize beside it. Fill Objective 2 the same way to request the front.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: the study carries an
+                          <code>objectives</code> list inside <code>inputs/optimizations.bemt</code>,
+                          with one entry per objective holding <code>key</code> and <code>kind</code>
+                          (<code>"maximize"</code> or <code>"minimize"</code>). One entry runs the
+                          single-result search; two entries run the Pareto search.</p>
+
+                        <p>From the <span class="cli">CLI</span>: the objectives come from the saved
+                          study; <code>--optimize NAME</code> reads them from
+                          <code>inputs/optimizations.bemt</code> exactly as the window does.</p>
+
+                        <h3 id="cap-opt-constraints">14.2 Constraints</h3>
+                        <p>A constraint discards part of the design space. Each row reads one summary
+                          quantity and requires it to stay above a value ($\geq$), below a value
+                          ($\leq$), or equal to a value ($=$). The solver never sees the constraint as
+                          a penalty added to a fitness: a design that breaks a constraint loses to every
+                          design that respects it, whatever the objectives say, and among lawbreakers
+                          the milder ones win. This keeps thresholds honest &mdash; a thrust floor of
+                          $0{.}008$ either holds or it does not. Every front member reports its
+                          constraint values beside its objectives, so feasibility stays visible after
+                          the run. When nothing satisfied the constraints, the outcome says so instead
+                          of dressing the least-bad design up as a success.</p>
+
+                        <p>In the <span class="gui">GUI</span>: press <i>Add constraint</i>, type the
+                          summary key into the row, pick the operator from its dropdown and enter the
+                          value. Select a row and press <i>Remove selected</i> to drop it.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: the study carries a
+                          <code>constraints</code> list with one entry per row, holding <code>key</code>,
+                          <code>operator</code> (<code>"&gt;="</code>, <code>"&lt;="</code> or
+                          <code>"=="</code>) and <code>value</code>. An empty list constrains
+                          nothing.</p>
+
+                        <p>From the <span class="cli">CLI</span>: constraints also come from the saved
+                          study, with no separate flag.</p>
+
+                        <h3 id="cap-opt-variables">14.3 Design variables</h3>
+                        <p>A design variable is one degree of freedom the search may turn, together
+                          with the range it may turn it over. The accepted parameters are the planform
+                          generators' own inputs &mdash; <code>root_chord_norm</code>,
+                          <code>tip_chord_norm</code>, <code>twist_root_deg</code>,
+                          <code>twist_tip_deg</code>, <code>max_chord_norm</code> &mdash; and the direct
+                          fields <code>n_blades</code>, <code>radius_m</code> and
+                          <code>root_cutout_norm</code>. Bounds need a finite lower below a finite
+                          upper; the search respects them throughout, and the stratified first
+                          population already spreads across the whole box before evolution begins. Two
+                          or three variables are usually enough: every variable multiplies the number
+                          of designs the search needs to see the box properly.</p>
+
+                        <p>In the <span class="gui">GUI</span>: press <i>Add variable</i>, type the
+                          parameter name into the row and fill the lower and upper bounds. Select a row
+                          and press <i>Remove selected</i> to drop it.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: the study carries a
+                          <code>variables</code> list with one entry per row, holding
+                          <code>param</code>, <code>lower</code> and <code>upper</code>.</p>
+
+                        <p>From the <span class="cli">CLI</span>: variables also come from the saved
+                          study, with no separate flag.</p>
+
+                        <h3 id="cap-opt-condition">14.4 Condition</h3>
+                        <p>Every candidate is solved at one flight condition. The dropdown lists the
+                          saved cases of the project with their rotational speeds. Rotation is not
+                          optional: the solver adimensionalizes by $\Omega R$, so a case without an RPM
+                          cannot take part, and the window refuses to start without one. Changing the
+                          condition changes the problem itself, not merely the numbers: a chord optimal
+                          in hover is rarely optimal in edgewise flight, because the advancing side
+                          works differently from the hovering disk.</p>
+
+                        <p>In the <span class="gui">GUI</span>: pick the saved case in the
+                          <i>Condition</i> dropdown of the search settings.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: the study carries a
+                          <code>condition</code> block equal to a saved case, RPM included. Without it
+                          the first saved case of the project runs.</p>
+
+                        <p>From the <span class="cli">CLI</span>: the condition comes from the saved
+                          study, exactly as stored.</p>
+
+                        <h3 id="cap-opt-algorithm">14.5 Algorithm</h3>
+                        <p>The algorithm decides how the next generation of candidates follows from the
+                          current one. <i>NSGA-II</i> is the Pareto search: it keeps a whole population,
+                          ranks it by the domination rules above, preserves variety along the front
+                          with a crowding measure, and breeds the next generation from the winners.
+                          <i>Differential evolution</i> is a global single-result search: it drives one
+                          objective only, mixes designs by differences between them, and suits a study
+                          whose landscape defeats hill climbing. The classical derivative-free methods
+                          stay on the single-objective path and out of this window.</p>
+
+                        <p>In the <span class="gui">GUI</span>: choose the algorithm in the
+                          <i>Algorithm</i> dropdown. Choosing differential evolution disables the
+                          crossover and mutation controls of Section&nbsp;14.7, which have nothing to
+                          say about it; they stay on screen, greyed out.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: the study carries
+                          <code>algorithm</code>, with <code>"nsga2"</code> or <code>"de"</code>. An
+                          older study without the field falls back to its legacy
+                          <code>method</code>.</p>
+
+                        <p>From the <span class="cli">CLI</span>:
+                          <code>--algorithm {nsga2,de,powell,nelder-mead}</code> overrides the stored
+                          value for one run.</p>
+
+                        <h3 id="cap-opt-budget">14.6 Population, generations and seed</h3>
+                        <p>The population is the number of designs alive per generation, and the
+                          generation count is how many rounds of selection and breeding run after the
+                          first sweep. Together they fix the cost of the study almost exactly: about
+                          $N \times (G + 1)$ solves, and the window prints this estimate before the
+                          run. A small population with many generations walks further but explores
+                          less; a large population with few generations maps the front more evenly but
+                          converges less. Forty designs over twenty-five generations is a sound first
+                          study. The seed drives every random choice &mdash; the initial spread, the
+                          tournaments, the variation &mdash; so the same seed reproduces the same
+                          search exactly, which is what makes a result reproducible and worth
+                          reporting.</p>
+
+                        <p>In the <span class="gui">GUI</span>: set <i>Population</i>,
+                          <i>Generations</i> and <i>Seed</i> in the search settings. Population accepts
+                          4 to 400, generations 1 to 500, the seed 0 to 999999.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: the fields are
+                          <code>population</code>, <code>generations</code> and <code>seed</code> on
+                          the study.</p>
+
+                        <p>From the <span class="cli">CLI</span>: <code>--population N</code>,
+                          <code>--generations N</code> and <code>--seed N</code> override the stored
+                          values for one run.</p>
+
+                        <h3 id="cap-opt-operators">14.7 Crossover and mutation</h3>
+                        <p>NSGA-II breeds children with two operators. <i>Simulated binary
+                          crossover</i> blends two parents; its distribution index
+                          $\eta_c$ says how close children stay to them &mdash; large values keep the
+                          family together, small values scatter it. <i>Polynomial mutation</i> then
+                          perturbs individual genes; its index $\eta_m$ plays the same role for single
+                          genes, and the mutation rate is the fraction of genes touched per child. The
+                          rate zero is special and is also the default: it means one over the number of
+                          variables, the classic setting. Without enough mutation the population
+                          contracts into a corner of the box and the front dies with it, which is why
+                          the default exists rather than a literal zero. The defaults
+                          $\eta_c = 15$, $\eta_m = 20$ suit smooth aerodynamic landscapes; lower both
+                          when the search stalls in a narrow region.</p>
+
+                        <p>In the <span class="gui">GUI</span>: set <i>Crossover eta</i>,
+                          <i>Mutation eta</i> and <i>Mutation rate</i> in the search settings. The
+                          indices accept 1 to 40 and 1 to 100, the rate 0 to 1. The controls disable
+                          under differential evolution.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: the fields are
+                          <code>crossover_eta</code>, <code>mutation_eta</code> and
+                          <code>mutation_rate</code> on the study.</p>
+
+                        <p>From the <span class="cli">CLI</span>: these three come from the saved
+                          study, with no separate flag.</p>
+
+                        <h3 id="cap-opt-run">14.8 The run page: front table, trade-off plot and exports</h3>
+                        <p>Pressing <i>Run optimization</i> first checks the study and names every
+                          problem it finds &mdash; an unknown summary key, bounds that do not increase,
+                          a genetic algorithm with too few designs, two objectives given to a
+                          single-result method. Errors block the start, warnings only inform; nothing
+                          pays solver time to learn about a bad definition. When the check passes, the
+                          search runs outside the interface thread, so the window stays responsive,
+                          reports progress in evaluations completed, and answers <i>Cancel</i> between
+                          evaluations. A cancelled run is not a lost run: the front built from every
+                          design solved until the stop comes back with the results, and the message
+                          says the search ended early. The front table lists one non-dominated design
+                          per row &mdash; its variables first, then its raw objective values, then the
+                          constraint values of Section&nbsp;14.2. No row dominates another; that is
+                          what makes them the front.</p>
+
+                        <p><b>The figures.</b> The canvas offers two views of the front. The Pareto
+                          view draws the two objectives against each other: every evaluated design as
+                          a faint grey point behind, the current front as a red line with markers on
+                          top, and clicking a marker selects that design in the table above. The
+                          parallel-coordinates view draws one polyline per member across every
+                          variable and objective, each axis normalized over the front so quantities
+                          with different units share the picture: a member reads high where it wins
+                          and low where it pays, and crossings between neighbouring axes are the
+                          visible trade-off. In the Pareto view the shape to look for is a falling
+                          curve &mdash; each step right along the first objective buys a step down on
+                          the second, and the engineer's job is choosing the point along it worth
+                          having. A front collapsed to one point means the two goals agree on this
+                          rotor at this condition: the honest answer is that there is no trade-off
+                          here.</p>
+
+                        <p><b>The exports.</b> <i>Export CSV</i> writes the front table, one row per
+                          member, variables and objectives and constraints. <i>Export report</i>
+                          writes a self-contained HTML report with the metadata of the run, the front
+                          table, the trade-off figure and the planforms of three spread members, plus
+                          an evaluations CSV beside it holding every solve of the search. Both default
+                          to the outputs folder under the study's name, and neither overwrites silently
+                          inside a batch of studies.</p>
+
+                        <p>In the <span class="gui">GUI</span>: press <i>Run optimization</i>, watch
+                          the progress line, press <i>Cancel</i> to stop early. Read the front table,
+                          pick a member against the trade-off figure, then export.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: nothing about a run persists.
+                          The exports and the report are the record on disk.</p>
+
+                        <p>From the <span class="cli">CLI</span>: <code>--optimize NAME</code> runs the
+                          saved study and produces the same three artifacts &mdash;
+                          <code>&lt;study&gt;_pareto.html</code>,
+                          <code>&lt;study&gt;_pareto_front.csv</code> and
+                          <code>&lt;study&gt;_pareto_evaluations.csv</code> in the outputs folder
+                          &mdash; and prints the front as a table. <code>--pareto-csv PATH</code>
+                          chooses another destination for the front CSV.</p>
+
+<h2 id="sec-15-outside-the-gui">15. Command-line reference</h2>
                         <p>This chapter is the concise reference for automation. It lists the supported
                           <span class="cli">CLI</span> commands and flags, the corresponding <code>.bemt</code> files,
                           validation
@@ -8720,7 +9041,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <span class="gui">GUI</span> control.
                         </p>
 
-                        <h3 id="cap-8-1">14.1 Running from the command line</h3>
+                        <h3 id="cap-8-1">15.1 Running from the command line</h3>
 
                         <p>The <span class="cli">CLI</span> points at a project folder, runs the condition or the sweep
                           asked for, and writes the results. It goes through the same code as the <span
@@ -8807,7 +9128,7 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Design optimization, command line only (<a class="xref" href="#sec-15-outside-the-gui"
-                                  title="14. Command-line reference">Chapter 14</a>)</td>
+                                  title="15. Command-line reference">Chapter 15</a>)</td>
                               <td><code>--optimize [NAME]</code> | <code>--max-evals N</code>
                               </td>
                             </tr>
@@ -8888,7 +9209,7 @@ zbemt --project projects/MyProject \
                           file, or
                           setting it in the window and saving.</p>
 
-                        <h3 id="cap-8-3">14.2 Validation rules</h3>
+                        <h3 id="cap-8-3">15.2 Validation rules</h3>
                         <p>Every configuration is checked before the solver is called, and the same checks apply to the
                           <span class="gui">GUI</span>, the <span class="cli">CLI</span> and a project run from a saved
                           file. They flag combinations that are physically inconsistent or not implemented. A finding
@@ -8978,7 +9299,7 @@ zbemt --project projects/MyProject \
                           hiding an option that does not apply. Validation is the safety net behind that, and it applies
                           equally to a run started from the command line, where there are no widgets to disable.</p>
 
-                        <h2 id="limitations">15. Limitations</h2>
+                        <h2 id="limitations">16. Limitations</h2>
 
                         <p>The following limitations bound the interpretation of every result. Mesh
                           refinement and tighter numerical tolerances reduce numerical error, but they

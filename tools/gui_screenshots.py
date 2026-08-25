@@ -57,6 +57,10 @@ SHOTS = [
 #: tabs above -- it lives outside the QTabWidget, so it has no index.
 DESIGNER_SHOT = "designer.png"
 
+#: The Design Optimization window (Tools button, SC-13), for the same
+#: reason: a dedicated window outside the tab flow.
+OPTIMIZER_SHOT = "optimizer.png"
+
 
 #: Where to look for fonts when the offscreen plugin ships without a font
 #: backend. Qt's basic font database reads ``QT_QPA_FONTDIR``; without it
@@ -159,6 +163,9 @@ def generate(destination: Path = OUTPUT_DIR) -> list:
     written.append(_capture_designer(app, window,
                                      api.open_project(str(PROJECT)),
                                      destination))
+    written.append(_capture_optimizer(app, window,
+                                       api.open_project(str(PROJECT)),
+                                       destination))
 
     window.close()
     return written
@@ -186,8 +193,27 @@ def _capture_designer(app, window, project, destination: Path) -> Path:
     return target
 
 
+def _capture_optimizer(app, window, project, destination: Path) -> Path:
+    """Captures the Design Optimization window (Tools button > Design
+    Optimization), the same eager-construction path as the Designer's."""
+    window.state.set_project(project)
+    optimizer = window.optimizer_window
+    optimizer.resize(WIDTH, HEIGHT)
+    optimizer.show()
+    optimizer.raise_()
+    optimizer.activateWindow()
+    _settle(app)
+
+    target = destination / OPTIMIZER_SHOT
+    _crop(optimizer.grab(), optimizer).save(str(target))
+    if not target.exists() or target.stat().st_size == 0:
+        raise SystemExit(f"gui_screenshots: failed to write {target}")
+    print(f"  {OPTIMIZER_SHOT:<26} {target.stat().st_size // 1024:>5} KB")
+    return target
+
+
 def check_existing(destination: Path = OUTPUT_DIR) -> int:
-    names = [f for f, _i, _h in SHOTS] + [DESIGNER_SHOT]
+    names = [f for f, _i, _h in SHOTS] + [DESIGNER_SHOT, OPTIMIZER_SHOT]
     missing = [f for f in names if not (destination / f).exists()]
     if missing:
         print("missing screenshots: " + ", ".join(missing))

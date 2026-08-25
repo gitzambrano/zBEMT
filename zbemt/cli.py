@@ -43,6 +43,7 @@ Typical command-line usage (``zbemt`` is the installed entry point;
         --airfoil-geometry naca2412 --reynolds 1e6 --mach 0.3
     zbemt --project projects/MyProject --compare projects/RotorA,projects/RotorB
     zbemt --project projects/MyProject --optimize tip_chord_study --max-evals 60
+    zbemt --project projects/MyProject --optimize pareto_study --algorithm nsga2
 """
 
 from __future__ import annotations
@@ -205,7 +206,37 @@ def _build_parser() -> argparse.ArgumentParser:
         "--optimize", nargs="?", const="", default=None, metavar="NAME",
         help="Run one saved optimization study and exit (no batch is run). NAME selects "
              "an entry of project.optimizations by name. Without NAME, the first entry "
-             "runs. Writes an HTML report plus a history CSV to the outputs folder.")
+             "runs. A study with two objectives, or with algorithm nsga2/de, runs the "
+             "Pareto search and writes an HTML report, the front CSV and the "
+             "evaluations CSV; otherwise the derivative-free search writes its report "
+             "plus a history CSV. Everything lands in the outputs folder.")
+    design_group.add_argument(
+        "--algorithm", choices=["powell", "nelder-mead", "de", "nsga2"],
+        default=None,
+        help="Search used by --optimize, overriding the value stored in the study. "
+             "nsga2 evolves a Pareto front; de is a global single-result search; "
+             "powell and nelder-mead stay derivative-free single-objective.")
+    design_group.add_argument(
+        "--population", type=int, default=None, metavar="N",
+        help="Population of the evolutionary searches (--optimize with nsga2 or de), "
+             "overriding the value stored in the study.")
+    design_group.add_argument(
+        "--generations", type=int, default=None, metavar="N",
+        help="Generations of the evolutionary searches, overriding the value stored "
+             "in the study.")
+    design_group.add_argument(
+        "--seed", type=int, default=None, metavar="N",
+        help="Seed of the evolutionary searches; the same seed reproduces the same "
+             "search.")
+    design_group.add_argument(
+        "--workers", type=int, default=None, metavar="N",
+        help="Evaluation processes requested for the evolutionary searches. Stored "
+             "on the study; this build evaluates serially regardless.")
+    design_group.add_argument(
+        "--pareto-csv", metavar="PATH", default=None,
+        help="Destination of the Pareto front CSV written by --optimize when the run "
+             "is multi-objective. Without it, the file lands beside the report under "
+             "the study's own name.")
     design_group.add_argument(
         "--max-evals", type=int, default=None, metavar="N",
         help="Evaluation limit used by --optimize, overriding the value stored in the "
@@ -1016,6 +1047,160 @@ def _run_optimize(project, args) -> int:
 
     if args.max_evals is not None:
         definition = dataclasses.replace(definition, max_evals=int(args.max_evals))
+
+    try:
+        outcome = api.optimize_design(project, definition)
+    except (RuntimeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    outputs_dir = Path(api.project_outputs_dir(project, create=True))
+    # The report file follows the STUDY's own name, not the command-line
+    # argument: a bare --optimize runs the first entry, whose name may be
+    # anything, and two studies must never overwrite each other's report.
+    slug = api.sanitize_filename(definition.name)
+    try:
+        report = api.generate_optimization_report(
+            outcome, str(outputs_dir / f"{slug}_optimization.html"),
+            project=project, definition=definition)
+    except (RuntimeError, ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    if outcome.best_results is None:
+        print(f"Error: no finite evaluation was recorded ({outcome.message}); "
+              f"the report was written to {report}.", file=sys.stderr)
+        return 1
+
+    print(f"Optimization '{definition.name}' finished: {outcome.message}.")
+    print(f"Best parameters: "
+          + ", ".join(f"{param_name}={param_value}"
+                      for param_name, param_value in outcome.best_params.items()))
+    print(f"Best {outcome.objective_key} ({outcome.objective_kind}): "
+          f"{outcome.best_value:.6g}")
+    print(f"Report: {report}")
+    print(f"History CSV: {Path(report).with_name(Path(report).stem + '_history.csv')}")
+    return 0
+
+
+def _effective_algorithm(definition, args) -> str:
+    """The search this run uses: the flag wins over the study's stored
+    algorithm, which falls back to its legacy method alias."""
+    return (getattr(args, "algorithm", None)
+            or definition.algorithm or definition.method)
+
+
+def _is_pareto_run(definition, args) -> bool:
+    """A study with two objectives must never silently degrade to a
+    single-objective search, so the objectives count forces the Pareto
+    path even when no algorithm says so."""
+    return len(definition.objectives) >= 2 \
+        or _effective_algorithm(definition, args) in ("nsga2", "de")
+
+
+def _apply_search_overrides(definition, args):
+    """--algorithm/--population/--generations/--seed/--workers win over
+    the values stored in the study for this one run."""
+    overrides = {}
+    if args.algorithm is not None:
+        overrides["algorithm"] = args.algorithm
+    if args.population is not None:
+        overrides["population"] = int(args.population)
+    if args.generations is not None:
+        overrides["generations"] = int(args.generations)
+    if args.seed is not None:
+        overrides["seed"] = int(args.seed)
+    if args.workers is not None:
+        overrides["parallel_workers"] = int(args.workers)
+    return dataclasses.replace(definition, **overrides) if overrides \
+        else definition
+
+
+def _print_front_table(definition, outcome) -> None:
+    """The front as plain text: one row per design, variables first,
+    then the objectives."""
+    keys = list(outcome.objective_keys)
+    param_names = list(outcome.param_names)
+    header = ["#"] + param_names + keys
+    print("  " + "  ".join(header))
+    for i, (params, values) in enumerate(zip(outcome.front_params,
+                                              outcome.front_values)):
+        cells = [str(i)]
+        cells += [f"{params[n]:.6g}" if isinstance(params.get(n), float)
+                  else str(params.get(n, "")) for n in param_names]
+        cells += [f"{values[k]:.6g}"
+                  if isinstance(values.get(k), float) else str(values.get(k, ""))
+                  for k in keys]
+        print("  " + "  ".join(cells))
+
+
+def _optimize_multi(project, definition, args) -> int:
+    """The Pareto branch of --optimize (SC-13): runs the evolutionary
+    search and writes the report, the front CSV and the evaluations CSV."""
+    if getattr(definition, "parallel_workers", 1) not in (None, 1):
+        print("Note: this build evaluates serially; --workers is stored "
+              "but has no effect yet.", file=sys.stderr)
+
+    try:
+        outcome = api.optimize_design_multi(project, definition)
+    except (RuntimeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    outputs_dir = Path(api.project_outputs_dir(project, create=True))
+    # Same rule as the single-objective path: file names follow the
+    # STUDY's name, so two studies never overwrite each other.
+    slug = api.sanitize_filename(definition.name)
+    front_csv = (Path(args.pareto_csv) if args.pareto_csv
+                 else outputs_dir / f"{slug}_pareto_front.csv")
+    try:
+        report = api.generate_optimization_report(
+            outcome, str(outputs_dir / f"{slug}_pareto.html"),
+            project=project, definition=definition)
+        api.export_pareto_csv(outcome, str(front_csv))
+    except (RuntimeError, ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    if not outcome.front_params:
+        print(f"Error: no evaluation was recorded ({outcome.message}); "
+              f"the report was written to {report}.", file=sys.stderr)
+        return 1
+
+    keys = list(outcome.objective_keys)
+    print(f"Pareto optimization '{definition.name}' finished: "
+          f"{outcome.message}.")
+    print("Objectives: " + ", ".join(keys))
+    print(f"Front members: {len(outcome.front_params)}")
+    _print_front_table(definition, outcome)
+    print(f"Report: {report}")
+    print(f"Front CSV: {front_csv}")
+    evaluations_csv = Path(report).with_name(
+        Path(report).stem + "_evaluations.csv")
+    if evaluations_csv.exists():
+        print(f"Evaluations CSV: {evaluations_csv}")
+    return 0
+
+
+def _run_optimize(project, args) -> int:
+    """--optimize: run one saved study and write its artifacts. The
+    study itself picks the path: two objectives or an nsga2/de algorithm
+    go to the Pareto search; everything else stays derivative-free."""
+    try:
+        definition = api.get_optimization(project, args.optimize or None)
+    except KeyError as exc:
+        # exc.args[0]: str(KeyError) would wrap the message in another
+        # pair of quotes, which reads like shell noise.
+        message = exc.args[0] if exc.args else str(exc)
+        print(f"Error: {message}", file=sys.stderr)
+        return 1
+
+    if args.max_evals is not None:
+        definition = dataclasses.replace(definition, max_evals=int(args.max_evals))
+    definition = _apply_search_overrides(definition, args)
+
+    if _is_pareto_run(definition, args):
+        return _optimize_multi(project, definition, args)
 
     try:
         outcome = api.optimize_design(project, definition)

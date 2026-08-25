@@ -422,6 +422,15 @@ class MainWindow(QMainWindow):
             # Geometry Designer window (opened from the Tools menu; not
             # a tab, but its groupbox titles resolve through this map)
             "Geometry comparison":                   "geometry_comparison",
+            # Design Optimization window (same reasoning)
+            "Optimization studies stored in this project": "optimization_studies",
+            "Objectives":                            "optimization_objectives",
+            "Constraints":                           "optimization_constraints",
+            "Design variables":                      "optimization_variables",
+            "Search settings":                       "optimization_search",
+            "Cost estimate":                         "optimization_search",
+            "Pareto front":                          "optimization_run",
+            "Trade-off plot":                        "optimization_run",
             # Results tab
             "Results from this session":             "results",
             "Blade dynamics":                        "flap_plots",
@@ -465,6 +474,19 @@ class MainWindow(QMainWindow):
         _legible(self.transient_window)
         _spacing(self.transient_window)
         _align(self.transient_window)
+
+        # The Design Optimization window (SC-13) is the third tool
+        # window outside the tab flow.
+        from .tabs.optimizer_window import OptimizerWindow
+        self.optimizer_window = OptimizerWindow(self.state, parent=self)
+        for gb in self.optimizer_window.findChildren(_QGB):
+            block_id = _title_block(_BLOCKS, gb.title())
+            if block_id:
+                make_block_title_clickable(gb, block_id)
+        _compact(self.optimizer_window)
+        _legible(self.optimizer_window)
+        _spacing(self.optimizer_window)
+        _align(self.optimizer_window)
         _all_options(self.geometry_designer)
 
         # kept for the closing prompt (Q7): these are the tabs that know
@@ -565,6 +587,12 @@ class MainWindow(QMainWindow):
         self.transient_window.show()
         self.transient_window.raise_()
         self.transient_window.activateWindow()
+
+    def open_design_optimization(self):
+        """Shows the non-modal Design Optimization window (SC-13)."""
+        self.optimizer_window.show()
+        self.optimizer_window.raise_()
+        self.optimizer_window.activateWindow()
 
     def open_geometry_designer(self):
         """Shows the non-modal Geometry Designer window, parented to

@@ -368,9 +368,11 @@ class TestMountedWindowLayout(unittest.TestCase):
         mute: list = []
         # The Geometry Designer is a separate top-level window parented
         # to the main one; its groupboxes carry block titles through the
-        # same map and belong in this check.
+        # same map and belong in this check. The Design Optimization
+        # window joined the same system (SC-13).
         roots = [(name, tab) for name, tab in self._tabs()]
         roots.append(("Geometry Designer", self.win.geometry_designer))
+        roots.append(("Design Optimization", self.win.optimizer_window))
         for source_name, root in roots:
             for gb in root.findChildren(QGroupBox):
                 clickable = next((c for c in gb.children()

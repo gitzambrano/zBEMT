@@ -846,3 +846,84 @@ class TestTableSpaceOverrides(unittest.TestCase):
         out = studies.variant_geometry(base, {"tip_chord_norm": 0.06})
         self.assertEqual(out.origin_params.get("kind"), "tapered")
         self.assertAlmostEqual(out.chord_norm[-1], 0.06, places=12)
+
+
+class TestOptimizeDesignPathsAgree(unittest.TestCase):
+    """SC-8 vs SC-13 on the same single-objective study: the
+    derivative-free search and the evolutionary search must land within
+    two percent of each other, and a binding constraint must hold."""
+
+    def _project(self):
+        return _make_project()
+
+    def test_one_objective_two_paths_within_two_percent(self):
+        from dataclasses import replace as dc_replace
+        from zbemt.models import (FlightCondition, OptimizationDefinition,
+                                   DesignVariable)
+        condition = FlightCondition(name="opt", mu_x=0.0,
+                                     collective_deg=8.0, rpm=600.0)
+        base = OptimizationDefinition(
+            name="fm",
+            objective_kind="maximize",
+            objective_key="FM",
+            variables=[DesignVariable(param="tip_chord_norm", lower=0.03,
+                                       upper=0.06)],
+            method="powell", max_evals=40,
+            condition=condition)
+        project = self._project()
+        single = studies.optimize_design(project, base)
+
+        pareto_def = dc_replace(base, algorithm="nsga2", population=8,
+                                 generations=6, seed=3)
+        multi = studies.optimize_design_multi(project, pareto_def)
+        best_multi = max(v["FM"] for v in multi.front_values)
+        # The absolute level depends on the condition; what must hold is
+        # that both searches agree on it.
+        rel = abs(best_multi - single.best_value) / single.best_value
+        self.assertLess(rel, 0.02,
+                         f"paths disagree: powell {single.best_value:.5f} "
+                         f"vs nsga2 {best_multi:.5f}")
+
+    def test_a_constraint_binds_every_front_member(self):
+        from dataclasses import replace as dc_replace
+        from zbemt.models import (ConstraintDef, DesignVariable,
+                                   FlightCondition, ObjectiveDef,
+                                   OptimizationDefinition)
+        condition = FlightCondition(name="opt", mu_x=0.0,
+                                     collective_deg=8.0, rpm=600.0)
+        definition = OptimizationDefinition(
+            name="bound",
+            objectives=[ObjectiveDef(key="FM", kind="maximize")],
+            constraints=[ConstraintDef(key="CT", operator=">=", value=0.008)],
+            variables=[DesignVariable(param="root_chord_norm", lower=0.07,
+                                       upper=0.15),
+                        DesignVariable(param="tip_chord_norm", lower=0.02,
+                                        upper=0.09)],
+            algorithm="nsga2", population=10, generations=4, seed=5,
+            condition=condition)
+        out = studies.optimize_design_multi(self._project(), definition)
+        self.assertTrue(out.front_values)
+        self.assertNotIn("no design satisfied the constraints",
+                          out.message)
+        for values in out.front_values:
+            # The floor sits above what the minimum-chord corner reaches,
+            # so satisfaction proves the constraint actually binds.
+            self.assertGreaterEqual(values["CT"], 0.008 - 1e-9)
+
+    def test_an_unreachable_constraint_is_reported_as_such(self):
+        from dataclasses import replace as dc_replace
+        from zbemt.models import (ConstraintDef, DesignVariable,
+                                   FlightCondition, ObjectiveDef,
+                                   OptimizationDefinition)
+        condition = FlightCondition(name="opt", mu_x=0.0,
+                                     collective_deg=8.0, rpm=600.0)
+        definition = OptimizationDefinition(
+            name="impossible",
+            objectives=[ObjectiveDef(key="FM", kind="maximize")],
+            constraints=[ConstraintDef(key="CT", operator=">=", value=99.0)],
+            variables=[DesignVariable(param="tip_chord_norm", lower=0.03,
+                                       upper=0.06)],
+            algorithm="nsga2", population=8, generations=2, seed=5,
+            condition=condition)
+        out = studies.optimize_design_multi(self._project(), definition)
+        self.assertIn("no design satisfied the constraints", out.message)

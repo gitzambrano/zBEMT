@@ -222,6 +222,44 @@ class OptimizeWorker(QObject):
         self.finished.emit(outcome)
 
 
+class OptimizeMultiWorker(QObject):
+    """Runs ``api.optimize_design_multi`` outside the GUI thread (SC-13).
+
+    Same pattern as ``OptimizeWorker``. A Pareto search has no fixed
+    evaluation total and no scalar best, so ``progress`` carries
+    ``(evaluations done, values dict of the last design)`` and the
+    caller shows activity rather than a fraction. ``cancel()`` sets the
+    flag the ``should_cancel`` closure reads; a cancelled run still
+    arrives through ``finished`` -- either the partial front rebuilt from
+    the evaluations already made, or an empty outcome whose message says
+    what happened."""
+    finished = pyqtSignal(object)
+    failed = pyqtSignal(str)
+    # (evals done, objective values dict) -- after EACH finite evaluation.
+    progress = pyqtSignal(int, object)
+
+    def __init__(self, project: Project, definition):
+        super().__init__()
+        self.project = project
+        self.definition = definition
+        self.cancel_requested = False
+
+    def cancel(self):
+        self.cancel_requested = True
+
+    def run(self):
+        try:
+            outcome = api.optimize_design_multi(
+                self.project, self.definition,
+                on_progress=lambda done, _total, values:
+                    self.progress.emit(done, values),
+                should_cancel=lambda: self.cancel_requested)
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            return
+        self.finished.emit(outcome)
+
+
 class ReportWorker(QObject):
     """Generates the report outside the application's main thread."""
 

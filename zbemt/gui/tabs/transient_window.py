@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QHeaderView, QInputDialog, QFileDialog,
 )
 
-from ..common import AppState, CanvasHost
+from ..common import AppState, CanvasHost, show_error
 from ..workers import ManeuverWorker, launch_worker
 from ... import api
 from ...models import ManeuverDefinition, ManeuverPoint

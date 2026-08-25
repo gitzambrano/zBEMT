@@ -485,3 +485,97 @@ class TestPolarFullRangeVersusReverseFlow(unittest.TestCase):
                                  self._airfoil(extended=True))
         self.assertFalse([t for n, t in findings
                           if "viterna" in t.lower() or "+/-180" in t], findings)
+
+class TestValidateOptimization(unittest.TestCase):
+    """Phase 3.1: static findings for one optimization study, shown
+    BEFORE the run so solver time is never paid to learn about a bad
+    definition."""
+
+    def _definition(self, **overrides):
+        from dataclasses import replace
+        from zbemt.models import (DesignVariable, FlightCondition,
+                                   ObjectiveDef, OptimizationDefinition)
+        base = OptimizationDefinition(
+            name="v",
+            objectives=[ObjectiveDef(key="FM", kind="maximize")],
+            variables=[DesignVariable(param="tip_chord_norm", lower=0.03,
+                                       upper=0.06)],
+            algorithm="nsga2", population=12, generations=4, seed=1,
+            condition=FlightCondition(name="c", mu_x=0.0,
+                                       collective_deg=8.0, rpm=600.0))
+        return replace(base, **overrides)
+
+    def _levels(self, definition, project=None):
+        findings = validation.validate_optimization(definition, project)
+        return [i.level for i in findings], findings
+
+    def test_no_variables_is_an_error(self):
+        levels, findings = self._levels(self._definition(variables=[]))
+        self.assertIn("error", levels)
+        self.assertTrue(any("no design variable" in i.message.lower()
+                             for i in findings))
+
+    def test_decreasing_bounds_are_an_error(self):
+        from zbemt.models import DesignVariable
+        definition = self._definition(
+            variables=[DesignVariable(param="tip_chord_norm", lower=0.06,
+                                       upper=0.03)])
+        levels, findings = self._levels(definition)
+        self.assertIn("error", levels)
+        self.assertTrue(any("lower >= upper" in i.message
+                             for i in findings))
+
+    def test_genetic_algorithm_with_tiny_population_is_an_error(self):
+        levels, findings = self._levels(self._definition(population=5))
+        self.assertIn("error", levels)
+        self.assertTrue(any("at least 8" in i.message for i in findings))
+
+    def test_two_objectives_on_powell_is_an_error(self):
+        from zbemt.models import ObjectiveDef
+        definition = self._definition(
+            objectives=[ObjectiveDef(key="FM", kind="maximize"),
+                         ObjectiveDef(key="CT", kind="maximize")],
+            algorithm="", method="powell")
+        levels, findings = self._levels(definition)
+        self.assertIn("error", levels)
+        self.assertTrue(any("Powell" in i.message for i in findings))
+
+    def test_unknown_objective_key_is_an_error(self):
+        from zbemt.models import ObjectiveDef
+        definition = self._definition(
+            objectives=[ObjectiveDef(key="NOT_A_KEY", kind="maximize")])
+        levels, findings = self._levels(definition)
+        self.assertIn("error", levels)
+        self.assertTrue(any("NOT_A_KEY" in i.message for i in findings))
+
+    def test_unknown_constraint_key_is_an_error(self):
+        from zbemt.models import ConstraintDef
+        definition = self._definition(
+            constraints=[ConstraintDef(key="NOPE", operator=">=", value=0.0)])
+        levels, _findings = self._levels(definition)
+        self.assertIn("error", levels)
+
+    def test_sound_study_stays_silent(self):
+        levels, _findings = self._levels(self._definition())
+        self.assertEqual([lv for lv in levels if lv == "error"], [])
+        self.assertEqual(levels, [])
+
+    def test_huge_budget_warns_with_a_timed_estimate(self):
+        """The wall-time warning times ONE real evaluation and states the
+        extrapolated cost; a study this size stays under the threshold."""
+        from tests.helpers import make_studies_project
+        project = make_studies_project()
+        big = self._definition(population=40, generations=60)
+        levels, findings = self._levels(big, project)
+        self.assertIn("warning", levels)
+        self.assertTrue(any("evaluations" in i.message
+                             for i in findings if i.level == "warning"))
+
+    def test_condition_without_rpm_is_an_error(self):
+        from zbemt.models import FlightCondition
+        definition = self._definition(
+            condition=FlightCondition(name="c", mu_x=0.0,
+                                       collective_deg=8.0))
+        levels, findings = self._levels(definition)
+        self.assertIn("error", levels)
+        self.assertTrue(any("RPM" in i.message for i in findings))

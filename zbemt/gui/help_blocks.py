@@ -444,4 +444,57 @@ BLOCK_HELP: dict[str, dict] = {
         ],
         "anchor": "designer-variants",
     },
+    "optimization_studies": {
+        "title": "Optimization studies stored in this project",
+        "body": [
+            "A study is a persisted search problem: which quantities to drive, in which direction, over which bounded parameters, at one flight condition. It lives in inputs/optimizations.bemt beside the project and survives sessions.",
+            "<b>New</b> appends an empty study with one objective and one variable as a starting point. <b>Duplicate</b> copies what is on screen under a new name, which is the cheap way to compare algorithms on the same problem. <b>Rename</b> changes only the name; <b>Delete</b> removes the study from the project after confirmation.",
+            "The name labels the report, the front CSV and the evaluations CSV, so two studies never overwrite each other's artifacts.",
+        ],
+        "anchor": "cap-optimization",
+    },
+    "optimization_objectives": {
+        "title": "Objectives — what better means",
+        "body": [
+            "An objective names one summary quantity and states its good direction. The first row is required; the second row is the switch between the two regimes of this window: an empty second box drives ONE quantity with the global search, a filled one evolves a whole <b>Pareto front</b> of designs no member of which dominates another.",
+            "Domination rule: design A dominates B when A is at least as good on every objective and strictly better on one. The front is the set dominated by nobody. With constraints, any feasible design beats any infeasible one first.",
+            "Usual pairs trade thrust against efficiency: FM against CT, or CP against CT. When both objectives agree on the same optimum, the honest answer is a single-point front — there is no trade-off on that rotor at that condition.",
+        ],
+        "anchor": "cap-opt-objectives",
+    },
+    "optimization_constraints": {
+        "title": "Constraints — the designs the search may not keep",
+        "body": [
+            "Each row reads one summary quantity and requires it above (&ge;), below (&le;) or equal (=) to a value. Constraints are not penalties added to a fitness: a design that breaks one loses to every design that respects it, whatever the objectives say, and among violators the milder ones rank better.",
+            "This keeps thresholds honest: a thrust floor either holds or it does not, and when nothing satisfied the constraints the outcome says so instead of dressing up the least-bad design as a success. Every front member reports its constraint values next to its objectives.",
+        ],
+        "anchor": "cap-opt-constraints",
+    },
+    "optimization_variables": {
+        "title": "Design variables — the degrees of freedom",
+        "body": [
+            "Each row is one parameter the search may turn, with the range it may turn it over: planform generator inputs (root_chord_norm, tip_chord_norm, twist_root_deg, twist_tip_deg, max_chord_norm) or the direct fields n_blades, radius_m, root_cutout_norm.",
+            "Bounds need finite numbers with lower below upper. The first population already spreads across the whole box, stratified, before evolution starts — so the search sees every corner at least once.",
+            "Every variable multiplies the cost of seeing the box properly. Two or three variables are usually enough for a first study.",
+        ],
+        "anchor": "cap-opt-variables",
+    },
+    "optimization_search": {
+        "title": "Search settings — condition, algorithm and budget",
+        "body": [
+            "<b>Condition</b> is the saved case every candidate is solved at; rotation is mandatory because the solver adimensionalizes by &Omega;R.",
+            "<b>Algorithm</b>: NSGA-II evolves the whole front (tournament by the domination rules, then crossover and mutation); differential evolution drives the FIRST objective only through global difference vectors. The SBX crossover index &eta;<sub>c</sub>, the mutation index &eta;<sub>m</sub> and the mutation rate belong to NSGA-II and disable under DE. A rate of 0 means one over the variable count — the classic default, and the reason the population does not contract into a corner.",
+            "<b>Population &times; (generations + 1)</b> is almost exactly the solver-call count; the estimate line states it before anything runs. The seed drives every random choice, so the same seed reproduces the same search exactly.",
+        ],
+        "anchor": "cap-opt-algorithm",
+    },
+    "optimization_run": {
+        "title": "Pareto front, trade-off plot and exports",
+        "body": [
+            "The table lists one non-dominated design per row: variables first, then raw objective values, then constraint values. No row dominates another — that is what makes them the front.",
+            "The Pareto view plots the two objectives against each other: every evaluated design as a faint grey point behind, the current front as a red line on top. Click a marker to select that design in the table. The parallel-coordinates view draws one polyline per member across every quantity normalized per axis — high where the member wins, low where it pays.",
+            "<b>Export CSV</b> writes the front table; <b>Export report</b> writes the self-contained HTML report plus an evaluations CSV with every solve of the search, both named after the study.",
+        ],
+        "anchor": "cap-opt-run",
+    },
 }

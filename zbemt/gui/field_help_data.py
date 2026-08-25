@@ -47,7 +47,16 @@ _GUI_MARK = 'class="gui"'
 #: station's own §8.1.3, so the tie-break handed the help link to the
 #: export section. Extend this table only when another bare name gains
 #: a citation that is a list, never an explanation.
-_NOT_THE_FIELDS_SECTION = frozenset({("r_norm", "cap-3-8-3")})
+_NOT_THE_FIELDS_SECTION = frozenset({
+    ("r_norm", "cap-3-8-3"),
+    #: The Design Optimization chapter lists the variable parameters it
+    #: may turn; every one of them is a Geometry-tab field documented in
+    #: its own section there, never in the optimizer chapter.
+    *{(name, "cap-opt-variables") for name in (
+        "root_chord_norm", "tip_chord_norm", "twist_root_deg",
+        "twist_tip_deg", "max_chord_norm", "chord_norm", "n_blades",
+        "radius_m", "root_cutout_norm")},
+})
 
 #: chapters whose subject is physics/math, not widget description
 _PHYSICS_CHAPTERS = frozenset({

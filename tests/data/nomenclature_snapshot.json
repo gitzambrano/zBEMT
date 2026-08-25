@@ -316,6 +316,11 @@
         "mathtext": "cfg_inflow_field_model",
         "text": "cfg_inflow_field_model"
       },
+      "cfg_inflow_sideslip_deg": {
+        "html": "cfg_inflow_sideslip_deg",
+        "mathtext": "cfg_inflow_sideslip_deg",
+        "text": "cfg_inflow_sideslip_deg"
+      },
       "cfg_integration_offset": {
         "html": "cfg_integration_offset",
         "mathtext": "cfg_integration_offset",
@@ -576,6 +581,16 @@
         "mathtext": "$\\nu_\\zeta$ [-]",
         "text": "νζ [-]"
       },
+      "p_rate_deg_s": {
+        "html": "p [deg/s]",
+        "mathtext": "p [deg/s]",
+        "text": "p [deg/s]"
+      },
+      "q_rate_deg_s": {
+        "html": "q [deg/s]",
+        "mathtext": "q [deg/s]",
+        "text": "q [deg/s]"
+      },
       "rotor_D": {
         "html": "D [m]",
         "mathtext": "$D$ [m]",
@@ -610,6 +625,11 @@
         "html": "RPM [rev/min]",
         "mathtext": "RPM [rev/min]",
         "text": "RPM [rev/min]"
+      },
+      "sideslip_deg": {
+        "html": "&psi;<sub>w</sub> [deg]",
+        "mathtext": "$\\psi_w$ [deg]",
+        "text": "ψw [deg]"
       },
       "solver": {
         "html": "solver",
@@ -958,6 +978,11 @@
         "mathtext": "cfg_inflow_field_model",
         "text": "cfg_inflow_field_model"
       },
+      "cfg_inflow_sideslip_deg": {
+        "html": "cfg_inflow_sideslip_deg",
+        "mathtext": "cfg_inflow_sideslip_deg",
+        "text": "cfg_inflow_sideslip_deg"
+      },
       "cfg_integration_offset": {
         "html": "cfg_integration_offset",
         "mathtext": "cfg_integration_offset",
@@ -1218,6 +1243,16 @@
         "mathtext": "$\\nu_\\zeta$ [-]",
         "text": "νζ [-]"
       },
+      "p_rate_deg_s": {
+        "html": "p [deg/s]",
+        "mathtext": "p [deg/s]",
+        "text": "p [deg/s]"
+      },
+      "q_rate_deg_s": {
+        "html": "q [deg/s]",
+        "mathtext": "q [deg/s]",
+        "text": "q [deg/s]"
+      },
       "rotor_D": {
         "html": "D [m]",
         "mathtext": "$D$ [m]",
@@ -1252,6 +1287,11 @@
         "html": "RPM [rev/min]",
         "mathtext": "RPM [rev/min]",
         "text": "RPM [rev/min]"
+      },
+      "sideslip_deg": {
+        "html": "&psi;<sub>w</sub> [deg]",
+        "mathtext": "$\\psi_w$ [deg]",
+        "text": "ψw [deg]"
       },
       "solver": {
         "html": "solver",
@@ -1426,6 +1466,9 @@
       "cyclic_c_deg",
       "cyclic_s_deg",
       "rpm",
+      "sideslip_deg",
+      "p_rate_deg_s",
+      "q_rate_deg_s",
       "lambda_i",
       "lambda_total",
       "Vi",
@@ -1742,6 +1785,10 @@
         "inflow",
         "Inflow model requested (Glauert/Coleman/Drees/Pitt-Peters, local/global coupling)"
       ],
+      "cfg_inflow_sideslip_deg": [
+        "&psi;<sub>w,cfg</sub>",
+        "In-plane free-stream sideslip angle configured [deg] (the per-condition value lives on the saved case)"
+      ],
       "cfg_integration_offset": [
         "&Delta;r<sub>0</sub>",
         "Radial offset applied to stations to avoid the root/tip singularity"
@@ -1950,6 +1997,14 @@
         "&nu;_&zeta;",
         "Lead-lag frequency ratio: &nu;<sub>&zeta;</sub><sup>2</sup> = (3/2)&middot;e/(1&minus;e) + K<sub>&zeta;</sub>/(I<sub>&zeta;</sub>&Omega;<sup>2</sup>). No leading 1: the lag freedom gets no restoring term from the thrust"
       ],
+      "p_rate_deg_s": [
+        "p",
+        "Hub roll rate [deg/s] (SC-14): carries every blade element out of the disk plane and forces the flap response gyroscopically"
+      ],
+      "q_rate_deg_s": [
+        "q",
+        "Hub pitch rate [deg/s] (SC-14): same path as the roll rate, about the &psi;=0 axis; its hub moment is the pitch damping"
+      ],
       "rotor_D": [
         "D",
         "Diameter [m] = 2R"
@@ -1977,6 +2032,10 @@
       "rpm": [
         "RPM",
         "Rotational speed of the rotor for this condition [rev/min] -- the value the solver actually ran with. Same quantity as RPM<sub>rotor</sub> (the engine's own echo of it), which is therefore hidden from the table whenever the two agree"
+      ],
+      "sideslip_deg": [
+        "&psi;<sub>w</sub>",
+        "Sideslip angle [deg] of the in-plane free stream (SC-14): rotates U<sub>T</sub>=&Omega;r+V&middot;sin(&psi;&minus;&psi;<sub>w</sub>) so a lateral velocity component can be imposed. Zero reproduces the plain edgewise case"
       ],
       "solver": [
         "solver",
@@ -2256,6 +2315,10 @@
         "inflow",
         "Inflow model requested (Glauert/Coleman/Drees/Pitt-Peters, local/global coupling)"
       ],
+      "cfg_inflow_sideslip_deg": [
+        "&psi;<sub>w,cfg</sub>",
+        "In-plane free-stream sideslip angle configured [deg] (the per-condition value lives on the saved case)"
+      ],
       "cfg_integration_offset": [
         "&Delta;r<sub>0</sub>",
         "Radial offset applied to stations to avoid the root/tip singularity"
@@ -2464,6 +2527,14 @@
         "&nu;_&zeta;",
         "Lead-lag frequency ratio: &nu;<sub>&zeta;</sub><sup>2</sup> = (3/2)&middot;e/(1&minus;e) + K<sub>&zeta;</sub>/(I<sub>&zeta;</sub>&Omega;<sup>2</sup>). No leading 1: the lag freedom gets no restoring term from the thrust"
       ],
+      "p_rate_deg_s": [
+        "p",
+        "Hub roll rate [deg/s] (SC-14): carries every blade element out of the disk plane and forces the flap response gyroscopically"
+      ],
+      "q_rate_deg_s": [
+        "q",
+        "Hub pitch rate [deg/s] (SC-14): same path as the roll rate, about the &psi;=0 axis; its hub moment is the pitch damping"
+      ],
       "rotor_D": [
         "D",
         "Diameter [m] = 2R"
@@ -2491,6 +2562,10 @@
       "rpm": [
         "RPM",
         "Rotational speed of the rotor for this condition [rev/min] -- the value the solver actually ran with. Same quantity as RPM<sub>rotor</sub> (the engine's own echo of it), which is therefore hidden from the table whenever the two agree"
+      ],
+      "sideslip_deg": [
+        "&psi;<sub>w</sub>",
+        "Sideslip angle [deg] of the in-plane free stream (SC-14): rotates U<sub>T</sub>=&Omega;r+V&middot;sin(&psi;&minus;&psi;<sub>w</sub>) so a lateral velocity component can be imposed. Zero reproduces the plain edgewise case"
       ],
       "solver": [
         "solver",
@@ -2582,6 +2657,7 @@
     "cfg_dynamic_stall_time_march_revolutions": "<th class=\"un\">[-]</th>",
     "cfg_early_exit_fraction": "<th class=\"un\">[-]</th>",
     "cfg_inflow_field_model": "<th class=\"un\"></th>",
+    "cfg_inflow_sideslip_deg": "<th class=\"un\"></th>",
     "cfg_integration_offset": "<th class=\"un\">[-]</th>",
     "cfg_is_propeller": "<th class=\"un\"></th>",
     "cfg_mask_reverse_flow_plots": "<th class=\"un\"></th>",
@@ -2634,6 +2710,8 @@
     "mu_z": "<th class=\"un\">[-]</th>",
     "nu_beta": "<th class=\"un\">[-]</th>",
     "nu_zeta": "<th class=\"un\">[-]</th>",
+    "p_rate_deg_s": "<th class=\"un\">[deg/s]</th>",
+    "q_rate_deg_s": "<th class=\"un\">[deg/s]</th>",
     "rotor_D": "<th class=\"un\">[m]</th>",
     "rotor_Nb": "<th class=\"un\">[-]</th>",
     "rotor_Omega": "<th class=\"un\">[rad/s]</th>",
@@ -2641,6 +2719,7 @@
     "rotor_R": "<th class=\"un\">[m]</th>",
     "rotor_rpm": "<th class=\"un\">[rev/min]</th>",
     "rpm": "<th class=\"un\">[rev/min]</th>",
+    "sideslip_deg": "<th class=\"un\">[deg]</th>",
     "solver": "<th class=\"un\"></th>",
     "tpp_tilt_lat_deg": "<th class=\"un\">[deg]</th>",
     "tpp_tilt_long_deg": "<th class=\"un\">[deg]</th>",

@@ -699,6 +699,7 @@ class RunCaseTab(QWidget):
                         "mu_z", "J_z", "Vz", "lambda_z",
                         "alpha_rotor_deg", "alpha_disk_deg",
                         "collective_deg", "cyclic_c_deg", "cyclic_s_deg",
+                        "sideslip_deg", "p_rate_deg_s", "q_rate_deg_s",
                         "rpm"])
     _INFLOW_GROUP = ("Inflow (solved)", ["lambda_i", "lambda_total", "Vi", "Vz_total"])
     _GEOMETRY_GROUP = ("Rotor geometry (resolved)",

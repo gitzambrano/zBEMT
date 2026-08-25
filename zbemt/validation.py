@@ -14,6 +14,7 @@ accuracy or replace experimental validation.
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass
 
 from .models import (AirfoilDef, BladeDynamicsDef, RotorGeometryDef,
@@ -754,3 +755,150 @@ def _validate_propeller_convention(condition, is_propeller: bool) -> list[Issue]
             f"the axial component (or give the tilt as alpha_disk, measured from the shaft, "
             f"which derives the cross-flow from it).")]
     return []
+
+
+# =============================================================================
+# OptimizationDefinition (SC-8 / SC-13): static findings before a run
+# =============================================================================
+
+#: Integrated coefficients of the results summary (the block the
+#: aggregate step writes on top of the per-element maps). These live
+#: outside the axis-quantity registry, so they join it explicitly.
+_INTEGRATED_SUMMARY_KEYS = (
+    "CT", "CQ", "CP", "CPi", "CPp", "CH", "CY", "CMx", "CMy",
+    "CT_prop", "CQ_prop", "CP_prop",
+    "FM", "eta_prop", "Thrust", "Torque", "Power", "Power_i", "Power_p",
+)
+
+
+#: Summary keys an objective or constraint may read: every quantity the
+#: nomenclature registry knows (axis values such as Vi, lambda_i, J_x)
+#: plus the integrated coefficients of the results summary.
+def _summary_key_universe() -> frozenset:
+    from .nomenclature import QUANTITIES
+    return frozenset(QUANTITIES) | frozenset(_INTEGRATED_SUMMARY_KEYS)
+
+
+def validate_optimization(definition, project=None) -> list[Issue]:
+    """Static findings for one saved optimization study, in the same
+    style as ``validate_maneuver``: the GUI shows them before the run so
+    the user never pays solver time to learn about a bad definition.
+
+    Errors block the run; warnings only inform. The evaluation-count
+    warning times ONE real evaluation at the study's condition and
+    extrapolates, so its wall-time estimate is honest rather than
+    invented."""
+    issues: list[Issue] = []
+    objectives = list(definition.objectives)
+    if not objectives and definition.objective_key:
+        objectives = [ObjectiveLike(definition.objective_key,
+                                     definition.objective_kind)]
+    algorithm = definition.algorithm or definition.method
+
+    # --- variables --------------------------------------------------------
+    variables = list(definition.variables)
+    if not variables:
+        issues.append(Issue("error",
+            "The optimization defines no design variable: nothing can "
+            "change between evaluations. Add at least one variable row "
+            "(for example tip_chord_norm with bounds)."))
+    for v in variables:
+        lower, upper = float(v.lower), float(v.upper)
+        if not (math.isfinite(lower) and math.isfinite(upper)):
+            issues.append(Issue("error",
+                f"Variable {v.param!r} has a non-finite bound "
+                f"(lower={v.lower}, upper={v.upper}); the search needs "
+                "finite numbers on both sides."))
+        elif lower >= upper:
+            issues.append(Issue("error",
+                f"Variable {v.param!r} has lower >= upper "
+                f"({lower:g} >= {upper:g}); bounds must increase."))
+
+    # --- population under a genetic algorithm ------------------------------
+    if algorithm in ("nsga2", "de") and int(definition.population) < 8:
+        issues.append(Issue("error",
+            f"Algorithm {algorithm!r} with population "
+            f"{definition.population}: a genetic search needs at least 8 "
+            "designs alive per generation, or selection has nothing to "
+            "select from. Raise Population to 8 or more."))
+
+    # --- two objectives on a single-result method --------------------------
+    kinds_single = ("powell", "nelder-mead")
+    if len(objectives) >= 2 and algorithm in kinds_single:
+        names = {"powell": "Powell", "nelder-mead": "Nelder-Mead"}
+        issues.append(Issue("error",
+            f"{len(objectives)} objectives given to {names[algorithm]}: "
+            "that method drives ONE quantity. Drop to a single objective, "
+            "or switch Algorithm to nsga2 for the Pareto front."))
+
+    # --- keys must be summary keys -----------------------------------------
+    universe = _summary_key_universe()
+    for o in objectives:
+        if o.key not in universe:
+            issues.append(Issue("error",
+                f"Objective key {o.key!r} is not a summary quantity. Known "
+                f"keys include {sorted(k for k in universe)[:12]}...; pick "
+                "one the results table actually reports."))
+    for c in definition.constraints:
+        if c.key not in universe:
+            issues.append(Issue("error",
+                f"Constraint key {c.key!r} is not a summary quantity, so "
+                "no evaluation can ever test it against "
+                f"{c.operator} {c.value:g}."))
+
+    # --- condition ----------------------------------------------------------
+    condition = getattr(definition, "condition", None)
+    if condition is None and project is not None:
+        condition = project.saved_cases[0] if project.saved_cases else None
+    if condition is None:
+        issues.append(Issue("error",
+            "The study has no condition and the project stores no saved "
+            "case: every evaluation needs one flight state to solve at."))
+    elif not getattr(condition, "rpm", None):
+        issues.append(Issue("error",
+            f"Condition {getattr(condition, 'name', '')!r} carries no RPM: "
+            "the solver adimensionalizes by Omega*R and refuses to run "
+            "without rotation."))
+
+    # --- cost warning with a TIMED estimate ---------------------------------
+    if algorithm in ("nsga2", "de"):
+        evaluations = int(definition.population) * (int(definition.generations) + 1)
+    else:
+        evaluations = int(definition.max_evals)
+    if evaluations > 2000 and condition is not None \
+            and getattr(condition, "rpm", None):
+        seconds = _time_one_evaluation(project, condition, variables)
+        if seconds is not None:
+            minutes = evaluations * seconds / 60.0
+            issues.append(Issue("warning",
+                f"This study runs about {evaluations} evaluations; one "
+                f"solve took {seconds:.2f} s here, so expect roughly "
+                f"{minutes:.0f} min of wall time. Fewer generations, a "
+                "smaller population or a coarser mesh bring it down."))
+    return issues
+
+
+class ObjectiveLike:
+    """Minimal stand-in for models.ObjectiveDef when only the legacy
+    single-objective pair exists on the definition."""
+
+    def __init__(self, key: str, kind: str):
+        self.key = key
+        self.kind = kind
+
+
+def _time_one_evaluation(project, condition, variables) -> float | None:
+    """Wall time of ONE real solve at the study's condition, with the
+    variables parked mid-range; None when it cannot run."""
+    try:
+        from . import studies
+        params = {v.param: 0.5 * (float(v.lower) + float(v.upper))
+                  for v in variables}
+        start = time.perf_counter()
+        result = studies._evaluate_variant(project, condition, params)
+        elapsed = time.perf_counter() - start
+        if result is None:
+            return None
+        return elapsed
+    except Exception:
+        return None

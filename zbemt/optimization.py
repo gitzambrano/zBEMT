@@ -25,19 +25,81 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .bemt import SolveCancelled
+
 
 @dataclass
 class ParetoOutcome:
     """Result of one multi-objective run (in memory only)."""
     front_params: list[dict] = field(default_factory=list)
     front_values: list[dict] = field(default_factory=list)
+    #: Which of the keys inside ``front_values`` are the OBJECTIVES (any
+    #: further keys ride along as recorded constraint values).
+    objective_keys: list[str] = field(default_factory=list)
     all_evaluations: list[dict] = field(default_factory=list)
+    param_names: list[str] = field(default_factory=list)
     generations_run: int = 0
     n_evals: int = 0
     seed: int = 0
     message: str = ""
     hypervolume_history: list[float] = field(default_factory=list)
     best_history: list[float] = field(default_factory=list)
+
+
+class SearchCancelled(SolveCancelled):
+    """A search whose ``should_cancel`` fired mid-run (SC-13). It IS a
+    ``SolveCancelled``, so every caller that treats cancellation as
+    "stop here" keeps working; ``evaluations`` carries every record
+    gathered up to the stop, so the caller can rebuild a partial front
+    instead of throwing the whole run away."""
+
+    def __init__(self, evaluations=None):
+        super().__init__()
+        self.evaluations = evaluations if evaluations is not None else []
+
+
+def front_from_ledger(evaluations: list[dict],
+                      objective_keys: list[str],
+                      signs: np.ndarray | None = None) -> ParetoOutcome:
+    """Rebuilds the first constraint-dominated front from a raw
+    evaluation ledger (the records ``Evaluator`` logs). Used when a
+    search stops early: the population may be gone, but what was already
+    evaluated still holds a front worth reporting. ``signs`` is the same
+    per-objective direction vector the search used (+1 minimize, -1
+    maximize); the emitted values stay RAW."""
+    sign_arr = (np.ones(len(objective_keys))
+                 if signs is None else np.asarray(signs, dtype=float))
+    finite_x, finite_F, finite_viol = [], [], []
+    for rec in evaluations:
+        values = rec.get("values") or {}
+        try:
+            F_row = [float(values.get(k, math.nan)) * s for k, s
+                     in zip(objective_keys, sign_arr)]
+            x_row = [float(v) for v in rec.get("x") or []]
+            viol = float(rec.get("violation", math.inf))
+        except (TypeError, ValueError):
+            continue
+        if not all(math.isfinite(v) for v in F_row) \
+                or not all(math.isfinite(v) for v in x_row):
+            continue
+        finite_x.append(x_row)
+        finite_F.append(F_row)
+        finite_viol.append(viol)
+    outcome = ParetoOutcome()
+    objective_keys = list(objective_keys)
+    outcome.objective_keys = objective_keys
+    if not finite_F:
+        return outcome
+    F_signed = np.asarray(finite_F, dtype=float)
+    ranks, _crowd = _rank_population(F_signed, np.asarray(finite_viol))
+    members = np.where(ranks == ranks.min())[0]
+    n_var = len(finite_x[0])
+    names = [f"v{j}" for j in range(n_var)]
+    for i in members:
+        outcome.front_params.append(dict(zip(names, finite_x[i])))
+        outcome.front_values.append(dict(zip(objective_keys,
+                                              (F_signed[i] / sign_arr).tolist())))
+    return outcome
 
 
 def _fast_non_dominated_sort(F: np.ndarray) -> np.ndarray:
@@ -168,11 +230,18 @@ def hypervolume_2d(points: np.ndarray, reference: np.ndarray) -> float:
 
 class Evaluator:
     """Wraps the caller's callable into the normalized form the search
-    consumes: repair, evaluate, split objectives/constraints, count."""
+    consumes: repair, evaluate, split objectives/constraints, count.
+
+    ``evaluate_raw`` returns RAW summary values -- the user's own
+    direction, not the search's. ``signs`` carries the per-objective
+    direction (+1 minimize, -1 maximize) and is applied ONLY when the F
+    matrix is built, so constraints and every record kept for reporting
+    always see raw values."""
 
     def __init__(self, evaluate, lower: np.ndarray, upper: np.ndarray,
                   integer_mask: np.ndarray, objective_keys: list[str],
-                  constraints: list | None = None, log=None):
+                  constraints: list | None = None, log=None,
+                  signs: np.ndarray | None = None):
         self.evaluate_raw = evaluate
         self.lower = lower
         self.upper = upper
@@ -180,13 +249,16 @@ class Evaluator:
         self.objective_keys = objective_keys
         self.constraints = constraints or []
         self.log = log
+        self.signs = (np.ones(len(objective_keys))
+                       if signs is None else np.asarray(signs, dtype=float))
 
     def __call__(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, dict]:
         x = repair_integers(x, self.integer_mask, self.lower, self.upper)
         result = self.evaluate_raw(x)
         values = result[0] if isinstance(result, tuple) else result
-        F = np.array([float(values.get(k, math.nan))
-                       for k in self.objective_keys], dtype=float)
+        F = np.array([float(values.get(k, math.nan)) * s
+                       for k, s in zip(self.objective_keys, self.signs)],
+                      dtype=float)
         violation = 0.0
         for constraint in self.constraints:
             actual = values.get(constraint.key)
@@ -242,12 +314,13 @@ def nsga2(evaluate, lower, upper, *, objective_keys: list[str],
           population: int = 40, generations: int = 25, seed: int = 0,
           crossover_eta: float = 15.0, mutation_eta: float = 20.0,
           mutation_rate: float = 0.0, on_generation=None,
-          should_cancel=None) -> ParetoOutcome:
-    """NSGA-II over bounded variables, pure minimization.
+          should_cancel=None, signs: np.ndarray | None = None) -> ParetoOutcome:
+    """NSGA-II over bounded variables.
 
-    ``evaluate(x)`` returns the summary-values dict of ONE design; the
-    ordered ``objective_keys`` pick what the search sees. Deterministic
-    for a fixed seed."""
+    ``evaluate(x)`` returns the RAW summary-values dict of ONE design;
+    the ordered ``objective_keys`` pick what the search sees and
+    ``signs`` (+1 minimize, -1 maximize) turns each into a quantity the
+    pure-minimization core handles. Deterministic for a fixed seed."""
     lower = np.asarray(lower, dtype=float)
     upper = np.asarray(upper, dtype=float)
     integer_mask = np.zeros(lower.size, dtype=bool) \
@@ -259,7 +332,8 @@ def nsga2(evaluate, lower, upper, *, objective_keys: list[str],
     rng = np.random.default_rng(seed)
     evaluations: list[dict] = []
     evaluator = Evaluator(evaluate, lower, upper, integer_mask,
-                           list(objective_keys), constraints, evaluations)
+                           list(objective_keys), constraints, evaluations,
+                           signs=signs)
 
     # --- initial population: deterministic stratified spread ------------
     xs = np.empty((population, lower.size))
@@ -282,7 +356,7 @@ def nsga2(evaluate, lower, upper, *, objective_keys: list[str],
 
     for generation in range(max(int(generations), 1)):
         if should_cancel is not None and should_cancel():
-            raise RuntimeError("cancelled")
+            raise SearchCancelled(evaluations)
         ranks, crowd = _rank_population(F, viol)
 
         feasible = viol <= 0.0
@@ -326,7 +400,7 @@ def nsga2(evaluate, lower, upper, *, objective_keys: list[str],
         child_viol = np.zeros(population)
         for i in range(population):
             if should_cancel is not None and should_cancel():
-                raise RuntimeError("cancelled")
+                raise SearchCancelled(evaluations)
             xs_child, child_F[i], child_viol[i] = evaluator(children[i])
             children[i] = xs_child
         n_evals += population
@@ -360,13 +434,17 @@ def nsga2(evaluate, lower, upper, *, objective_keys: list[str],
     outcome.generations_run = generations_run
     outcome.n_evals = n_evals
     outcome.seed = seed
+    outcome.objective_keys = list(objective_keys)
     outcome.hypervolume_history = hypervolume_history
     outcome.best_history = best_history
     names = [f"v{j}" for j in range(lower.size)]
+    sign_arr = evaluator.signs
     for i in members:
         outcome.front_params.append(dict(zip(names, xs[i].tolist())))
-        outcome.front_values.append({k: v for k, v in
-                                      zip(objective_keys, F[i].tolist())})
+        # F is the search's signed view; report RAW user-direction values.
+        outcome.front_values.append(
+            {k: v / s for k, v, s in zip(objective_keys, F[i].tolist(),
+                                          sign_arr)})
     outcome.all_evaluations = evaluations
     outcome.message = f"{generations_run} generations, {n_evals} evaluations"
     return outcome
@@ -385,10 +463,12 @@ def differential_evolution(evaluate, lower, upper, *,
                             constraints: list | None = None,
                             integer_mask=None, population: int = 40,
                             generations: int = 25, seed: int = 0,
-                            should_cancel=None) -> ParetoOutcome:
+                            should_cancel=None,
+                            signs: np.ndarray | None = None) -> ParetoOutcome:
     """Single-objective GLOBAL search backed by scipy's differential
     evolution, exposed through this same interface. The objective is the
-    FIRST key's value; ``minimize`` selects the direction."""
+    FIRST key's value; ``signs`` (+1 minimize, -1 maximize) selects the
+    direction, with ``minimize`` as the scalar fallback."""
     from scipy.optimize import differential_evolution as scipy_de
 
     lower = np.asarray(lower, dtype=float)
@@ -397,18 +477,23 @@ def differential_evolution(evaluate, lower, upper, *,
                      if integer_mask is None
                      else np.asarray(integer_mask, dtype=bool))
     evaluations: list[dict] = []
+    effective_signs = (np.asarray(signs, dtype=float) if signs is not None
+                        else np.full(len(objective_keys),
+                                     1.0 if minimize else -1.0))
     evaluator = Evaluator(evaluate, lower, upper, integer_mask,
-                           list(objective_keys), constraints, evaluations)
-    sign = 1.0 if minimize else -1.0     # scipy minimizes internally
+                           list(objective_keys), constraints, evaluations,
+                           signs=effective_signs)
 
     def cost(x: np.ndarray) -> float:
         if should_cancel is not None and should_cancel():
-            raise RuntimeError("cancelled")
+            raise SearchCancelled(evaluations)
         _x, F, violation = evaluator(x)
+        # F[0] is ALREADY the search's signed view (Evaluator applied
+        # ``signs``); scipy minimizes it as-is.
         value = float(F[0])
         if not math.isfinite(value):
             return math.inf
-        return sign * value + min(float(violation), 1e12)
+        return value + min(float(violation), 1e12)
 
     result = scipy_de(cost, list(zip(lower, upper)), seed=seed,
                        maxiter=max(int(generations), 1),
@@ -416,6 +501,7 @@ def differential_evolution(evaluate, lower, upper, *,
 
     outcome = ParetoOutcome()
     outcome.seed = seed
+    outcome.objective_keys = list(objective_keys)
     outcome.n_evals = len(evaluations)
     outcome.generations_run = int(result.nit)
     best_x = repair_integers(np.asarray(result.x, dtype=float),
@@ -423,8 +509,10 @@ def differential_evolution(evaluate, lower, upper, *,
     outcome.front_params.append(dict(zip(
         [f"v{i}" for i in range(lower.size)], best_x.tolist())))
     _x, F_best, _v = evaluator(best_x)
-    outcome.front_values.append(dict(zip(objective_keys,
-                                          F_best.tolist())))
+    # F is the search's signed view; report RAW user-direction values.
+    outcome.front_values.append(
+        {k: v / s for k, v, s in zip(objective_keys, F_best.tolist(),
+                                      evaluator.signs)})
     outcome.best_history = ([float(b) for b in result.population_energies]
                              if hasattr(result, "population_energies") else [])
     outcome.message = str(result.message)

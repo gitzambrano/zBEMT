@@ -350,6 +350,20 @@ _QUANTITIES: tuple = (
            "Cyclic pitch, sine harmonic [deg]: pitch that varies once per "
            "revolution as &theta;<sub>1s</sub>sin&psi;. Together with the "
            "cosine harmonic it forms the pair the trim solves")),
+    _q("sideslip_deg", "invariant", r"\psi_w", unit="deg", name_unit="°",
+       rotor_description=(
+           "Sideslip angle [deg] of the in-plane free stream (SC-14): "
+           "rotates U<sub>T</sub>=&Omega;r+V&middot;sin(&psi;&minus;&psi;"
+           "<sub>w</sub>) so a lateral velocity component can be imposed. "
+           "Zero reproduces the plain edgewise case")),
+    _q("p_rate_deg_s", "invariant", r"p", unit="deg/s",
+       rotor_description=(
+           "Hub roll rate [deg/s] (SC-14): carries every blade element out "
+           "of the disk plane and forces the flap response gyroscopically")),
+    _q("q_rate_deg_s", "invariant", r"q", unit="deg/s",
+       rotor_description=(
+           "Hub pitch rate [deg/s] (SC-14): same path as the roll rate, "
+           "about the &psi;=0 axis; its hub moment is the pitch damping")),
     _q("rpm", "invariant", r"RPM", unit="rev/min",
        rotor_description=(
            "Rotational speed of the rotor for this condition [rev/min] -- the "

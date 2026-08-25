@@ -826,3 +826,30 @@ class TestDiskColorBarLabel(unittest.TestCase):
         texts = [t[0] for t in self._colorbar_texts(fig)]
         self.assertFalse([t for t in texts if "[]" in t or "[-]" in t],
                           f"empty bracket/dash in a dimensionless field: {texts}")
+
+
+class TestPlotParallelCoordinates(unittest.TestCase):
+    """SC-13: one polyline per front member across normalized axes."""
+
+    def test_draws_one_line_per_member_and_labels_every_axis(self):
+        import matplotlib.pyplot as plt
+        front = [{"root": 0.07, "tip": 0.02, "FM": 1.40, "CT": 0.006},
+                  {"root": 0.11, "tip": 0.05, "FM": 1.20, "CT": 0.010},
+                  {"root": 0.15, "tip": 0.09, "FM": 1.00, "CT": 0.014}]
+        try:
+            ax = plots.plot_parallel_coordinates(
+                front, ["FM", "CT"], param_names=["root", "tip"])
+            self.assertEqual(len(ax.lines), 3)
+            labels = [t.get_text() for t in ax.get_xticklabels()]
+            self.assertEqual(len(labels), 4)
+        finally:
+            plt.close("all")
+
+    def test_no_finite_member_draws_the_placeholder(self):
+        import matplotlib.pyplot as plt
+        try:
+            ax = plots.plot_parallel_coordinates(
+                [{"FM": float("nan")}, {}], ["FM"], param_names=[])
+            self.assertFalse(ax.lines)
+        finally:
+            plt.close("all")

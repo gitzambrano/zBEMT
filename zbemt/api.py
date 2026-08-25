@@ -148,12 +148,19 @@ def open_project(path: str) -> Project:
     # Transients (SC-12): their ManeuverPoints carry mu_x/Vz, so the same
     # mode rotation applies as for batches and saved cases.
     maneuvers = (load_bemt_list(ManeuverDefinition, paths["maneuvers"],
-                                 is_propeller)
+                                  is_propeller)
                  if paths["maneuvers"].exists() else [])
+    # Stability derivatives (SC-14): their embedded condition carries axis
+    # letters, same rotation.
+    from .models import DerivativeRequest
+    derivatives = (load_bemt_list(DerivativeRequest, paths["derivatives"],
+                                   is_propeller)
+                    if paths["derivatives"].exists() else [])
     return Project(name=name, path=str(path), config=config,
                     geometry=geom, airfoil=airfoil_def, airfoil_sections=airfoil_sections,
                     batches=batches, saved_cases=saved_cases,
-                    optimizations=optimizations, maneuvers=maneuvers)
+                    optimizations=optimizations, maneuvers=maneuvers,
+                    derivatives=derivatives)
 
 
 def save_project(project: Project) -> None:
@@ -175,6 +182,8 @@ def save_project(project: Project) -> None:
                    is_propeller)
     # Transients (SC-12): ManeuverPoints carry mu_x/Vz, same rotation.
     save_bemt_list(project.maneuvers, paths["maneuvers"], is_propeller)
+    # Stability derivatives (SC-14): embedded condition, same rotation.
+    save_bemt_list(project.derivatives, paths["derivatives"], is_propeller)
     # Migration cleanup: only after the (possibly migrated, see
     # `load_project`) batches are safely persisted into `batches.bemt` is
     # the old singular `batch.bemt` certainly redundant. Remove it so it
@@ -395,6 +404,169 @@ def optimize_design(project: Project, definition: OptimizationDefinition,
     return studies.optimize_design(project, definition,
                                    on_progress=on_progress,
                                    should_cancel=should_cancel)
+
+
+def optimize_design_multi(project: Project, definition: OptimizationDefinition,
+                          *, on_progress=None,
+                          should_cancel: Optional[Callable[[], bool]] = None):
+    """Run one multi-objective design optimization (see
+    ``studies.optimize_design_multi``); returns a ``ParetoOutcome``."""
+    return studies.optimize_design_multi(project, definition,
+                                         on_progress=on_progress,
+                                         should_cancel=should_cancel)
+
+
+def validate_optimization(project: Project,
+                          definition: OptimizationDefinition) -> list:
+    """Static findings for one saved optimization study (see
+    ``validation.validate_optimization``): errors block the run,
+    warnings only inform."""
+    return validation.validate_optimization(definition, project)
+
+
+# --- Stability derivatives (SC-14) ------------------------------------------
+
+def compute_derivatives(project: Project, request, *, run_case=None,
+                        on_progress=None,
+                        should_cancel: Optional[Callable[[], bool]] = None):
+    """Runs one stability-derivative study by central finite differences
+    (see ``derivatives.compute_derivatives``); returns a
+    ``DerivativeOutcome``. ``run_case`` replaces the solver callable
+    (tests)."""
+    from .derivatives import compute_derivatives as _compute
+    return _compute(project, request, run_case=run_case,
+                     on_progress=on_progress,
+                     should_cancel=should_cancel)
+
+
+def export_derivatives_csv(outcome, path: str) -> Path:
+    """One row per (output, variable): the dimensional derivative, its
+    non-dimensional form and the Richardson step-size error."""
+    import csv as _csv
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with dest.open("w", newline="", encoding="utf-8") as fh:
+        writer = _csv.writer(fh)
+        writer.writerow(["output", "variable", "derivative",
+                          "derivative_nondim", "step", "step_error"])
+        for (key, variable), value in outcome.matrix.items():
+            writer.writerow([
+                key, variable, value,
+                outcome.matrix_nondim.get((key, variable), ""),
+                outcome.step_used.get(variable, ""),
+                outcome.step_error.get((key, variable), "")])
+    return dest
+
+
+def generate_derivatives_report(outcome, path: str, *,
+                                 project: Optional[Project] = None,
+                                 request=None) -> Path:
+    """Self-contained HTML for one derivative study: the matrix in both
+    forms and the step-error table, with cells above five percent
+    marked."""
+    import time
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    def _fmt(value) -> str:
+        try:
+            return f"{float(value):.6g}"
+        except (TypeError, ValueError):
+            return str(value)
+
+    variables: list[str] = []
+    for (_key, variable) in outcome.matrix:
+        if variable not in variables:
+            variables.append(variable)
+    keys: list[str] = []
+    for (key, _variable) in outcome.matrix:
+        if key not in keys:
+            keys.append(key)
+
+    def _table(values: dict, mark_errors: bool = False) -> str:
+        head = "".join(f"<th>{v}</th>" for v in ["output", *variables])
+        rows = []
+        for key in keys:
+            cells = [f"<td><code>{key}</code></td>"]
+            for variable in variables:
+                value = values.get((key, variable))
+                css = ""
+                if mark_errors and isinstance(value, float) \
+                        and value > 0.05:
+                    css = ' style="color:#b00"'
+                cells.append(f"<td{css}>{_fmt(value)}</td>")
+            rows.append(f"<tr>{''.join(cells)}</tr>")
+        return ('<table class="params"><thead><tr>' + head
+                 + "</tr></thead><tbody>" + "".join(rows)
+                 + "</tbody></table>")
+
+    trim_rows = "".join(f"<tr><td><code>{k}</code></td>"
+                          f"<td>{_fmt(v)}</td></tr>"
+                          for k, v in outcome.trim_state.items())
+    parts = [
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+        f"<title>Stability derivatives</title>"
+        f"<style>{_REPORT_CSS}</style></head><body>",
+        "<h1>Stability derivatives</h1>",
+        f'<p class="sub">Generated on {time.strftime("%Y-%m-%d %H:%M")} | '
+        f"{outcome.message}</p>",
+        "<h2>Trim point</h2>",
+        '<table class="params"><tbody>' + trim_rows + "</tbody></table>",
+        "<h2>Derivatives (dimensional)</h2>", _table(outcome.matrix),
+        "<h2>Derivatives (non-dimensional)</h2>",
+        _table(outcome.matrix_nondim),
+        "<h2>Step-size error (Richardson)</h2>",
+        "<p class=\"sub\">Above 5 percent, trust the trend of the "
+        "derivative rather than its digits; a larger step usually "
+        "helps.</p>",
+        _table(outcome.step_error, mark_errors=True),
+        f"<script>{_REPORT_JS}</script></body></html>",
+    ]
+    dest.write_text("\n".join(parts), encoding="utf-8")
+    return dest
+
+
+def get_derivative_request(project: Project,
+                            name: Optional[str] = None):
+    """Named lookup over ``project.derivatives`` (first when omitted)."""
+    if name is None:
+        if not project.derivatives:
+            raise KeyError(
+                "this project defines no derivative studies; add one to "
+                "inputs/derivatives.bemt")
+        return project.derivatives[0]
+    for d in project.derivatives:
+        if d.name == name:
+            return d
+    raise KeyError(f"derivative study '{name}' not found in "
+                    f"project.derivatives "
+                    f"(available: {[d.name for d in project.derivatives]})")
+
+
+def export_pareto_csv(outcome, path: str) -> Path:
+    """One CSV row per Pareto front member: parameter columns first, then
+    the objective columns in their own direction (maximized objectives
+    already un-negated). The header order follows the front itself."""
+    import csv as _csv
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    param_keys: list[str] = []
+    obj_keys: list[str] = []
+    for params in outcome.front_params:
+        for k in params:
+            if k not in param_keys:
+                param_keys.append(k)
+    for values in outcome.front_values:
+        for k in values:
+            if k not in obj_keys:
+                obj_keys.append(k)
+    with dest.open("w", newline="", encoding="utf-8") as fh:
+        writer = _csv.writer(fh)
+        writer.writerow([*param_keys, *obj_keys])
+        for params, values in zip(outcome.front_params, outcome.front_values):
+            writer.writerow([params.get(k, "") for k in param_keys]
+                            + [values.get(k, "") for k in obj_keys])
+    return dest
 
 
 def get_optimization(project: Project, name: Optional[str] = None
@@ -1434,6 +1606,8 @@ _MAIN_COLUMNS = (
     "mu_z", "J_z", "Vz", "lambda_z",
     "alpha_rotor_deg", "alpha_disk_deg",
     "collective_deg", "cyclic_c_deg", "cyclic_s_deg", "rpm",
+    # SC-14 perturbation inputs: they close the condition block.
+    "sideslip_deg", "p_rate_deg_s", "q_rate_deg_s",
     # --- 2. RESOLVED axial flow (the manual's triad, Section 2.6.2) --
     "lambda_i", "lambda_total", "Vi", "Vz_total",
     # --- 3. coefficients, ROTOR convention ------------------------------
@@ -1546,6 +1720,7 @@ _COLUMN_SYMBOL = {
     "cfg_use_rotational_augmentation": ("3D aug.", "Whether rotational (Himmelskamp/Snel) lift augmentation is applied"),
     "cfg_use_radial_flow_correction": ("radial flow", "Whether the radial (spanwise) flow correction is applied"),
     "cfg_radial_flow_max_skew_deg": ("skew<sub>max</sub>", "Maximum skew angle for the radial flow correction [deg]"),
+    "cfg_inflow_sideslip_deg": ("&psi;<sub>w,cfg</sub>", "In-plane free-stream sideslip angle configured [deg] (the per-condition value lives on the saved case)"),
     "cfg_pitt_peters_states": ("N<sub>states</sub>", "Number of Pitt-Peters dynamic inflow states (3 or 5)"),
     "cfg_pitt_peters_outer_iter": ("iter<sub>PP</sub>", "Max outer iterations for the Pitt-Peters ODE coupling"),
     "cfg_pitt_peters_relax": ("relax<sub>PP</sub>", "Relaxation factor for the Pitt-Peters outer loop"),
@@ -2662,13 +2837,141 @@ def generate_comparison_report(results_list, path, *,
     return dest
 
 
+def _generate_pareto_report(outcome, path, *,
+                            project: Optional[Project] = None,
+                            definition: Optional[OptimizationDefinition] = None,
+                            notes: Optional[str] = None) -> Path:
+    """HTML for one multi-objective run: the front table, the trade-off
+    plot with every evaluated design behind it, and planforms for three
+    spread members. One evaluations CSV lands next to the HTML."""
+    from .viz import plots as plots_module
+    import csv as _csv
+    import time
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    title = (f"Pareto Optimization - {definition.name}" if definition
+             else "Pareto Optimization")
+    obj_keys = list(outcome.objective_keys) or (
+        list(outcome.front_values[0]) if outcome.front_values else [])
+    kinds = {}
+    if definition is not None:
+        kinds = {o.key: o.kind for o in definition.objectives}
+    obj_line = " vs ".join(
+        f"<b>{kinds.get(k, '')} <code>{k}</code></b>".strip() for k in obj_keys)
+    sub = (f"<p class=\"sub\">Objectives: {obj_line or 'n/a'}; front of "
+           f"<b>{len(outcome.front_params)}</b> over {outcome.n_evals} "
+           f"evaluations. {outcome.message}</p>")
+    body = [sub, "<h2>Pareto front</h2>"]
+
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        if len(obj_keys) == 2 and outcome.front_values:
+            front_png = Path(tmp) / "pareto_front.png"
+            plots_module.plot_pareto_front(
+                outcome.front_values, obj_keys,
+                all_values=[rec["values"] for rec in outcome.all_evaluations],
+                fname=str(front_png))
+            body.append(_embedded_figure(str(front_png)))
+        else:
+            body.append('<p class="note">The front plot needs exactly two '
+                        "objectives.</p>")
+
+        # Planforms for three spread members along the first objective.
+        if project is not None and outcome.front_params and outcome.param_names:
+            order = sorted(range(len(outcome.front_params)),
+                           key=lambda i: (outcome.front_values[i].get(
+                               obj_keys[0], float("inf"))
+                               if obj_keys else 0))
+            picks = sorted({order[0], order[len(order) // 2],
+                            order[-1]})[:3]
+            body.append("<h2>Front planforms</h2>")
+            for i in picks:
+                try:
+                    variant = studies.variant_geometry(
+                        project.geometry,
+                        {k: v for k, v in outcome.front_params[i].items()})
+                    geom_png = Path(tmp) / f"planform_{i}.png"
+                    plots_module.plot_chord_twist_distribution(
+                        variant, fname=str(geom_png))
+                    tag = ", ".join(
+                        f"{k}={v:.4g}"
+                        for k, v in outcome.front_params[i].items())
+                    body += [f"<p class=\"sub\">Member {i}: {tag}</p>",
+                             _embedded_figure(str(geom_png))]
+                except Exception:
+                    continue
+
+    param_names = list(outcome.param_names) or (
+        [v.param for v in definition.variables]
+        if definition is not None else [])
+    head = "".join(f"<th>{k}</th>" for k in [*param_names, *obj_keys])
+    rows = []
+    for params, values in zip(outcome.front_params, outcome.front_values):
+        cells = "".join(
+            f"<td>{params.get(k, ''):.6g}</td>" if isinstance(
+                params.get(k), float) else f"<td>{params.get(k, '')}</td>"
+            for k in param_names)
+        cells += "".join(
+            f"<td>{values[k]:.6g}</td>" if isinstance(values.get(k), float)
+            else f"<td>{values.get(k, '')}</td>" for k in obj_keys)
+        rows.append(f"<tr>{cells}</tr>")
+    body += ["<h2>Front members</h2>",
+             '<table class="params"><thead><tr>' + head
+             + "</tr></thead><tbody>"
+             + ("".join(rows) or '<tr><td colspan="99">empty</td></tr>')
+             + "</tbody></table>"]
+
+    eval_path = dest.with_name(f"{dest.stem}_evaluations.csv")
+    with eval_path.open("w", newline="", encoding="utf-8") as fh:
+        writer = _csv.writer(fh)
+        writer.writerow([*param_names, *obj_keys, "violation"])
+        for rec in outcome.all_evaluations:
+            xs = rec.get("x") or []
+            row = [(xs[j] if j < len(xs) else "") for j in range(len(param_names))]
+            values = rec.get("values") or {}
+            row += [values.get(k, "") for k in obj_keys]
+            row += [rec.get("violation", "")]
+            writer.writerow(row)
+
+    parts = [
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+        f"<title>{title}</title><style>{_REPORT_CSS}</style></head><body>",
+        f"<h1>{title}</h1>",
+        f'<p class="sub">Generated on {time.strftime("%Y-%m-%d %H:%M")} | '
+        f'evaluations: <a href="{eval_path.name}">{eval_path.name}</a></p>',
+        "<h2>What was run</h2>",
+        _report_metadata(project, []),
+        *body,
+    ]
+    if definition is not None:
+        variables_rows = "".join(
+            f'<tr><td><code>{v.param}</code></td><td>{v.lower}</td>'
+            f"<td>{v.upper}</td></tr>" for v in definition.variables)
+        parts += ["<h2>Search definition</h2>",
+                  '<table class="params"><thead><tr><th>Variable</th>'
+                  "<th>Lower</th><th>Upper</th></tr></thead><tbody>"
+                  + (variables_rows or '<tr><td colspan="3">none</td></tr>')
+                  + "</tbody></table>"]
+    if notes:
+        parts += ["<h2>Notes</h2>", f'<div class="note">{notes}</div>']
+    parts += [f"<script>{_REPORT_JS}</script>", "</body></html>"]
+    dest.write_text("\n".join(parts), encoding="utf-8")
+    return dest
+
+
 def generate_optimization_report(outcome, path, *,
                                  project: Optional[Project] = None,
                                  definition: Optional[OptimizationDefinition] = None,
                                  notes: Optional[str] = None) -> Path:
-    """Self-contained HTML for one design optimization: convergence,
-    best parameters and the best case's own summary. A history CSV lands
-    next to the HTML so the raw evaluations stay inspectable."""
+    """Self-contained HTML for one design optimization. Dispatches on the
+    outcome kind: a ``ParetoOutcome`` (multi-objective) gets the front
+    table and trade-off plot; a single-objective outcome gets
+    convergence, best parameters and the best case's own summary. An
+    evaluations/history CSV lands next to the HTML either way."""
+    if hasattr(outcome, "front_params"):
+        return _generate_pareto_report(outcome, path, project=project,
+                                       definition=definition, notes=notes)
     from .viz import plots as plots_module
     import csv as _csv
     import time

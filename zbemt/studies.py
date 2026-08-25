@@ -162,6 +162,11 @@ def run_single_case(project: Project, condition: FlightCondition,
     is no default."""
     cfg = _build_config(project.config, airfoil_def=project.airfoil)
     rpm = _require_rpm(condition.rpm, f"condition {condition.name!r}")
+    # Sideslip (SC-14) is a property of the CONDITION; the engine reads it
+    # from the configuration.
+    sideslip_deg = float(getattr(condition, "sideslip_deg", 0.0) or 0.0)
+    if sideslip_deg != 0.0:
+        cfg = replace(cfg, inflow_sideslip_deg=sideslip_deg)
     rotor = _to_rotor(project.geometry, collective_deg=condition.collective_deg, rpm=rpm)
 
     # RADIAL profile of Reynolds and Mach numbers for the flight condition.
@@ -181,11 +186,16 @@ def run_single_case(project: Project, condition: FlightCondition,
     # runs the unchanged `solve_bemt` call below.
     dynamics = project.geometry.dynamics
     has_cyclic = bool(condition.cyclic_c_deg) or bool(condition.cyclic_s_deg)
-    if dynamics.flap_model != "rigid" or dynamics.lag_enabled or has_cyclic:
+    p_rate = np.deg2rad(float(getattr(condition, "p_rate_deg_s", 0.0) or 0.0))
+    q_rate = np.deg2rad(float(getattr(condition, "q_rate_deg_s", 0.0) or 0.0))
+    has_hub_rates = (p_rate != 0.0) or (q_rate != 0.0)
+    if (dynamics.flap_model != "rigid" or dynamics.lag_enabled
+            or has_cyclic or has_hub_rates):
         maps = solve_bemt_flapping(
             rotor, airfoil_obj, cfg, mu_x=condition.mu_x, Vz=condition.Vz,
             dynamics=dynamics, cyclic_c_deg=condition.cyclic_c_deg,
-            cyclic_s_deg=condition.cyclic_s_deg, should_cancel=should_cancel)
+            cyclic_s_deg=condition.cyclic_s_deg, p_rate=p_rate, q_rate=q_rate,
+            should_cancel=should_cancel)
     else:
         maps = solve_bemt(rotor, airfoil_obj, cfg, mu_x=condition.mu_x,
                            Vz=condition.Vz, should_cancel=should_cancel)
@@ -201,6 +211,12 @@ def run_single_case(project: Project, condition: FlightCondition,
     summary.setdefault("rpm", summary.get("rotor_rpm", condition.rpm))
     summary.setdefault("cyclic_c_deg", condition.cyclic_c_deg)
     summary.setdefault("cyclic_s_deg", condition.cyclic_s_deg)
+    summary.setdefault("sideslip_deg",
+                        float(getattr(condition, "sideslip_deg", 0.0) or 0.0))
+    summary.setdefault("p_rate_deg_s",
+                        float(getattr(condition, "p_rate_deg_s", 0.0) or 0.0))
+    summary.setdefault("q_rate_deg_s",
+                        float(getattr(condition, "q_rate_deg_s", 0.0) or 0.0))
 
     # The CONDITION also goes into `maps`, not just `summary`: `viz.plots`
     # functions receive only `maps` and it is their job to build the figure
@@ -1301,6 +1317,23 @@ def compare_geometries(project: Project,
     return results
 
 
+def _evaluate_variant(project: Project, condition: FlightCondition,
+                       params: dict, should_cancel=None):
+    """ONE design evaluation shared by every optimizer path: regenerates
+    the geometry through ``variant_geometry``, solves one flight
+    condition, returns the ``Results`` or None on failure (SC-8/SC-13
+    route through THIS function so the two cannot drift)."""
+    try:
+        variant = variant_geometry(project.geometry, params)
+        sub_project = replace(project, geometry=variant)
+        return run_single_case(sub_project, condition,
+                                should_cancel=should_cancel)
+    except SolveCancelled:
+        raise
+    except Exception:
+        return None
+
+
 def optimize_design(project: Project, definition: OptimizationDefinition,
                     *, on_progress=None, should_cancel=None) -> OptimizationOutcome:
     """Drive bounded geometry parameters toward the best objective value.
@@ -1366,17 +1399,11 @@ def optimize_design(project: Project, definition: OptimizationDefinition,
             params[name] = int(round(value)) if name in INTEGER_PARAMS \
                 else float(value)
         state["evals"] += 1
-        variant = variant_geometry(project.geometry, params)
-        sub_project = replace(project, geometry=variant)
-        try:
-            res = run_single_case(sub_project, condition,
-                                  should_cancel=should_cancel)
-            raw = float(res.summary.get(definition.objective_key, float("nan")))
-        except SolveCancelled:
-            raise
-        except Exception:
-            res = None
-            raw = float("nan")
+        res = _evaluate_variant(project, condition, params,
+                                 should_cancel=should_cancel)
+        raw = (float(res.summary.get(definition.objective_key,
+                                       float("nan")))
+               if res is not None else float("nan"))
         if not math.isfinite(raw):
             f_value = penalty + state["evals"]
             res = None
@@ -1414,4 +1441,167 @@ def optimize_design(project: Project, definition: OptimizationDefinition,
         # was evaluated instead of losing the whole study.
         outcome.message = f"stopped early: {exc}"
     outcome.n_evals = state["evals"]
+    return outcome
+
+
+def optimize_design_multi(project: Project,
+                           definition: OptimizationDefinition, *,
+                           on_progress=None, should_cancel=None):
+    """Multi-objective design optimization (SC-13): NSGA-II or
+    differential evolution over the SAME bounded variables and the SAME
+    one-evaluation-per-design contract as `optimize_design`, returning a
+    Pareto front instead of one best design.
+
+    Objectives carry their own direction (`ObjectiveDef.kind`); a signs
+    vector turns each into the quantity the pure-minimization core
+    handles, applied ONLY to the search's F matrix -- constraints and
+    every recorded value stay RAW. A failed evaluation is NaN --
+    maximally infeasible to the algorithm -- never a magic penalty.
+    Deterministic for a fixed seed."""
+    from zbemt.models import ObjectiveDef
+    from zbemt.optimization import (nsga2, differential_evolution,
+                                     ParetoOutcome, SearchCancelled,
+                                     front_from_ledger)
+
+    algorithm = definition.algorithm or definition.method
+    objectives = list(definition.objectives)
+    if not objectives:
+        objectives = [ObjectiveDef(key=definition.objective_key,
+                                    kind=definition.objective_kind)]
+    if not definition.variables:
+        raise ValueError("The optimization needs at least one variable.")
+    if len(objectives) > 2:
+        raise ValueError(
+            "This optimizer supports up to TWO objectives; use the "
+            "weighted single-objective path for more.")
+    names, lower, upper = [], [], []
+    for var in definition.variables:
+        if var.param not in GEOMETRY_PARAMS:
+            raise ValueError(
+                f"Unknown variable parameter {var.param!r}; "
+                f"allowed: {list(GEOMETRY_PARAMS)}.")
+        if not (math.isfinite(var.lower) and math.isfinite(var.upper)
+                and var.lower < var.upper):
+            raise ValueError(
+                f"Variable {var.param!r} needs finite bounds with "
+                f"lower < upper.")
+        names.append(var.param)
+        lower.append(float(var.lower))
+        upper.append(float(var.upper))
+
+    condition = definition.condition or (
+        project.saved_cases[0] if project.saved_cases else FlightCondition())
+    _require_rpm(condition.rpm,
+                  f"optimization {definition.name!r} (set rpm on the "
+                  f"definition's condition)")
+
+    kinds = [o.kind for o in objectives]
+    keys = [o.key for o in objectives]
+    # Constraints read the SAME values dict as the objectives, so every
+    # constraint key rides along in each evaluation record.
+    all_keys = list(keys)
+    for c in definition.constraints:
+        if c.key not in all_keys:
+            all_keys.append(c.key)
+    state = {"evals": 0}
+    kind_by_key = dict(zip(keys, kinds))
+    # The search core minimizes; signs carry each objective's own
+    # direction and are applied ONLY to the F matrix. Constraints and
+    # every recorded value stay RAW (SC-13): a constraint on a maximized
+    # objective must read its true sign, not the search's negated view.
+    signs = np.array([-1.0 if kind_by_key.get(k) == "maximize" else 1.0
+                       for k in keys])
+
+    def evaluate(x):
+        params = {}
+        for name, value in zip(names, x):
+            params[name] = int(round(value)) if name in INTEGER_PARAMS \
+                else float(value)
+        state["evals"] += 1
+        res = _evaluate_variant(project, condition, params,
+                                 should_cancel=should_cancel)
+        # RAW summary values in the user's own direction -- never the
+        # search's negated view. Constraint keys ride along so the
+        # Evaluator can score feasibility.
+        values = {key: (float(res.summary.get(key, float("nan")))
+                        if res is not None else float("nan"))
+                  for key in all_keys}
+        if on_progress is not None and math.isfinite(values[keys[0]]):
+            on_progress(state["evals"], None, values)
+        return values
+
+    evaluate.objective_keys = keys
+
+    integer_mask = np.array([n in INTEGER_PARAMS for n in names])
+    common = dict(objective_keys=keys,
+                   constraints=list(definition.constraints),
+                   integer_mask=integer_mask, seed=int(definition.seed),
+                   should_cancel=should_cancel, signs=signs)
+    try:
+        if algorithm == "nsga2":
+            outcome = nsga2(evaluate, np.asarray(lower), np.asarray(upper),
+                            population=max(int(definition.population), 8),
+                            generations=max(int(definition.generations), 1),
+                            crossover_eta=float(definition.crossover_eta),
+                            mutation_eta=float(definition.mutation_eta),
+                            mutation_rate=float(definition.mutation_rate),
+                            **common)
+        elif algorithm == "de":
+            outcome = differential_evolution(
+                evaluate, np.asarray(lower), np.asarray(upper),
+                minimize=(kinds[0] == "minimize"),
+                population=max(int(definition.population), 16),
+                generations=max(int(definition.generations), 1), **common)
+        else:
+            raise ValueError(
+                f"optimize_design_multi: algorithm must be 'nsga2' or 'de' "
+                f"(got {algorithm!r}). Powell/Nelder-Mead stay single-objective "
+                "on `optimize_design`.")
+    except SearchCancelled as exc:
+        # The search itself stopped on request; what was already evaluated
+        # still holds a front worth reporting (SC-13). This branch MUST
+        # precede the SolveCancelled one: SearchCancelled is one of them.
+        outcome = front_from_ledger(exc.evaluations, keys, signs=signs)
+        outcome.n_evals = len(exc.evaluations)
+        outcome.message = "cancelled"
+    except SolveCancelled:
+        # Cancelled inside a physics evaluation: nothing to salvage beyond
+        # the ledger-free empty outcome, and the message says why.
+        outcome = ParetoOutcome()
+        outcome.message = "cancelled"
+
+    # The searches track variables positionally (v0, v1, ...); rename the
+    # front back to the definition's own parameter names so every consumer
+    # downstream -- CSV export, report tables, GUI -- sees real names.
+    outcome.param_names = list(names)
+    outcome.objective_keys = list(keys)
+    outcome.front_params = [
+        {names[j]: params[f"v{j}"] for j in range(len(names))}
+        for params in outcome.front_params]
+
+    # Constraint keys ride along on every front member so consumers can
+    # show feasibility next to performance. The values come from the
+    # evaluation ledger: final-population members are verbatim copies of
+    # designs the Evaluator already recorded.
+    if outcome.front_params:
+        ledger = {tuple(rec.get("x") or []): (rec.get("values") or {})
+                   for rec in outcome.all_evaluations}
+        for params, values in zip(outcome.front_params,
+                                   outcome.front_values):
+            rec_values = ledger.get(tuple(params[n] for n in names))
+            if not rec_values:
+                continue
+            for key, raw in rec_values.items():
+                if key not in values and raw is not None \
+                        and math.isfinite(float(raw)):
+                    values[key] = float(raw)
+
+    # Say so when nothing satisfied the constraints, instead of leaving
+    # an infeasible least-violating front looking like a success.
+    if outcome.all_evaluations and not any(
+            (rec.get("violation") is not None
+             and math.isfinite(float(rec["violation"]))
+             and float(rec["violation"]) <= 0.0)
+            for rec in outcome.all_evaluations):
+        outcome.message += "; no design satisfied the constraints"
     return outcome

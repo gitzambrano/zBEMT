@@ -619,6 +619,15 @@ class FlightCondition:
     #: before these fields existed keeps its exact behavior.
     cyclic_c_deg: float = 0.0   # theta_1c, the cosine cyclic
     cyclic_s_deg: float = 0.0   # theta_1s, the sine cyclic
+    #: Perturbation inputs of the stability derivatives (SC-14): the
+    #: sideslip angle rotates the in-plane free stream, and the hub
+    #: angular rates roll/pitch the hub. They belong to the CONDITION,
+    #: not to the configuration -- they describe the state the rotor flies,
+    #: not the solver that evaluates it. All default to zero, which keeps
+    #: every condition saved before these fields existed exact.
+    sideslip_deg: float = 0.0       # psi_w, rotation of the in-plane flow
+    p_rate_deg_s: float = 0.0       # roll rate  [deg/s]
+    q_rate_deg_s: float = 0.0       # pitch rate [deg/s]
 
 
 @dataclass
@@ -758,6 +767,25 @@ def migrate_optimization_raw(raw: dict) -> dict:
 
 
 @dataclass
+class DerivativeRequest:
+    """One stability-derivative study (SC-14): which states and controls
+    to perturb, about which trim point, and with which finite-difference
+    steps. Persisted as ``inputs/derivatives.bemt``."""
+    name: str = "derivatives 1"
+    condition: Optional[FlightCondition] = None
+    #: "none" | "thrust" | "cyclic_flapback" -- the trim that fixes the
+    #: reference controls before any perturbation.
+    trim: str = "cyclic_flapback"
+    trim_target_thrust: Optional[float] = None   # "thrust" trim only
+    states: list[str] = field(default_factory=list)      # u,v,w,p,q,Omega
+    controls: list[str] = field(default_factory=list)    # theta_0,1c,1s
+    outputs: list[str] = field(default_factory=list)     # summary keys
+    steps: dict = field(default_factory=dict)            # per-variable override
+    richardson_check: bool = True
+    parallel_workers: int = 1
+
+
+@dataclass
 class OptimizationOutcome:
     """Result of one design-optimization run (in memory only)."""
     best_params: dict = field(default_factory=dict)
@@ -835,6 +863,9 @@ class Project:
     # Transients (SC-12): named maneuvers persisted as
     # inputs/maneuvers.bemt.
     maneuvers: list[ManeuverDefinition] = field(default_factory=list)
+    # Stability derivatives (SC-14): named perturbation studies persisted
+    # as inputs/derivatives.bemt.
+    derivatives: list["DerivativeRequest"] = field(default_factory=list)
 
 
 def default_project_paths(project_path: str) -> dict:
@@ -854,5 +885,6 @@ def default_project_paths(project_path: str) -> dict:
         "saved_cases": root / "inputs" / "saved_cases.bemt",
         "optimizations": root / "inputs" / "optimizations.bemt",
         "maneuvers": root / "inputs" / "maneuvers.bemt",
+        "derivatives": root / "inputs" / "derivatives.bemt",
         "meta": root / "inputs" / "meta.bemt",
     }

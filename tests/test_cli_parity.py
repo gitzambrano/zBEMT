@@ -23,7 +23,8 @@ from unittest import mock
 
 from zbemt import api
 from zbemt import cli as main_batch
-from zbemt.models import (BatchDefinition, DesignVariable, FlightCondition,
+from zbemt.models import (BatchDefinition, ConstraintDef, DesignVariable,
+                          FlightCondition, ObjectiveDef,
                           OptimizationDefinition)
 from tests.helpers import make_api_fast_project
 
@@ -693,6 +694,116 @@ class TestDesignToolsFlags(unittest.TestCase):
         )]
         api.save_project(project)
         return project
+
+    def _with_pareto_optimization(self, path):
+        """Persists the fast project plus one small TWO-objective study
+        (SC-13) with a tiny population/generation count."""
+        project = self._fast_project(path, "proj")
+        project.optimizations = [OptimizationDefinition(
+            name="pareto_study",
+            objectives=[ObjectiveDef(key="FM", kind="maximize"),
+                         ObjectiveDef(key="CT", kind="maximize")],
+            constraints=[ConstraintDef(key="CT", operator=">=", value=0.0)],
+            variables=[DesignVariable(param="tip_chord_norm",
+                                       lower=0.02, upper=0.08)],
+            algorithm="nsga2", population=8, generations=2, seed=1,
+            condition=FlightCondition(name="opt_hover", mu_x=0.0,
+                                       collective_deg=8.0, rpm=600.0),
+        )]
+        api.save_project(project)
+        return project
+
+    def test_optimize_runs_a_two_objective_study_on_the_pareto_path(self):
+        """SC-13 through the SAME --optimize entry point: a study with
+        two objectives goes to the Pareto search without any extra flag,
+        and the front lands as report + front CSV + evaluations CSV."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_pareto_optimization(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", path, "--optimize"])
+            self.assertEqual(code, 0)
+            out = buf.getvalue()
+            outputs = os.path.join(path, "outputs")
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "pareto_study_pareto.html")))
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "pareto_study_pareto_front.csv")))
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "pareto_study_pareto_evaluations.csv")))
+            self.assertIn("Objectives: FM, CT", out)
+            self.assertIn("Front members: ", out)
+
+    def test_algorithm_flag_forces_the_pareto_path(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            project = self._with_optimization(path)
+            # The stored study is single-objective legacy (method powell);
+            # the flag alone switches it to NSGA-II for this run.
+            captured = {}
+            original = api.optimize_design_multi
+
+            def spy(proj, definition, **kwargs):
+                captured["algorithm"] = definition.algorithm
+                return original(proj, definition, **kwargs)
+
+            with mock.patch.object(api, "optimize_design_multi", side_effect=spy):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = main_batch.main(
+                        ["--project", path, "--optimize", "fm_study",
+                          "--algorithm", "nsga2",
+                          "--population", "8", "--generations", "2",
+                          "--seed", "5"])
+            self.assertEqual(code, 0)
+            self.assertEqual(captured.get("algorithm"), "nsga2")
+            self.assertEqual(project.optimizations[0].name, "fm_study")
+
+    def test_search_overrides_do_not_touch_the_stored_study(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            project = self._with_pareto_optimization(path)
+            before = (project.optimizations[0].population,
+                       project.optimizations[0].generations,
+                       project.optimizations[0].seed)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = main_batch.main(
+                    ["--project", path, "--optimize", "pareto_study",
+                      "--population", "8", "--generations", "2",
+                      "--seed", "9"])
+            self.assertEqual(code, 0)
+            after = (project.optimizations[0].population,
+                      project.optimizations[0].generations,
+                      project.optimizations[0].seed)
+            self.assertEqual(before, after)
+
+    def test_pareto_csv_destination_is_honored(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            custom = os.path.join(d, "custom_front.csv")
+            self._with_pareto_optimization(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = main_batch.main(
+                    ["--project", path, "--optimize", "pareto_study",
+                      "--pareto-csv", custom])
+            self.assertEqual(code, 0)
+            self.assertTrue(os.path.exists(custom))
+
+    def test_workers_flag_stores_and_warns_serial(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_pareto_optimization(path)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main(
+                    ["--project", path, "--optimize", "pareto_study",
+                      "--workers", "4"])
+            self.assertEqual(code, 0)
+            self.assertIn("serially", err.getvalue())
 
     def test_compare_writes_csv_html_and_prints_labels(self):
         with tempfile.TemporaryDirectory() as d:

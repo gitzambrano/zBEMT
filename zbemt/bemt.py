@@ -317,6 +317,13 @@ class BEMTConfig:
     use_radial_flow_correction: bool = False
     radial_flow_max_skew_deg: float = 60.0      # clip on lambda_y to avoid spurious Cd->0
 
+    # --- 8b) Sideslip of the in-plane free stream (SC-14) ------------------------
+    # Rotates the in-plane velocity direction by psi_w around the shaft:
+    # U_T = Omega*r + V_inf*sin(psi - psi_w), and the radial component
+    # carries cos(psi - psi_w). 0 deg reproduces every result computed
+    # before this field existed.
+    inflow_sideslip_deg: float = 0.0
+
     # --- 9) Pitt-Peters dynamic inflow (finite-state), see Section 4d/6b --------
     pitt_peters_states: int = 3             # 3 (nu0,nu_s,nu_c) | 5 (+ nu_2s,nu_2c, Peters-He)
     pitt_peters_outer_iter: int = 40
@@ -1696,13 +1703,24 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
     rho, a_sound = cfg.rho, cfg.a_sound
     Vinf = mu_x * OmegaR
 
+    # Sideslip (SC-14): rotates the IN-PLANE free-stream direction; the
+    # axial component is untouched. 0 deg keeps every legacy result.
+    psi_w = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
+
     lambda_total = lambda_z + lambda_i
     Up = lambda_total * OmegaR
-    Ut = Omega * R_DIM + Vinf * np.sin(PSI)
+    Ut = Omega * R_DIM + Vinf * np.sin(PSI - psi_w)
     if motion is not None:
         arm = np.maximum(R_DIM - motion["e_hinge_dim"], 0.0)
         Up = Up + arm * motion["beta_rate"] + Vinf * motion["beta"] * np.cos(PSI)
         Ut = Ut + arm * motion["zeta_rate"]
+        # Hub angular rates (SC-14): a pitching/rolling hub carries each
+        # element out of the disk plane. r*(q*cos(psi) - p*sin(psi)),
+        # with r the dimensional station radius.
+        p_rate = float(motion.get("p_rate", 0.0))
+        q_rate = float(motion.get("q_rate", 0.0))
+        if p_rate != 0.0 or q_rate != 0.0:
+            Up = Up + R_DIM * (q_rate * np.cos(PSI) - p_rate * np.sin(PSI))
         # Cyclic pitch varies with azimuth, so it cannot live on the
         # twist vector: it rebinds the LOCAL THETA here. Pitch-flap
         # coupling (delta-3): an up-flapping blade pitches down by
@@ -1783,7 +1801,7 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
     # lambda_y=atan(UR/Ut) is the angle between the radial and tangential
     # components. Cl remains unchanged.
     if cfg.use_radial_flow_correction:
-        UR = Vinf * np.cos(PSI)
+        UR = Vinf * np.cos(PSI - psi_w)
         Ut_safe = np.where(np.abs(Ut) < 1e-3 * OmegaR, np.sign(Ut) * 1e-3 * OmegaR + 1e-6, Ut)
         max_skew = np.deg2rad(cfg.radial_flow_max_skew_deg)
         lambda_y = np.clip(np.arctan(UR / Ut_safe), -max_skew, max_skew)
@@ -1873,7 +1891,13 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
         Kx, Ky = _inflow_harmonics(harmonic_family, mu_x, lambda_total)
     else:
         Kx, Ky = np.zeros_like(lambda_total), np.zeros_like(lambda_total)
-    harmonic = 1.0 + Kx * R_NORM * np.cos(PSI) + Ky * R_NORM * np.sin(PSI)
+    # Sideslip (SC-14): the empirical fore-aft/lateral gains Kx/Ky follow
+    # the WAKE skew, so their azimuthal pattern rotates with the free
+    # stream -- cos(psi - psi_w)/sin(psi - psi_w). With psi_w = 0 this is
+    # the unchanged legacy expression.
+    psi_w = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
+    harmonic = (1.0 + Kx * R_NORM * np.cos(PSI - psi_w)
+                 + Ky * R_NORM * np.sin(PSI - psi_w))
 
     denom = rho * 4.0 * np.pi * R_DIM * np.sqrt(lambda_total ** 2 + mu_x ** 2 + 1e-6) * OmegaR ** 2 * F
     denom_safe = np.where(np.abs(denom) < 1e-8, 1.0, denom)
@@ -2403,16 +2427,27 @@ def build_motion_grid(rotor: "Rotor", cfg: "BEMTConfig", motion_scalars: dict,
         "pitch_flap_K": float(motion_scalars.get("pitch_flap_K", 0.0)),
         "cyclic_c_rad": float(motion_scalars.get("cyclic_c_rad", 0.0)),
         "cyclic_s_rad": float(motion_scalars.get("cyclic_s_rad", 0.0)),
+        "p_rate": float(motion_scalars.get("p_rate", 0.0)),
+        "q_rate": float(motion_scalars.get("q_rate", 0.0)),
     }
     return motion, r_norm_nodes, psi_nodes, R_NORM, PSI
 
 
 def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
                          Vz: float, dynamics, *, cyclic_c_deg: float = 0.0,
-                         cyclic_s_deg: float = 0.0, warm_start: Optional[dict] = None,
+                         cyclic_s_deg: float = 0.0, p_rate: float = 0.0,
+                         q_rate: float = 0.0, warm_start: Optional[dict] = None,
                          should_cancel=None):
     """Solves one case WITH the blade's rigid-body flap/lag freedoms
     (SC-11): the outer loop of Section 4h.
+
+    ``p_rate``/``q_rate`` are the HUB angular rates [rad/s] about the
+    roll and pitch axes (SC-14). They reach the aerodynamics as an
+    out-of-disk-plane velocity of every element and enter the flap
+    balance as a gyroscopic forcing Mbar_gyro = 2*(q*sin(psi) +
+    p*cos(psi))/Omega, added to the aerodynamic flap moment before the
+    harmonic balance. A rigid blade with a hub rate takes this path
+    exactly like one with cyclic pitch, beta held at zero.
 
     Loop: `solve_bemt` with the current motion, then the flap/lag moments
     from the converged field, then the harmonic balance, relaxed into the
@@ -2473,6 +2508,8 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
         "pitch_flap_K": k_flap,
         "cyclic_c_rad": np.deg2rad(cyclic_c_deg),
         "cyclic_s_rad": np.deg2rad(cyclic_s_deg),
+        "p_rate": float(p_rate),
+        "q_rate": float(q_rate),
     }
     omega = rotor.Omega
     nu_beta_sq = geometry_gen.flap_frequency_ratio_squared(
@@ -2603,6 +2640,12 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
             break   # nothing to balance: the cyclic-only pass is done
 
         m_beta = _flap_moment(maps, rotor, e_dim)
+        if p_rate != 0.0 or q_rate != 0.0:
+            # Gyroscopic forcing of the hub rates (SC-14), in the same
+            # Mbar = M/(I*Omega^2) units the harmonic balance consumes:
+            # Mbar_gyro = 2*(q*sin(psi) + p*cos(psi))/Omega.
+            m_beta = m_beta + 2.0 * inertia * omega * (
+                q_rate * np.sin(psi_nodes) + p_rate * np.cos(psi_nodes))
         new_coeffs, _new_angle, _new_rate = solve_blade_motion(
             m_beta, psi_nodes, nu_beta_sq, inertia, omega,
             n_harm, damping=d_beta, freedom="flap", hinge_offset_norm=e_norm)
@@ -3125,12 +3168,34 @@ def _solve_pitt_peters_steady(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lamb
         nu[0] = float(np.sqrt(max(float(forcing_semente[0]), 0.0) / 2.0))
     forcing = lambda_i = state = None
     n_it = 0
+    # Sideslip (SC-14): the L matrix's fore-aft coupling follows the WAKE
+    # skew, i.e. the free-stream direction -- not the hub's x axis. With
+    # psi_w != 0 the harmonic pair (CMx->nu_c on cos(psi), CMy->nu_s on
+    # sin(psi)) is rotated into wind axes before L acts and back after,
+    # so the model turns with the flow exactly as the disk does. The two
+    # maps below are exact inverses of each other.
+    psi_w = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
+    cw, sw = float(np.cos(psi_w)), float(np.sin(psi_w))
+
+    def _to_wind(f_hub):
+        # f_hub = [CT, CMy(sin slot), CMx(cos slot)] -> shifted by -psi_w.
+        ct, s_sin, c_cos = f_hub
+        return np.array([ct,
+                          s_sin * cw + c_cos * sw,
+                          c_cos * cw - s_sin * sw])
+
+    def _to_hub(nu_wind):
+        n0, s_sin, c_cos = nu_wind
+        return np.array([n0,
+                          s_sin * cw - c_cos * sw,
+                          c_cos * cw + s_sin * sw])
+
     for n_it in range(1, cfg.pitt_peters_outer_iter + 1):
         forcing, lambda_i, state = _pitt_peters_forcing(
             rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_nodes,
             R_NORM, PSI, R_DIM, CHORD, THETA, nu, motion=motion)
         L, V = _pitt_peters_L_V(mu_x, nu[0], lambda_z)
-        nu_target = L @ (forcing / np.maximum(V, 1e-6))
+        nu_target = _to_hub(L @ (_to_wind(forcing) / np.maximum(V, 1e-6)))
         delta = nu_target - nu
         nu = nu + cfg.pitt_peters_relax * delta
         if np.max(np.abs(delta)) < cfg.pitt_peters_tol:
@@ -3554,7 +3619,11 @@ def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
         # --- Fast mode: mean axisymmetric inflow + linear harmonic variation ---
         # 1) solves a 1D BEMT (effective Npsi = 1, Ut = Omega*r, no advance
         #    component) to get lambda0(r) . Much cheaper.
-        cfg_1d = replace(cfg, Npsi=1, inflow_field_model="glauert_local", collect_history=False)
+        #    inflow_sideslip_deg is FORCED to 0 here: this solve defines the
+        #    AXISYMMETRIC mean; the sideslip belongs to the harmonic that
+        #    modulates it below (SC-14).
+        cfg_1d = replace(cfg, Npsi=1, inflow_field_model="glauert_local",
+                          inflow_sideslip_deg=0.0, collect_history=False)
         R_NORM_1d, PSI_1d = np.meshgrid(r_norm_nodes, np.array([0.0]), indexing="ij")
         R_DIM_1d = R_NORM_1d * rotor.R
         CHORD_1d = chord_nodes[:, None]
@@ -3584,7 +3653,11 @@ def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
         lam_mean = float(_trapz(lam0_r * w, r_norm_nodes) / _trapz(w, r_norm_nodes))
         Kx_g, Ky_g = _inflow_harmonics(spec["harmonic"], mu_x, np.array([lam_mean]))
         Kx_g, Ky_g = float(Kx_g[0]), float(Ky_g[0])
-        harmonic = 1.0 + Kx_g * R_NORM * np.cos(PSI) + Ky_g * R_NORM * np.sin(PSI)
+        # Sideslip (SC-14): the gains' azimuthal pattern follows the wake
+        # skew -- rotate it with the free stream (legacy when psi_w = 0).
+        psi_w_g = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
+        harmonic = (1.0 + Kx_g * R_NORM * np.cos(PSI - psi_w_g)
+                     + Ky_g * R_NORM * np.sin(PSI - psi_w_g))
         LAMBDA0 = np.repeat(lam0_r[:, None], cfg.Npsi, axis=1)
         lam = np.clip(LAMBDA0 * harmonic, -0.5, 0.5)
 

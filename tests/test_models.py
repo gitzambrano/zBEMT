@@ -1,4 +1,4 @@
-"""Verify model dataclasses and ``.bemt`` serialization.
+﻿"""Verify model dataclasses and ``.bemt`` serialization.
 
 The tests cover project defaults, save/load round trips, airfoil sections, project
 metadata, paths, and JSON-safe handling of non-finite values. Inputs are model
@@ -16,8 +16,9 @@ from pathlib import Path
 from zbemt.models import (
     RotorGeometryDef, AirfoilDef, ProfileGeometry, PolarSlice,
     FlightCondition, BatchDefinition, Project, BladeDynamicsDef,
+    DesignVariable, OptimizationDefinition,
     save_bemt, load_bemt, save_bemt_list, load_bemt_list, default_project_paths,
-    migrate_config_raw,
+    migrate_config_raw, migrate_optimization_raw,
 )
 
 
@@ -422,3 +423,74 @@ class TestQ1Serialization(unittest.TestCase):
     def test_migration_does_not_override_a_value_already_in_the_new_schema(self):
         migrated = migrate_config_raw({"use_prandtl_loss": True, "prandtl_loss_mode": "tip"})
         self.assertEqual(migrated["prandtl_loss_mode"], "tip")
+
+
+class TestOptimizationMigration(unittest.TestCase):
+    """SC-13: an optimizations.bemt written before the objectives list
+    loads into the new schema, runs its round trip, and keeps writing
+    the legacy pair so an OLDER build still reads the file."""
+
+    OLD_SCHEMA = {
+        "name": "fm_study",
+        "objective_kind": "maximize",
+        "objective_key": "FM",
+        "method": "powell",
+        "max_evals": 12,
+        "variables": [{"param": "tip_chord_norm", "lower": 0.03,
+                        "upper": 0.06}],
+    }
+
+    def test_legacy_entry_gains_the_objectives_list(self):
+        migrated = migrate_optimization_raw(dict(self.OLD_SCHEMA))
+        self.assertEqual(len(migrated["objectives"]), 1)
+        self.assertEqual(migrated["objectives"][0]["key"], "FM")
+        self.assertEqual(migrated["objectives"][0]["kind"], "maximize")
+
+    def test_explicit_objectives_are_never_overwritten(self):
+        raw = dict(self.OLD_SCHEMA)
+        raw["objectives"] = [{"key": "CT", "kind": "minimize",
+                               "weight": 1.0}]
+        migrated = migrate_optimization_raw(raw)
+        self.assertEqual([o["key"] for o in migrated["objectives"]],
+                          ["CT"])
+
+    def test_migrated_definition_round_trips_through_a_bemt_file(self):
+        migrated = migrate_optimization_raw(dict(self.OLD_SCHEMA))
+        definition = OptimizationDefinition(**migrated)
+        with tempfile.TemporaryDirectory() as d:
+            path = str(Path(d) / "optimizations.bemt")
+            save_bemt_list([definition], path)
+            loaded = load_bemt_list(OptimizationDefinition, path)
+        self.assertEqual(len(loaded), 1)
+        study = loaded[0]
+        self.assertEqual(study.name, "fm_study")
+        self.assertEqual([o.key for o in study.objectives], ["FM"])
+        self.assertEqual([o.kind for o in study.objectives], ["maximize"])
+        # The legacy pair stays on disk for one release (older builds).
+        self.assertEqual(study.objective_key, "FM")
+        self.assertEqual(study.objective_kind, "maximize")
+        self.assertEqual([v.param for v in study.variables],
+                          ["tip_chord_norm"])
+
+    def test_new_schema_study_keeps_two_objectives_through_a_round_trip(self):
+        from zbemt.models import ConstraintDef, ObjectiveDef
+        definition = OptimizationDefinition(
+            name="pareto_study",
+            objectives=[ObjectiveDef(key="FM", kind="maximize"),
+                         ObjectiveDef(key="CP", kind="minimize")],
+            constraints=[ConstraintDef(key="CT", operator=">=", value=0.004)],
+            variables=[DesignVariable(param="root_chord_norm", lower=0.07,
+                                       upper=0.15),
+                        DesignVariable(param="tip_chord_norm", lower=0.02,
+                                        upper=0.09)],
+            algorithm="nsga2", population=16, generations=8, seed=3,
+        )
+        with tempfile.TemporaryDirectory() as d:
+            path = str(Path(d) / "optimizations.bemt")
+            save_bemt_list([definition], path)
+            loaded = load_bemt_list(OptimizationDefinition, path)[0]
+        self.assertEqual([o.key for o in loaded.objectives],
+                          ["FM", "CP"])
+        self.assertEqual(loaded.algorithm, "nsga2")
+        self.assertEqual(len(loaded.constraints), 1)
+        self.assertEqual(loaded.constraints[0].key, "CT")
