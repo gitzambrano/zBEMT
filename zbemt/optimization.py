@@ -1,0 +1,431 @@
+"""Multi-objective search algorithms for the design optimizer (SC-13).
+
+This module holds SEARCH ALGORITHMS and nothing else: it receives an
+evaluation callable and bounds, and returns a result object. It does not
+import studies, api or Qt -- that separation is what keeps it testable
+against analytic functions with no solver in sight.
+
+Every objective is MINIMIZED here. A maximize objective reaches this
+module already negated by the orchestrator, which owns the user's
+maximize/minimize vocabulary.
+
+No dependency beyond numpy: scipy has no multi-objective optimizer, and
+PR-7 asks that optional dependencies degrade rather than become
+required; NSGA-II below is about one hundred fifty lines of numpy.
+
+Determinism contract: the same seed, bounds and evaluation function
+produce byte-for-byte the same front, because ONE
+``numpy.random.default_rng(seed)`` drives every random draw in a fixed
+order.
+"""
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+
+import numpy as np
+
+
+@dataclass
+class ParetoOutcome:
+    """Result of one multi-objective run (in memory only)."""
+    front_params: list[dict] = field(default_factory=list)
+    front_values: list[dict] = field(default_factory=list)
+    all_evaluations: list[dict] = field(default_factory=list)
+    generations_run: int = 0
+    n_evals: int = 0
+    seed: int = 0
+    message: str = ""
+    hypervolume_history: list[float] = field(default_factory=list)
+    best_history: list[float] = field(default_factory=list)
+
+
+def _fast_non_dominated_sort(F: np.ndarray) -> np.ndarray:
+    """Returns the FRONT INDEX of every individual (0 = first front).
+
+    Standard Deb dominance sorting over M objectives; O(M*N^2), which is
+    fine at optimizer population sizes."""
+    n = F.shape[0]
+    ranks = np.zeros(n, dtype=int)
+    domination_count = np.zeros(n, dtype=int)
+    dominated_sets: list[list[int]] = [[] for _ in range(n)]
+
+    def dominates(a: int, b: int) -> bool:
+        return bool(np.all(F[a] <= F[b]) and np.any(F[a] < F[b]))
+
+    for a in range(n):
+        for b in range(a + 1, n):
+            if dominates(a, b):
+                dominated_sets[a].append(b)
+                domination_count[b] += 1
+            elif dominates(b, a):
+                dominated_sets[b].append(a)
+                domination_count[a] += 1
+    current = [i for i in range(n) if domination_count[i] == 0]
+    rank = 0
+    assigned = 0
+    while current:
+        nxt: list[int] = []
+        for i in current:
+            ranks[i] = rank
+            assigned += 1
+            for j in dominated_sets[i]:
+                domination_count[j] -= 1
+                if domination_count[j] == 0:
+                    nxt.append(j)
+        current = [j for j in dict.fromkeys(nxt)]
+        rank += 1
+    if assigned < n:                      # defensive; cannot happen
+        ranks[ranks > rank] = rank - 1
+    return ranks
+
+
+def crowding_distance(F: np.ndarray, members: np.ndarray) -> np.ndarray:
+    """Crowding distance INSIDE one front; boundary points at infinity."""
+    distances = np.zeros(len(members), dtype=float)
+    if len(members) <= 2:
+        distances[:] = np.inf
+        return distances
+    block = F[members]
+    for m in range(F.shape[1]):
+        order = np.argsort(block[:, m])
+        values = block[order, m]
+        span = values[-1] - values[0]
+        distances[order[0]] = math.inf
+        distances[order[-1]] = math.inf
+        if span > 0.0:
+            distances[order[1:-1]] += (values[2:] - values[:-2]) / span
+    return distances
+
+
+def constrained_dominates(fi: float, fj: float, Fi: np.ndarray,
+                           Fj: np.ndarray) -> bool:
+    """Constraint-domination rule (Deb): a FEASIBLE individual always
+    beats an infeasible one; two infeasible ones compare by total
+    violation; two feasible ones compare by objective domination."""
+    if fi <= 0.0 and fj <= 0.0:
+        return bool(np.all(Fi <= Fj) and np.any(Fi < Fj))
+    if fi <= 0.0:
+        return True
+    if fj <= 0.0:
+        return False
+    return fi < fj
+
+
+def sbx_crossover(rng: np.random.Generator, p1: np.ndarray,
+                   p2: np.ndarray, lower: np.ndarray, upper: np.ndarray,
+                   eta: float) -> tuple[np.ndarray, np.ndarray]:
+    """Simulated binary crossover with distribution index eta."""
+    u = rng.random(p1.size)
+    beta = np.where(u <= 0.5,
+                     (2.0 * u) ** (1.0 / (eta + 1.0)),
+                     (1.0 / (2.0 * (1.0 - u))) ** (1.0 / (eta + 1.0)))
+    c1 = 0.5 * ((1.0 + beta) * p1 + (1.0 - beta) * p2)
+    c2 = 0.5 * ((1.0 - beta) * p1 + (1.0 + beta) * p2)
+    return np.clip(c1, lower, upper), np.clip(c2, lower, upper)
+
+
+def polynomial_mutation(rng: np.random.Generator, x: np.ndarray,
+                         lower: np.ndarray, upper: np.ndarray,
+                         eta: float, rate: float) -> np.ndarray:
+    """Polynomial mutation at the given per-gene rate."""
+    mask = rng.random(x.size) < rate
+    if not np.any(mask):
+        return x
+    u = rng.random(x.size)
+    delta = np.where(u < 0.5,
+                      (2.0 * u) ** (1.0 / (eta + 1.0)) - 1.0,
+                      1.0 - (2.0 * (1.0 - u)) ** (1.0 / (eta + 1.0)))
+    x = np.where(mask, x + delta * (upper - lower) * 0.5, x)
+    return np.clip(x, lower, upper)
+
+
+def repair_integers(x: np.ndarray, integer_mask: np.ndarray,
+                     lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
+    """Rounds and clips INTEGER variables so, e.g., n_blades stays whole
+    inside its bounds."""
+    if not np.any(integer_mask):
+        return np.asarray(x, dtype=float)
+    x = np.where(integer_mask, np.round(np.asarray(x, dtype=float)), x)
+    return np.clip(x, lower, upper)
+
+
+def hypervolume_2d(points: np.ndarray, reference: np.ndarray) -> float:
+    """Exact hypervolume of a 2-D minimization front against a reference
+    point; points outside contribute nothing."""
+    pts = points[(points[:, 0] < reference[0])
+                  & (points[:, 1] < reference[1])]
+    if len(pts) == 0:
+        return 0.0
+    pts = pts[np.argsort(pts[:, 0])]
+    volume = 0.0
+    prev_y = reference[1]
+    for x, y in pts:
+        volume += (reference[0] - x) * (prev_y - y)
+        prev_y = min(prev_y, y)
+    return float(volume)
+
+
+class Evaluator:
+    """Wraps the caller's callable into the normalized form the search
+    consumes: repair, evaluate, split objectives/constraints, count."""
+
+    def __init__(self, evaluate, lower: np.ndarray, upper: np.ndarray,
+                  integer_mask: np.ndarray, objective_keys: list[str],
+                  constraints: list | None = None, log=None):
+        self.evaluate_raw = evaluate
+        self.lower = lower
+        self.upper = upper
+        self.integer_mask = integer_mask
+        self.objective_keys = objective_keys
+        self.constraints = constraints or []
+        self.log = log
+
+    def __call__(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, dict]:
+        x = repair_integers(x, self.integer_mask, self.lower, self.upper)
+        result = self.evaluate_raw(x)
+        values = result[0] if isinstance(result, tuple) else result
+        F = np.array([float(values.get(k, math.nan))
+                       for k in self.objective_keys], dtype=float)
+        violation = 0.0
+        for constraint in self.constraints:
+            actual = values.get(constraint.key)
+            if actual is None or not math.isfinite(actual):
+                violation = math.inf
+                break
+            op = constraint.operator
+            if op == ">=":
+                violation += max(0.0, constraint.value - actual)
+            elif op == "<=":
+                violation += max(0.0, actual - constraint.value)
+            elif op == "==":
+                violation += max(0.0, abs(actual - constraint.value)
+                                  - constraint.tolerance)
+        if not np.all(np.isfinite(F)):
+            # A failed evaluation is MAXIMALLY infeasible -- never a
+            # magic penalty number pretending to be a fitness.
+            violation = math.inf
+        record = {"x": x.tolist(), "values": {
+            k: (float(v) if math.isfinite(v) else None)
+            for k, v in values.items()}, "violation": violation}
+        if self.log is not None:
+            self.log.append(record)
+        return x, F, np.float64(violation)
+
+
+def _rank_population(F: np.ndarray, violations: np.ndarray):
+    """Ranks the WHOLE population under constraint-domination, plus a
+    tiebreak value: crowding distance for the feasible, minus total
+    violation for the infeasible."""
+    n = len(F)
+    finite = np.isfinite(violations) & (violations <= 0.0)
+    ranks = np.full(n, 10 ** 9, dtype=int)
+    crowd = np.full(n, -np.inf)
+    if np.any(finite):
+        idx = np.where(finite)[0]
+        ranks[idx] = _fast_non_dominated_sort(F[idx])
+        for r in np.unique(ranks[idx]):
+            members = idx[ranks[idx] == r]
+            crowd[members] = crowding_distance(F, members)
+    infeasible = ~finite
+    if np.any(infeasible):
+        idx = np.where(infeasible)[0]
+        order = np.argsort(violations[idx])
+        for position, member in enumerate(idx[order]):
+            ranks[member] = 10 ** 9 + position
+            crowd[member] = -float(violations[member])
+    return ranks, crowd
+
+
+def nsga2(evaluate, lower, upper, *, objective_keys: list[str],
+          constraints: list | None = None, integer_mask=None,
+          population: int = 40, generations: int = 25, seed: int = 0,
+          crossover_eta: float = 15.0, mutation_eta: float = 20.0,
+          mutation_rate: float = 0.0, on_generation=None,
+          should_cancel=None) -> ParetoOutcome:
+    """NSGA-II over bounded variables, pure minimization.
+
+    ``evaluate(x)`` returns the summary-values dict of ONE design; the
+    ordered ``objective_keys`` pick what the search sees. Deterministic
+    for a fixed seed."""
+    lower = np.asarray(lower, dtype=float)
+    upper = np.asarray(upper, dtype=float)
+    integer_mask = np.zeros(lower.size, dtype=bool) \
+        if integer_mask is None else np.asarray(integer_mask, dtype=bool)
+    # Contract of OptimizationDefinition.mutation_rate: 0 means ONE OVER
+    # THE VARIABLE COUNT (the NSGA-II default); without it SBX alone
+    # contracts the population into a corner and kills the front.
+    rate = mutation_rate if mutation_rate > 0 else 1.0 / max(lower.size, 1)
+    rng = np.random.default_rng(seed)
+    evaluations: list[dict] = []
+    evaluator = Evaluator(evaluate, lower, upper, integer_mask,
+                           list(objective_keys), constraints, evaluations)
+
+    # --- initial population: deterministic stratified spread ------------
+    xs = np.empty((population, lower.size))
+    for j in range(lower.size):
+        xs[:, j] = lower[j] + (upper[j] - lower[j]) * (
+            (np.arange(population) + 0.5) / population)
+    xs += (upper - lower) * 0.05 * (rng.random((population, lower.size))
+                                     - 0.5)
+    xs = np.clip(xs, lower, upper)
+
+    F = np.zeros((population, len(objective_keys)))
+    viol = np.zeros(population)
+    for i in range(population):
+        xs[i], F[i], viol[i] = evaluator(xs[i])
+    n_evals = population
+
+    hypervolume_history: list[float] = []
+    best_history: list[float] = []
+    generations_run = 0
+
+    for generation in range(max(int(generations), 1)):
+        if should_cancel is not None and should_cancel():
+            raise RuntimeError("cancelled")
+        ranks, crowd = _rank_population(F, viol)
+
+        feasible = viol <= 0.0
+        if np.any(feasible):
+            ref = np.nanmax(F[feasible], axis=0) * 1.1
+            if len(objective_keys) == 2:
+                # Hypervolume needs an actual FRONT: feeding the whole
+                # (dominated-including) population would sum negative
+                # slabs and produce nonsense.
+                feas_idx = np.where(feasible)[0]
+                fr = _fast_non_dominated_sort(F[feasible])
+                front_F = F[feas_idx][fr == 0]
+                hypervolume_history.append(
+                    hypervolume_2d(front_F, ref))
+            col = F[feasible][:, 0]
+            best_history.append(float(np.nanmin(col)))
+        else:
+            hypervolume_history.append(0.0)
+            best_history.append(float("nan"))
+        if on_generation is not None:
+            on_generation(generation + 1, n_evals)
+
+        # --- offspring through tournament + SBX + mutation -------------
+        def _better(a: int, b: int) -> int:
+            """Binary tournament: LOWER constraint-rank wins; on a tie,
+            LARGER crowding distance wins."""
+            if ranks[a] != ranks[b]:
+                return a if ranks[a] < ranks[b] else b
+            return a if crowd[a] >= crowd[b] else b
+
+        children = np.empty((population, lower.size))
+        for i in range(population):
+            p1 = _better(*rng.choice(population, size=2, replace=False))
+            p2 = _better(*rng.choice(population, size=2, replace=False))
+            c1, _c2 = sbx_crossover(rng, xs[p1], xs[p2], lower, upper,
+                                     crossover_eta)
+            children[i] = polynomial_mutation(
+                rng, c1, lower, upper, mutation_eta, rate)
+
+        child_F = np.zeros((population, len(objective_keys)))
+        child_viol = np.zeros(population)
+        for i in range(population):
+            if should_cancel is not None and should_cancel():
+                raise RuntimeError("cancelled")
+            xs_child, child_F[i], child_viol[i] = evaluator(children[i])
+            children[i] = xs_child
+        n_evals += population
+
+        # --- environmental selection over the union --------------------
+        union_x = np.vstack([xs, children])
+        union_F = np.vstack([F, child_F])
+        union_viol = np.concatenate([viol, child_viol])
+        u_ranks, u_crowd = _rank_population(union_F, union_viol)
+
+        chosen: list[int] = []
+        for r in sorted(set(u_ranks.tolist())):
+            members = np.where(u_ranks == r)[0]
+            if len(chosen) + len(members) <= population:
+                chosen.extend(members.tolist())
+                continue
+            crowd_m = crowding_distance(union_F, members)
+            order = members[np.argsort(-_finite_first(crowd_m))]
+            chosen.extend(order[:population - len(chosen)].tolist())
+            break
+        chosen = chosen[:population]
+        xs, F, viol = union_x[chosen], union_F[chosen], union_viol[chosen]
+        generations_run += 1
+
+    # --- extract the first front of the FINAL population ----------------
+    ranks, _crowd = _rank_population(F, viol)
+    first_rank = min(ranks)
+    members = np.where(ranks == first_rank)[0]
+
+    outcome = ParetoOutcome()
+    outcome.generations_run = generations_run
+    outcome.n_evals = n_evals
+    outcome.seed = seed
+    outcome.hypervolume_history = hypervolume_history
+    outcome.best_history = best_history
+    names = [f"v{j}" for j in range(lower.size)]
+    for i in members:
+        outcome.front_params.append(dict(zip(names, xs[i].tolist())))
+        outcome.front_values.append({k: v for k, v in
+                                      zip(objective_keys, F[i].tolist())})
+    outcome.all_evaluations = evaluations
+    outcome.message = f"{generations_run} generations, {n_evals} evaluations"
+    return outcome
+
+
+def _finite_first(values: np.ndarray) -> np.ndarray:
+    """Sort key that pushes NaN/inf crowding to the END (they mean
+    'boundary' only when positive infinity)."""
+    out = np.where(np.isnan(values), -np.inf, values)
+    return out
+
+
+def differential_evolution(evaluate, lower, upper, *,
+                            objective_keys: list[str],
+                            minimize: bool = False,
+                            constraints: list | None = None,
+                            integer_mask=None, population: int = 40,
+                            generations: int = 25, seed: int = 0,
+                            should_cancel=None) -> ParetoOutcome:
+    """Single-objective GLOBAL search backed by scipy's differential
+    evolution, exposed through this same interface. The objective is the
+    FIRST key's value; ``minimize`` selects the direction."""
+    from scipy.optimize import differential_evolution as scipy_de
+
+    lower = np.asarray(lower, dtype=float)
+    upper = np.asarray(upper, dtype=float)
+    integer_mask = (np.zeros(lower.size, dtype=bool)
+                     if integer_mask is None
+                     else np.asarray(integer_mask, dtype=bool))
+    evaluations: list[dict] = []
+    evaluator = Evaluator(evaluate, lower, upper, integer_mask,
+                           list(objective_keys), constraints, evaluations)
+    sign = 1.0 if minimize else -1.0     # scipy minimizes internally
+
+    def cost(x: np.ndarray) -> float:
+        if should_cancel is not None and should_cancel():
+            raise RuntimeError("cancelled")
+        _x, F, violation = evaluator(x)
+        value = float(F[0])
+        if not math.isfinite(value):
+            return math.inf
+        return sign * value + min(float(violation), 1e12)
+
+    result = scipy_de(cost, list(zip(lower, upper)), seed=seed,
+                       maxiter=max(int(generations), 1),
+                       popsize=max(int(population), 8) // 2, polish=False)
+
+    outcome = ParetoOutcome()
+    outcome.seed = seed
+    outcome.n_evals = len(evaluations)
+    outcome.generations_run = int(result.nit)
+    best_x = repair_integers(np.asarray(result.x, dtype=float),
+                              integer_mask, lower, upper)
+    outcome.front_params.append(dict(zip(
+        [f"v{i}" for i in range(lower.size)], best_x.tolist())))
+    _x, F_best, _v = evaluator(best_x)
+    outcome.front_values.append(dict(zip(objective_keys,
+                                          F_best.tolist())))
+    outcome.best_history = ([float(b) for b in result.population_energies]
+                             if hasattr(result, "population_energies") else [])
+    outcome.message = str(result.message)
+    return outcome

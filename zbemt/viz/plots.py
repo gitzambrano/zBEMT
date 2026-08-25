@@ -2524,3 +2524,96 @@ def plot_flap_convergence(history, tol_deg: float | None = None,
         fig.savefig(fname, dpi=_EXPORT_DPI)
         return None
     return fig
+
+
+def plot_dynamic_stall_history(maps: dict, r_norm: float = 0.75,
+                                ax=None, fname=None):
+    """Separation function at one radial station against the azimuth, one
+    curve per marched revolution.
+
+    The reader sees the start-up transient decay: early revolutions sit
+    away from the pack, the last ones stack. When they have not stacked,
+    the march did not settle and more revolutions are needed (EN-9). The
+    station is a plot argument, default r/R = 0.75."""
+    history = maps.get("dynamic_stall_time_march_history")
+    if history is None or getattr(history, "ndim", 0) != 3:
+        raise ValueError(
+            "This result carries no time-march history. Run a case with "
+            "dynamic stall on and the 'time_march' method first.")
+    r_nodes = np.asarray(maps["r_norm_nodes"], dtype=float)
+    idx = int(np.argmin(np.abs(r_nodes - float(r_norm))))
+    actual_r = float(r_nodes[idx])
+
+    fig, ax = _resolve_ax(ax, fname, figsize=(6.4, 4))
+    n_rev = history.shape[0]
+    psi_closed = np.linspace(0.0, 2.0 * np.pi, history.shape[2] + 1)
+    cmap = plt.get_cmap("viridis")
+    for k in range(n_rev):
+        f_k = history[k, idx]
+        f_closed = np.concatenate([f_k, f_k[:1]])
+        color = cmap((k + 1) / n_rev)
+        ax.plot(np.degrees(psi_closed), f_closed, linewidth=1.3,
+                color=color, label=f"rev {k + 1}")
+        if k == n_rev - 1:
+            # Label only the ends: one legend entry per revolution turns
+            # into a wall of text for long marches.
+            ax.annotate(f"rev {k + 1}", xy=(360, float(f_closed[-1])),
+                        fontsize=7, color=color, xytext=(3, 0),
+                        textcoords="offset points", va="center")
+    ax.legend(fontsize=7, loc="best")
+    ax.set_xlabel("Azimuth [deg]")
+    ax.set_ylabel(r"$f$ (separation function)")
+    ax.set_ylim(-0.05, 1.1)
+    ax.grid(True, alpha=0.3)
+    condition = describe_condition(maps)
+    title = (f"Time-march separation history at r/R = {actual_r:.2f}"
+             + (f" — {condition}" if condition else ""))
+    ax.set_title(title, fontsize=10)
+    return _finish_fig(fig, fname)
+
+
+def plot_maneuver_history(history: "pd.DataFrame", fname=None):
+    """Four stacked panels against time for one maneuver (SC-12): loads,
+    the three inflow states, the commanded controls, and the marched
+    interval actually integrated per sample."""
+    import pandas as _pd
+    t = history["t"].values.astype(float)
+    fig, axes = _new_figure((8.6, 9.0), 4, 1)
+    axes = np.atleast_1d(axes).ravel()
+
+    axes[0].plot(t, history["CT"], label=r"$C_T$")
+    if "CQ" in history:
+        axes[0].plot(t, history["CQ"], label=r"$C_Q$")
+    axes[0].set_ylabel("Coefficients")
+    if axes[0].get_lines():
+        axes[0].legend(fontsize=7, loc="best")
+    axes[0].grid(True, alpha=0.3)
+
+    for col, sym in (("nu0", r"$\nu_0$"), ("nu_s", r"$\nu_s$"),
+                     ("nu_c", r"$\nu_c$")):
+        if col in history:
+            axes[1].plot(t, history[col], label=sym)
+    axes[1].set_ylabel("Inflow states")
+    if axes[1].get_lines():
+        axes[1].legend(fontsize=7, loc="best")
+    axes[1].grid(True, alpha=0.3)
+
+    for col, sym in (("collective_deg", r"$\theta_0$"),
+                     ("cyclic_c_deg", r"$\theta_{1c}$"),
+                     ("cyclic_s_deg", r"$\theta_{1s}$")):
+        if col in history:
+            axes[2].plot(t, history[col], label=sym)
+    axes[2].set_ylabel("Controls [deg]")
+    if axes[2].get_lines():
+        axes[2].legend(fontsize=7, loc="best")
+    axes[2].grid(True, alpha=0.3)
+
+    if "marched_interval_s" in history:
+        axes[3].plot(t, history["marched_interval_s"], color="tab:red")
+        axes[3].set_ylabel(r"Marched $\Delta t$ [s]")
+        axes[3].set_xlabel("Time [s]")
+        axes[3].grid(True, alpha=0.3)
+
+    fig.suptitle("Maneuver time history", fontsize=12, fontweight="bold")
+    fig.tight_layout(rect=[0, 0, 1, 0.97])
+    return _finish_fig(fig, fname)

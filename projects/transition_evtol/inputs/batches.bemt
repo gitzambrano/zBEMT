@@ -1,0 +1,38 @@
+[
+  {
+    "name": "endpoints",
+    "conditions": [
+      {
+        "name": "mu=0.00",
+        "mu_x": 0.0,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 3200.0,
+        "cyclic_c_deg": 0.0,
+        "cyclic_s_deg": 0.0
+      },
+      {
+        "name": "mu=0.15",
+        "mu_x": 0.15,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 3200.0,
+        "cyclic_c_deg": 0.0,
+        "cyclic_s_deg": 0.0
+      },
+      {
+        "name": "mu=0.30",
+        "mu_x": 0.3,
+        "collective_deg": 8.0,
+        "Vz": 0.0,
+        "rpm": 3200.0,
+        "cyclic_c_deg": 0.0,
+        "cyclic_s_deg": 0.0
+      }
+    ],
+    "sweep_kind": "custom",
+    "sweep_params": {},
+    "outdir": null,
+    "plots": []
+  }
+]

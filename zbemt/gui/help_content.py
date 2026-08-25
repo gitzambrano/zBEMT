@@ -381,19 +381,57 @@ FIELD_HELP: dict[str, dict] = {
     },
     "dynamic_stall_method": {
         "title": "Dynamic Stall Method",
-        "definition": "Formulation of the Øye dynamic stall model. Currently only 'frequency' is exposed in the GUI.",
+        "definition": (
+            "How the periodic separation response of the Øye model is "
+            "solved.\n\n"
+            "Frequency solves it algebraically through a Fourier transfer "
+            "function with one lag constant per radial station: cheap, and "
+            "the default.\n\n"
+            "Time march steps the separation state explicitly from azimuth "
+            "station to azimuth station over a number of revolutions, "
+            "discards the start-up transient and averages the rest."),
         "unit": "—",
         "equation": r"\hat{f}_n = H_n\,\hat{f}_{\mathrm{st},n}, \quad H_n = \dfrac{1}{1 + i\,n\,\Omega\,\tau}",
         "effect": (
-            "Use frequency for the current GUI workflow: it solves the periodic "
-            "azimuthal lag with FFT harmonics and avoids time-marching "
-            "revolutions.\n\n"
-            "It is not a substitute for a transient model when the flight "
-            "condition itself changes with time."),
-        "range": "frequency (only GUI option)",
+            "Frequency is the cheap answer for a steady operating point; the "
+            "march reproduces the same periodic regime and reports how far "
+            "the last two revolutions still differ (the periodic residual).\n\n"
+            "Neither is a transient model: when the flight condition itself "
+            "changes with time, use a maneuver (SC-12)."),
+        "range": "frequency | time_march",
         "options": {
-            "frequency": "Frequency-domain Øye model; lag constant A controls the time constant of flow separation response."
+            "frequency": "Algebraic Fourier solve; Npsi-independent cost.",
+            "time_march": "Explicit march over Npsi stations per revolution; cost grows with mesh and revolutions, and the result carries the periodic residual."
         }
+    },
+    "dynamic_stall_time_march_revolutions": {
+        "title": "Revolutions Marched",
+        "definition": (
+            "How many rotor revolutions the time-march method steps through "
+            "before averaging. The first revolutions carry the start-up "
+            "transient of the separation state."),
+        "unit": "—",
+        "equation": r"N_{steps} = N_{\psi} \times N_{rev}",
+        "effect": (
+            "More revolutions push the transient further out of the average; "
+            "the periodic residual reported with the result tells whether "
+            "they were needed. Each revolution costs Npsi sequential steps."),
+        "range": "1 to 100 (default 8)",
+        "options": None
+    },
+    "dynamic_stall_time_march_avg_last": {
+        "title": "Revolutions Averaged",
+        "definition": (
+            "How many of the last marched revolutions are averaged into the "
+            "periodic answer of the time-march method."),
+        "unit": "—",
+        "equation": r"\bar{f} = \dfrac{1}{N_{avg}}\sum_{k=N_{rev}-N_{avg}+1}^{N_{rev}} f^{(k)}",
+        "effect": (
+            "Averaging more revolutions smooths residual transients but "
+            "blurs real cycle-to-cycle variation; it must not exceed the "
+            "revolutions marched."),
+        "range": "1 to revolutions marched (default 3)",
+        "options": None
     },
     "dynamic_stall_A": {
         "title": "Øye Lag Constant",

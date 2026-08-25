@@ -1997,7 +1997,8 @@ def _oye_frequency_domain_f(f_st: np.ndarray, W: np.ndarray, CHORD: np.ndarray,
 
 
 def _oye_time_march_f(f_st: np.ndarray, W: np.ndarray, CHORD: np.ndarray,
-                       Omega: float, cfg: BEMTConfig) -> np.ndarray:
+                       Omega: float, cfg: BEMTConfig, f_init: np.ndarray = None
+                       ) -> tuple:
     """Marches explicitly over the Npsi azimuth points, for several
     revolutions, using Øye's EXACT recursive formula for tau constant per
     step (but here tau is re-evaluated LOCALLY at every step, with the
@@ -2006,8 +2007,12 @@ def _oye_time_march_f(f_st: np.ndarray, W: np.ndarray, CHORD: np.ndarray,
     carry a transient from the initial guess. Those revolutions are
     discarded and the average of the last
     `dynamic_stall_time_march_avg_last` is taken, already in established
-    periodic regime. Dedicated option for verification/debugging (more
-    expensive, sequential in psi), not used as the default."""
+    periodic regime.
+
+    ``f_init`` (optional): the separation state the march STARTS from --
+    the previous sample's final values on a maneuver (SC-12), making the
+    state continuous along the trajectory. Defaults to f_st at the last
+    psi station."""
     Ne, Npsi = f_st.shape
     d_psi = 2.0 * np.pi / Npsi
     n_rev = max(int(cfg.dynamic_stall_time_march_revolutions), 1)
@@ -2016,7 +2021,10 @@ def _oye_time_march_f(f_st: np.ndarray, W: np.ndarray, CHORD: np.ndarray,
     chord_r = CHORD[:, 0]
     f_hist = np.empty((n_rev, Ne, Npsi), dtype=float)
 
-    f_prev = f_st[:, -1].copy()  # initial guess: f_st at the last psi station (before psi=0)
+    if f_init is None:
+        f_prev = f_st[:, -1].copy()
+    else:
+        f_prev = np.clip(np.asarray(f_init, dtype=float), 0.0, 1.0)
     for rev in range(n_rev):
         for k in range(Npsi):
             f_st_k = f_st[:, k]
@@ -2071,13 +2079,18 @@ def _resolve_dynamic_stall_config(cfg: BEMTConfig, airfoil) -> BEMTConfig:
 
 
 def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
-                         R_NORM, PSI, R_DIM, CHORD, mu_x: float, lambda_z: float):
+                         R_NORM, PSI, R_DIM, CHORD, mu_x: float, lambda_z: float,
+                         f_init: np.ndarray = None):
     """Applies the Øye dynamic-stall model to an already converged `maps`
     (output of `solve_bemt`), replacing Cl/Cd/Fn/Ft/Ft_i/Ft_p with the
     dynamic values. The original static Cl/Cd are preserved in
     `Cl_static`/`Cd_static` for diagnostics/plotting. See the assumptions
     in Section 4g of the module docstring (does not feed back into the
-    momentum equation)."""
+    momentum equation).
+
+    ``f_init`` (optional): the separation state to start the time march
+    from -- the previous sample's final values on a maneuver (SC-12).
+    Ignored by the 'frequency' method."""
     if cfg.dynamic_stall_model.lower() != "oye":
         raise ValueError(f"Unknown dynamic_stall_model: {cfg.dynamic_stall_model}")
 
@@ -2115,10 +2128,33 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
     if method == "frequency":
         f = _oye_frequency_domain_f(f_st, W, CHORD, rotor.Omega, cfg_field)
     elif method == "time_march":
-        f, time_march_history = _oye_time_march_f(f_st, W, CHORD, rotor.Omega, cfg_field)
+        f, time_march_history = _oye_time_march_f(f_st, W, CHORD,
+                                                   rotor.Omega, cfg_field,
+                                                   f_init=f_init)
     else:
         raise ValueError(f"Unknown dynamic_stall_method: {cfg.dynamic_stall_method} "
                           f"(use 'frequency' or 'time_march')")
+
+    # EN-9: report whether the march reached a periodic regime. The
+    # residual is the largest change of the separation function between
+    # the last two marched revolutions; a value that does not sit near
+    # zero means the transient had not decayed, and the remedy is more
+    # revolutions.
+    periodic_residual = float("nan")
+    n_rev_marched = 0
+    stall_note = None
+    if time_march_history is not None:
+        n_rev_marched = int(time_march_history.shape[0])
+        if n_rev_marched >= 2:
+            periodic_residual = float(np.max(np.abs(
+                time_march_history[-1] - time_march_history[-2])))
+            if periodic_residual > 1e-3:
+                stall_note = (
+                    f"Dynamic stall 'time_march': periodic residual "
+                    f"{periodic_residual:.2e} after {n_rev_marched} "
+                    "revolutions -- the separation state had NOT settled. "
+                    "Increase the revolutions marched before trusting the "
+                    "dynamic Cl/Cd of this case.")
 
     Cl_sep = _oye_cl_sep(Cl_st, f_st, Cl_att, cfg.dynamic_stall_f_reg)
     Cl_dyn = f * Cl_att + (1.0 - f) * Cl_sep
@@ -2161,6 +2197,9 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
         Fn=Fn, Ft=Ft, Ft_i=Ft_i, Ft_p=Ft_p,
         dynamic_stall_method=cfg.dynamic_stall_method,
         dynamic_stall_time_march_history=time_march_history,
+        dynamic_stall_periodic_residual=periodic_residual,
+        dynamic_stall_revolutions=n_rev_marched,
+        dynamic_stall_warning=stall_note,
     ))
     return maps
 
@@ -3148,7 +3187,8 @@ def _pitt_peters_rhs(nu, rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_
 
 
 def _pitt_peters_exp_step(nu, dtau, rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes,
-                           psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA):
+                           psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA,
+                           motion=None):
     """Advances nu by dtau (non-dimensional time, tau=Omega*t) via
     EXPONENTIAL integration ("exponential Euler"/integrating factor),
     treating forcing(nu), L(nu), V(nu) as FROZEN at the value of nu at
@@ -3171,10 +3211,13 @@ def _pitt_peters_exp_step(nu, dtau, rotor, airfoil, cfg, mu_x, lambda_z, r_norm_
     correctly) toward equilibrium when dtau >> tau_i, with no
     NaN/overshoot . Exactly the expected physical behavior (the inflow
     response is "instantaneous" compared to the sweep's time scale).
+
+    ``motion`` (Section 4h): forwarded into the forcing so the blade's
+    flap state reaches the marched dynamics too.
     """
     forcing, lambda_i, state = _pitt_peters_forcing(
         rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_nodes,
-        R_NORM, PSI, R_DIM, CHORD, THETA, nu)
+        R_NORM, PSI, R_DIM, CHORD, THETA, nu, motion=motion)
     L, V = _pitt_peters_L_V(mu_x, nu[0], lambda_z)
     Linv = np.linalg.inv(L)
     Minv_diag = 1.0 / _PP_M3
@@ -3188,70 +3231,254 @@ def _pitt_peters_exp_step(nu, dtau, rotor, airfoil, cfg, mu_x, lambda_z, r_norm_
     return nu_next, lambda_i, state
 
 
-def run_sweep_unsteady_pitt_peters(rotor: Rotor, airfoil, cfg: BEMTConfig,
-                                    time_mu_Vv, nu0=None, substeps_per_step: int = 8,
-                                    verbose: bool = True):
-    """Sweeps a TIME SEQUENCE of flight conditions . List of tuples
-    `(t_seconds, mu_x, Vz)`, in increasing order of t . Marching the
-    state nu=(nu0,nu_s,nu_c) of the Pitt-Peters model in REAL TIME via
-    Runge-Kutta 4 (tau=Omega*t). Unlike the steady mode
-    `inflow_coupling='pitt_peters'` (which solves the algebraic
-    equilibrium nu=L*V^-1*forcing at each condition in isolation, as if
-    the inflow adjusted instantaneously), here the inflow has INERTIA: if
-    the flight condition changes fast (an eVTOL transition leaving
-    hover), nu is temporarily lagging behind equilibrium . Exactly the
-    "time-varying induced velocity effect" of unsteady Pitt-Peters
-    mentioned in ExBEMT's description.
+def steady_pitt_peters_state(rotor: Rotor, airfoil, cfg: BEMTConfig,
+                              mu_x: float, Vz: float) -> "np.ndarray":
+    """Solves the algebraic equilibrium of the 3-state Pitt-Peters model
+    at ONE condition and returns nu = (nu0, nu_s, nu_c). This is the
+    'equilibrium' initial state of a maneuver (SC-12): the march then
+    starts without an inflow start-up transient."""
+    _check_rotor_rotation(rotor)
+    (r_norm_nodes, psi_nodes, R_NORM, PSI, R_DIM,
+     CHORD, THETA) = _pitt_peters_geometry(rotor, cfg)
+    lambda_z = Vz / rotor.OmegaR
+    nu, _lam, _state, _n = _solve_pitt_peters_steady(
+        rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_nodes,
+        R_NORM, PSI, R_DIM, CHORD, THETA)
+    return nu
 
-    IMPORTANT (why this is cheap, unlike dynamic stall, which would need
-    a state per blade element): this is NOT azimuthal marching nor
-    per-element marching. The only 3 degrees of freedom marched in time
-    are the 3 scalars (nu0,nu_s,nu_c) . The entire Ne x Npsi field is
-    still reconstructed ALGEBRAICALLY at every sub-step from those 3
-    numbers (`lambda_i = nu0 + nu_c*r*cos(psi) + nu_s*r*sin(psi)`), so the
-    cost per sub-step is the same as one `element_state` evaluation --
-    that's why "unsteady" here is feasible without rewriting the
-    architecture, unlike dynamic stall (which would need a state per
-    blade element, Ne*Npsi extra degrees of freedom).
-    """
-    if len(time_mu_Vv) == 0:
-        raise ValueError("time_mu_Vv is empty.")
-    _check_rotor_rotation(rotor)   # same division by OmegaR as the steady path
-    rows, maps_list = [], []
-    nu = np.zeros(3) if nu0 is None else np.array(nu0, dtype=float)
-    t_prev = time_mu_Vv[0][0]
-    for (t, mu_x, Vz) in time_mu_Vv:
-        dt = max(t - t_prev, 0.0)
-        lambda_z = Vz / rotor.OmegaR
-        r_norm_nodes, psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA = _pitt_peters_geometry(rotor, cfg)
 
-        if dt > 0.0:
+def run_maneuver(rotor_builder, airfoil, cfg: BEMTConfig, samples: list, *,
+                  dynamics=None, initial_nu=None, substeps_per_step: int = 8,
+                  march_dynamic_stall: bool = False,
+                  march_flapping: bool = False, on_sample_done=None,
+                  should_cancel=None, verbose: bool = False):
+    """Marches the 3-state Pitt-Peters inflow along a PRESCRIBED
+    trajectory (SC-12). ``samples`` is a list of resolved maneuver points
+    -- objects carrying ``t_s``, ``mu_x``, ``Vz``, ``cyclic_c_deg``,
+    ``cyclic_s_deg`` and a CONCRETE ``rpm`` -- in strictly increasing
+    time order; ``rotor_builder(point)`` returns the `Rotor` for that
+    point, because rpm and collective live on it. Unlike the steady
+    paths, each sample inherits the inflow state of the sample before
+    it: the three inflow states ARE the marched degrees of freedom.
+
+    Integration keeps the EXPONENTIAL step (`_pitt_peters_exp_step`):
+    unconditionally stable for the inflow's stiff time constants, where
+    plain Runge-Kutta diverges with few sub-steps. When the rpm changes
+    between samples, ``dtau`` uses the rpm of the sample being ENTERED,
+    because that is the rotation the incoming state evolves under.
+
+    Coupled marched states (both default off):
+
+    - ``march_dynamic_stall`` threads the Oye separation state from
+      sample to sample -- each sample's march starts at the previous
+      sample's final values -- so separation stays continuous along the
+      trajectory. Requires dynamic stall enabled on the airfoil; the
+      'time_march' method is used for the march itself.
+    - ``march_flapping`` solves the periodic flap response at every
+      sample from that sample's field and feeds the motion back into the
+      loads. The response stays quasi-steady INSIDE each sample: this is
+      NOT a flap transient, and it does not capture the flap mode.
+
+    Per sample the result records the state vector, the marched interval
+    and the sub-step count (EN-9's report requirements).
+
+    Returns ``(pd.DataFrame, list[maps_dict])`` as everywhere else."""
+    from . import geometry as geometry_gen
+
+    if len(samples) == 0:
+        raise ValueError("run_maneuver: samples is empty.")
+    total = len(samples)
+
+    def _cancel():
+        if should_cancel is not None and should_cancel():
+            raise SolveCancelled()
+
+    f_prev = None
+    rows: list[dict] = []
+    maps_list: list[dict] = []
+    nu = np.zeros(3) if initial_nu is None else np.array(initial_nu,
+                                                          dtype=float)
+    t_prev = float(samples[0].t_s)
+
+    for index, point in enumerate(samples):
+        _cancel()
+        rotor = rotor_builder(point)
+        _check_rotor_rotation(rotor)
+        mu_x = float(point.mu_x)
+        lambda_z = float(point.Vz) / rotor.OmegaR
+        r_norm_nodes, psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA = \
+            _pitt_peters_geometry(rotor, cfg)
+        scalars = {
+            "e_hinge_dim": 0.0,
+            "pitch_flap_K": 0.0,
+            "cyclic_c_rad": np.deg2rad(float(getattr(point,
+                                                      "cyclic_c_deg", 0.0))),
+            "cyclic_s_rad": np.deg2rad(float(getattr(point,
+                                                      "cyclic_s_deg", 0.0))),
+        }
+        motion, _rn, psi_nodes, R_NORM, PSI = build_motion_grid(
+            rotor, cfg, scalars)
+
+        dt = max(float(point.t_s) - t_prev, 0.0) if index > 0 else 0.0
+        n_sub = 0
+        if index > 0 and dt > 0.0:
+            # dtau uses the rpm OF THE SAMPLE BEING ENTERED (this one):
+            # the incoming state evolves under the rotation it arrives at.
             n_sub = max(int(substeps_per_step), 1)
             dtau = (rotor.Omega * dt) / n_sub
-            for _ in range(n_sub):
-                nu, _, _ = _pitt_peters_exp_step(nu, dtau, rotor, airfoil, cfg, mu_x, lambda_z,
-                                                  r_norm_nodes, psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA)
+            for _step in range(n_sub):
+                _cancel()
+                nu, _, _ = _pitt_peters_exp_step(
+                    nu, dtau, rotor, airfoil, cfg, mu_x, lambda_z,
+                    r_norm_nodes, psi_nodes, R_NORM, PSI, R_DIM, CHORD,
+                    THETA, motion=motion)
 
         forcing, lambda_i, state = _pitt_peters_forcing(
             rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_nodes,
-            R_NORM, PSI, R_DIM, CHORD, THETA, nu)
-        maps = dict(r_norm_nodes=r_norm_nodes, psi_nodes=psi_nodes, R_DIM=R_DIM, R_NORM=R_NORM,
-                    PSI=PSI, lambda_i=lambda_i, converged=np.ones_like(lambda_i, dtype=bool),
-                    n_iter=np.ones_like(lambda_i, dtype=int), total_iterations=1, elapsed=0.0,
+            R_NORM, PSI, R_DIM, CHORD, THETA, nu, motion=motion)
+
+        maps = dict(r_norm_nodes=r_norm_nodes, psi_nodes=psi_nodes,
+                    R_DIM=R_DIM, R_NORM=R_NORM, PSI=PSI, lambda_i=lambda_i,
+                    converged=np.ones_like(lambda_i, dtype=bool),
+                    n_iter=np.ones_like(lambda_i, dtype=int),
+                    total_iterations=1, elapsed=0.0,
                     residual_history=[], frac_converged_history=[],
-                    mu_x=mu_x, Vz=Vz, solver="pitt_peters_unsteady",
-                    inflow_coupling="pitt_peters_unsteady", pitt_peters_nu=nu.copy())
+                    mu_x=mu_x, Vz=float(point.Vz),
+                    solver="pitt_peters_unsteady",
+                    inflow_coupling="pitt_peters_unsteady",
+                    pitt_peters_nu=nu.copy())
         maps.update(state)
+
+        # --- coupled marched state 1: the Oye separation function ------
+        if march_dynamic_stall:
+            cfg_ds = _resolve_dynamic_stall_config(cfg, airfoil)
+            if not cfg_ds.use_dynamic_stall:
+                raise ValueError(
+                    "run_maneuver: 'march dynamic stall' needs dynamic "
+                    "stall enabled on the Airfoil tab.")
+            if cfg_ds.dynamic_stall_method.lower() != "time_march":
+                cfg_ds = replace(cfg_ds, dynamic_stall_method="time_march")
+            maps = apply_dynamic_stall(maps, rotor, airfoil, cfg_ds,
+                                        R_NORM, PSI, R_DIM, CHORD, mu_x,
+                                        lambda_z, f_init=f_prev)
+            history = maps.get("dynamic_stall_time_march_history")
+            if history is not None:
+                f_prev = np.array(history[-1][:, -1], copy=True)
+
+        # --- coupled marched state 2: quasi-steady flap response -------
+        beta_note = None
+        if march_flapping and dynamics is not None \
+                and dynamics.flap_model != "rigid":
+            cl_alpha, _a0 = _airfoil_cl_alpha_alpha0(airfoil)
+            chord_ref = float(np.interp(
+                geometry_gen.REFERENCE_CHORD_STATION,
+                np.asarray(rotor.r_geom, dtype=float),
+                np.asarray(rotor.chord_geom, dtype=float) / rotor.R)) * rotor.R
+            inertia = geometry_gen.resolve_flap_inertia(
+                inertia_source=dynamics.inertia_source,
+                lock_number=dynamics.lock_number,
+                flap_inertia_kg_m2=dynamics.flap_inertia_kg_m2,
+                blade_mass_kg=dynamics.blade_mass_kg,
+                hinge_offset_norm=dynamics.hinge_offset_norm,
+                radius_m=rotor.R, chord_ref_m=chord_ref,
+                rho=cfg.rho, cl_alpha=cl_alpha)
+            if not (np.isfinite(inertia) and inertia > 0.0):
+                raise ValueError(
+                    "run_maneuver: 'march flapping' resolved a non-positive "
+                    "flap inertia; check the blade-dynamics block.")
+            e_norm = float(dynamics.hinge_offset_norm)
+            gamma_resolved = (cfg.rho * cl_alpha * chord_ref * rotor.R ** 4
+                               / max(inertia, 1e-12))
+            nu_beta_sq = geometry_gen.flap_frequency_ratio_squared(
+                e_norm, max(dynamics.flap_spring_nm_per_rad, 0.0),
+                inertia, rotor.Omega)
+            try:
+                coeffs, angle, rate = solve_blade_motion(
+                    _flap_moment(maps, rotor, e_norm * rotor.R), psi_nodes,
+                    nu_beta_sq, inertia, rotor.Omega,
+                    max(int(dynamics.harmonics), 1),
+                    damping=geometry_gen.flap_aero_damping(gamma_resolved,
+                                                            e_norm),
+                    freedom="flap", hinge_offset_norm=e_norm)
+            except ValueError as exc:
+                beta_note = str(exc)
+            else:
+                scalars["e_hinge_dim"] = e_norm * rotor.R
+                scalars["pitch_flap_K"] = np.tan(np.deg2rad(
+                    dynamics.pitch_flap_coupling_deg))
+                motion, _rn, psi_nodes, R_NORM, PSI = build_motion_grid(
+                    rotor, cfg, scalars, beta_psi=angle, beta_rate_psi=rate)
+                forcing, lambda_i, state = _pitt_peters_forcing(
+                    rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes,
+                    psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA, nu,
+                    motion=motion)
+                maps.update(state)
+                maps["lambda_i"] = lambda_i
+                maps["beta_coeffs"] = {int(k): tuple(v)
+                                        for k, v in coeffs.items()}
+                maps["beta_0_rad"] = float(coeffs[0][0])
+                first = coeffs.get(1, (0.0, 0.0))
+                maps["beta_1c_rad"] = float(first[0])
+                maps["beta_1s_rad"] = float(first[1])
+
         row = aggregate_results(rotor, cfg, maps)
-        row["t"] = t
+        row["t"] = float(point.t_s)
+        # Echo the commanded controls so the time-history table (and the
+        # report's control panel) shows what WAS commanded per sample.
+        row.setdefault("collective_deg",
+                        float(getattr(point, "collective_deg", 0.0)))
+        row.setdefault("cyclic_c_deg",
+                        float(getattr(point, "cyclic_c_deg", 0.0)))
+        row.setdefault("cyclic_s_deg",
+                        float(getattr(point, "cyclic_s_deg", 0.0)))
         row["nu0"], row["nu_s"], row["nu_c"] = nu
+        row["marched_interval_s"] = dt
+        row["substeps"] = n_sub
+        if index == 0:
+            row["initial_state"] = ("equilibrium"
+                                     if initial_nu is not None else "zero")
+        if beta_note:
+            row["flap_error"] = beta_note
         rows.append(row)
         maps_list.append(maps)
+        if on_sample_done is not None:
+            on_sample_done(index + 1, total, row)
         if verbose:
-            print(f"  t={t:6.3f}s  mu_x={mu_x:5.3f}  CT={row['CT']:.5f} CQ={row['CQ']:.6f} | "
-                  f"nu=({nu[0]:+.4f},{nu[1]:+.4f},{nu[2]:+.4f})")
-        t_prev = t
+            print(f"  t={float(point.t_s):6.3f}s  mu_x={mu_x:5.3f} "
+                  f"CT={row['CT']:.5f} | nu=({nu[0]:+.4f},{nu[1]:+.4f},"
+                  f"{nu[2]:+.4f})")
+        t_prev = float(point.t_s)
+
     return pd.DataFrame(rows), maps_list
+
+
+def run_sweep_unsteady_pitt_peters(rotor: Rotor, airfoil, cfg: BEMTConfig,
+                                    time_mu_Vv, nu0=None,
+                                    substeps_per_step: int = 8,
+                                    verbose: bool = True):
+    """Compatibility wrapper around `run_maneuver`: sweeps a TIME SEQUENCE
+    of ``(t_seconds, mu_x, Vz)`` tuples at THIS rotor's fixed rpm,
+    collective and twist, starting from the given (or zero) inflow state.
+    New code should call `run_maneuver` directly, which also supports
+    per-sample rpm/collective/cyclic and the coupled marched states
+    (SC-12).
+
+    The marched states are only the 3 scalars (nu0, nu_s, nu_c); the full
+    Ne x Npsi field is reconstructed algebraically per sub-step, which is
+    why an unsteady maneuver costs about one `element_state` evaluation
+    per sub-step."""
+    from types import SimpleNamespace
+    if len(time_mu_Vv) == 0:
+        raise ValueError("time_mu_Vv is empty.")
+    samples = [SimpleNamespace(t_s=float(t), mu_x=float(mu_x), Vz=float(Vz),
+                                cyclic_c_deg=0.0, cyclic_s_deg=0.0,
+                                rpm=rotor.Omega_rpm)
+               for (t, mu_x, Vz) in time_mu_Vv]
+    return run_maneuver(
+        lambda _point: rotor, airfoil, cfg, samples,
+        initial_nu=(np.zeros(3) if nu0 is None else np.array(nu0,
+                                                              dtype=float)),
+        substeps_per_step=substeps_per_step, verbose=verbose)
 
 
 def _check_rotor_rotation(rotor: Rotor) -> None:
@@ -3992,6 +4219,17 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
             out["zeta_1c_deg"] = float(deg(lag_first[0]))
             out["zeta_1s_deg"] = float(deg(lag_first[1]))
             out["nu_zeta"] = maps["nu_zeta"]
+
+    # --- dynamic-stall time-march diagnostics (EN-9) ---------------------
+    # Present only when the time-march method ran; a 'frequency' run
+    # reports nothing new.
+    if maps.get("dynamic_stall_periodic_residual") is not None:
+        out["dynamic_stall_periodic_residual"] = \
+            float(maps["dynamic_stall_periodic_residual"])
+        out["dynamic_stall_revolutions"] = int(maps.get(
+            "dynamic_stall_revolutions", 0))
+        if maps.get("dynamic_stall_warning"):
+            out["dynamic_stall_warning"] = maps["dynamic_stall_warning"]
 
     if export_settings:
         # --- run's full "data sheet" -----------------------------------------

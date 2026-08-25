@@ -281,6 +281,18 @@ _QUANTITIES: tuple = (
            "&middot;R<sup>4</sup>/I<sub>&beta;</sub>, the ratio of aerodynamic "
            "to inertial blade response, built from the chord at r/R = 0.75. "
            "It sets how strongly the air moves the blade")),
+    _q("dynamic_stall_periodic_residual", "invariant", r"\Delta f_{periodic}",
+       unit="-",
+       rotor_description=(
+           "Largest change of the Oye separation function between the last "
+           "two marched revolutions. Near zero means the time march reached "
+           "a periodic regime; a value above 1e-3 means the transient had "
+           "NOT decayed and more revolutions are needed (EN-9). Only "
+           "reported by the 'time_march' dynamic-stall method")),
+    _q("dynamic_stall_revolutions", "invariant", r"N_{rev}", unit="-",
+       rotor_description=(
+           "Revolutions marched by the 'time_march' dynamic-stall method, "
+           "echoed beside its periodic residual (EN-9)")),
     _q("flap_inertia_kg_m2", "invariant", r"I_\beta", unit="kg·m²",
        rotor_description=(
            "Resolved flap inertia of one blade about its hinge [kg·m²], "
@@ -407,7 +419,7 @@ _GREEK_UNICODE = {
     r"\theta": "θ", r"\lambda": "λ", r"\mu": "μ", r"\nu": "ν",
     r"\pi": "π", r"\rho": "ρ", r"\sigma": "σ", r"\phi": "φ",
     r"\psi": "ψ", r"\omega": "ω", r"\Omega": "Ω", r"\eta": "η",
-    r"\zeta": "ζ",
+    r"\zeta": "ζ", r"\Delta": "Δ",
     r"\infty": "∞", r"\cdot": "·", r"\times": "×", r"\pm": "±",
     r"\circ": "°",
 }
@@ -421,7 +433,7 @@ _GREEK_HTML = {
     r"\mu": "&mu;", r"\nu": "&nu;", r"\pi": "&pi;", r"\rho": "&rho;",
     r"\sigma": "&sigma;", r"\phi": "&phi;", r"\psi": "&psi;",
     r"\omega": "&omega;", r"\Omega": "&Omega;", r"\eta": "&eta;",
-    r"\zeta": "&zeta;",
+    r"\zeta": "&zeta;", r"\Delta": "&Delta;",
     r"\infty": "&infin;", r"\cdot": "&middot;", r"\times": "&times;",
     r"\pm": "&plusmn;", r"\circ": "&deg;",
 }

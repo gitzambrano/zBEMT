@@ -48,6 +48,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QMessageBox,
     QSizePolicy,
+    QMenu,
 )
 from PyQt6.QtCore import QLocale, QCoreApplication, Qt, pyqtSignal
 from PyQt6.QtGui import QShortcut, QKeySequence
@@ -111,12 +112,21 @@ class FlowIndicatorBar(QWidget):
     markers, colored by state (gray/amber/green/red).
     Click jumps straight to the tab. It does not lock free navigation."""
 
-    #: Emitted by the Tools button (next to Help). The dedicated design
-    #: windows live OUTSIDE the tab flow, and the old QMenuBar entry
-    #: point rendered nearly invisible under the dark theme (dark-gray
-    #: text on the black strip), so the menu is gone: the button IS the
-    #: entry point now.
-    tools_requested = pyqtSignal()
+    #: Emitted by the Tools menu (next to Help) with the NAME of the
+    #: requested window: "designer", "transient", "optimizer",
+    #: "stability". The dedicated windows live OUTSIDE the tab flow,
+    #: and the old QMenuBar entry point rendered nearly invisible under
+    #: the dark theme (dark-gray text on the black strip), so the menu
+    #: hangs from a pill button instead.
+    tools_requested = pyqtSignal(str)
+
+    #: Entries of the Tools menu, in the order a user meets them.
+    TOOLS_MENU = [
+        ("Geometry Designer", "geometry_designer"),
+        ("Transient Simulation", "transient_simulation"),
+        ("Design Optimization", "design_optimization"),
+        ("Stability Derivatives", "stability_derivatives"),
+    ]
 
     _STAGES = ["Project", "Geometry", "Airfoil", "Config/Engine", "Run Case",
                "Run Batch", "Results"]
@@ -152,17 +162,25 @@ class FlowIndicatorBar(QWidget):
         layout.addStretch(1)
 
         # Tools: same pill style and size as Help, immediately to its
-        # left. Opens the dedicated design window directly -- no menu
-        # bar (it hid itself against the dark strip; a dead entry point
-        # is worse than none).
+        # left. Opens a MENU of the dedicated design windows (Geometry
+        # Designer, Transient Simulation, Design Optimization, Stability
+        # Derivatives) -- no menu bar (it hid itself against the dark
+        # strip; a dead entry point is worse than none).
         self.btn_tools = QPushButton("Tools")
         self.btn_tools.setFlat(True)
         self.btn_tools.setMinimumWidth(54)
         self.btn_tools.setToolTip(
-            "Tools: opens the Geometry Designer (compare blade variants)")
+            "Tools: opens the dedicated windows - Geometry Designer, "
+            "Transient Simulation, Design Optimization and Stability "
+            "Derivatives")
         self.btn_tools.setStyleSheet(
             "QPushButton { font-weight: bold; border: 1px solid #888; border-radius: 14px; }")
-        self.btn_tools.clicked.connect(self.tools_requested.emit)
+        tools_menu = QMenu(self.btn_tools)
+        for label, key in self.TOOLS_MENU:
+            action = tools_menu.addAction(label)
+            action.triggered.connect(
+                lambda _checked=False, k=key: self.tools_requested.emit(k))
+        self.btn_tools.setMenu(tools_menu)
         layout.addWidget(self.btn_tools)
 
         # Global access to the documentation: explicit text, without the
@@ -434,6 +452,19 @@ class MainWindow(QMainWindow):
         _legible(self.geometry_designer)
         _spacing(self.geometry_designer)
         _align(self.geometry_designer)
+
+        # The Transient Simulation window (SC-12) lives outside the tab
+        # flow like the Designer and joins the same help system.
+        from .tabs.transient_window import TransientWindow
+        self.transient_window = TransientWindow(self.state, parent=self)
+        for gb in self.transient_window.findChildren(_QGB):
+            block_id = _title_block(_BLOCKS, gb.title())
+            if block_id:
+                make_block_title_clickable(gb, block_id)
+        _compact(self.transient_window)
+        _legible(self.transient_window)
+        _spacing(self.transient_window)
+        _align(self.transient_window)
         _all_options(self.geometry_designer)
 
         # kept for the closing prompt (Q7): these are the tabs that know
@@ -514,16 +545,33 @@ class MainWindow(QMainWindow):
         # The Tools BUTTON (FlowIndicatorBar, next to Help) replaced the
         # old QMenuBar: under the dark theme the menu bar's dark-gray text
         # on the black strip was effectively invisible, hiding the entry
-        # point of the dedicated design windows.
-        self.flow_bar.tools_requested.connect(self.open_geometry_designer)
+        # point of the dedicated design windows. The signal now carries
+        # WHICH window was requested.
+        self.flow_bar.tools_requested.connect(self._open_tool)
+
+    def _open_tool(self, key: str):
+        """Dispatches a Tools-menu request to its window. A request whose
+        window does not exist yet answers honestly instead of dying."""
+        handler = getattr(self, f"open_{key}", None)
+        if handler is None:
+            QMessageBox.information(
+                self, "Not available yet",
+                "This tool window is not part of this build.")
+            return
+        handler()
+
+    def open_transient_simulation(self):
+        """Shows the non-modal Transient Simulation window (SC-12)."""
+        self.transient_window.show()
+        self.transient_window.raise_()
+        self.transient_window.activateWindow()
 
     def open_geometry_designer(self):
         """Shows the non-modal Geometry Designer window, parented to
         this window so it stays on top of it while it is open."""
-        window = self.geometry_designer
-        window.show()
-        window.raise_()
-        window.activateWindow()
+        self.geometry_designer.show()
+        self.geometry_designer.raise_()
+        self.geometry_designer.activateWindow()
 
     def _shortcut_save(self):
         w = self.tabs.widget(0)   # ProjectTab

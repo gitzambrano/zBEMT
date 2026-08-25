@@ -220,6 +220,28 @@ def _build_parser() -> argparse.ArgumentParser:
              "the columns trim_target, trim_dof and trim_dof_value. Each trimmed "
              "case bisects one control and costs roughly ten times a direct "
              "solve. With the default none, every variant runs the same controls.")
+
+    # --- Transient maneuvers (SC-12) -------------------------------------
+    maneuver_group = p.add_argument_group("Transient maneuver (SC-12)")
+    maneuver_group.add_argument(
+        "--maneuver", nargs="?", const="", default=None, metavar="NAME",
+        help="March one saved trajectory and exit (no batch is run). NAME "
+             "selects an entry of project.maneuvers by name; a bare flag "
+             "runs the first entry. Writes the time-history CSV and the "
+             "transient HTML report into the outputs folder.")
+    maneuver_group.add_argument(
+        "--maneuver-file", metavar="PATH", default=None,
+        help="Run a maneuver defined in a .bemt file OUTSIDE the project "
+             "(a saved ManeuverDefinition list).")
+    maneuver_group.add_argument(
+        "--list-maneuvers", action="store_true",
+        help="Print the saved maneuver names of --project.")
+    maneuver_group.add_argument(
+        "--maneuver-dt", type=float, default=None, metavar="FLOAT",
+        help="Override the sample interval dt_s for this run.")
+    maneuver_group.add_argument(
+        "--maneuver-substeps", type=int, default=None, metavar="INT",
+        help="Override substeps_per_step for this run.")
     # NOTE: --rpm already exists below (ad hoc condition speed). --compare
     # reuses it when the project has no saved cases; see _run_compare.
 
@@ -1030,6 +1052,85 @@ def _run_optimize(project, args) -> int:
     return 0
 
 
+def _run_maneuver(project, args) -> int:
+    """--maneuver: march one saved trajectory (SC-12) and write the time
+    history plus the transient report. A bare --maneuver runs the first
+    saved entry; --maneuver-file takes a definition from a .bemt file
+    outside the project; --maneuver-dt/--maneuver-substeps override the
+    stored sampling for one run."""
+    if args.maneuver_file:
+        from .models import ManeuverDefinition, load_bemt_list
+        maneuvers = load_bemt_list(ManeuverDefinition, args.maneuver_file)
+        if not maneuvers:
+            print(f"Error: {args.maneuver_file} stores no maneuver.",
+                  file=sys.stderr)
+            return 1
+        definition = maneuvers[0]
+        if args.maneuver:
+            matches = [m for m in maneuvers if m.name == args.maneuver]
+            if not matches:
+                print(f"Error: no maneuver named {args.maneuver!r} in "
+                      f"{args.maneuver_file}. Available: "
+                      f"{[m.name for m in maneuvers]}.", file=sys.stderr)
+                return 1
+            definition = matches[0]
+    else:
+        try:
+            definition = api.get_maneuver(project, args.maneuver or None)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
+    if args.maneuver_dt is not None:
+        definition = dataclasses.replace(definition,
+                                          dt_s=float(args.maneuver_dt))
+    if args.maneuver_substeps is not None:
+        definition = dataclasses.replace(
+            definition, substeps_per_step=int(args.maneuver_substeps))
+
+    def _progress(done, total, row):
+        if done % max(total // 10, 1) == 0 or done == total:
+            print(f"  sample {done}/{total}  t={row['t']:.3f}s  "
+                  f"CT={row['CT']:.5f}")
+
+    try:
+        history, _maps_list = api.run_maneuver(
+            project, definition, on_sample_done=_progress)
+    except (RuntimeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    outputs_dir = Path(api.project_outputs_dir(project, create=True))
+    slug = api.sanitize_filename(definition.name)
+    csv_path = outputs_dir / f"{slug}_maneuver.csv"
+    api.export_maneuver_csv(history, str(csv_path))
+
+    from zbemt.models import Results as _Results
+    results = [_Results(summary=row.to_dict(), maps=mp,
+                         condition_name=f"t={row['t']:.3f}s")
+               for (_, row), mp in zip(history.iterrows(), _maps_list)]
+    report = None
+    if not getattr(args, "no_report_maneuver", False):
+        try:
+            report = api.generate_report(
+                results, str(outputs_dir / f"{slug}_maneuver.html"),
+                project=project)
+        except (RuntimeError, ValueError, OSError) as exc:
+            print(f"Warning: report failed ({exc})", file=sys.stderr)
+
+    settled = ""
+    if {"nu0", "CT"} <= set(history.columns) and len(history) >= 2:
+        first = history.iloc[0]
+        settled = (f" | inflow nu0 from {first['nu0']:.4f} "
+                   f"to {history.iloc[-1]['nu0']:.4f}")
+    print(f"Maneuver '{definition.name}' marched {len(history)} samples"
+          f"{settled}.")
+    print(f"Time-history CSV: {csv_path}")
+    if report:
+        print(f"Report: {report}")
+    return 0
+
+
 # =============================================================================
 # main
 # =============================================================================
@@ -1077,6 +1178,17 @@ def main(argv=None, options=None) -> int:
         for c in project.saved_cases:
             print(f"{c.name}\tmu={c.mu_x}\tcollective_deg={c.collective_deg}\tVv={c.Vz}\trpm={c.rpm}")
         return 0
+    if args.list_maneuvers:
+        maneuvers = getattr(project, "maneuvers", [])
+        if not maneuvers:
+            print("This project stores no maneuvers "
+                  "(inputs/maneuvers.bemt absent or empty).")
+        for m in maneuvers:
+            times = ", ".join(f"{p.t_s:g}s" for p in m.points[:4])
+            more = " ..." if len(m.points) > 4 else ""
+            print(f"{m.name}\t{len(m.points)} point(s)\tt: {times}{more}\t"
+                  f"dt={m.dt_s:g}s")
+        return 0
 
     # The design-tool modes are alternative jobs, not modifiers: each one
     # runs its own workflow and writes its own artifacts, so two of them
@@ -1089,11 +1201,13 @@ def main(argv=None, options=None) -> int:
         ("--optimize", args.optimize is not None),
         ("--gen-neuralfoil", bool(args.gen_neuralfoil)),
         ("--gen-xfoil", bool(args.gen_xfoil)),
+        ("--maneuver", args.maneuver is not None),
     ) if given]
     if len(selected_modes) > 1:
         print("cli.py: error: " + ", ".join(selected_modes)
               + " are mutually exclusive. Give at most one of "
-              "--compare, --optimize, --gen-neuralfoil or --gen-xfoil.",
+              "--compare, --optimize, --gen-neuralfoil, --gen-xfoil "
+              "or --maneuver.",
               file=sys.stderr)
         return 2
 
@@ -1105,6 +1219,8 @@ def main(argv=None, options=None) -> int:
         return _run_compare(project, args)
     if args.optimize is not None:
         return _run_optimize(project, args)
+    if args.maneuver is not None:
+        return _run_maneuver(project, args)
 
     _apply_geometry_flags(project, args)
     _apply_airfoil_flags(project, args)

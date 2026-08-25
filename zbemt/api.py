@@ -24,6 +24,7 @@ from .models import (
     Project, RotorGeometryDef, AirfoilDef, FlightCondition, BatchDefinition,
     Results, PolarSlice, ProfileGeometry,
     OptimizationDefinition, OptimizationOutcome, DesignVariable,
+    ManeuverDefinition,
     save_bemt, load_bemt, save_bemt_list, load_bemt_list, default_project_paths,
 )
 from . import geometry
@@ -144,10 +145,15 @@ def open_project(path: str) -> Project:
     optimizations = (load_bemt_list(OptimizationDefinition,
                                     paths["optimizations"])
                      if paths["optimizations"].exists() else [])
+    # Transients (SC-12): their ManeuverPoints carry mu_x/Vz, so the same
+    # mode rotation applies as for batches and saved cases.
+    maneuvers = (load_bemt_list(ManeuverDefinition, paths["maneuvers"],
+                                 is_propeller)
+                 if paths["maneuvers"].exists() else [])
     return Project(name=name, path=str(path), config=config,
                     geometry=geom, airfoil=airfoil_def, airfoil_sections=airfoil_sections,
                     batches=batches, saved_cases=saved_cases,
-                    optimizations=optimizations)
+                    optimizations=optimizations, maneuvers=maneuvers)
 
 
 def save_project(project: Project) -> None:
@@ -167,6 +173,8 @@ def save_project(project: Project) -> None:
     # carries axis letters, so the same mode rotation applies).
     save_bemt_list(project.optimizations, paths["optimizations"],
                    is_propeller)
+    # Transients (SC-12): ManeuverPoints carry mu_x/Vz, same rotation.
+    save_bemt_list(project.maneuvers, paths["maneuvers"], is_propeller)
     # Migration cleanup: only after the (possibly migrated, see
     # `load_project`) batches are safely persisted into `batches.bemt` is
     # the old singular `batch.bemt` certainly redundant. Remove it so it
@@ -242,6 +250,47 @@ def run_case(project: Project, condition: FlightCondition,
     solve does not converge, and returning it halfway would hand back
     half a solution dressed up as a result."""
     return studies.run_single_case(project, condition, should_cancel=should_cancel)
+
+
+def run_maneuver(project: Project, definition, *,
+                 on_sample_done=None,
+                 should_cancel: Optional[Callable[[], bool]] = None):
+    """Runs one prescribed transient (SC-12) through
+    ``studies.run_maneuver``. Returns ``(pd.DataFrame, list[maps])``:
+    one row per sample with the time, the loads, the three inflow states
+    and the marched interval/sub-step count (EN-9)."""
+    return studies.run_maneuver(project, definition,
+                                 on_sample_done=on_sample_done,
+                                 should_cancel=should_cancel)
+
+
+def get_maneuver(project: Project, name: Optional[str] = None):
+    """Returns the named maneuver; a bare call returns the FIRST one.
+    Raises ValueError listing the saved names when nothing matches --
+    the same contract as `get_optimization`."""
+    maneuvers = project.maneuvers
+    if name is None:
+        if not maneuvers:
+            raise ValueError(
+                "This project stores no maneuvers. Create one in the "
+                "Transient window (Tools menu).")
+        return maneuvers[0]
+    for maneuver in maneuvers:
+        if maneuver.name == name:
+            return maneuver
+    available = [m.name for m in maneuvers]
+    raise ValueError(
+        f"No maneuver named {name!r} in this project. Available: "
+        f"{available if available else '(none)'}.")
+
+
+def export_maneuver_csv(history, path: str) -> Path:
+    """Writes the maneuver's time-history DataFrame to CSV. The frame
+    already carries every column the GUI table shows."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    history.to_csv(path, index=False, encoding="utf-8")
+    return path
 
 
 def run_case_trimmed(project: Project, condition: FlightCondition, *,
@@ -2388,6 +2437,36 @@ def generate_report(results, path: str, *, project: Optional[Project] = None,
     if not results_list:
         raise ValueError("generate_report: no results to report.")
 
+    # Transient branch (SC-12 / RP-1): when every summary carries the
+    # march time, the report IS a time history -- samples sort by time,
+    # each one names itself as t=...s, and a maneuver-overview figure
+    # opens the document ahead of everything else.
+    is_transient = bool(results_list) and all(
+        "t" in getattr(r, "summary", {}) for r in results_list)
+    maneuver_figure = None
+    if is_transient:
+        try:
+            import shutil
+            import pandas as _pd
+            history = _pd.DataFrame([r.summary for r in results_list])
+            history = history.sort_values("t")
+            from .viz import plots as _plots
+            with tempfile.TemporaryDirectory() as tmp_m:
+                src = Path(tmp_m) / "maneuver_history.png"
+                _plots.plot_maneuver_history(history, fname=str(src))
+                if src.exists():
+                    maneuver_dir = Path(path).parent / "maneuver_figures"
+                    maneuver_dir.mkdir(parents=True, exist_ok=True)
+                    target = maneuver_dir / "maneuver_history.png"
+                    shutil.copyfile(src, target)
+                    maneuver_figure = target
+        except Exception:
+            maneuver_figure = None
+        results_list = sorted(results_list,
+                               key=lambda r: float(r.summary["t"]))
+        for r in results_list:
+            r.condition_name = f"t={float(r.summary['t']):.3f}s"
+
     has_maps = any(bool(getattr(r, "maps", None)) for r in results_list)
     if plots is None:
         plots = []
@@ -2467,6 +2546,12 @@ def generate_report(results, path: str, *, project: Optional[Project] = None,
             if extras:
                 sections.append(("Additional plots",
                                  [_embedded_figure(a) for a in sorted(extras)]))
+
+    # Transient report (SC-12): the maneuver overview OPENS the document,
+    # ahead of every per-condition section.
+    if is_transient and maneuver_figure is not None:
+        sections.insert(0, ("Maneuver time history",
+                            [_embedded_figure(str(maneuver_figure))]))
 
     dest = Path(path)
     dest.parent.mkdir(parents=True, exist_ok=True)

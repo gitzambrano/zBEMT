@@ -16,7 +16,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from .models import AirfoilDef, BladeDynamicsDef, RotorGeometryDef, uses_full_range_extension
+from .models import (AirfoilDef, BladeDynamicsDef, RotorGeometryDef,
+                     ManeuverDefinition, uses_full_range_extension)
 from . import geometry as geometry_gen
 
 
@@ -169,7 +170,16 @@ def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
 # BEMTConfig <-> AirfoilDef: checks cross-referencing the two objects
 # =============================================================================
 
-def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
+def validate_config(config: dict, airfoil_def: AirfoilDef,
+                     *, inflow_path: str = "case") -> list[Issue]:
+    """Checks cross-referencing the config and the airfoil.
+
+    ``inflow_path`` selects which execution path the config serves:
+    ``"case"``/``"batch"`` (isolated operating points) or ``"maneuver"``
+    (SC-12). The unsteady Pitt-Peters model is an ERROR on the case and
+    batch paths -- those resolve algebraic equilibria -- and it is the
+    REQUIRED value on the maneuver path, where the inflow state actually
+    marches."""
     issues: list[Issue] = []
 
     inflow_field_model = config.get("inflow_field_model", "glauert_local")
@@ -209,18 +219,40 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
             "the consistent choice; keep the current one only if you are deliberately "
             "comparing reverse-flow treatments."))
 
-    # --- pitt_peters_unsteady does not run per isolated case ----------------
-    # `bemt.solve_bemt` raises ValueError for the unsteady variant:
-    # it requires a TEMPORAL SEQUENCE (time_mu_Vv), which only
-    # `run_sweep_unsteady_pitt_peters` assembles. Neither the GUI nor main_batch.py
-    # constructs this sequence. Without this check, choosing the option was a
-    # raw traceback in the middle of the solve.
-    if inflow_field_model == "pitt_peters_unsteady":
+    # --- pitt_peters_unsteady is path-scoped (SC-12) ------------------------
+    # On the case/batch paths the solver resolves algebraic equilibria, so
+    # the unsteady variant cannot run there (`bemt.solve_bemt` raises). On
+    # the maneuver path it is exactly the model that runs -- and the
+    # required value.
+    if inflow_path == "maneuver":
+        if inflow_field_model != "pitt_peters_unsteady":
+            issues.append(Issue("error",
+                "a maneuver marches the inflow state in time, so it requires "
+                "inflow_field_model='pitt_peters_unsteady'. The steady "
+                "variants answer algebraically and carry no state to march."))
+    elif inflow_field_model == "pitt_peters_unsteady":
         issues.append(Issue("error",
             "inflow_field_model='pitt_peters_unsteady' is the UNSTEADY variant: "
             "it requires a temporal sequence of flight conditions, which the "
-            "case/batch path does not assemble (only `bemt.run_sweep_unsteady_pitt_peters` does). "
-            "Use 'pitt_peters_steady'."))
+            "case/batch path does not assemble. Run it as a maneuver "
+            "(Transient window / --maneuver), or use 'pitt_peters_steady'."))
+
+    # --- time march cost warning (SC-12) ------------------------------------
+    # The 'time_march' method steps the separation state sequentially over
+    # Npsi stations per revolution, so its cost is the product of mesh
+    # fineness and revolution count. State the count as a number, per the
+    # plan; the 'frequency' method solves the same periodic response
+    # algebraically at Npsi-independent cost.
+    if (airfoil_def.use_dynamic_stall
+            and airfoil_def.dynamic_stall_method == "time_march"):
+        npsi = int(config.get("Npsi", 36) or 36)
+        n_rev = int(airfoil_def.dynamic_stall_time_march_revolutions)
+        issues.append(Issue("warning",
+            f"Dynamic stall method 'time_march' marches {npsi} x {n_rev} = "
+            f"{npsi * n_rev} sequential steps per solve (the 'frequency' "
+            "method answers algebraically regardless of the azimuthal "
+            "mesh). A fine mesh or many revolutions make runs noticeably "
+            "slower."))
 
     # --- pitt_peters_states: only implemented option is 3 ------------------
     pp_states = config.get("pitt_peters_states", 3)
@@ -251,19 +283,20 @@ def validate_config(config: dict, airfoil_def: AirfoilDef) -> list[Issue]:
                 "'double counting', unless it is intentional (for example, "
                 "a sensitivity study)."))
 
-    # --- dynamic stall does not exist in UNSTEADY Pitt-Peters ----------
-    # Finding #5 (plano_v2 Section 2.2/5.3): `run_sweep_unsteady_pitt_peters`
-    # marches only 3 scalar degrees of freedom (nu0,nu_s,nu_c). Øye would
-    # need a state per blade element (Ne*Npsi), a real structural
-    # incompatibility with the current implementation. The GUI does not
-    # prevent this today (they are different screens and objects, see
-    # Section 5.3), so this check is the only guarantee.
-    if inflow_field_model == "pitt_peters_unsteady" and airfoil_def.use_dynamic_stall:
+    # --- dynamic stall x UNSTEADY Pitt-Peters outside maneuvers ----------
+    # The unsteady inflow march carries only its 3 scalar states; Oye's
+    # separation state rides along ONLY on the maneuver path, where
+    # `march_dynamic_stall` threads it between samples (SC-12). On the
+    # case/batch paths the unsteady variant cannot run at all, so the
+    # combination is simply rejected there.
+    if (inflow_field_model == "pitt_peters_unsteady"
+            and airfoil_def.use_dynamic_stall
+            and inflow_path != "maneuver"):
         issues.append(Issue("error",
-            "Dynamic stall (Øye) is not implemented in UNSTEADY Pitt-Peters mode "
-            "('pitt_peters_unsteady'): this solver marches only 3 scalar DOF "
-            "(nu0,nu_s,nu_c). Øye would need state per blade element (Ne*Npsi). "
-            "Disable dynamic stall, or use 'pitt_peters_steady'."))
+            "Dynamic stall (Øye) combined with 'pitt_peters_unsteady' runs "
+            "only as part of a maneuver, with 'March dynamic stall' enabled "
+            "(the separation state then threads from sample to sample). "
+            "Isolated cases cannot run the unsteady inflow at all."))
 
     # --- is_propeller changes the default of advance_kind, it is not exclusive
     # with anything by itself, but together with explicit mu_x/Vz in a condition
@@ -565,6 +598,82 @@ def _validate_tip_mach(condition, radius_m: float, config: dict) -> list[Issue]:
             "linearized subsonic correction and loses validity above about "
             f"M={_MACH_LIMITE_PRANDTL_GLAUERT:g}; treat the outer span of the "
             "advancing side as approximate.")))
+    return issues
+
+
+def validate_maneuver(maneuver, config: dict) -> list[Issue]:
+    """Static checks of one prescribed trajectory (SC-12) before any
+    march. ``config`` supplies the azimuthal mesh size for the
+    dynamic-stall cost warning. Pure: nothing here runs the engine
+    (AR-4)."""
+    issues: list[Issue] = []
+    name = getattr(maneuver, "name", "") or "maneuver"
+    prefix = f"[maneuver {name}] "
+    points = list(getattr(maneuver, "points", []) or [])
+
+    if len(points) < 2:
+        issues.append(Issue("error", prefix + (
+            "a maneuver needs at least two trajectory points.")))
+        return issues
+
+    times = [float(p.t_s) for p in points]
+    for i in range(1, len(times)):
+        if not (times[i] > times[i - 1]):
+            issues.append(Issue("error", prefix + (
+                f"trajectory times must increase strictly: point {i} "
+                f"(t={times[i]:g}s) does not come after point {i - 1} "
+                f"(t={times[i - 1]:g}s).")))
+            break
+
+    # RPM inheritance: a point without one inherits the nearest earlier
+    # value; the FIRST point must carry one.
+    last_rpm = None
+    for i, point in enumerate(points):
+        rpm = point.rpm if point.rpm is not None else last_rpm
+        if rpm is None:
+            issues.append(Issue("error", prefix + (
+                f"point {i} carries no RPM and no earlier point does "
+                "either. The inflow march non-dimensionalizes by Omega*R, "
+                "so rotation is required from the start.")))
+            break
+        last_rpm = rpm
+
+    dt = float(getattr(maneuver, "dt_s", 0.0))
+    if dt <= 0.0:
+        issues.append(Issue("error", prefix + (
+            f"sample interval dt_s must be greater than zero (got {dt:g}).")))
+    elif all(times[i] > times[i - 1] for i in range(1, len(times))):
+        shortest = min(times[i] - times[i - 1] for i in range(1, len(times)))
+        if dt > shortest:
+            issues.append(Issue("error", prefix + (
+                f"sample interval dt_s={dt:g}s is larger than the shortest "
+                f"interval between trajectory points ({shortest:g}s). The "
+                "march would skip part of the prescribed trajectory.")))
+
+    # Five revolutions is the minimum for the three inflow states to
+    # shed their initial condition.
+    total_time = times[-1] - times[0]
+    first_rpm = next((p.rpm for p in points if p.rpm is not None), None)
+    if first_rpm and total_time > 0.0:
+        revolutions = float(first_rpm) / 60.0 * total_time
+        if revolutions < 5.0:
+            issues.append(Issue("warning", prefix + (
+                f"the marched interval covers only {revolutions:.2f} rotor "
+                "revolutions at the first RPM. The inflow states need about "
+                "five to shed their initial condition; expect a visible "
+                "start-up transient in the results.")))
+
+    if getattr(maneuver, "march_dynamic_stall", False):
+        npsi = int(config.get("Npsi", 36) or 36)
+        if npsi > 180:
+            substeps = max(int(getattr(maneuver, "substeps_per_step", 8)), 1)
+            samples = max(int(round(total_time / dt)) + 1, 1) if dt > 0 else 0
+            issues.append(Issue("warning", prefix + (
+                f"'March dynamic stall' with a {npsi}-station mesh costs "
+                f"{npsi} sequential steps per revolution; with "
+                f"{substeps} sub-steps and about {samples} samples this run "
+                "is expensive. Coarsen Npsi or fewer revolutions make it "
+                "cheaper.")))
     return issues
 
 

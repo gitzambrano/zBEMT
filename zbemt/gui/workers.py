@@ -281,3 +281,43 @@ def launch_worker(worker: BatchRunnerWorker) -> QThread:
     return thread
 
 
+
+
+class ManeuverWorker(QObject):
+    """Runs one prescribed transient (SC-12) off the main thread, on the
+    same pattern as `BatchRunnerWorker` (PR-11).
+
+    Signals:
+    - ``sample_finished(done, total, row_dict)`` after each sample.
+    - ``finished(list)`` carries ``(DataFrame, maps_list)`` on success.
+    - ``failed(str)`` for a validation error raised before the march.
+    """
+
+    sample_finished = pyqtSignal(int, int, object)
+    finished = pyqtSignal(object)
+    failed = pyqtSignal(str)
+
+    def __init__(self, project: Project, definition):
+        super().__init__()
+        self.project = project
+        self.definition = definition
+        self.cancel_requested = False
+
+    def cancel(self):
+        self.cancel_requested = True
+
+    def run(self):
+        try:
+            history, maps_list = api.run_maneuver(
+                self.project, self.definition,
+                on_sample_done=lambda done, total, row: (
+                    None if self.cancel_requested
+                    else self.sample_finished.emit(done, total, row)),
+                should_cancel=lambda: self.cancel_requested)
+        except SolveCancelled:
+            self.finished.emit(None)
+            return
+        except Exception as exc:  # noqa: BLE001 - surfaced to the GUI dialog
+            self.failed.emit(str(exc))
+            return
+        self.finished.emit((history, maps_list))

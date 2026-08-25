@@ -60,31 +60,6 @@ from ..dialogs import adjust_combo_width
 from ..workers import ExternalPolarWorker, launch_worker
 
 
-# =============================================================================
-# Internal class to simulate a QComboBox interface with a fixed value
-# =============================================================================
-class _FixedValueHolder:
-    """Simulates the QComboBox interface for a field that only has one valid value.
-
-    Used for `dynamic_stall_method`, which is just "frequency" in the GUI
-    (time_march is an internal escape hatch for compatibility with old .bemt
-    files, not editable here). Preserves the .currentText() and
-    .setCurrentText() interface so that AirfoilDef read/write code does not
-    change."""
-
-    def __init__(self, fixed_value: str):
-        self._value = fixed_value
-
-    def currentText(self) -> str:
-        """Returns the fixed value."""
-        return self._value
-
-    def setCurrentText(self, value: str) -> None:
-        """Silently accepts only the fixed value."""
-        if value == self._value:
-            self._value = value
-
-
 def _unir_curvas_coincidentes(curves: list) -> list:
     """Merges numerically identical curves into a single legend entry.
 
@@ -770,23 +745,44 @@ class AirfoilTab(QWidget):
             self._suggest_re_mach(force=False)
 
     def _build_dynamic_stall_box(self) -> QGroupBox:
-        """b) Dynamic stall (Øye) — only the quasi-static option
-        ('frequency') stays visible (docs/plano.md Section 5, "Dynamic
-        stall — static option only"); 'time_march' and the fields that
-        only made sense for it (revolutions / average of last N
-        revolutions) go away with it, via progressive disclosure.
+        """Dynamic stall (Oye) block: the lag model plus the choice of how
+        its periodic separation response is solved.
 
-        Note: dynamic_stall_method is always "frequency" in the GUI (no
-        visible widget). The internal class _FixedValueHolder preserves
-        the .currentText() / .setCurrentText() interface so that the
-        AirfoilDef read/write code works unchanged."""
+        Two methods exist (SC-12 scopes time marching):
+
+        - ``frequency`` -- solves the periodic response algebraically via
+          a Fourier transfer function; the default, and cheap.
+        - ``time_march`` -- marches the separation state explicitly over
+          ``Npsi`` stations for a number of revolutions, discards the
+          transient and averages the rest. More expensive; reports whether
+          the march settled (EN-9).
+
+        The revolution fields stay VISIBLE but disabled while the method
+        is 'frequency' (PR-2): a real-but-blocked control teaches that
+        the option exists."""
         box = QGroupBox("Dynamic Stall")
         form = QFormLayout(box)
         self.use_dynamic_stall = QCheckBox("Enable dynamic stall (Øye)")
         self.use_dynamic_stall.setToolTip(self._DYNAMIC_STALL_TOOLTIP)
         form.addRow(self.use_dynamic_stall)
-        # dynamic_stall_method is always "frequency" — we don't offer UI to choose it
-        self.dyn_method = _FixedValueHolder("frequency")
+
+        self.dyn_method = QComboBox()
+        self.dyn_method.addItem("Frequency", "frequency")
+        self.dyn_method.addItem("Time march", "time_march")
+        self.dyn_method.setToolTip(
+            '"airfoil.dynamic_stall_method" — how the periodic separation '
+            'response is solved.<br><br>'
+            '<b>Frequency</b> solves it algebraically through a Fourier '
+            'transfer function with one lag constant per radial station: '
+            'cheap, and the default.<br><br>'
+            '<b>Time march</b> steps the separation state explicitly from '
+            'azimuth station to azimuth station for the given number of '
+            'revolutions, then averages the last ones. It shows whether the '
+            'transient decayed (the periodic residual travels with the '
+            'result) at the cost of Npsi × revolutions sequential steps.')
+        self.dyn_method_label = QLabel("Method:")
+        form.addRow(self.dyn_method_label, self.dyn_method)
+
         self.dyn_A = QDoubleSpinBox(); self.dyn_A.setRange(0.1, 30); self.dyn_A.setValue(8.0)
         self.dyn_A.setSingleStep(0.5)
         self.dyn_A.setToolTip('"airfoil.dynamic_stall_A" — lag constant of the Øye model; controls the dynamic response speed')
@@ -803,30 +799,44 @@ class AirfoilTab(QWidget):
         form.addRow(self.dyn_fade_start_label, self.dyn_fade_start)
         form.addRow(self.dyn_fade_end_label, self.dyn_fade_end)
 
+        # Time-march fields (SC-12): visible whenever dynamic stall is on,
+        # ENABLED only when the method is 'time_march' (PR-2).
+        self.dyn_revs = QSpinBox(); self.dyn_revs.setRange(1, 100); self.dyn_revs.setValue(8)
+        self.dyn_revs.setToolTip(
+            '"airfoil.dynamic_stall_time_march_revolutions" — revolutions '
+            'marched by the time-march method. The first revolutions carry '
+            'the start-up transient; more revolutions cost Npsi sequential '
+            'steps each.')
+        self.dyn_revs_label = QLabel("Revolutions marched:")
+        form.addRow(self.dyn_revs_label, self.dyn_revs)
+        self.dyn_avg_last = QSpinBox(); self.dyn_avg_last.setRange(1, 100); self.dyn_avg_last.setValue(3)
+        self.dyn_avg_last.setToolTip(
+            '"airfoil.dynamic_stall_time_march_avg_last" — how many of the '
+            'last marched revolutions are averaged into the periodic answer. '
+            'Must not exceed the revolutions marched.')
+        self.dyn_avg_last_label = QLabel("Revolutions averaged:")
+        form.addRow(self.dyn_avg_last_label, self.dyn_avg_last)
+
         # Progressive disclosure (principle 1): with the box unchecked, the
         # model parameters make no sense -- and, staying on screen, gave
         # the impression that dynamic stall is always on.
         self.use_dynamic_stall.toggled.connect(self._update_dynamic_stall_visibility)
-        # Deliberate orphans (not added to the form): they only exist to
-        # preserve the value of old projects that used time_march via
-        # script; the GUI no longer offers editing them.
-        self.dyn_revs = QSpinBox(); self.dyn_revs.setRange(1, 50); self.dyn_revs.setValue(8)
-        self.dyn_avg_last = QSpinBox(); self.dyn_avg_last.setRange(1, 50); self.dyn_avg_last.setValue(3)
+        self.dyn_method.currentIndexChanged.connect(
+            self._update_dynamic_stall_visibility)
         self._dynamic_stall_form = form
         return box
 
     def _update_dynamic_stall_visibility(self, *_args):
-        """Shows the Øye parameters only when the model is enabled.
-
-        Hides the ROW (label + field) via `set_row_visible` --
-        `widget.setVisible(False)` directly left the "?" help button (which
-        wraps the field in a container) alone on screen, the size of the
-        whole row, with the field hidden inside it.
-
-        Note: dynamic_stall_method is not included because it has no visible widget."""
+        """Shows the Øye parameters only when the model is enabled, and
+        enables the revolution fields only when the method is
+        'time_march' (PR-2: visible and disabled otherwise)."""
         ligado = self.use_dynamic_stall.isChecked() and self.use_dynamic_stall.isEnabled()
-        for w in (self.dyn_A, self.dyn_fade_start, self.dyn_fade_end):
+        for w in (self.dyn_A, self.dyn_fade_start, self.dyn_fade_end,
+                  self.dyn_revs, self.dyn_avg_last):
             set_row_visible(self._dynamic_stall_form, w, ligado)
+        marching = ligado and self.dyn_method.currentData() == "time_march"
+        self.dyn_revs.setEnabled(marching)
+        self.dyn_avg_last.setEnabled(marching)
 
     def _update_dynamic_stall_enabled(self, *_args):
         blocked = self.source_combo.currentText() == "analytical" and self.stall_model_combo.currentText() == "linear"
@@ -2010,7 +2020,7 @@ class AirfoilTab(QWidget):
             extend_full_range=extend_full_range,
             viterna_blend_width_deg=self.viterna_blend_width_deg.value(),
             use_dynamic_stall=self.use_dynamic_stall.isChecked(),
-            dynamic_stall_method=self.dyn_method.currentText(),
+            dynamic_stall_method=self.dyn_method.currentData(),
             dynamic_stall_A=self.dyn_A.value(),
             dynamic_stall_fade_start_deg=self.dyn_fade_start.value(),
             dynamic_stall_fade_end_deg=self.dyn_fade_end.value(),
@@ -2510,11 +2520,8 @@ class AirfoilTab(QWidget):
         self.viterna_blend_width_deg.setValue(a.viterna_blend_width_deg)
         self._update_source_visibility()
         self.use_dynamic_stall.setChecked(a.use_dynamic_stall)
-        if a.dynamic_stall_method in ("frequency",):
-            self.dyn_method.setCurrentText(a.dynamic_stall_method)
-        # 'time_march' from old projects: the GUI no longer offers the
-        # option (docs/plano.md Section 5); the combo stays on 'frequency'
-        # until the user re-applies.
+        idx = self.dyn_method.findData(a.dynamic_stall_method)
+        self.dyn_method.setCurrentIndex(idx if idx >= 0 else 0)
         self.dyn_A.setValue(a.dynamic_stall_A)
         self.dyn_fade_start.setValue(a.dynamic_stall_fade_start_deg)
         self.dyn_fade_end.setValue(a.dynamic_stall_fade_end_deg)

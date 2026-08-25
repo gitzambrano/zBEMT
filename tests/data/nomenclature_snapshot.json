@@ -501,6 +501,16 @@
         "mathtext": "$\\theta_{1s}$ [deg]",
         "text": "θ₁ₛ [deg]"
       },
+      "dynamic_stall_periodic_residual": {
+        "html": "&Delta;f<sub>periodic</sub> [-]",
+        "mathtext": "$\\Delta f_{periodic}$ [-]",
+        "text": "Δfperiodic [-]"
+      },
+      "dynamic_stall_revolutions": {
+        "html": "N<sub>rev</sub> [-]",
+        "mathtext": "$N_{rev}$ [-]",
+        "text": "Nᵣₑᵥ [-]"
+      },
       "elapsed_s": {
         "html": "elapsed [s]",
         "mathtext": "elapsed [s]",
@@ -1132,6 +1142,16 @@
         "html": "&theta;<sub>1s</sub> [deg]",
         "mathtext": "$\\theta_{1s}$ [deg]",
         "text": "θ₁ₛ [deg]"
+      },
+      "dynamic_stall_periodic_residual": {
+        "html": "&Delta;f<sub>periodic</sub> [-]",
+        "mathtext": "$\\Delta f_{periodic}$ [-]",
+        "text": "Δfperiodic [-]"
+      },
+      "dynamic_stall_revolutions": {
+        "html": "N<sub>rev</sub> [-]",
+        "mathtext": "$N_{rev}$ [-]",
+        "text": "Nᵣₑᵥ [-]"
       },
       "elapsed_s": {
         "html": "elapsed [s]",
@@ -1870,6 +1890,14 @@
         "&theta;<sub>1s</sub>",
         "Cyclic pitch, sine harmonic [deg]: pitch that varies once per revolution as &theta;<sub>1s</sub>sin&psi;. Together with the cosine harmonic it forms the pair the trim solves"
       ],
+      "dynamic_stall_periodic_residual": [
+        "&Delta;f<sub>periodic</sub>",
+        "Largest change of the Oye separation function between the last two marched revolutions. Near zero means the time march reached a periodic regime; a value above 1e-3 means the transient had NOT decayed and more revolutions are needed (EN-9). Only reported by the 'time_march' dynamic-stall method"
+      ],
+      "dynamic_stall_revolutions": [
+        "N<sub>rev</sub>",
+        "Revolutions marched by the 'time_march' dynamic-stall method, echoed beside its periodic residual (EN-9)"
+      ],
       "elapsed_s": [
         "t<sub>cpu</sub>",
         "Wall-clock solve time [s]"
@@ -2376,6 +2404,14 @@
         "&theta;<sub>1s</sub>",
         "Cyclic pitch, sine harmonic [deg]: pitch that varies once per revolution as &theta;<sub>1s</sub>sin&psi;. Together with the cosine harmonic it forms the pair the trim solves"
       ],
+      "dynamic_stall_periodic_residual": [
+        "&Delta;f<sub>periodic</sub>",
+        "Largest change of the Oye separation function between the last two marched revolutions. Near zero means the time march reached a periodic regime; a value above 1e-3 means the transient had NOT decayed and more revolutions are needed (EN-9). Only reported by the 'time_march' dynamic-stall method"
+      ],
+      "dynamic_stall_revolutions": [
+        "N<sub>rev</sub>",
+        "Revolutions marched by the 'time_march' dynamic-stall method, echoed beside its periodic residual (EN-9)"
+      ],
       "elapsed_s": [
         "t<sub>cpu</sub>",
         "Wall-clock solve time [s]"
@@ -2583,6 +2619,8 @@
     "convergence_pct": "<th class=\"un\">[%]</th>",
     "cyclic_c_deg": "<th class=\"un\">[deg]</th>",
     "cyclic_s_deg": "<th class=\"un\">[deg]</th>",
+    "dynamic_stall_periodic_residual": "<th class=\"un\">[-]</th>",
+    "dynamic_stall_revolutions": "<th class=\"un\">[-]</th>",
     "elapsed_s": "<th class=\"un\">[s]</th>",
     "eta_prop": "<th class=\"un\">[-]</th>",
     "flap_inertia_kg_m2": "<th class=\"un\">[kg·m²]</th>",

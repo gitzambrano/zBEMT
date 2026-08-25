@@ -84,7 +84,10 @@ def _to_jsonable(obj: Any, is_propeller: bool = False) -> Any:
         # `BatchDefinition` would never get their axis letters rotated.
         raw = {f.name: _to_jsonable(getattr(obj, f.name), is_propeller)
                for f in fields(obj)}
-        if isinstance(obj, FlightCondition):
+        # A ManeuverPoint carries the same engine keys as a condition
+        # (mu_x/Vz), so its letters rotate under the propeller
+        # convention exactly like a FlightCondition's (PA-4).
+        if isinstance(obj, (FlightCondition, ManeuverPoint)):
             return nomenclature.to_display_keys(raw, is_propeller)
         return raw
     if isinstance(obj, np.ndarray):
@@ -237,6 +240,12 @@ def _from_jsonable(cls: type, raw: Any, is_propeller: bool = False) -> Any:
         return raw
     if cls is AirfoilDef and isinstance(raw, dict):
         raw = _migrate_airfoil_raw(raw)
+    if cls is OptimizationDefinition and isinstance(raw, dict):
+        raw = migrate_optimization_raw(raw)
+    if cls is ManeuverPoint and isinstance(raw, dict):
+        # Inverse of the _to_jsonable rotation: the file stores the
+        # letters the project's mode shows (PA-4).
+        raw = nomenclature.from_display_keys(raw, is_propeller)
     legacy_warned = False
     if cls is FlightCondition and isinstance(raw, dict):
         legacy_warned = warn_legacy_nomenclature(raw, is_propeller)
@@ -295,6 +304,10 @@ def _coerce_field(ftype: Any, val: Any, is_propeller: bool = False) -> Any:
         "AirfoilDef": AirfoilDef,
         "FlightCondition": FlightCondition,
         "BatchDefinition": BatchDefinition,
+        "ManeuverPoint": ManeuverPoint,
+        "ManeuverDefinition": ManeuverDefinition,
+        "ObjectiveDef": ObjectiveDef,
+        "ConstraintDef": ConstraintDef,
         "DesignVariable": DesignVariable,
         "OptimizationDefinition": OptimizationDefinition,
     }
@@ -618,6 +631,38 @@ class BatchDefinition:
     plots: list[str] = field(default_factory=list)
 
 
+@dataclass
+class ManeuverPoint:
+    """One node of a prescribed trajectory (SC-12).
+
+    The engine keys apply, so ``mu_x`` is the IN-PLANE component and
+    ``Vz`` the axial one in disk axes -- exactly what a `FlightCondition`
+    stores. Under the propeller convention the letters rotate on disk,
+    exactly as they do for a condition (see `nomenclature`)."""
+    t_s: float = 0.0
+    mu_x: float = 0.0
+    Vz: float = 0.0
+    collective_deg: float = 8.0
+    cyclic_c_deg: float = 0.0
+    cyclic_s_deg: float = 0.0
+    rpm: Optional[float] = None
+
+
+@dataclass
+class ManeuverDefinition:
+    """A prescribed transient (SC-12): a sequence of flight conditions in
+    time. It is not a batch -- each sample inherits the inflow state of
+    the sample before it."""
+    name: str = "maneuver 1"
+    points: list[ManeuverPoint] = field(default_factory=list)
+    interpolation: str = "linear"     # "linear" | "hold"
+    dt_s: float = 0.02                # output sample interval
+    substeps_per_step: int = 8        # inflow sub-steps inside one sample
+    initial_state: str = "equilibrium"  # "equilibrium" | "zero"
+    march_dynamic_stall: bool = False
+    march_flapping: bool = False
+
+
 # =============================================================================
 # Design tools: geometry comparison and design optimization
 # =============================================================================
@@ -643,20 +688,73 @@ class DesignVariable:
 
 
 @dataclass
+class ObjectiveDef:
+    """One objective of a design study (SC-13). One or two objectives:
+    two of them switch the search to the Pareto front."""
+    key: str = "FM"                  # any summary key
+    kind: str = "maximize"           # "maximize" | "minimize"
+    weight: float = 1.0              # used only by the weighted-sum method
+
+
+@dataclass
+class ConstraintDef:
+    """One inequality constraint on a summary key (SC-13)."""
+    key: str = "CT"
+    operator: str = ">="             # ">=" | "<=" | "=="
+    value: float = 0.0
+    tolerance: float = 0.0           # band for "=="
+
+
+@dataclass
 class OptimizationDefinition:
     """A persisted design-optimization study (inputs/optimizations.bemt).
 
-    The study varies bounded geometry parameters and drives one flight
-    condition until a summary quantity reaches its best found value. It
-    carries no physics of its own: every evaluation is a plain
-    ``run_single_case`` on a regenerated variant geometry."""
+    The study varies bounded geometry parameters and drives one or two
+    summary quantities on one flight condition toward their best found
+    values. It carries no physics of its own: every evaluation is a plain
+    ``run_single_case`` on a regenerated variant geometry.
+
+    ``algorithm`` selects the family: Powell / Nelder-Mead (single
+    objective, derivative-free, SC-8), differential evolution (global,
+    single objective) or NSGA-II (multi-objective Pareto front,
+    SC-13)."""
     name: str = "optimization 1"
+    # --- legacy single-objective pair (still written for one release so
+    # an older build can read the file; superseded by `objectives`) ---
     objective_kind: str = "maximize"   # "maximize" | "minimize"
     objective_key: str = "FM"
     variables: list[DesignVariable] = field(default_factory=list)
-    method: str = "powell"             # "powell" | "nelder-mead"
+    method: str = "powell"             # legacy alias of `algorithm`
     max_evals: int = 40
     condition: Optional[FlightCondition] = None
+    # --- SC-13 extensions ---
+    objectives: list[ObjectiveDef] = field(default_factory=list)
+    constraints: list[ConstraintDef] = field(default_factory=list)
+    algorithm: str = ""                # "" falls back to `method`
+    population: int = 40
+    generations: int = 25
+    seed: int = 0
+    crossover_eta: float = 15.0
+    mutation_eta: float = 20.0
+    mutation_rate: float = 0.0   # 0 means one over the variable count
+    parallel_workers: int = 1
+
+
+def migrate_optimization_raw(raw: dict) -> dict:
+    """Migrates an ``optimizations.bemt`` entry saved before SC-13: when
+    ``objectives`` is absent/empty and the legacy ``objective_key`` is
+    set, builds the one-element list from the legacy pair. The legacy
+    fields stay on the dataclass and are still written, so an OLDER
+    build keeps reading the file for one release."""
+    migrated = dict(raw)
+    objectives = migrated.get("objectives")
+    if not objectives and migrated.get("objective_key"):
+        migrated["objectives"] = [{
+            "key": migrated["objective_key"],
+            "kind": migrated.get("objective_kind", "maximize"),
+            "weight": 1.0,
+        }]
+    return migrated
 
 
 @dataclass
@@ -734,6 +832,9 @@ class Project:
     # Design tools: named optimization studies persisted as
     # inputs/optimizations.bemt (same lifecycle as `batches`).
     optimizations: list[OptimizationDefinition] = field(default_factory=list)
+    # Transients (SC-12): named maneuvers persisted as
+    # inputs/maneuvers.bemt.
+    maneuvers: list[ManeuverDefinition] = field(default_factory=list)
 
 
 def default_project_paths(project_path: str) -> dict:
@@ -752,5 +853,6 @@ def default_project_paths(project_path: str) -> dict:
         "batches": root / "inputs" / "batches.bemt",
         "saved_cases": root / "inputs" / "saved_cases.bemt",
         "optimizations": root / "inputs" / "optimizations.bemt",
+        "maneuvers": root / "inputs" / "maneuvers.bemt",
         "meta": root / "inputs" / "meta.bemt",
     }

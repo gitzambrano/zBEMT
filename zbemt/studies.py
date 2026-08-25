@@ -424,6 +424,126 @@ def run_case_trimmed(project: Project, condition: FlightCondition, *,
 
 
 # =============================================================================
+# Transient maneuvers (SC-12): a prescribed trajectory in time, sampled
+# onto a uniform grid and marched by the unsteady Pitt-Peters engine.
+# Sampling and orchestration live here (AR-2); the march itself is
+# bemt.run_maneuver.
+# =============================================================================
+
+def _maneuver_samples(definition) -> list:
+    """Resamples the trajectory onto a uniform ``dt_s`` grid.
+
+    ``interpolation='linear'`` blends every quantity between the
+    neighboring nodes; ``'hold'`` keeps the value of the last node whose
+    time is not past. The returned points are plain `ManeuverPoint`s with
+    a CONCRETE rpm on every sample (the march non-dimensionalizes by
+    Omega*R, so it cannot inherit lazily mid-flight)."""
+    from .models import ManeuverPoint
+
+    nodes = sorted((p for p in definition.points), key=lambda p: p.t_s)
+    if len(nodes) < 2:
+        raise ValueError(
+            f"maneuver {definition.name!r} needs at least two trajectory "
+            "points.")
+    t_end = float(nodes[-1].t_s)
+    dt = float(definition.dt_s)
+    if dt <= 0.0:
+        raise ValueError(
+            f"maneuver {definition.name!r}: dt_s must be greater than zero.")
+
+    def _value_at(t: float, attr: str) -> float:
+        hi = next((p for p in nodes if p.t_s >= t), nodes[-1])
+        lo = hi if hi.t_s == t else nodes[max(nodes.index(hi) - 1, 0)]
+        if definition.interpolation == "hold" or hi.t_s == lo.t_s:
+            return float(getattr(lo, attr))
+        frac = (t - lo.t_s) / (hi.t_s - lo.t_s)
+        return float(getattr(lo, attr) + frac * (getattr(hi, attr)
+                                                  - getattr(lo, attr)))
+
+    samples = []
+    count = int(round(t_end / dt))
+    for k in range(count + 1):
+        t = min(k * dt, t_end)
+        rpm = _value_at(t, "rpm")
+        if rpm is None or rpm <= 0.0:
+            raise ValueError(
+                f"maneuver {definition.name!r}: no usable RPM at "
+                f"t={t:g}s. Give the first point an RPM.")
+        samples.append(ManeuverPoint(
+            t_s=t,
+            mu_x=_value_at(t, "mu_x"),
+            Vz=_value_at(t, "Vz"),
+            collective_deg=_value_at(t, "collective_deg"),
+            cyclic_c_deg=_value_at(t, "cyclic_c_deg"),
+            cyclic_s_deg=_value_at(t, "cyclic_s_deg"),
+            rpm=rpm,
+        ))
+    return samples
+
+
+def run_maneuver(project: Project, definition, *,
+                 on_sample_done=None, should_cancel=None):
+    """Runs one prescribed transient (SC-12) over the project's geometry
+    and airfoil.
+
+    The config is FORCED to ``inflow_field_model='pitt_peters_unsteady'``
+    -- a maneuver exists precisely to march that state -- and the
+    trajectory is resampled onto ``definition.dt_s``. The initial inflow
+    state comes from ``definition.initial_state``: 'equilibrium' solves
+    the steady Pitt-Peters problem at the first sample (no start-up
+    transient); 'zero' starts from zeros and shows the transient.
+
+    Returns ``(pd.DataFrame, list[maps_dict])``; each row carries the
+    time, the state vector, the marched interval and the sub-step count
+    (EN-9). Progress flows through ``on_sample_done(done, total, row)``
+    and ``should_cancel`` is honored between sub-steps (PR-11). Raises
+    ValueError naming the validation errors before any solve."""
+    from dataclasses import replace as dc_replace
+    from .bemt import run_maneuver as engine_run_maneuver
+    from .bemt import steady_pitt_peters_state
+    from .validation import validate_maneuver
+
+    cfg_dict = dict(project.config)
+    cfg_dict["inflow_field_model"] = "pitt_peters_unsteady"
+    issues = validate_maneuver(definition, cfg_dict)
+    errors = [i.message for i in issues if i.level == "error"]
+    if errors:
+        raise ValueError(
+            f"run_maneuver: maneuver {definition.name!r} has validation "
+            "errors:\n" + "\n".join(f"  - {m}" for m in errors))
+
+    cfg = dc_replace(_build_config(cfg_dict),
+                      inflow_field_model="pitt_peters_unsteady")
+    samples = _maneuver_samples(definition)
+
+    def rotor_builder(point) -> Rotor:
+        return _to_rotor(project.geometry,
+                          collective_deg=point.collective_deg,
+                          rpm=_require_rpm(point.rpm,
+                                            f"maneuver {definition.name!r}"))
+
+    first_rotor = rotor_builder(samples[0])
+    radial = airfoils.radial_reynolds_mach(first_rotor, cfg,
+                                            mu_x=samples[0].mu_x)
+    airfoil_obj = airfoils.to_blade_airfoil(
+        project.airfoil_sections or [project.airfoil], radial=radial)
+
+    dynamics = project.geometry.dynamics
+    initial_nu = None
+    if definition.initial_state == "equilibrium":
+        initial_nu = steady_pitt_peters_state(
+            first_rotor, airfoil_obj, cfg, samples[0].mu_x, samples[0].Vz)
+
+    return engine_run_maneuver(
+        rotor_builder, airfoil_obj, cfg, samples,
+        dynamics=dynamics, initial_nu=initial_nu,
+        substeps_per_step=max(int(definition.substeps_per_step), 1),
+        march_dynamic_stall=bool(definition.march_dynamic_stall),
+        march_flapping=bool(definition.march_flapping),
+        on_sample_done=on_sample_done, should_cancel=should_cancel)
+
+
+# =============================================================================
 # Running a list of conditions with optional progress and cancellation
 # (docs/plano_v3.md Part 2, worker thread). Knows nothing about Qt: it
 # receives only plain callables, so gui.py can feed them from a

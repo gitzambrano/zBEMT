@@ -1,0 +1,58 @@
+[
+  {
+    "name": "hover to cruise 4s",
+    "points": [
+      {
+        "t_s": 0.0,
+        "mu_x": 0.0,
+        "Vz": 0.5,
+        "collective_deg": 10.0,
+        "cyclic_c_deg": 0.0,
+        "cyclic_s_deg": 0.0,
+        "rpm": 3200.0
+      },
+      {
+        "t_s": 1.0,
+        "mu_x": 0.08,
+        "Vz": 0.4,
+        "collective_deg": 9.0,
+        "cyclic_c_deg": 0.0,
+        "cyclic_s_deg": 0.0,
+        "rpm": 3100.0
+      },
+      {
+        "t_s": 2.0,
+        "mu_x": 0.18,
+        "Vz": 0.0,
+        "collective_deg": 7.5,
+        "cyclic_c_deg": 0.0,
+        "cyclic_s_deg": 0.0,
+        "rpm": 2900.0
+      },
+      {
+        "t_s": 3.0,
+        "mu_x": 0.28,
+        "Vz": -0.5,
+        "collective_deg": 6.5,
+        "cyclic_c_deg": 0.0,
+        "cyclic_s_deg": 0.0,
+        "rpm": 2750.0
+      },
+      {
+        "t_s": 4.0,
+        "mu_x": 0.35,
+        "Vz": -1.0,
+        "collective_deg": 6.0,
+        "cyclic_c_deg": 0.0,
+        "cyclic_s_deg": 0.0,
+        "rpm": 2600.0
+      }
+    ],
+    "interpolation": "linear",
+    "dt_s": 0.05,
+    "substeps_per_step": 8,
+    "initial_state": "equilibrium",
+    "march_dynamic_stall": true,
+    "march_flapping": false
+  }
+]

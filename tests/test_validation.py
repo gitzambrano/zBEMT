@@ -93,10 +93,100 @@ class TestValidateConfig(unittest.TestCase):
         self.assertEqual(levels(issues), [])
 
     def test_dynamic_stall_with_pitt_peters_unsteady_is_error(self):
+        """Narrowed by SC-12: the rejection holds on the CASE path."""
         cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))
         a = AirfoilDef(use_dynamic_stall=True, stall_model="clip")
         issues = validation.validate_config(cfg, a)
         self.assertIn("error", levels(issues))
+
+    def test_unsteady_inflow_stays_rejected_on_the_case_path(self):
+        """SC-12 narrowed the old blanket ban: the unsteady inflow is
+        still an error for an isolated case, with the maneuver as the
+        named remedy."""
+        cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))
+        issues = validation.validate_config(cfg, AirfoilDef())
+        errors = [i.message for i in issues if i.level == "error"]
+        self.assertTrue(any("maneuver" in m.lower() for m in errors),
+                        str(errors))
+
+    def test_unsteady_inflow_is_required_on_the_maneuver_path(self):
+        cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_steady"))
+        issues = validation.validate_config(cfg, AirfoilDef(),
+                                             inflow_path="maneuver")
+        self.assertIn("error", levels(issues))
+        steady_cfg = asdict(BEMTConfig(
+            inflow_field_model="pitt_peters_unsteady"))
+        ok = validation.validate_config(steady_cfg, AirfoilDef(),
+                                         inflow_path="maneuver")
+        self.assertNotIn("error", levels(ok))
+
+    def test_maneuver_path_allows_dynamic_stall_with_unsteady(self):
+        """SC-12: on the maneuver path the separation state can march
+        alongside the inflow states, so the old incompatibility no
+        longer fires there."""
+        cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))
+        a = AirfoilDef(use_dynamic_stall=True)
+        issues = validation.validate_config(cfg, a, inflow_path="maneuver")
+        self.assertNotIn("error", levels(issues))
+
+
+class TestValidateManeuver(unittest.TestCase):
+    def _maneuver(self, **overrides):
+        from dataclasses import replace
+        from zbemt.models import ManeuverDefinition, ManeuverPoint
+        points = overrides.pop("points", [
+            ManeuverPoint(t_s=0.0, mu_x=0.0, Vz=0.0, collective_deg=8.0,
+                           rpm=1400.0),
+            ManeuverPoint(t_s=4.0, mu_x=0.15, Vz=0.0, collective_deg=6.0,
+                           rpm=1400.0),
+        ])
+        base = ManeuverDefinition(name="m1", points=points)
+        return replace(base, **overrides)
+
+    def test_fewer_than_two_points_is_error(self):
+        from zbemt.models import ManeuverPoint
+        m = self._maneuver(points=[ManeuverPoint(t_s=0.0, rpm=100.0)])
+        issues = validation.validate_maneuver(m, {})
+        self.assertIn("error", levels(issues))
+
+    def test_non_monotonic_time_is_error(self):
+        from zbemt.models import ManeuverPoint
+        pts = [ManeuverPoint(t_s=0.0, rpm=100.0),
+               ManeuverPoint(t_s=2.0, rpm=100.0),
+               ManeuverPoint(t_s=1.0, rpm=100.0)]
+        issues = validation.validate_maneuver(self._maneuver(points=pts), {})
+        self.assertTrue(any(i.level == "error" and "increase" in i.message
+                            for i in issues), str(issues))
+
+    def test_first_point_without_rpm_is_error(self):
+        from zbemt.models import ManeuverPoint
+        pts = [ManeuverPoint(t_s=0.0),
+               ManeuverPoint(t_s=1.0, rpm=500.0)]
+        issues = validation.validate_maneuver(self._maneuver(points=pts), {})
+        self.assertTrue(any(i.level == "error" and "RPM" in i.message
+                            for i in issues), str(issues))
+
+    def test_sample_interval_larger_than_shortest_node_is_error(self):
+        from zbemt.models import ManeuverPoint
+        pts = [ManeuverPoint(t_s=0.0, rpm=100.0),
+               ManeuverPoint(t_s=0.5, rpm=100.0),
+               ManeuverPoint(t_s=4.0, rpm=100.0)]
+        issues = validation.validate_maneuver(self._maneuver(points=pts,
+                                                              dt_s=0.02), {})
+        self.assertFalse([i for i in issues if i.level == "error"])
+        tight = validation.validate_maneuver(self._maneuver(points=pts,
+                                                             dt_s=0.7), {})
+        self.assertTrue(any(i.level == "error" and "sample interval" in i.message
+                            for i in tight), str(tight))
+
+    def test_short_march_warns_about_revolutions(self):
+        from zbemt.models import ManeuverPoint
+        pts = [ManeuverPoint(t_s=0.0, rpm=600.0),
+               ManeuverPoint(t_s=0.2, rpm=600.0)]  # 2 revs at 600 rpm
+        issues = validation.validate_maneuver(self._maneuver(points=pts,
+                                                              dt_s=0.05), {})
+        self.assertTrue(any(i.level == "warning" and "revolutions" in i.message
+                            for i in issues), str(issues))
 
     def test_compressibility_with_mach_varying_table_is_warning(self):
         a = AirfoilDef(source="table", table_slices=[
