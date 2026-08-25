@@ -2388,14 +2388,16 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
     single pass runs the unchanged path with any cyclic pitch carried as
     an azimuthal pitch term and beta held at zero.
 
-    ``warm_start`` optionally carries the coefficients of a previous case
-    in a sweep, cutting the iteration count.
+    ``warm_start`` optionally carries the previous case's converged blade
+    state, as ``{"beta_psi": angle_on_psi_grid}``; projecting it onto the
+    coefficient vector cuts the outer-loop iteration count in a sweep.
 
     Returns the same ``maps`` contract as `solve_bemt`, plus the flap
-    keys (`beta_0_rad`, `beta_coeffs`, `nu_beta`, `lock_number`,
-    `flap_inertia`, `flap_outer_iterations`, `flap_outer_residual_deg`,
-    and their lag counterparts). `aggregate_results` turns them into the
-    summary columns; a caller downstream needs nothing new.
+    keys (`beta_0_rad`, `beta_coeffs`, `nu_beta`, `nu_beta_squared`,
+    `lock_number`, `flap_inertia_kg_m2`, `flap_outer_iterations`,
+    `flap_outer_residual_deg`, `flap_outer_history`, and their lag
+    counterparts). `aggregate_results` turns them into the summary
+    columns; a caller downstream needs nothing new.
 
     ``should_cancel`` is honored once per outer iteration AND inside every
     inner `solve_bemt` iteration (PR-11): cancellation raises
@@ -2513,11 +2515,12 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
     #   1. The fields the outer loop iterates on are solved with the
     #      blade ANGLE only (rates held at zero), so their moments carry
     #      no rate feedback.
-    #   2. The analytic flap damping d_beta = (gamma/6)(1-3e+3e^2)
-    #      (`geometry.flap_aero_damping`, derived from exactly the term
-    #      that was removed) enters the harmonic balance as the
-    #      two-by-two coupling of each harmonic, exactly like a lag
-    #      damper.
+    #   2. The analytic flap damping d_beta =
+    #      gamma*(1/8 - e/3 + e^2/4) -- gamma/8 at e = 0, the classic
+    #      centrally hinged result (`geometry.flap_aero_damping`,
+    #      derived from exactly the term that was removed) enters the
+    #      harmonic balance as the two-by-two coupling of each harmonic,
+    #      exactly like a lag damper.
     #   3. The map from blade angle to solved coefficients now has an
     #      O(mu) gain: plain under-relaxed fixed-point iteration
     #      converges in a few steps.
@@ -2536,8 +2539,15 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
         zeta_rate_psi=warm.get("zeta_rate_psi"),
     )
     if warm.get("beta_psi") is not None:
-        state = _coeffs_vector(_fourier_coefficients(
-            np.asarray(warm["beta_psi"], dtype=float), psi_nodes, n_harm))
+        # The warm start arrives as a blade ANGLE on the psi grid (the
+        # previous case's converged response); project it onto the
+        # coefficient vector the outer loop iterates.
+        a0, a_c, a_s = _fourier_coefficients(
+            np.asarray(warm["beta_psi"], dtype=float), psi_nodes, n_harm)
+        state[0] = a0
+        for k in range(1, n_harm + 1):
+            state[2 * k - 1] = a_c[k]
+            state[2 * k] = a_s[k]
 
     residual_deg = float("inf")
     iterations = 0

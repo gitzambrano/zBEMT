@@ -2463,7 +2463,14 @@ def plot_flap_response(maps: dict, ax=None, fname=None):
     fig_out.suptitle(("Flap response — " + condition)
                      if condition else "Flap response",
                      fontsize=11, fontweight="bold")
-    return _finish(ax, fig_out, fname)
+    # Figure-returning convention (`_finish_fig`): the GUI's canvas host
+    # embeds what this returns, so a polar plot built here must hand back
+    # the FIGURE, never an axes.
+    if fname is not None:
+        fig_out.savefig(fname, dpi=_EXPORT_DPI)
+        return None
+    fig_out.tight_layout()
+    return fig_out
 
 
 def plot_flap_effect_map(maps_on: dict, maps_off: dict, field: str = "alpha_eff",
@@ -2513,4 +2520,7 @@ def plot_flap_convergence(history, tol_deg: float | None = None,
     ax.set_ylabel(r"max $|\Delta\beta_n|$ [deg]")
     ax.grid(True, alpha=0.3)
     ax.set_title("Flapping outer-loop convergence")
-    return _finish(ax, fig, fname)
+    if fname is not None:
+        fig.savefig(fname, dpi=_EXPORT_DPI)
+        return None
+    return fig

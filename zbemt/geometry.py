@@ -338,14 +338,16 @@ def flap_aero_damping(lock_number: float, hinge_offset_norm: float) -> float:
 
     Derived from the ``(r - e*R)*beta_dot`` term of U_P: a blade section
     moving with the flap rate sees a change of incidence proportional to
-    ``(r/R - e)``, and integrating its moment about the hinge against the
-    Lock inertia gives
+    ``(r/R - e)/(r/R)``, and integrating its moment about the hinge
+    against the Lock inertia gives
 
-        d_beta = (gamma/6) * (1 - 3e + 3e^2)
+        d_beta = gamma * (1/8 - e/3 + e^2/4)
 
     with ``gamma`` the RESOLVED Lock number (whatever inertia source the
-    user chose). This is the term the solver must treat implicitly --
-    see `bemt.solve_bemt_flapping` -- because keeping it on the
-    right-hand side makes the outer iteration unstable."""
+    user chose). At e = 0 this reduces to the classic gamma/8 flap
+    damping of the centrally hinged blade. This is the term the solver
+    must treat implicitly -- see `bemt.solve_bemt_flapping` -- because
+    keeping it on the right-hand side makes the outer iteration
+    unstable."""
     e = float(hinge_offset_norm)
-    return float(lock_number) / 6.0 * (1.0 - 3.0 * e + 3.0 * e * e)
+    return float(lock_number) * (0.125 - e / 3.0 + 0.25 * e * e)

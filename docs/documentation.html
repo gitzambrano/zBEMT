@@ -3695,7 +3695,7 @@ formats and limitations of each polar source.</p>
       \nu_\beta^{2} = 1 + \frac{3}{2}\,\frac{e}{1-e} +
       \frac{K_\beta}{I_\beta\Omega^{2}},$$</div>
     <p>where $M_\beta(\psi)$ is the moment of the normal force about the hinge, $I_\beta$ the
-      flap inertia of one blade, and $d_\beta=(\gamma/6)(1-3e+3e^2)$ the aerodynamic damping
+      flap inertia of one blade, and $d_\beta=\gamma\left(\tfrac{1}{8}-\tfrac{e}{3}+\tfrac{e^2}{4}\right)$ the aerodynamic damping
       that the blade's own flapping rate produces. The response is written as a truncated
       Fourier series, $\beta(\psi)=\beta_0+\sum_n[\beta_{nc}\cos n\psi+\beta_{ns}\sin n\psi]$,
       which turns the equation algebraic per harmonic; because a flapping blade changes its own
@@ -3783,7 +3783,7 @@ formats and limitations of each polar source.</p>
       and the corresponding Lock number appear beside the inputs.</p>
     <p>The three sources agree through one quantity, and they must: the Lock number fixes
       how strongly air moves the blade, and it also sets the aerodynamic damping
-      $d_\beta=(\gamma/6)(1-3e+3e^2)$ that keeps the periodic response finite. A light blade
+      $d_\beta=\gamma\left(\tfrac{1}{8}-\tfrac{e}{3}+\tfrac{e^2}{4}\right)$ that keeps the periodic response finite. A light blade
       (large $\gamma$) responds more, damps more, and cones further under the same thrust;
       a heavy blade barely answers. Whichever source is chosen, the panel beside the inputs
       shows the resolved pair &mdash; the inertia and the Lock number &mdash; so a value typed

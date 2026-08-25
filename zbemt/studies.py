@@ -266,10 +266,10 @@ def _trim_by_newton(project: Project, condition: FlightCondition, *,
             dx = np.linalg.solve(jac, -r)
         except np.linalg.LinAlgError:
             dx, *_ = np.linalg.lstsq(jac, -r, rcond=None)
-        # Damped step: a full Newton step on a numerically differentiated
-        # system can overshoot stall; halving keeps the loop monotone in
-        # practice without slowing it measurably.
-        x = x + 1.0 * dx
+        # Full Newton step. The residual is re-evaluated right after it,
+        # so an overshoot shows up as a larger residual on the next
+        # iteration instead of passing silently.
+        x = x + dx
         res = _eval(x)
         r = np.asarray(residual(res), dtype=float)
     return res

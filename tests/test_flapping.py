@@ -55,6 +55,21 @@ class TestFrequencyRatioClosedForm(unittest.TestCase):
                                places=12)
 
 
+class TestFlapAeroDampingClosedForm(unittest.TestCase):
+    def test_central_hinge_reduces_to_the_classic_gamma_over_eight(self):
+        """EN-4: at e = 0 the aerodynamic flap damping must reduce to the
+        published gamma/8 of the centrally hinged blade; with an offset
+        it follows gamma*(1/8 - e/3 + e^2/4), hand-integrated from the
+        same U_P term the engine uses."""
+        gamma = 8.0
+        self.assertAlmostEqual(geometry.flap_aero_damping(gamma, 0.0),
+                                gamma / 8.0, places=12)
+        e = 0.05
+        self.assertAlmostEqual(
+            geometry.flap_aero_damping(gamma, e),
+            gamma * (0.125 - e / 3.0 + 0.25 * e * e), places=12)
+
+
 class TestResonanceGuard(unittest.TestCase):
     def test_articulated_first_harmonic_raises_and_names_it(self):
         """EN-8: with e = 0, no spring and one harmonic, the denominator
@@ -274,6 +289,53 @@ class TestCyclicFlapbackTrim(unittest.TestCase):
         # convention.
         self.assertIn("trim_dof", result.summary)
         self.assertIn("trim_dof_value", result.summary)
+
+
+class TestWarmStart(unittest.TestCase):
+    def test_warm_start_reproduces_the_cold_solution(self):
+        """Passing the previous case's blade angle through ``warm_start``
+        must converge to the same coefficients as a cold start, in no
+        more outer iterations. The warm path projects the given ANGLE
+        onto the coefficient vector the loop iterates; before this was
+        tested it routed a Fourier tuple through a helper that expects
+        the coefficient dict and raised TypeError on first use."""
+        from zbemt.bemt import solve_bemt_flapping
+        from zbemt.studies import _to_rotor, _require_rpm, _build_config
+        import zbemt.airfoils as airfoils
+
+        dyn = BladeDynamicsDef(flap_model="offset", hinge_offset_norm=0.05,
+                               inertia_source="lock", lock_number=8.0,
+                               harmonics=3, outer_max_iter=60)
+        project = _make_project(dyn, config_overrides=dict(Ne=12, Npsi=20))
+        condition = FlightCondition(name="fwd", mu_x=0.25,
+                                     collective_deg=8.0, rpm=800.0)
+
+        cfg = _build_config(project.config)
+        rotor = _to_rotor(project.geometry,
+                           collective_deg=condition.collective_deg,
+                           rpm=_require_rpm(condition.rpm))
+        radial = airfoils.radial_reynolds_mach(rotor, cfg,
+                                                mu_x=condition.mu_x)
+        airfoil_obj = airfoils.to_blade_airfoil([project.airfoil],
+                                                 radial=radial)
+
+        cold = solve_bemt_flapping(rotor, airfoil_obj, cfg, condition.mu_x,
+                                    condition.Vz, dynamics=dyn)
+        coeffs = cold["beta_coeffs"]
+        psi = cold["psi_nodes"]
+        angle = np.full_like(psi, coeffs[0][0])
+        for n, (cn, sn) in coeffs.items():
+            if n:
+                angle = angle + cn * np.cos(n * psi) + sn * np.sin(n * psi)
+        warm = solve_bemt_flapping(rotor, airfoil_obj, cfg, condition.mu_x,
+                                    condition.Vz, dynamics=dyn,
+                                    warm_start={"beta_psi": angle})
+        self.assertAlmostEqual(warm["beta_0_rad"], cold["beta_0_rad"],
+                                delta=1e-6)
+        self.assertAlmostEqual(warm["beta_1c_rad"], cold["beta_1c_rad"],
+                                delta=1e-6)
+        self.assertLessEqual(warm["flap_outer_iterations"],
+                              cold["flap_outer_iterations"])
 
 
 class TestCancellation(unittest.TestCase):

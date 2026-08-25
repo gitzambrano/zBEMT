@@ -1426,7 +1426,7 @@ FIELD_HELP: dict[str, dict] = {
         "effect": (
             "Larger γ means air forces move the blade more: bigger coning, "
             "stronger 1/rev response, and more aerodynamic damping "
-            "(proportional to γ/6 for the offset hinge)."),
+            "(γ/8 for a hinge at the shaft, growing with the offset)."),
         "range": "1 to 20 (most rotors 5–12)",
         "options": None
     },
