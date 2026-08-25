@@ -68,15 +68,17 @@ class DerivativeOutcome:
         self.message = ""
 
 
-def _validate_request(request: DerivativeRequest) -> None:
+def _validate_request(request: DerivativeRequest, trim_rpm: float) -> None:
     for variable in (*request.states, *request.controls):
         if variable not in _KNOWN_VARIABLES:
             raise ValueError(
                 f"compute_derivatives: unknown variable {variable!r}; "
                 f"known states {_KNOWN_VARIABLES[:6]} and controls "
                 f"{_KNOWN_VARIABLES[6:]}.")
-        step = float(request.steps.get(variable,
-                                        _DEFAULT_STEPS.get(variable, 0.0)))
+        default = (_OMEGA_STEP_FRACTION * float(trim_rpm)
+                    if variable == "Omega"
+                    else _DEFAULT_STEPS.get(variable, 0.0))
+        step = float(request.steps.get(variable, default))
         if not math.isfinite(step) or step <= 0.0:
             raise ValueError(
                 f"compute_derivatives: variable {variable!r} needs a "
@@ -123,6 +125,109 @@ def _condition_at(project: Project, request: DerivativeRequest,
     return dc_replace(base, **overrides)
 
 
+# =============================================================================
+# Optional vehicle model (SC-14, phase 4.3): hub derivatives -> 6-DOF A/B.
+# LIMITS, stated where the plan demands them: ONE rotor, NO fuselage, NO
+# tail rotor, NO engine dynamics. Gravity enters through the attitude
+# rows only; the rotor's derivatives are the sole aerodynamic content.
+# =============================================================================
+
+#: Linearized rigid-body states, small angles about the trim point.
+_VEHICLE_STATES = ("u", "v", "w", "p", "q", "r", "phi", "theta")
+_VEHICLE_CONTROLS = ("theta_0", "theta_1c", "theta_1s")
+
+#: (output, variable) pairs the A matrix consumes.
+_A_PAIRS = (
+    ("Thrust", "w"), ("H", "u"), ("Y", "v"),
+    ("Mx_total", "v"), ("Mx_total", "p"),
+    ("My_total", "u"), ("My_total", "w"), ("My_total", "q"),
+    ("Torque", "Omega"),
+)
+
+
+def vehicle_matrices(outcome, *, mass: float, Ix: float, Iy: float,
+                     Iz: float, hub_offset=(0.0, 0.0, 0.0),
+                     g: float = 9.81, theta_trim: float = 0.0):
+    """Builds the linearized rigid-body A/B matrices from one
+    derivative outcome (phase 4.3).
+
+    States ``[u, v, w, p, q, r, phi, theta]``; controls
+    ``[theta_0, theta_1c, theta_1s]``. Forces enter divided by the
+    mass and moments by the respective inertia; gravity couples the
+    attitude into the speed rows through the small-angle terms about a
+    ``theta_trim`` pitch; the ``hub_offset`` arm (x forward, y right,
+    z along the shaft, relative to the CG) transfers rotor forces into
+    tilting moments. The yaw row exists but an isolated rotor has no
+    first-order yaw moment -- that is why the derivative set has no r
+    excitation either.
+
+    Returns a dict with ``A``, ``B``, the state/control name tuples,
+    ``eigenvalues`` and the model's stated ``limits``. Raises
+    ValueError naming every (output, variable) pair missing from the
+    outcome."""
+    missing = [pair for pair in _A_PAIRS if pair not in outcome.matrix]
+    if missing:
+        raise ValueError(
+            f"vehicle_matrices: the outcome lacks {missing}; add the "
+            "matching variables/outputs to the request before building "
+            "the vehicle model.")
+
+    n = len(_VEHICLE_STATES)
+    A = np.zeros((n, n))
+    B = np.zeros((n, len(_VEHICLE_CONTROLS)))
+    idx = {name: i for i, name in enumerate(_VEHICLE_STATES)}
+    xh, yh, zh = (float(a) for a in hub_offset)
+    c_th = math.cos(math.radians(theta_trim))
+    s_th = math.sin(math.radians(theta_trim))
+
+    # Speed rows: m * dot(velocity) = rotor force + gravity attitude term.
+    A[idx["u"], idx["u"]] = outcome.matrix[("H", "u")] / mass
+    A[idx["u"], idx["theta"]] = -g * c_th
+    A[idx["v"], idx["v"]] = outcome.matrix[("Y", "v")] / mass
+    A[idx["v"], idx["phi"]] = g * c_th
+    A[idx["w"], idx["w"]] = outcome.matrix[("Thrust", "w")] / mass
+    A[idx["w"], idx["theta"]] = g * s_th
+
+    # Rate rows: I * dot(rate) = rotor moment + hub-offset arm terms.
+    A[idx["p"], idx["v"]] = (outcome.matrix[("Mx_total", "v")]
+                              + outcome.matrix[("Y", "v")] * zh) / Ix
+    A[idx["p"], idx["p"]] = outcome.matrix[("Mx_total", "p")] / Ix
+    A[idx["q"], idx["u"]] = (outcome.matrix[("My_total", "u")]
+                              + outcome.matrix[("H", "u")] * (-zh)) / Iy
+    A[idx["q"], idx["w"]] = (outcome.matrix[("My_total", "w")]
+                              + outcome.matrix[("Thrust", "w")] * xh) / Iy
+    A[idx["q"], idx["q"]] = outcome.matrix[("My_total", "q")] / Iy
+    # Yaw damping only: dQ/dr = dQ/dOmega * Omega (chain rule).
+    A[idx["r"], idx["r"]] = (outcome.matrix[("Torque", "Omega")]
+                              * omega_scale(outcome)) / Iz
+
+    # Attitude rows (small angles): phi_dot = p, theta_dot = q.
+    A[idx["phi"], idx["p"]] = 1.0
+    A[idx["theta"], idx["q"]] = 1.0
+
+    # Control columns: each control's force/moment derivatives, scaled
+    # by the same mass/inertia as the state rows above.
+    for j, control in enumerate(_VEHICLE_CONTROLS):
+        B[idx["u"], j] = outcome.matrix.get(("H", control), 0.0) / mass
+        B[idx["v"], j] = outcome.matrix.get(("Y", control), 0.0) / mass
+        B[idx["w"], j] = outcome.matrix.get(("Thrust", control), 0.0) / mass
+        B[idx["p"], j] = outcome.matrix.get(("Mx_total", control), 0.0) / Ix
+        B[idx["q"], j] = outcome.matrix.get(("My_total", control), 0.0) / Iy
+        B[idx["r"], j] = outcome.matrix.get(("Torque", control), 0.0) / Iz
+
+    return {"A": A, "B": B,
+             "state_names": _VEHICLE_STATES,
+             "control_names": _VEHICLE_CONTROLS,
+             "eigenvalues": np.linalg.eigvals(A),
+             "limits": "one rotor; no fuselage, tail or engine dynamics"}
+
+
+def omega_scale(outcome) -> float:
+    """d(Torque)/d(Omega) converts to dQ/dr by multiplying by Omega --
+    read back from the trim rpm stored on the outcome."""
+    return float(outcome.trim_state.get("rpm", 0.0)) * 2.0 * math.pi / 60.0
+
+
 def compute_derivatives(project: Project, request: DerivativeRequest, *,
                         run_case=None, on_progress=None, should_cancel=None):
     """Runs one derivative study and returns a `DerivativeOutcome`.
@@ -134,7 +239,6 @@ def compute_derivatives(project: Project, request: DerivativeRequest, *,
     ``SolveCancelled`` between solves."""
     from . import studies   # lazy: keeps module import side-effect free
 
-    _validate_request(request)
     solve = run_case or (lambda proj, cond: studies.run_single_case(
         proj, cond, should_cancel=should_cancel).summary)
     condition = request.condition or (
@@ -145,6 +249,7 @@ def compute_derivatives(project: Project, request: DerivativeRequest, *,
     if not condition.rpm:
         raise ValueError("compute_derivatives: the study's condition "
                           "carries no RPM.")
+    _validate_request(request, float(condition.rpm))
 
     variables = [*request.states, *request.controls]
     outputs = list(request.outputs) or ["Thrust", "H", "Y",
@@ -213,6 +318,14 @@ def compute_derivatives(project: Project, request: DerivativeRequest, *,
                 values[key] = float(summary["CH"]) * qA
             elif key == "Y" and "CY" in summary:
                 values[key] = float(summary["CY"]) * qA
+            elif key == "Mx_total" and "Mx" in summary:
+                # A RIGID blade carries no hinge/spring moment into the
+                # hub, so the total IS the aerodynamic moment (the
+                # engine reports the split only when flap freedom
+                # exists).
+                values[key] = float(summary["Mx"])
+            elif key == "My_total" and "My" in summary:
+                values[key] = float(summary["My"])
             else:
                 values[key] = float("nan")
         return values

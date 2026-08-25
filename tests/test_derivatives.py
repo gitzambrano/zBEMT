@@ -243,5 +243,81 @@ class TestDerivativeEngine(unittest.TestCase):
         self.assertTrue(loaded.richardson_check)
 
 
+class TestVehicleMatrices(unittest.TestCase):
+    """Phase 4.3: hub derivatives -> rigid-body A/B, checked against a
+    synthetic outcome whose exact poles are known by construction."""
+
+    class _FakeOutcome:
+        def __init__(self):
+            from zbemt.derivatives import _A_PAIRS
+            self.matrix = {pair: float(i + 1) for i, pair
+                            in enumerate(_A_PAIRS)}
+            self.matrix_nondim = {}
+            self.trim_state = {"rpm": 600.0}
+
+    def test_missing_pairs_are_named(self):
+        from zbemt import derivatives as drv
+        outcome = self._FakeOutcome()
+        del outcome.matrix[("My_total", "q")]
+        with self.assertRaises(ValueError) as ctx:
+            drv.vehicle_matrices(outcome, mass=100.0, Ix=50.0,
+                                  Iy=80.0, Iz=20.0)
+        self.assertIn("My_total", str(ctx.exception))
+        self.assertIn("q", str(ctx.exception))
+
+    def test_synthetic_derivatives_reproduce_exact_poles(self):
+        """Feed an outcome whose derivatives place KNOWN eigenvalues:
+        the heave pole is exactly Z_w/m and the yaw pole is
+        dQ/dr = (dQ/dOmega * Omega)/Iz."""
+        from zbemt import derivatives as drv
+        outcome = self._FakeOutcome()
+        m, zw = 250.0, -40.0
+        outcome.matrix[("Thrust", "w")] = zw   # only heave coupling on w
+        iz, dq_dom, dqr = 30.0, -5.0, -1.25    # dQ/dr = dq_dom*Omega/Iz
+        outcome.matrix[("Torque", "Omega")] = dq_dom
+        built = drv.vehicle_matrices(outcome, mass=m, Ix=100.0, Iy=120.0,
+                                      Iz=iz, g=9.81)
+        A = built["A"]
+        idx = {name: i for i, name in enumerate(built["state_names"])}
+        # Heave decoupled in this synthetic set: column/row w has one term.
+        self.assertAlmostEqual(A[idx["w"], idx["w"]], zw / m, places=12)
+        expected_yaw = dq_dom * (600.0 * 2.0 * math.pi / 60.0) / iz
+        self.assertAlmostEqual(A[idx["r"], idx["r"]], expected_yaw,
+                                places=12)
+        # Gravity couples attitude into the speed rows.
+        self.assertAlmostEqual(A[idx["u"], idx["theta"]],
+                                -9.81, places=12)
+        eig = built["eigenvalues"]
+        self.assertEqual(len(eig), 8)
+
+    def test_control_column_scales_by_mass(self):
+        from zbemt import derivatives as drv
+        outcome = self._FakeOutcome()
+        outcome.matrix[("Thrust", "theta_0")] = 12.0
+        built = drv.vehicle_matrices(outcome, mass=200.0, Ix=1.0,
+                                      Iy=1.0, Iz=1.0)
+        idx = {name: i for i, name in enumerate(built["state_names"])}
+        j = built["control_names"].index("theta_0")
+        self.assertAlmostEqual(built["B"][idx["w"], j], 12.0 / 200.0)
+
+    def test_real_outcome_builds_without_error(self):
+        from zbemt.models import DerivativeRequest
+        project = _project()
+        request = DerivativeRequest(
+            name="vehicle",
+            condition=_condition(project, mu_x=0.05),
+            trim="none",
+            states=["u", "v", "w", "p", "q", "Omega"],
+            controls=["theta_0", "theta_1c", "theta_1s"],
+            outputs=["Thrust", "H", "Y", "Mx_total", "My_total", "Torque"],
+            richardson_check=False)
+        outcome = api.compute_derivatives(project, request)
+        from zbemt import derivatives as drv
+        built = drv.vehicle_matrices(outcome, mass=220.0, Ix=90.0,
+                                      Iy=140.0, Iz=45.0)
+        self.assertEqual(len(built["eigenvalues"]), 8)
+        self.assertIn("no fuselage", built["limits"])
+
+
 if __name__ == "__main__":
     unittest.main()
