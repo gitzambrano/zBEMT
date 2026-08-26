@@ -566,6 +566,20 @@ class GeometryDesignerWindow(QWidget):
             "project.")
         self.btn_import_project.clicked.connect(self._import_from_project)
         button_row.addWidget(self.btn_import_project)
+        # SC-7a: persist the whole comparison and bring one back.
+        self.btn_save_comparison = QPushButton("Save comparison…")
+        self.btn_save_comparison.setToolTip(
+            "Stores this comparison -- every variant row as overrides, the "
+            "chosen conditions and the trim -- in "
+            "inputs/comparisons.bemt, so it can be re-run later.")
+        self.btn_save_comparison.clicked.connect(self._save_comparison)
+        button_row.addWidget(self.btn_save_comparison)
+        self.btn_load_comparison = QPushButton("Load comparison…")
+        self.btn_load_comparison.setToolTip(
+            "Rebuilds the variant table from a comparison saved with this "
+            "project.")
+        self.btn_load_comparison.clicked.connect(self._load_comparison)
+        button_row.addWidget(self.btn_load_comparison)
         button_row.addStretch(1)
         form.addRow(button_row)
 
@@ -669,6 +683,84 @@ class GeometryDesignerWindow(QWidget):
         self._draw_preview()
 
     # --- import from project -------------------------------------------------
+
+    def _save_comparison(self):
+        """SC-7a: persists the on-screen comparison into
+        ``project.comparisons`` (and therefore inputs/comparisons.bemt
+        on the next save)."""
+        from zbemt.models import ComparisonDefinition, ComparisonVariantRow
+        project = self.state.project
+        if project is None:
+            return
+        rows = []
+        for row in range(self.variants_table.rowCount()):
+            label, overrides = self._row_overrides(row)
+            rows.append(ComparisonVariantRow(label=label,
+                                              overrides=dict(overrides)))
+        try:
+            conditions = self._selected_conditions()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Cannot save", str(exc))
+            return
+        name, ok = QInputDialog.getText(self, "Save comparison",
+                                         "Name:", text="comparison 1")
+        if not ok or not name.strip():
+            return
+        definition = ComparisonDefinition(
+            name=name.strip(), variants=rows, conditions=conditions,
+            trim=self._selected_trim())
+        project.comparisons.append(definition)
+        self.state.notify_geometry()
+
+    def _load_comparison(self):
+        """Rebuilds the variant table (label + override cells) from a
+        comparison saved with this project."""
+        project = self.state.project
+        if project is None or not project.comparisons:
+            QMessageBox.information(
+                self, "No saved comparisons",
+                "This project stores no comparison yet. Save one first.")
+            return
+        names = [c.name for c in project.comparisons]
+        chosen, ok = QInputDialog.getItem(
+            self, "Load comparison", "Comparison:", names, 0, False)
+        if not ok:
+            return
+        definition = next(c for c in project.comparisons
+                           if c.name == chosen)
+        table = self.variants_table
+        # Keep row 0 (the base); everything past it is rebuilt.
+        for row in range(table.rowCount() - 1, 0, -1):
+            table.removeRow(row)
+        self._seeding = True
+        try:
+            for variant in definition.variants:
+                target_row = table.rowCount()
+                table.insertRow(target_row)
+                self._copy_row(0, target_row)
+                label_item = table.item(target_row, self._COL_LABEL)
+                if label_item is not None:
+                    label_item.setText(variant.label)
+                for param, value in variant.overrides.items():
+                    column = self._COLUMN_MAPPED_PARAMS.get(param)
+                    text = self._fmt(value) if not isinstance(value, str) \
+                        else value
+                    if column is not None:
+                        item = table.item(target_row, column)
+                        if item is not None:
+                            item.setText(text)
+                    else:
+                        item = table.item(target_row, self._COL_LABEL)
+                        if item is not None:
+                            carried = item.data(Qt.ItemDataRole.UserRole) \
+                                or {}
+                            item.setData(Qt.ItemDataRole.UserRole,
+                                          {**carried, param: value})
+        finally:
+            self._seeding = False
+        self._refresh_derived_cells()
+        self._update_summary_label()
+        self._draw_preview()
 
     def _import_from_project(self):
         """Brings another project's blade into this comparison.

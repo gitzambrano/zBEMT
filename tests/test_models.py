@@ -20,6 +20,7 @@ from zbemt.models import (
     save_bemt, load_bemt, save_bemt_list, load_bemt_list, default_project_paths,
     migrate_config_raw, migrate_optimization_raw,
 )
+from tests.helpers import make_api_fast_project
 
 
 class TestSaveLoadRoundtrip(unittest.TestCase):
@@ -494,3 +495,52 @@ class TestOptimizationMigration(unittest.TestCase):
         self.assertEqual(loaded.algorithm, "nsga2")
         self.assertEqual(len(loaded.constraints), 1)
         self.assertEqual(loaded.constraints[0].key, "CT")
+
+
+class TestComparisonPersistence(unittest.TestCase):
+    """SC-7a: a comparison -- variant override rows, conditions, trim --
+    round-trips through inputs/comparisons.bemt."""
+
+    def test_comparison_round_trips_through_a_bemt_file(self):
+        from zbemt.models import (ComparisonDefinition,
+                                   ComparisonVariantRow,
+                                   load_bemt_list, save_bemt_list)
+        definition = ComparisonDefinition(
+            name="sweep vs base",
+            variants=[ComparisonVariantRow(label="base"),
+                       ComparisonVariantRow(
+                           label="tip 0.06",
+                           overrides={"tip_chord_norm": 0.06})],
+            conditions=[FlightCondition(name="hover", mu_x=0.0,
+                                         collective_deg=8.0, rpm=600.0)],
+            trim="thrust")
+        with tempfile.TemporaryDirectory() as d:
+            path = str(Path(d) / "comparisons.bemt")
+            save_bemt_list([definition], path)
+            loaded = load_bemt_list(ComparisonDefinition, path)[0]
+        self.assertEqual(loaded.name, "sweep vs base")
+        self.assertEqual([v.label for v in loaded.variants],
+                          ["base", "tip 0.06"])
+        self.assertEqual(loaded.variants[1].overrides,
+                          {"tip_chord_norm": 0.06})
+        self.assertEqual(loaded.conditions[0].rpm, 600.0)
+        self.assertEqual(loaded.trim, "thrust")
+
+    def test_project_carries_and_persists_comparisons(self):
+        import os
+        from zbemt import api
+        from zbemt.models import (ComparisonDefinition,
+                                   ComparisonVariantRow)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            project = make_api_fast_project(path)
+            project.saved_cases = [FlightCondition(name="h", rpm=600.0)]
+            project.comparisons.append(ComparisonDefinition(
+                name="c1",
+                variants=[ComparisonVariantRow(label="base")],
+                conditions=list(project.saved_cases),
+                trim="none"))
+            api.save_project(project)
+            reopened = api.open_project(path)
+        self.assertEqual(len(reopened.comparisons), 1)
+        self.assertEqual(reopened.comparisons[0].name, "c1")

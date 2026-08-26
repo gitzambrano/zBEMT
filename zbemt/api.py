@@ -156,11 +156,18 @@ def open_project(path: str) -> Project:
     derivatives = (load_bemt_list(DerivativeRequest, paths["derivatives"],
                                    is_propeller)
                     if paths["derivatives"].exists() else [])
+    # Persisted comparisons (SC-7a): override rows carry no axis
+    # quantities; the embedded conditions do, so the rotation applies.
+    from .models import ComparisonDefinition
+    comparisons = (load_bemt_list(ComparisonDefinition,
+                                   paths["comparisons"], is_propeller)
+                    if paths["comparisons"].exists() else [])
     return Project(name=name, path=str(path), config=config,
                     geometry=geom, airfoil=airfoil_def, airfoil_sections=airfoil_sections,
                     batches=batches, saved_cases=saved_cases,
                     optimizations=optimizations, maneuvers=maneuvers,
-                    derivatives=derivatives)
+                    derivatives=derivatives,
+                    comparisons=comparisons)
 
 
 def save_project(project: Project) -> None:
@@ -184,6 +191,8 @@ def save_project(project: Project) -> None:
     save_bemt_list(project.maneuvers, paths["maneuvers"], is_propeller)
     # Stability derivatives (SC-14): embedded condition, same rotation.
     save_bemt_list(project.derivatives, paths["derivatives"], is_propeller)
+    # Persisted comparisons (SC-7a).
+    save_bemt_list(project.comparisons, paths["comparisons"], is_propeller)
     # Migration cleanup: only after the (possibly migrated, see
     # `load_project`) batches are safely persisted into `batches.bemt` is
     # the old singular `batch.bemt` certainly redundant. Remove it so it

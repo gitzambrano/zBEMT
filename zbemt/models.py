@@ -310,6 +310,9 @@ def _coerce_field(ftype: Any, val: Any, is_propeller: bool = False) -> Any:
         "ConstraintDef": ConstraintDef,
         "DesignVariable": DesignVariable,
         "OptimizationDefinition": OptimizationDefinition,
+        "DerivativeRequest": DerivativeRequest,
+        "ComparisonVariantRow": ComparisonVariantRow,
+        "ComparisonDefinition": ComparisonDefinition,
     }
     for name, klass in registry.items():
         if name in str(type_name):
@@ -786,6 +789,27 @@ class DerivativeRequest:
 
 
 @dataclass
+class ComparisonVariantRow:
+    """One saved variant row of a comparison (SC-7a): its label and the
+    override cells as ``param -> value``."""
+    label: str = "variant"
+    overrides: dict = field(default_factory=dict)
+
+
+@dataclass
+class ComparisonDefinition:
+    """A persisted geometry comparison (SC-7a,
+    ``inputs/comparisons.bemt``): the variant rows as override maps, the
+    conditions they run, and the trim mode of the run. Saving makes a
+    comparison re-runnable and reviewable instead of strictly session
+    data."""
+    name: str = "comparison 1"
+    variants: list[ComparisonVariantRow] = field(default_factory=list)
+    conditions: list[FlightCondition] = field(default_factory=list)
+    trim: str = "none"     # "none" | "thrust" | "CT"
+
+
+@dataclass
 class OptimizationOutcome:
     """Result of one design-optimization run (in memory only)."""
     best_params: dict = field(default_factory=dict)
@@ -866,6 +890,9 @@ class Project:
     # Stability derivatives (SC-14): named perturbation studies persisted
     # as inputs/derivatives.bemt.
     derivatives: list["DerivativeRequest"] = field(default_factory=list)
+    # Persisted geometry comparisons (SC-7a):
+    # inputs/comparisons.bemt.
+    comparisons: list["ComparisonDefinition"] = field(default_factory=list)
 
 
 def default_project_paths(project_path: str) -> dict:
@@ -886,5 +913,6 @@ def default_project_paths(project_path: str) -> dict:
         "optimizations": root / "inputs" / "optimizations.bemt",
         "maneuvers": root / "inputs" / "maneuvers.bemt",
         "derivatives": root / "inputs" / "derivatives.bemt",
+        "comparisons": root / "inputs" / "comparisons.bemt",
         "meta": root / "inputs" / "meta.bemt",
     }
