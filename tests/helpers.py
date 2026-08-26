@@ -33,6 +33,10 @@ def make_api_fast_project(path: str) -> Project:
                                       radius_m=1.0, n_stations=10)
     airfoil = AirfoilDef(source="analytical", stall_model="clip")
     cfg = asdict(BEMTConfig(Ne=8, Npsi=10, solver="fixed_point", max_iter=150))
+    # This analytical 'clip' polar carries no Viterna extension, so the
+    # full-range reverse-flow model would be invalid for it -- the
+    # comparison validation (Item 5) now catches exactly that pairing.
+    cfg["reverse_flow_model"] = "simple_flip"
     return Project(name="teste_api", path=path, geometry=geom, airfoil=airfoil, config=cfg)
 
 

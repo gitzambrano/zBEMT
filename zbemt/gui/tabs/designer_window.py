@@ -1435,6 +1435,16 @@ class GeometryDesignerWindow(QWidget):
         self.trim_combo.currentIndexChanged.connect(
             lambda _index: self._update_summary_label())
         trim_row.addWidget(self.trim_combo)
+        self.workers_label = QLabel("Workers:")
+        self.workers_spin = QSpinBox()
+        self.workers_spin.setRange(1, 64)
+        self.workers_spin.setValue(1)
+        self.workers_spin.setToolTip(
+            "Requested evaluation processes for the comparison, stored "
+            "with the session. This build evaluates serially; the count "
+            "is remembered so a future parallel build picks it up.")
+        trim_row.addWidget(self.workers_label)
+        trim_row.addWidget(self.workers_spin)
         trim_row.addStretch(1)
         vbox.addLayout(trim_row)
 
@@ -1618,9 +1628,32 @@ class GeometryDesignerWindow(QWidget):
         "Thrust matching" combo at run start."""
         return self._TRIM_CHOICES.get(self.trim_combo.currentText(), "none")
 
+    def _base_solve_seconds(self):
+        """Wall time of ONE base solve, measured once per session and
+        reused by the cost estimate."""
+        if getattr(self, "_cached_solve_seconds", None) is not None:
+            return self._cached_solve_seconds
+        project = self.state.project
+        if project is None:
+            return None
+        try:
+            import time as _time
+            from zbemt.models import FlightCondition
+            condition = FlightCondition(name="timing", mu_x=0.1,
+                                         collective_deg=8.0,
+                                         rpm=float(project.saved_cases[0].rpm)
+                                         if project.saved_cases else 600.0)
+            start = _time.perf_counter()
+            api.run_case(project, condition)
+            self._cached_solve_seconds = _time.perf_counter() - start
+        except Exception:
+            return None
+        return self._cached_solve_seconds
+
     def _update_summary_label(self):
         """States the resulting case count, the variant count and the
-        total number of solves the Run button would start."""
+        total number of solves the Run button would start, with a wall
+        estimate timed from one real solve (Item 5, finding 5)."""
         n_variants = max(self.variants_table.rowCount(), 0)
         try:
             n_cases = len(self._selected_conditions())
@@ -1640,9 +1673,40 @@ class GeometryDesignerWindow(QWidget):
         # A trimmed case bisects its control (~15 engine solves), so the
         # wall-clock estimate is a multiple of the case count. The base
         # row runs untrimmed; this is the rough ceiling.
+        multiplier = 1
         if self._selected_trim() != "none":
+            multiplier = 15
             text += f" · ≈ {total} solves × about 15 (trim)"
+            total = total * multiplier
+        seconds = self._base_solve_seconds()
+        if seconds is not None:
+            minutes = total * seconds / 60.0
+            text += f" · ~{minutes:.0f} min at {seconds:.2f} s/solve"
         self.summary_label.setText(text)
+
+    def _warn_duplicate_variants(self, variants: dict) -> None:
+        """Finding 6: two rows resolving to the SAME radial table run
+        twice. Warn with both labels named; never block — a deliberate
+        repeat is a solver-noise check."""
+        seen: dict[tuple, str] = {}
+        duplicates: list[str] = []
+        for label, geom in variants.items():
+            signature = (tuple(np.round(np.asarray(geom.r_norm), 9)),
+                          tuple(np.round(np.asarray(geom.chord_norm), 9)),
+                          tuple(np.round(np.asarray(geom.twist_deg), 9)),
+                          geom.n_blades, round(float(geom.radius_m), 6),
+                          round(float(geom.root_cutout_norm), 6))
+            if signature in seen:
+                duplicates.append(f"{seen[signature]!r} and {label!r}")
+            else:
+                seen[signature] = label
+        if duplicates:
+            QMessageBox.warning(
+                self, "Duplicate variants",
+                "These rows resolve to the same geometry:\n  - "
+                + "\n  - ".join(duplicates)
+                + "\n\nThey will run twice. A deliberate repeat is fine "
+                "(it measures solver noise); otherwise remove one.")
 
     # --- mode reactivity -------------------------------------------------
 
@@ -1799,6 +1863,7 @@ class GeometryDesignerWindow(QWidget):
         except ValueError as exc:
             QMessageBox.warning(self, "Invalid geometry table", str(exc))
             return
+        self._warn_duplicate_variants(variants)
         try:
             conditions = self._selected_conditions()
         except ValueError as exc:
