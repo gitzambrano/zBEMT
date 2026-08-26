@@ -1,4 +1,4 @@
-"""Provide concise block-level help for GUI group boxes.
+﻿"""Provide concise block-level help for GUI group boxes.
 
 The registry maps each visible block identifier to a title, Qt rich-text body, and
 documentation anchor. ``help_popup.py`` renders the entries and tab widgets provide
@@ -496,5 +496,40 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>Export CSV</b> writes the front table; <b>Export report</b> writes the self-contained HTML report plus an evaluations CSV with every solve of the search, both named after the study.",
         ],
         "anchor": "cap-opt-run",
+    },
+    "stability_studies": {
+        "title": "Derivative studies stored in this project",
+        "body": [
+            "A derivative study is a persisted perturbation plan (SC-14): which states and controls to nudge, about which trim point, with which finite-difference steps. It lives in inputs/derivatives.bemt beside the project.",
+            "New/Duplicate/Rename/Delete behave exactly as on the Design Optimization window: duplicate is the cheap way to rerun the same plan with another step size or another trim.",
+        ],
+        "anchor": "cap-stability",
+    },
+    "stability_trim": {
+        "title": "Trim point — the state everything is measured about",
+        "body": [
+            "A derivative is only meaningful once the reference state is fixed. Zero flapping solves both cyclic harmonics so the tip-path plane sits level at the trim point; Thrust solves collective to a target thrust; None keeps the controls exactly as saved.",
+            "Run the trim ALONE first and read its controls and loads. A trim that surprises you will surprise every derivative built on top of it.",
+            "A rotor whose blade has no flap freedom cannot use the zero-flapping trim — there is no flap angle to zero.",
+        ],
+        "anchor": "cap-stability-trim",
+    },
+    "stability_perturbations": {
+        "title": "Perturbations — what is nudged, and by how much",
+        "body": [
+            "Each selected variable gets TWO solves per derivative (plus/minus the step), or FOUR when the Richardson half-step check is on: nine variables with the check cost thirty-six solves plus the trim. The estimate line states it before anything runs.",
+            "Steps are stated per quantity in its own unit — 0.5 m/s for speeds, 0.02 rad/s for rates, 0.1 deg for pitch controls, half a percent of the trim rpm for &Omega; — because truncation error grows as h<sup>2</sup> while round-off shrinks as 1/h.",
+            "With no flap freedom the rate and cyclic controls stay visible but disabled: they cannot act on a rigid blade.",
+        ],
+        "anchor": "cap-stability-steps",
+    },
+    "stability_results": {
+        "title": "Matrix, sign checks and the optional vehicle model",
+        "body": [
+            "Outputs run down the rows, variables across the columns; hover a cell for its step and step-size error, and any cell whose two estimates differ by more than five percent turns red — trust its trend, not its digits.",
+            "The SIGN CHECKS panel is why the window can be trusted: heave damping must be negative, pitch damping must be negative, thrust must rise with collective. A FAIL here means an engine sign flipped somewhere, not that your rotor is exotic.",
+            "The optional vehicle block turns hub derivatives into rigid-body A/B matrices and draws their eigenvalues (one rotor only: no fuselage, tail or engine dynamics). Poles left of the axis are damped; red poles are unstable.",
+        ],
+        "anchor": "cap-stability-run",
     },
 }

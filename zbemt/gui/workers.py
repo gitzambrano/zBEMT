@@ -260,6 +260,39 @@ class OptimizeMultiWorker(QObject):
         self.finished.emit(outcome)
 
 
+class DerivativeWorker(QObject):
+    """Runs ``api.compute_derivatives`` outside the GUI thread (SC-14).
+
+    Same pattern as ``OptimizeMultiWorker``. ``progress`` carries
+    ``(solves done, solves total)``, emitted after every solve.
+    Cancellation raises between solves and arrives through ``failed``
+    with a 'cancelled' message."""
+    finished = pyqtSignal(object)
+    failed = pyqtSignal(str)
+    progress = pyqtSignal(int, int)
+
+    def __init__(self, project: Project, request):
+        super().__init__()
+        self.project = project
+        self.request = request
+        self.cancel_requested = False
+
+    def cancel(self):
+        self.cancel_requested = True
+
+    def run(self):
+        try:
+            outcome = api.compute_derivatives(
+                self.project, self.request,
+                on_progress=lambda done, total:
+                    self.progress.emit(done, total),
+                should_cancel=lambda: self.cancel_requested)
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            return
+        self.finished.emit(outcome)
+
+
 class ReportWorker(QObject):
     """Generates the report outside the application's main thread."""
 

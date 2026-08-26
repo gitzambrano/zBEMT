@@ -543,6 +543,16 @@ def get_derivative_request(project: Project,
                     f"(available: {[d.name for d in project.derivatives]})")
 
 
+def vehicle_matrices(outcome, *, mass: float, Ix: float, Iy: float,
+                     Iz: float, hub_offset=(0.0, 0.0, 0.0),
+                     g: float = 9.81, theta_trim: float = 0.0) -> dict:
+    """Linearized rigid-body A/B from one derivative outcome (see
+    ``derivatives.vehicle_matrices``); includes the eigenvalues."""
+    from .derivatives import vehicle_matrices as _build
+    return _build(outcome, mass=mass, Ix=Ix, Iy=Iy, Iz=Iz,
+                   hub_offset=hub_offset, g=g, theta_trim=theta_trim)
+
+
 def export_pareto_csv(outcome, path: str) -> Path:
     """One CSV row per Pareto front member: parameter columns first, then
     the objective columns in their own direction (maximized objectives

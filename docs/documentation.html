@@ -774,7 +774,15 @@
 <li><a href="#cap-8-1">15.1 Running from the command line</a></li>
 <li><a href="#cap-8-3">15.2 Validation rules</a></li>
 </ol></li>
-<li><a href="#limitations">16. Limitations</a>
+<li><a href="#cap-stability">16. Stability Derivatives</a>
+<ol>
+<li><a href="#cap-stability-trim">16.1 The trim point</a></li>
+<li><a href="#cap-stability-steps">16.2 States, controls and steps</a></li>
+<li><a href="#cap-stability-yaw">16.3 Why there is no yaw rate</a></li>
+<li><a href="#cap-stability-hub">16.4 The hub-moment path through the hinge</a></li>
+<li><a href="#cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</a></li>
+</ol></li>
+<li><a href="#limitations">17. Limitations</a>
 <ol>
 </ol></li>
 <li><a href="#sec-references">References</a>
@@ -9299,7 +9307,101 @@ zbemt --project projects/MyProject \
                           hiding an option that does not apply. Validation is the safety net behind that, and it applies
                           equally to a run started from the command line, where there are no widgets to disable.</p>
 
-                        <h2 id="limitations">16. Limitations</h2>
+                                                <hr>
+
+
+                        <h2 id="cap-stability">16. Stability Derivatives</h2>
+
+                        <p>A stability derivative answers one question: if the rotor flies a little
+                          faster, rolls a little quicker, or its collective moves a little, how much does
+                          one hub load change? The answer is a number &mdash; newtons per metre per second,
+                          newton-metres per radian per second &mdash; and a whole flight-dynamics model is
+                          nothing more than a table of such numbers about one trim point. This window builds
+                          that table by finite differences: it flies the trim point once, then again with each
+                          state or control nudged slightly either side of it.</p>
+
+                        <figure>
+                          <img src="img/gui/stability.png" alt="Stability Derivatives window">
+                          <figcaption>The Stability Derivatives window, opened from the
+                            <b>Tools</b> button in the main window's top bar. The Trim point page
+                            is open: the study list and trim mode on the left; the trim-only check
+                            and the project's validation findings on the right.</figcaption>
+                        </figure>
+
+                        <h3 id="cap-stability-trim">16.1 The trim point</h3>
+                        <p>A derivative about a bad trim describes a rotor nobody flies. The trim fixes the
+                          reference controls first: <i>zero flapping</i> solves both cyclic harmonics so the
+                          tip-path plane sits level at the reference state (the usual choice, and the default),
+                          <i>thrust</i> solves collective until a target thrust is hit, and <i>none</i> keeps the
+                          saved controls exactly as they are. Run the trim alone before any sweep: every number
+                          in chapter inherits from this point. A blade without flap freedom has no flap angle to
+                          zero, so the zero-flapping trim is disabled for it.</p>
+
+                        <h3 id="cap-stability-steps">16.2 States, controls and steps</h3>
+                        <p>The perturbation set is nine quantities: longitudinal, lateral and axial speed
+                          ($u$, $v$, $w$), roll and pitch rate ($p$, $q$), rotor speed $\Omega$, and the three
+                          pitch controls $\theta_0$, $\theta_{1c}$, $\theta_{1s}$. Each derivative is a central
+                          difference,
+                          $$\frac{\partial F}{\partial x} = \frac{F(x_0+h) - F(x_0-h)}{2h},$$
+                          with a step stated PER QUANTITY in its own unit &mdash; $0.5$ m/s for speeds,
+                          $0.02$ rad/s for rates, $0.1°$ for pitch controls, half a percent of the trim rpm for
+                          $\Omega$ &mdash; because truncation error grows as $h^2$ while round-off shrinks as
+                          $1/h$: too small a step drowns the answer in solver noise, too large a step averages
+                          over real curvature. Repeating at half the step gives a second estimate; the relative
+                          difference between the two is reported as the step-size error, and any derivative
+                          whose two estimates disagree by more than five percent is marked red. The remedy is
+                          almost always a LARGER step, because the cause is solver noise, not truncation.
+                          Halving the step must move a healthy derivative by less than that reported error.</p>
+
+                        <p>In the <span class="gui">GUI</span>: tick states and controls on the Perturbations
+                          page, adjust any step in its table, and read the solve count before running. With no
+                          flap freedom the rate and cyclic boxes stay visible but disabled: a rigid blade cannot
+                          feel them.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: a study lives in
+                          <code>inputs/derivatives.bemt</code> with its <code>states</code>,
+                          <code>controls</code>, <code>outputs</code>, <code>steps</code>,
+                          <code>trim</code> (<code>"none"</code>, <code>"thrust"</code>,
+                          <code>"cyclic_flapback"</code>) and <code>richardson_check</code>.</p>
+
+                        <p>From the <span class="cli">CLI</span>: studies run through the library today;
+                          the persisted file is the interface of record for automation.</p>
+
+                        <h3 id="cap-stability-yaw">16.3 Why there is no yaw rate</h3>
+                        <p>An isolated rotor with a vertical shaft feels no first-order moment from yawing:
+                          rotating about its own shaft changes no blade incidence. The yaw rate therefore stays
+                          out of the perturbation set on purpose. What remains is the yaw DAMPING
+                          ($\partial Q/\partial \Omega$): torque does change with rotor speed. The vehicle model
+                          below keeps a yaw row so the bookkeeping closes, fed by that damping alone.</p>
+
+                        <h3 id="cap-stability-hub">16.4 The hub-moment path through the hinge</h3>
+                        <p>The tilting moments computed from the pressure field alone miss a second path into
+                          the hub: with a hinge offset or a root spring, the flapping blade carries structural
+                          moment,
+                          $$M_{hub} = \frac{N_b}{2} I_\beta \Omega^2 (\nu_\beta^2 - 1)\,\beta_{1c/1s},$$
+                          and for a hingeless rotor that path is the larger one. The totals reported here always
+                          include it when flap freedom exists; a rigid blade's total is simply the aerodynamic
+                          moment. These are the numbers whose derivatives make the pitch and roll damping.</p>
+
+                        <h3 id="cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</h3>
+                        <p>The matrix lists outputs down the rows and variables across the columns, switchable
+                          between dimensional and non-dimensional form without rerunning: forces divided by
+                          $\rho A(\Omega R)^2$, moments by $\rho A(\Omega R)^2 R$, speeds by $\Omega R$ and rates
+                          by $\Omega$. The bar chart draws one output across all variables so the dominant term
+                          is visible at a glance. The SIGN CHECKS panel is the window's conscience: heave damping
+                          must be negative, pitch damping must be negative, thrust must rise with collective. A
+                          FAIL there means a sign flipped somewhere in the engine chain &mdash; do not fly the
+                          numbers.</p>
+
+                        <p>The optional vehicle block turns the table into a rigid-body linear model
+                          ($[u\ v\ w\ p\ q\ r\ \phi\ \theta]$ against the three pitch controls), draws its
+                          eigenvalues on the complex plane and marks unstable poles in red. Its limits are stated
+                          where the checkbox lives and repeated here: ONE rotor, NO fuselage, NO tail, NO engine
+                          dynamics. A classic mode (phugoid, subsidence, Dutch roll) is named only when its
+                          damping and frequency fall inside the expected band; an unnamed pole is not a discovery,
+                          it is the tool refusing to guess.</p>
+
+<h2 id="limitations">17. Limitations</h2>
 
                         <p>The following limitations bound the interpretation of every result. Mesh
                           refinement and tighter numerical tolerances reduce numerical error, but they

@@ -1,4 +1,4 @@
-"""Regenerates the GUI screenshots used by ``docs/documentation.html``.
+﻿"""Regenerates the GUI screenshots used by ``docs/documentation.html``.
 
 Each chapter of the field reference opens with a picture of the tab it
 documents, so the reader can match the list of fields against the page in
@@ -60,6 +60,9 @@ DESIGNER_SHOT = "designer.png"
 #: The Design Optimization window (Tools button, SC-13), for the same
 #: reason: a dedicated window outside the tab flow.
 OPTIMIZER_SHOT = "optimizer.png"
+
+#: The Stability Derivatives window (Tools button, SC-14).
+STABILITY_SHOT = "stability.png"
 
 
 #: Where to look for fonts when the offscreen plugin ships without a font
@@ -166,6 +169,9 @@ def generate(destination: Path = OUTPUT_DIR) -> list:
     written.append(_capture_optimizer(app, window,
                                        api.open_project(str(PROJECT)),
                                        destination))
+    written.append(_capture_stability(app, window,
+                                       api.open_project(str(PROJECT)),
+                                       destination))
 
     window.close()
     return written
@@ -212,8 +218,28 @@ def _capture_optimizer(app, window, project, destination: Path) -> Path:
     return target
 
 
+def _capture_stability(app, window, project, destination: Path) -> Path:
+    """Captures the Stability Derivatives window (Tools button >
+    Stability Derivatives), same eager-construction path as the
+    Designer's."""
+    window.state.set_project(project)
+    stability = window.stability_window
+    stability.resize(WIDTH, HEIGHT)
+    stability.show()
+    stability.raise_()
+    stability.activateWindow()
+    _settle(app)
+
+    target = destination / STABILITY_SHOT
+    _crop(stability.grab(), stability).save(str(target))
+    if not target.exists() or target.stat().st_size == 0:
+        raise SystemExit(f"gui_screenshots: failed to write {target}")
+    print(f"  {STABILITY_SHOT:<26} {target.stat().st_size // 1024:>5} KB")
+    return target
+
+
 def check_existing(destination: Path = OUTPUT_DIR) -> int:
-    names = [f for f, _i, _h in SHOTS] + [DESIGNER_SHOT, OPTIMIZER_SHOT]
+    names = [f for f, _i, _h in SHOTS] + [DESIGNER_SHOT, OPTIMIZER_SHOT, STABILITY_SHOT]
     missing = [f for f in names if not (destination / f).exists()]
     if missing:
         print("missing screenshots: " + ", ".join(missing))

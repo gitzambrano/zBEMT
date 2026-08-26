@@ -2503,6 +2503,42 @@ def plot_parallel_coordinates(front_values, keys: list[str], *,
     return _finish(ax, fig, fname)
 
 
+def plot_eigenvalues(eigenvalues, *, ax=None, fname=None):
+    """Eigenvalues of a linearized vehicle model on the complex plane.
+
+    The horizontal axis is the real part (negative = damped, so the
+    stable half-plane sits on the LEFT and a shaded band marks it); the
+    vertical axis is the imaginary part (the damped frequency).
+    Unstable poles are drawn in red so they cannot hide among the
+    stable ones.
+
+    The ``ax`` and ``fname`` parameters follow the module convention
+    stated at the top of this file. The axis is returned.
+    """
+    ax, fig = _resolve_ax(ax, fname)
+    eigs = np.asarray(list(eigenvalues or []), dtype=complex)
+    ax.axvspan(ax.get_xlim()[0], 0.0, color="0.92", zorder=0)
+    ax.axvline(0.0, color="0.4", linewidth=1.0)
+    if len(eigs):
+        stable = np.real(eigs) <= 0.0
+        ax.scatter(eigs[stable].real, eigs[stable].imag, s=42,
+                    marker="x", color="tab:blue", label="stable", zorder=2)
+        if np.any(~stable):
+            ax.scatter(eigs[~stable].real, eigs[~stable].imag, s=46,
+                        marker="x", color="tab:red", label="UNSTABLE",
+                        zorder=3)
+        ax.legend(fontsize=8)
+    else:
+        ax.text(0.5, 0.5, "No eigenvalue to draw", ha="center",
+                va="center", fontsize=10, color="0.35",
+                transform=ax.transAxes)
+    ax.set_xlabel("Real part — damping [1/s]")
+    ax.set_ylabel("Imaginary part [rad/s]")
+    ax.grid(True, alpha=0.3)
+    ax.set_title("Vehicle eigenvalues")
+    return _finish(ax, fig, fname)
+
+
 # =============================================================================
 # 12. BLADE DYNAMICS PLOTS (SC-11)
 # =============================================================================

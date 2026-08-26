@@ -431,6 +431,21 @@ class MainWindow(QMainWindow):
             "Cost estimate":                         "optimization_search",
             "Pareto front":                          "optimization_run",
             "Trade-off plot":                        "optimization_run",
+            # Stability Derivatives window (same reasoning)
+            "Derivative studies stored in this project": "stability_studies",
+            "Flight condition":                      "stability_trim",
+            "Trim":                                  "stability_trim",
+            "Check the trim alone":                  "stability_trim",
+            "Validation":                            "stability_trim",
+            "States":                                "stability_perturbations",
+            "Controls":                              "stability_perturbations",
+            "Outputs":                               "stability_perturbations",
+            "Steps (per variable, its own unit)":    "stability_perturbations",
+            "Options":                               "stability_perturbations",
+            "Derivative matrix":                     "stability_results",
+            "Sign checks":                           "stability_results",
+            "Vehicle model (optional)":              "stability_results",
+            "Bar chart — one output across variables": "stability_results",
             # Results tab
             "Results from this session":             "results",
             "Blade dynamics":                        "flap_plots",
@@ -487,6 +502,19 @@ class MainWindow(QMainWindow):
         _legible(self.optimizer_window)
         _spacing(self.optimizer_window)
         _align(self.optimizer_window)
+
+        # The Stability Derivatives window (SC-14) is the fourth tool
+        # window outside the tab flow.
+        from .tabs.stability_window import StabilityWindow
+        self.stability_window = StabilityWindow(self.state, parent=self)
+        for gb in self.stability_window.findChildren(_QGB):
+            block_id = _title_block(_BLOCKS, gb.title())
+            if block_id:
+                make_block_title_clickable(gb, block_id)
+        _compact(self.stability_window)
+        _legible(self.stability_window)
+        _spacing(self.stability_window)
+        _align(self.stability_window)
         _all_options(self.geometry_designer)
 
         # kept for the closing prompt (Q7): these are the tabs that know
@@ -593,6 +621,12 @@ class MainWindow(QMainWindow):
         self.optimizer_window.show()
         self.optimizer_window.raise_()
         self.optimizer_window.activateWindow()
+
+    def open_stability_derivatives(self):
+        """Shows the non-modal Stability Derivatives window (SC-14)."""
+        self.stability_window.show()
+        self.stability_window.raise_()
+        self.stability_window.activateWindow()
 
     def open_geometry_designer(self):
         """Shows the non-modal Geometry Designer window, parented to

@@ -373,6 +373,7 @@ class TestMountedWindowLayout(unittest.TestCase):
         roots = [(name, tab) for name, tab in self._tabs()]
         roots.append(("Geometry Designer", self.win.geometry_designer))
         roots.append(("Design Optimization", self.win.optimizer_window))
+        roots.append(("Stability Derivatives", self.win.stability_window))
         for source_name, root in roots:
             for gb in root.findChildren(QGroupBox):
                 clickable = next((c for c in gb.children()
