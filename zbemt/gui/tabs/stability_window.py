@@ -128,6 +128,16 @@ class StabilityWindow(QWidget):
             '"condition" — the saved case every perturbation flies at. It '
             "must carry an RPM.")
         cond_form.addRow("Saved case:", self.condition_combo)
+        self.condition_combo.currentIndexChanged.connect(
+            lambda _i: self._show_engine_mapping())
+        self.mapping_label = QLabel("")
+        self.mapping_label.setWordWrap(True)
+        self.mapping_label.setStyleSheet("color: gray;")
+        self.mapping_label.setToolTip(
+            "How the chosen case reaches the engine: the in-plane speed "
+            "becomes mu_x, the axial speed stays Vz, and the three "
+            "perturbation inputs ride along.")
+        cond_form.addRow(self.mapping_label)
         left.addWidget(cond_box)
 
         trim_box = QGroupBox("Trim")
@@ -405,6 +415,22 @@ class StabilityWindow(QWidget):
         self._refresh_step_table()
         self._update_cost_estimate()
         self._update_validation_panel()
+
+    def _show_engine_mapping(self):
+        """Point 5 of the diagnosis: makes the u/v/w -> engine mapping
+        VISIBLE, so the user sees what a derivative perturbs."""
+        condition = self._condition_by_index(
+            max(self.condition_combo.currentIndex(), 0))
+        if condition is None:
+            self.mapping_label.setText("")
+            return
+        self.mapping_label.setText(
+            f"Engine view: mu_x={float(condition.mu_x):g} · "
+            f"Vz={float(condition.Vz):g} m/s · "
+            f"ψw={float(getattr(condition, 'sideslip_deg', 0.0) or 0.0):g}° · "
+            f"p={float(getattr(condition, 'p_rate_deg_s', 0.0) or 0.0):g}°/s · "
+            f"q={float(getattr(condition, 'q_rate_deg_s', 0.0) or 0.0):g}°/s · "
+            f"{float(condition.rpm or 0):g} rpm")
 
     def _selected_persisted(self):
         project = self.state.project
