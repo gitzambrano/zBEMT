@@ -862,3 +862,38 @@ class TestRunCaseSavedCaseButtons(unittest.TestCase):
         self.assertIn("Remove", texts)
         self.assertNotIn("+ Save Current", texts)
         self.assertNotIn("- Remove", texts)
+
+
+class TestPerturbationFields(unittest.TestCase):
+    """SC-14 on the Run Case tab: sideslip and hub rates are settable
+    fields of a saved case, not .bemt-only keys."""
+
+    @classmethod
+    def setUpClass(cls):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_fields_round_trip_through_a_saved_case(self):
+        from tests.helpers import make_studies_project
+        from zbemt.gui.common import AppState
+        from zbemt.gui.tabs.run_case import RunCaseTab
+        project = make_studies_project()
+        project.saved_cases = [__import__(
+            "zbemt.models", fromlist=["FlightCondition"]).FlightCondition(
+                name="perturbed", mu_x=0.05, collective_deg=8.0, rpm=600.0,
+                sideslip_deg=12.0, p_rate_deg_s=7.5, q_rate_deg_s=-3.0)]
+        state = AppState()
+        state.set_project(project)
+        tab = RunCaseTab(state)
+        window = tab.window() if hasattr(tab, "window") else None
+        # Load the saved case into the form...
+        index = tab.saved_cases_combo.findText("perturbed")
+        self.assertGreaterEqual(index, 0)
+        tab._on_saved_case_selected(index)
+        # ...and read it back through the same path a run uses.
+        condition = tab._current_condition()
+        self.assertAlmostEqual(condition.sideslip_deg, 12.0)
+        self.assertAlmostEqual(condition.p_rate_deg_s, 7.5)
+        self.assertAlmostEqual(condition.q_rate_deg_s, -3.0)

@@ -221,6 +221,31 @@ class RunCaseTab(QWidget):
         form.addRow("Collective [deg]:", self._with_unit_indent(self.collective_spin))
         form.addRow("Cyclic θ₁c [deg]:", self._with_unit_indent(self.cyclic_c_spin))
         form.addRow("Cyclic θ₁s [deg]:", self._with_unit_indent(self.cyclic_s_spin))
+
+        # --- perturbation inputs (SC-14): sideslip and hub rates ---------
+        self.sideslip_spin = QDoubleSpinBox(); self.sideslip_spin.setRange(-89, 89)
+        self.sideslip_spin.setValue(0.0); self.sideslip_spin.setSingleStep(1.0)
+        self.sideslip_spin.setToolTip(
+            '"sideslip_deg" — ψ<sub>w</sub>, the sideslip angle of the '
+            'in-plane free stream [deg]. Rotates U<sub>T</sub> to '
+            'Ωr + V·sin(ψ − ψ<sub>w</sub>), so a lateral velocity can be '
+            'imposed. Zero is the plain edgewise case.')
+        self.p_rate_spin = QDoubleSpinBox(); self.p_rate_spin.setRange(-360, 360)
+        self.p_rate_spin.setValue(0.0); self.p_rate_spin.setSingleStep(1.0)
+        self.p_rate_spin.setToolTip(
+            '"p_rate_deg_s" — p, the hub ROLL rate [deg/s] (SC-14). Carries '
+            'every blade element out of the disk plane and forces the flap '
+            'response gyroscopically.')
+        self.q_rate_spin = QDoubleSpinBox(); self.q_rate_spin.setRange(-360, 360)
+        self.q_rate_spin.setValue(0.0); self.q_rate_spin.setSingleStep(1.0)
+        self.q_rate_spin.setToolTip(
+            '"q_rate_deg_s" — q, the hub PITCH rate [deg/s] (SC-14). Its '
+            'hub moment is the pitch damping.')
+        for spin in (self.sideslip_spin, self.p_rate_spin, self.q_rate_spin):
+            self._size_field(spin)
+        form.addRow("Sideslip ψ_w [deg]:", self._with_unit_indent(self.sideslip_spin))
+        form.addRow("Roll rate p [deg/s]:", self._with_unit_indent(self.p_rate_spin))
+        form.addRow("Pitch rate q [deg/s]:", self._with_unit_indent(self.q_rate_spin))
         form.addRow("RPM:", self._with_unit_indent(self.rpm_spin))
 
         self.trim_target_kind_combo = QComboBox()
@@ -503,6 +528,9 @@ class RunCaseTab(QWidget):
         self.collective_spin.setValue(saved_case.collective_deg)
         self.cyclic_c_spin.setValue(getattr(saved_case, "cyclic_c_deg", 0.0))
         self.cyclic_s_spin.setValue(getattr(saved_case, "cyclic_s_deg", 0.0))
+        self.sideslip_spin.setValue(getattr(saved_case, "sideslip_deg", 0.0))
+        self.p_rate_spin.setValue(getattr(saved_case, "p_rate_deg_s", 0.0))
+        self.q_rate_spin.setValue(getattr(saved_case, "q_rate_deg_s", 0.0))
         apply_condition_pair(self.advance, self.axial, saved_case.mu_x, saved_case.Vz,
                                  self.rpm_spin.value(), project_state.geometry.radius_m)
 
@@ -514,7 +542,10 @@ class RunCaseTab(QWidget):
                                 collective_deg=self.collective_spin.value(),
                                 Vz=Vz, rpm=self.rpm_spin.value(),
                                 cyclic_c_deg=self.cyclic_c_spin.value(),
-                                cyclic_s_deg=self.cyclic_s_spin.value())
+                                cyclic_s_deg=self.cyclic_s_spin.value(),
+                                sideslip_deg=self.sideslip_spin.value(),
+                                p_rate_deg_s=self.p_rate_spin.value(),
+                                q_rate_deg_s=self.q_rate_spin.value())
 
     # --- saved cases (docs/plano_v3.md Part 3.2) -------------------------
 
@@ -545,6 +576,9 @@ class RunCaseTab(QWidget):
         self.collective_spin.setValue(case.collective_deg)
         self.cyclic_c_spin.setValue(getattr(case, "cyclic_c_deg", 0.0))
         self.cyclic_s_spin.setValue(getattr(case, "cyclic_s_deg", 0.0))
+        self.sideslip_spin.setValue(getattr(case, "sideslip_deg", 0.0))
+        self.p_rate_spin.setValue(getattr(case, "p_rate_deg_s", 0.0))
+        self.q_rate_spin.setValue(getattr(case, "q_rate_deg_s", 0.0))
 
     def _save_current_as_case(self):
         if not require_project(self, self.state):

@@ -7238,9 +7238,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       effect. All three default to zero, which is the plain edgewise case and reproduces every result
                       computed without them.</p>
 
-                    <p>In the <span class="gui">GUI</span>: these three travel inside a saved case wherever it goes,
-                      and they appear in the conditions row of the results table with the other inputs of the
-                      operating point.</p>
+                    <p>In the <span class="gui">GUI</span>: the Run Case tab carries all three beside the
+                      cyclic pitch of the condition block &mdash; <i>Sideslip ψ<sub>w</sub></i>,
+                      <i>Roll rate p</i> and <i>Pitch rate q</i> &mdash; and a saved case stores whatever is
+                      on screen, so the values travel into batches, comparisons and the derivative studies
+                      exactly like any other input.</p>
 
                     <p>In the <span class="bemt">.bemt</span> file: add
                       <code>sideslip_deg</code>, <code>p_rate_deg_s</code> or
