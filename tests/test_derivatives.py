@@ -321,3 +321,52 @@ class TestVehicleMatrices(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDampingSummary(unittest.TestCase):
+    """Item 5, cross-link 12 engine: heave/pitch damping per variant."""
+
+    def test_linear_toy_returns_exact_slopes_per_variant(self):
+        from zbemt import derivatives as drv
+        from zbemt.models import Results
+
+        def fake_run(project, condition, should_cancel=None):
+            w = float(condition.Vz)
+            q = math.radians(float(condition.q_rate_deg_s))
+            stiff = (-2.0 if project.geometry.chord_norm[0]
+                      < float(project.geometry.chord_norm[0]) else 0.0)
+            # Distinguish the two variants by their ROOT chord value.
+            marker = float(project.geometry.chord_norm[0])
+            stiff = -2.0 if marker < 0.11 else -4.0
+            return {"Thrust": 1000.0 + (-3.0 + stiff * 0.25) * w,
+                    "My_total": -2.0 * q}
+
+        project = _project()
+        geom_a = replace(project.geometry)
+        geom_b = replace(project.geometry,
+                          chord_norm=[c * 1.2 for c in geom_a.chord_norm])
+        condition = FlightCondition(name="h", mu_x=0.0,
+                                     collective_deg=8.0, rpm=600.0)
+        out = drv.damping_summary(
+            project, {"a": geom_a, "b": geom_b}, condition,
+            run_case=fake_run)
+        self.assertAlmostEqual(out["a"]["heave_damping"], -3.5, places=9)
+        self.assertAlmostEqual(out["b"]["heave_damping"], -4.0, places=9)
+        for label in ("a", "b"):
+            self.assertAlmostEqual(out[label]["pitch_damping"], -2.0,
+                                    places=9)
+
+    def test_real_variants_build_without_error(self):
+        from zbemt import derivatives as drv
+        from dataclasses import replace as dc_replace
+        project = _project()
+        geom_b = dc_replace(project.geometry,
+                             chord_norm=[c * 1.2 for c in
+                                          project.geometry.chord_norm])
+        condition = FlightCondition(name="h", mu_x=0.05,
+                                     collective_deg=8.0, rpm=600.0)
+        out = drv.damping_summary(project, {"a": project.geometry,
+                                             "b": geom_b}, condition)
+        for label in ("a", "b"):
+            for key in ("heave_damping", "pitch_damping"):
+                self.assertTrue(math.isfinite(out[label][key]))

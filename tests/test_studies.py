@@ -999,3 +999,41 @@ class TestCompareValidatesVariants(unittest.TestCase):
         self.assertIn("bad", str(ctx.exception))
         self.assertEqual(calls, [], "no solve may run on an invalid "
                                      "variant")
+
+
+class TestVariantDefPayload(unittest.TestCase):
+    """SC-7a: a variant may carry its own airfoil; such results are
+    marked non_geometry_variant so the fairness caveat can be shown."""
+
+    def test_variant_with_own_airfoil_is_flagged_and_runs(self):
+        import unittest.mock
+        from dataclasses import replace
+        from zbemt import geometry as geometry_gen
+        from zbemt import studies
+        from zbemt.models import FlightCondition, VariantDef
+        geom_a = geometry_gen.generate_tapered(root_chord_norm=0.10,
+                                                 tip_chord_norm=0.05,
+                                                 radius_m=1.0, n_stations=6)
+        geom_b = geometry_gen.generate_tapered(root_chord_norm=0.12,
+                                                 tip_chord_norm=0.06,
+                                                 radius_m=1.0, n_stations=6)
+        project = _make_project()
+        own_airfoil = replace(project.airfoil)
+        variants = {
+            "base": geom_a,
+            "wide": VariantDef(geometry=geom_b, airfoil=own_airfoil),
+        }
+        conditions = [FlightCondition(name="h", mu_x=0.0,
+                                       collective_deg=8.0, rpm=600.0)]
+
+        results = studies.compare_geometries(variants=variants,
+                                              project=project,
+                                              conditions=conditions)
+        by_label = {}
+        for res in results:
+            by_label.setdefault(res.summary["geometry_label"],
+                                []).append(res)
+        self.assertFalse(any("non_geometry_variant" in r.summary
+                              for r in by_label["base"]))
+        self.assertTrue(all(r.summary.get("non_geometry_variant")
+                             for r in by_label["wide"]))

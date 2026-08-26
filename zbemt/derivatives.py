@@ -390,3 +390,55 @@ def compute_derivatives(project: Project, request: DerivativeRequest, *,
                         f"{outcome.n_solves} solves, trim "
                         f"{request.trim!r}")
     return outcome
+
+
+def damping_summary(project, variants: dict, condition,
+                    *, step_w: float = 0.5, step_q: float = 0.02,
+                    run_case=None):
+    """Cross-link 12 (Item 5): heave and pitch damping for EVERY
+    variant at one condition, as plain central differences -- the two
+    numbers a comparison ranking cannot show today.
+
+    ``variants`` maps label -> RotorGeometryDef (a VariantDef works
+    too). Returns ``{label: {"heave_damping": dThrust/dw [N/(m/s)],
+    "pitch_damping": dMy_total/dq [N*m/(rad/s)]}}``. Two solves per
+    variant; cancellation propagates from the underlying run."""
+    from .models import VariantDef
+
+    def _geometry(value):
+        return value.geometry if isinstance(value, VariantDef) else value
+
+    solve = run_case or run_single_case_public
+
+    out = {}
+    for label, value in variants.items():
+        geom = _geometry(value)
+        sub_project = replace_project(project, geometry=geom)
+
+        def loads(vz=0.0, q_rate=0.0):
+            cond = dc_replace(condition, Vz=float(condition.Vz) + vz,
+                               q_rate_deg_s=math.degrees(q_rate))
+            summary = solve(sub_project, cond)
+            thrust = float(summary["Thrust"])
+            # Rigid blade: the engine reports no hinge split, so the
+            # total IS the aerodynamic moment.
+            my = summary.get("My_total", summary.get("My"))
+            return thrust, float(my)
+
+        t_plus, m_plus = loads(vz=+step_w, q_rate=+step_q)
+        t_minus, m_minus = loads(vz=-step_w, q_rate=-step_q)
+        out[label] = {
+            "heave_damping": (t_plus - t_minus) / (2.0 * step_w),
+            "pitch_damping": (m_plus - m_minus) / (2.0 * step_q),
+        }
+    return out
+
+
+def replace_project(project, **kwargs):
+    from dataclasses import replace
+    return replace(project, **kwargs)
+
+
+def run_single_case_public(project, condition):
+    from . import studies
+    return studies.run_single_case(project, condition).summary
