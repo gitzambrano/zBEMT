@@ -2027,7 +2027,8 @@ class GeometryDesignerWindow(QWidget):
         self.compare_progress.setRange(0, max(total, 1))
         self.compare_progress.setValue(0)
         worker = CompareWorker(self.state.project, variants, conditions,
-                               trim=self._selected_trim())
+                               trim=self._selected_trim(),
+                               workers=self.workers_spin.value())
         worker.progress.connect(self._on_compare_progress)
         worker.finished.connect(self._on_compare_finished)
         worker.failed.connect(self._on_compare_failed)

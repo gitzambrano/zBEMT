@@ -390,19 +390,21 @@ def variant_geometry(base_geometry: RotorGeometryDef,
 
 def compare_geometries(project: Project, variants: dict,
                        conditions: Optional[Sequence[FlightCondition]] = None, *,
-                       trim: str = "none",
+                       trim: str = "none", workers: int = 1,
                        on_case_done=None,
                        should_cancel: Optional[Callable[[], bool]] = None
                        ) -> list[Results]:
     """Run the same conditions over several geometry variants (AR-2:
     results stay in memory). Each summary carries ``geometry_label``.
-    ``trim`` ("none"/"thrust"/"CT") holds thrust or CT constant across
-    variants by bisecting one control per case; see
+    ``workers`` > 1 runs the untrimmed sweep on a process pool (the
+    trimmed path stays serial: every case depends on the reference
+    targets). ``trim`` ("none"/"thrust"/"CT") holds thrust or CT constant
+    across variants by bisecting one control per case; see
     ``studies.compare_geometries``."""
-    return studies.compare_geometries(project, variants, conditions,
-                                      trim=trim,
-                                      on_case_done=on_case_done,
-                                      should_cancel=should_cancel)
+    return studies.compare_geometries(
+        project, variants, conditions=conditions, trim=trim,
+        workers=workers, on_case_done=on_case_done,
+        should_cancel=should_cancel)
 
 
 def optimize_design(project: Project, definition: OptimizationDefinition,

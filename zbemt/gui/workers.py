@@ -154,12 +154,13 @@ class CompareWorker(QObject):
     progress = pyqtSignal(int, int)
 
     def __init__(self, project: Project, variants: dict,
-                 conditions=None, *, trim: str = "none"):
+                 conditions=None, *, trim: str = "none", workers: int = 1):
         super().__init__()
         self.project = project
         self.variants = variants
         self.conditions = list(conditions) if conditions is not None else None
         self.trim = trim
+        self.workers = int(workers)
         self.cancel_requested = False
 
     def cancel(self):
@@ -169,7 +170,7 @@ class CompareWorker(QObject):
         try:
             results = api.compare_geometries(
                 self.project, self.variants, self.conditions,
-                trim=self.trim,
+                trim=self.trim, workers=self.workers,
                 on_case_done=lambda done, total, _res: self.progress.emit(done, total),
                 should_cancel=lambda: self.cancel_requested)
         except SolveCancelled:

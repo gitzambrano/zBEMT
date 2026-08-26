@@ -1037,3 +1037,50 @@ class TestVariantDefPayload(unittest.TestCase):
                               for r in by_label["base"]))
         self.assertTrue(all(r.summary.get("non_geometry_variant")
                              for r in by_label["wide"]))
+
+
+class TestCompareParallel(unittest.TestCase):
+    """Item 5, phase 5.2: workers > 1 runs the UNTRIMMED sweep on a
+    process pool with the same ordered results as the serial path; the
+    trimmed path stays serial (every case depends on the reference
+    targets)."""
+
+    def _variants(self, project):
+        from dataclasses import replace as dc_replace
+        a = project.geometry
+        b = dc_replace(a, n_blades=a.n_blades + 1)
+        return {"base": a, "other": b}
+
+    def _conditions(self):
+        from zbemt.models import FlightCondition
+        return [FlightCondition(name="h", mu_x=0.0, collective_deg=8.0,
+                                 rpm=600.0),
+                 FlightCondition(name="f", mu_x=0.1, collective_deg=8.0,
+                                  rpm=600.0)]
+
+    def test_pool_matches_serial_in_order_and_values(self):
+        project = _make_project()
+        variants = self._variants(project)
+        conditions = self._conditions()
+        serial = studies.compare_geometries(project, dict(variants),
+                                             conditions=conditions,
+                                             workers=1)
+        parallel = studies.compare_geometries(project, dict(variants),
+                                               conditions=conditions,
+                                               workers=2)
+        self.assertEqual(len(serial), len(parallel))
+        for s_res, p_res in zip(serial, parallel):
+            self.assertEqual(s_res.summary["geometry_label"],
+                              p_res.summary["geometry_label"])
+            self.assertEqual(s_res.condition_name, p_res.condition_name)
+            self.assertAlmostEqual(s_res.summary["Thrust"],
+                                    p_res.summary["Thrust"], places=9)
+
+    def test_trimmed_run_with_workers_stays_correct(self):
+        project = _make_project()
+        variants = self._variants(project)
+        results = studies.compare_geometries(
+            project, dict(variants), conditions=self._conditions(),
+            trim="thrust", workers=4)
+        labels = [r.summary["geometry_label"] for r in results]
+        self.assertEqual(labels, ["base", "base", "other", "other"])

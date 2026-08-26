@@ -1238,11 +1238,18 @@ def variant_geometry(base_geometry: RotorGeometryDef,
     return geom
 
 
+def _comparison_case_task(project, condition):
+    """Module-level so a process pool can pickle it: one comparison
+    solve, nothing else."""
+    return run_single_case(project, condition)
+
+
 def compare_geometries(project: Project,
                        variants: dict,
                        conditions: Optional[Sequence[FlightCondition]] = None,
                        *,
                        trim: str = "none",
+                       workers: int = 1,
                        on_case_done=None,
                        should_cancel=None) -> list:
     """Run the same flight conditions across several geometries.
@@ -1390,6 +1397,50 @@ def compare_geometries(project: Project,
                 trim_mode = "solve_rpm" if propeller else "solve_collective"
         results.append(res)
         _emit(res)
+
+    # --- parallel path (Item 5, phase 5.2) --------------------------------
+    # Only the UNTRIMMED sweep is embarrassingly parallel: with a trim,
+    # every case depends on the reference targets computed above anyway,
+    # so workers > 1 falls back to the serial loops untouched.
+    if int(workers) > 1 and trim == "none" and len(labels) > 1:
+        from concurrent.futures import ProcessPoolExecutor
+        jobs = []
+        for label in labels[1:]:
+            variant_project = replace(
+                project, geometry=variants[label],
+                airfoil=variant_airfoils.get(label, project.airfoil))
+            for index, condition in enumerate(conditions):
+                jobs.append((label, index, condition, variant_project))
+        results_map: dict[tuple, Results] = {}
+        done = len(results)
+        try:
+            with ProcessPoolExecutor(max_workers=int(workers)) as pool:
+                futures = {pool.submit(_comparison_case_task, proj, cond):
+                            (label, index)
+                           for label, index, cond, proj in jobs}
+                for future in list(futures):
+                    pass   # keys kept for ordered assembly
+                pending = list(futures.items())
+                while pending:
+                    fut, key = pending.pop(0)
+                    if should_cancel is not None and should_cancel():
+                        pool.shutdown(wait=False, cancel_futures=True)
+                        raise SolveCancelled()
+                    res = fut.result()
+                    label, index = key
+                    condition = conditions[index]
+                    _tag(res, label, condition)
+                    res.summary.update(
+                        _blade_planform_metrics(variants[label]))
+                    results_map[(label, index)] = res
+                    done += 1
+                    _emit(res)
+        except SolveCancelled:
+            raise
+        for label in labels[1:]:
+            for index in range(len(conditions)):
+                results.append(results_map[(label, index)])
+        return results
 
     for label in labels[1:]:
         variant_project = replace(project, geometry=variants[label],
