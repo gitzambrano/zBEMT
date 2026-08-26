@@ -1047,3 +1047,35 @@ if _HAS_QT:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+if _HAS_QT:
+
+    class TestLiveFieldLists(unittest.TestCase):
+        """Item 5, finding 8: the ranking/overlay offers EVERY summary
+        key the results carry (beyond the curated defaults), so keys
+        Items 1/2/4 add are reachable."""
+
+        class _R:
+            def __init__(self, summary):
+                self.summary = summary
+
+        def test_extra_keys_join_after_the_defaults(self):
+            from zbemt.gui.tabs.designer_window import GeometryDesignerWindow
+            results = [self._R({"CT": 1, "FM": 2, "lambda_i": 0.1,
+                                 "not_in_nomenclature_xyz": 5.0})]
+            fields = GeometryDesignerWindow._live_field_list(
+                results, GeometryDesignerWindow._OVERLAY_FIELDS)
+            # Defaults that are present stay first, in their order.
+            self.assertEqual(fields[0], "CT")
+            self.assertIn("FM", fields[:2])
+            # A nomenclature-known extra joins; an unknown one does not.
+            self.assertIn("lambda_i", fields)
+            self.assertNotIn("not_in_nomenclature_xyz", fields)
+
+        def test_absent_defaults_are_dropped(self):
+            from zbemt.gui.tabs.designer_window import GeometryDesignerWindow
+            results = [self._R({"CT": 1})]
+            fields = GeometryDesignerWindow._live_field_list(
+                results, GeometryDesignerWindow._RANKING_FIELDS)
+            self.assertEqual(fields, ["CT"])

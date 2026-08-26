@@ -175,6 +175,28 @@ class GeometryDesignerWindow(QWidget):
     _OVERLAY_FIELDS = ("CT", "FM", "CP", "eta_prop",
                        "aspect_ratio", "solidity")
 
+    @classmethod
+    def _live_field_list(cls, results, defaults):
+        """Finding 8 (Item 5): the offered fields come from what the
+        results ACTUALLY carry -- every summary key Items 1/2/4 add is
+        reachable. The class defaults keep their position first (they
+        are curated, some of them derived metrics with no nomenclature
+        entry); after them, every OTHER key the results carry AND the
+        nomenclature knows joins the list in alphabetical order."""
+        ordered: list[str] = []
+        seen: set = set()
+        for key in defaults:
+            if key not in seen and any(key in r.summary for r in results):
+                ordered.append(key)
+                seen.add(key)
+        from ... import nomenclature
+        extras = sorted(
+            {k for r in results for k in r.summary
+             if not k.startswith("cfg_") and k not in seen
+             and nomenclature.quantity(k) is not None})
+        return ordered + [k for k in extras
+                           if any(k in r.summary for r in results)]
+
     #: "Thrust matching" choices of the Conditions page, as shown,
     #: mapped to the ``trim`` argument ``api.compare_geometries``
     #: understands. The first variant of the table is the reference
@@ -2041,8 +2063,7 @@ class GeometryDesignerWindow(QWidget):
         run, FM otherwise."""
         current = (self.ranking_field_combo.currentText()
                    if self.ranking_field_combo.count() else "")
-        present = [key for key in self._RANKING_FIELDS
-                   if any(key in r.summary for r in results)]
+        present = self._live_field_list(results, self._RANKING_FIELDS)
         self.ranking_field_combo.blockSignals(True)
         self.ranking_field_combo.clear()
         self.ranking_field_combo.addItem("(none)")
@@ -2139,8 +2160,7 @@ class GeometryDesignerWindow(QWidget):
 
     def _draw_overlay(self, results: list):
         """Full multi-panel overlay figure, one curve per geometry."""
-        available = [key for key in self._OVERLAY_FIELDS
-                     if any(key in r.summary for r in results)]
+        available = self._live_field_list(results, self._OVERLAY_FIELDS)
         try:
             axes = plots.plot_geometry_comparison(
                 results, fields=tuple(available) or None)
