@@ -1154,3 +1154,12 @@ if _HAS_QT:
                             break
                         time.sleep(0.02)
             self.assertEqual(window._damping_summary, toy)
+            # The TABLE is the presentation: one row per variant, the
+            # two damping columns filled from the toy slopes.
+            self.assertEqual(window.damping_table.rowCount(), 1)
+            self.assertEqual(
+                window.damping_table.item(0, 0).text(), "base")
+            self.assertEqual(
+                float(window.damping_table.item(0, 1).text()), -2.0)
+            self.assertEqual(
+                float(window.damping_table.item(0, 2).text()), -3.0)

@@ -77,6 +77,7 @@ from ..common import (
     show_error,
 )
 import dataclasses
+from PyQt6.QtGui import QColor
 from ..workers import CompareWorker, FnWorker, launch_worker
 
 
@@ -1910,6 +1911,23 @@ class GeometryDesignerWindow(QWidget):
         self.overlay_canvas.show_message(
             "Run a comparison to see the overlay figure.")
 
+        # Cross-link 12: per-variant damping table, filled by
+        # "Compare with derivatives".
+        damping_box = QGroupBox("Damping comparison (per variant)")
+        damping_layout = QVBoxLayout(damping_box)
+        self.damping_table = QTableWidget(0, 3)
+        self.damping_table.setHorizontalHeaderLabels(
+            ["Variant", "dMy/dq [N·m/(rad/s)]",
+             "dThrust/dw [N/(m/s)]"])
+        self.damping_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch)
+        self.damping_table.setEditTriggers(
+            QTableWidget.EditTrigger.NoEditTriggers)
+        self.damping_table.setToolTip(
+            "'Compare with derivatives' fills this table: two solves "
+            "per variant at the ranking condition.")
+        damping_layout.addWidget(self.damping_table)
+
         ranking_row = QHBoxLayout()
         ranking_row.addWidget(QLabel("Rank by:"))
         self.ranking_field_combo = QComboBox()
@@ -1956,6 +1974,7 @@ class GeometryDesignerWindow(QWidget):
         vbox.addLayout(figures_row, stretch=1)
 
         vbox.addWidget(self.overlay_canvas, stretch=2)
+        vbox.addWidget(damping_box, stretch=1)
 
         export_row = QHBoxLayout()
         self.btn_export_report = QPushButton("Export report")
@@ -2282,15 +2301,24 @@ class GeometryDesignerWindow(QWidget):
         launch_worker(self._damping_worker)
 
     def _show_damping_summary(self, summary: dict):
-        """Presents the per-variant damping table produced off-thread."""
+        """Fills the damping table with the per-variant result computed
+        off-thread. No dialog: the table IS the presentation."""
         self._damping_summary = summary
-        lines = ["dMy/dq [N·m/(rad/s)] · dThrust/dw [N/(m/s)]"]
-        for label, values in summary.items():
-            lines.append(f"{label}: "
-                          f"{values['pitch_damping']:+.4g} · "
-                          f"{values['heave_damping']:+.4g}")
-        QMessageBox.information(self, "Damping comparison",
-                                 "\n".join(lines))
+        labels = list(summary)
+        self.damping_table.setRowCount(len(labels))
+        for r, label in enumerate(labels):
+            values = summary[label]
+            self.damping_table.setItem(
+                r, 0, QTableWidgetItem(label))
+            self.damping_table.setItem(
+                r, 1, QTableWidgetItem(
+                    f"{values['pitch_damping']:+.4g}"))
+            item = QTableWidgetItem(
+                f"{values['heave_damping']:+.4g}")
+            # A positive heave damping is the classic sign failure.
+            if values["heave_damping"] > 0:
+                item.setForeground(QColor("#b00000"))
+            self.damping_table.setItem(r, 2, item)
 
     def app_process_events(self):
         from PyQt6.QtWidgets import QApplication

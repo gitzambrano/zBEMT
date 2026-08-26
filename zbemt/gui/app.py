@@ -446,6 +446,7 @@ class MainWindow(QMainWindow):
             "Sign checks":                           "stability_results",
             "Vehicle model (optional)":              "stability_results",
             "Bar chart — one output across variables": "stability_results",
+            "Damping comparison (per variant)":      "stability_results",
             # Results tab
             "Results from this session":             "results",
             "Blade dynamics":                        "flap_plots",
