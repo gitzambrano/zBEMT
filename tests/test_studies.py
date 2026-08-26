@@ -927,3 +927,75 @@ class TestOptimizeDesignPathsAgree(unittest.TestCase):
             condition=condition)
         out = studies.optimize_design_multi(self._project(), definition)
         self.assertIn("no design satisfied the constraints", out.message)
+
+
+class TestTableSpaceGuards(unittest.TestCase):
+    """Item 5, findings 3 and 4: the table-space planform applier must
+    refuse what it cannot honor instead of silently keeping a fallback
+    factor or letting the last chord target win."""
+
+    def _table_geometry(self, chords):
+        from zbemt import geometry as geometry_gen
+        n = len(chords)
+        r = [0.2 + 0.8 * i / (n - 1) for i in range(n)]
+        return geometry_gen.generate_custom(r, list(chords),
+                                             [8.0] * n, radius_m=1.0)
+
+    def test_near_zero_endpoint_raises_naming_everything(self):
+        from zbemt import studies
+        geom = self._table_geometry([0.0, 0.05, 0.08])
+        with self.assertRaises(ValueError) as ctx:
+            studies._apply_table_space_planform(
+                geom, {"root_chord_norm": 0.10})
+        message = str(ctx.exception)
+        for fragment in ("root", "requested", "0.1"):
+            self.assertIn(fragment, message)
+
+    def test_two_absolute_chord_targets_are_rejected(self):
+        from zbemt import studies
+        geom = self._table_geometry([0.10, 0.07, 0.05])
+        with self.assertRaises(ValueError) as ctx:
+            studies._apply_table_space_planform(
+                geom, {"chord_norm": 0.09, "max_chord_norm": 0.12})
+        message = str(ctx.exception)
+        self.assertIn("chord_norm", message)
+        self.assertIn("max_chord_norm", message)
+
+    def test_endpoint_pair_cannot_combine_with_an_absolute_target(self):
+        from zbemt import studies
+        geom = self._table_geometry([0.10, 0.07, 0.05])
+        with self.assertRaises(ValueError) as ctx:
+            studies._apply_table_space_planform(
+                geom, {"root_chord_norm": 0.11,
+                        "max_chord_norm": 0.12})
+        self.assertIn("max_chord_norm", str(ctx.exception))
+
+    def test_single_targets_still_apply(self):
+        from zbemt import studies
+        geom = self._table_geometry([0.10, 0.07, 0.05])
+        out = studies._apply_table_space_planform(
+            geom, {"max_chord_norm": 0.12})
+        self.assertAlmostEqual(max(out.chord_norm), 0.12, places=12)
+
+
+class TestCompareValidatesVariants(unittest.TestCase):
+    """Item 5, finding 1: a variant that cannot fly physically must stop
+    the comparison BEFORE the first solve, with its label attached."""
+
+    def test_negative_chord_variant_raises_before_any_solve(self):
+        import unittest.mock
+        from zbemt import geometry as geometry_gen
+        from zbemt import studies
+        geom = geometry_gen.generate_custom(
+            [0.2, 0.6, 1.0], [-0.05, 0.07, 0.05], [8.0] * 3, radius_m=1.0)
+        project = _make_project()
+        calls = []
+        with unittest.mock.patch.object(
+                studies, "run_single_case",
+                side_effect=lambda *a, **k: calls.append(1)):
+            with self.assertRaises(ValueError) as ctx:
+                studies.compare_geometries(
+                    project, {"bad": geom}, conditions=[])
+        self.assertIn("bad", str(ctx.exception))
+        self.assertEqual(calls, [], "no solve may run on an invalid "
+                                     "variant")

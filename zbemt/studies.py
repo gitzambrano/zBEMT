@@ -1118,18 +1118,55 @@ def _apply_table_space_planform(geom: RotorGeometryDef,
       (the rectangular generator's reading);
     - ``max_chord_norm``: uniform scale so the PEAK chord equals the
       value.
-    """
+
+    COMPOSITION ORDER (fixed, and it matters): the endpoint rescale runs
+    first, then the mean-chord scale, then the peak-chord scale. Giving
+    two of the three chord targets therefore satisfies only the LAST one
+    applied -- which is why giving more than one of ``chord_norm``,
+    ``max_chord_norm`` or an explicit root+tip pair in one override set
+    is REJECTED instead of silently keeping the last word.
+
+    A near-zero base endpoint cannot be scaled to a requested target by
+    any factor: that case raises, naming the endpoint and both values,
+    instead of silently leaving the blade unchanged."""
     r = np.asarray(geom.r_norm, dtype=float)
     chord = np.asarray(geom.chord_norm, dtype=float)
     twist = np.asarray(geom.twist_deg, dtype=float)
     span = max(float(r[-1] - r[0]), 1e-9)
     x = (r - r[0]) / span
 
+    # More than one absolute chord target in one set has no defensible
+    # meaning: name the two contenders instead of applying the last.
+    absolute_targets = [name for name in ("chord_norm", "max_chord_norm")
+                         if name in overrides]
+    if len(absolute_targets) > 1:
+        raise ValueError(
+            "_apply_table_space_planform: give only ONE of "
+            f"{absolute_targets} per override set; they compose in a "
+            "fixed order (endpoint rescale, then mean scale, then peak "
+            "scale), so the last would silently win.")
+    if ("root_chord_norm" in overrides
+            or "tip_chord_norm" in overrides) and absolute_targets:
+        raise ValueError(
+            "_apply_table_space_planform: an explicit root/tip chord "
+            f"target cannot combine with {absolute_targets} in one "
+            "override set; the composition order would keep only the "
+            "last one applied.")
+
     if "root_chord_norm" in overrides or "tip_chord_norm" in overrides:
         c_root = float(overrides.get("root_chord_norm", chord[0]))
         c_tip = float(overrides.get("tip_chord_norm", chord[-1]))
-        f_root = c_root / chord[0] if abs(chord[0]) > 1e-12 else 1.0
-        f_tip = c_tip / chord[-1] if abs(chord[-1]) > 1e-12 else 1.0
+        for endpoint_name, base_value, wanted in (
+                ("root", chord[0], c_root), ("tip", chord[-1], c_tip)):
+            if abs(base_value) <= 1e-12:
+                raise ValueError(
+                    f"_apply_table_space_planform: the {endpoint_name} "
+                    "chord of this table is near zero "
+                    f"({base_value:.3e}), so no factor can rescale it to "
+                    f"the requested {wanted:.6g}. Edit the table itself "
+                    "(Geometry tab) before targeting that endpoint.")
+        f_root = c_root / chord[0]
+        f_tip = c_tip / chord[-1]
         chord = chord * (f_root + (f_tip - f_root) * x)
     if "chord_norm" in overrides:
         mean = max(float(np.mean(chord)), 1e-12)
@@ -1249,6 +1286,52 @@ def compare_geometries(project: Project,
     for condition in conditions:
         _require_rpm(condition.rpm,
                      f"geometry comparison (condition {condition.name!r})")
+
+    # Validate EVERY resolved variant BEFORE the first solve (Item 5,
+    # finding 1): a negative chord or a non-monotonic table must stop the
+    # comparison with a name attached, never run to a plausible-looking
+    # number.
+    from .validation import validate_project
+    from .models import Project as _Project
+    for label, geom in variants.items():
+        # Physical sanity of the table itself FIRST (the sorter above it
+        # checks order, not physics): chords must be finite and positive,
+        # and the cutout must sit inside the blade.
+        c_arr = np.asarray(geom.chord_norm, dtype=float)
+        if c_arr.size == 0 or not np.all(np.isfinite(c_arr)) \
+                or np.any(c_arr <= 0.0):
+            raise ValueError(
+                f"compare_geometries: variant {label!r} has a "
+                "non-physical chord table (every chord must be finite "
+                f"and positive); got min={np.min(c_arr, initial=0):.4g}.")
+        if np.asarray(geom.r_norm, dtype=float).size \
+                and geom.root_cutout_norm >= float(np.max(geom.r_norm)):
+            raise ValueError(
+                f"compare_geometries: variant {label!r} has root cutout "
+                f"{geom.root_cutout_norm:g} at or beyond the tip radius "
+                f"{float(np.max(geom.r_norm)):g}: the blade has no "
+                "aerodynamic span.")
+        # The radial TABLE itself first: negative chords, non-monotonic
+        # stations and cutouts past the tip die here, named.
+        try:
+            geometry_gen._validate_and_sort_table(
+                np.asarray(geom.r_norm, dtype=float),
+                np.asarray(geom.chord_norm, dtype=float),
+                np.asarray(geom.twist_deg, dtype=float),
+                context=f"variant {label!r}")
+        except ValueError as exc:
+            raise ValueError(f"compare_geometries: {exc}") from exc
+        sub_project = _Project(name=str(label), config=project.config,
+                                geometry=geom, airfoil=project.airfoil,
+                                airfoil_sections=project.airfoil_sections)
+        issues = validate_project(project.config, project.airfoil,
+                                   airfoil_sections=project.airfoil_sections,
+                                   conditions=conditions, geometry=geom)
+        errors = [str(i) for i in issues if i.level == "error"]
+        if errors:
+            raise ValueError(
+                f"compare_geometries: variant {label!r} is invalid:\n  - "
+                + "\n  - ".join(errors))
 
     summary_key = "Thrust" if trim == "thrust" else "CT"
     labels = list(variants)

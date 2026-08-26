@@ -977,6 +977,46 @@ class GeometryDesignerWindow(QWidget):
             if item is not None and not item.text().strip():
                 item.setText(f"{float(value):.3f}")
 
+    def _apply_chord_cell_gating(self):
+        """Finding 2 (Item 5): a base planform that reads ONE chord
+        quantity must not accept a tip-chord cell it will silently drop.
+
+        Rectangular: the root column IS the chord — header becomes
+        'Chord c/R' and every tip cell is disabled. Elliptic: the root
+        column carries the PEAK chord — header 'Max chord c/R', tip
+        cells disabled too. Tapered keeps both cells editable."""
+        base = self._session_base_geometry()
+        kind = str(dict(getattr(base, "origin_params", {}) or {})
+                    .get("kind", ""))
+        root_header = self.variants_table.horizontalHeaderItem(
+            self._COL_ROOT_CHORD)
+        tip_header = self.variants_table.horizontalHeaderItem(
+            self._COL_TIP_CHORD)
+        if kind == "rectangular":
+            root_header.setText("Chord c/R")
+            tip_tooltip = ("Disabled: a rectangular blade has ONE chord; "
+                            "edit the Chord column instead.")
+        elif kind == "elliptic":
+            root_header.setText("Max chord c/R")
+            tip_tooltip = ("Disabled: an elliptic blade is driven by its "
+                            "PEAK chord (first column); the tip value "
+                            "would be ignored.")
+        else:
+            root_header.setText("Root chord c/R")
+            tip_header.setText("Tip chord c/R")
+            return
+        tip_header.setText("Tip chord c/R")
+        for row in range(self.variants_table.rowCount()):
+            item = self.variants_table.item(row, self._COL_TIP_CHORD)
+            if item is None:
+                continue
+            flags = item.flags()
+            if kind in ("rectangular", "elliptic"):
+                item.setFlags(flags & ~Qt.ItemFlag.ItemIsEditable)
+                item.setToolTip(tip_tooltip)
+            else:
+                item.setFlags(flags | Qt.ItemFlag.ItemIsEditable)
+
     def _refresh_derived_cells(self):
         """Recomputes every row's projected cells from its own data.
 
@@ -996,6 +1036,7 @@ class GeometryDesignerWindow(QWidget):
             return
         self._refreshing_derived = True
         try:
+            self._apply_chord_cell_gating()
             table = self.variants_table
             for row in range(table.rowCount()):
                 payload = self._stored_row_payload(row)
