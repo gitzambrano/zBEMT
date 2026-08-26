@@ -80,8 +80,14 @@ different rule.
   its overrides, and every comparison result summary carries the blade aspect
   ratio and the rotor solidity (`studies._blade_planform_metrics`), so the
   ranking, the overlay figure and the CSV export can compare shape next to
-  performance. Comparison variants are session data. The project does not
-  persist them.
+  performance.
+- **SC-7a** - Persisted comparisons (`inputs/comparisons.bemt`). A comparison
+  — its variant rows, chosen conditions and trim mode — may be saved with the
+  project under a name and re-run or reviewed later; it is no longer strictly
+  session data. A variant row may also carry its own airfoil section and blade
+  dynamics block, in which case the run is no longer geometry alone: the
+  report says so beside the ranking, because the equal-polar fairness claim
+  of `SC-7` no longer holds for that run.
 - **SC-8** — Persisted design-optimization studies (`inputs/optimizations.bemt`)
   drive one summary quantity on one flight condition through a bounded,
   derivative-free search over parametric planform parameters (Powell or
