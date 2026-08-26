@@ -1107,3 +1107,50 @@ if _HAS_QT:
                 __import__("PyQt6.QtCore", fromlist=["Qt"]).Qt.ItemDataRole.UserRole)
             self.assertIsNotNone(payload, "the row must carry the full "
                                            "geometry payload")
+
+
+if _HAS_QT:
+
+    class TestCompareWithDerivatives(unittest.TestCase):
+        """Item 5, cross-link 12: the button computes per-variant
+        damping off-thread and presents it; the summary stays on the
+        window for future columns."""
+
+        @classmethod
+        def setUpClass(cls):
+            cls.app = QApplication.instance() or QApplication([])
+
+        def test_button_computes_and_stores_damping(self):
+            import time
+            import unittest
+            from PyQt6.QtWidgets import QApplication
+            from tests.helpers import make_studies_project
+            from zbemt.gui.common import AppState
+            from zbemt.gui.tabs.designer_window import GeometryDesignerWindow
+            from zbemt.models import FlightCondition
+            project = make_studies_project()
+            project.saved_cases = [FlightCondition(name="h", mu_x=0.0,
+                                                    collective_deg=8.0,
+                                                    rpm=600.0)]
+            state = AppState()
+            state.set_project(project)
+            window = GeometryDesignerWindow(state)
+            self.addCleanup(window.deleteLater)
+            window._comparison_results = [{"summary": {}}]  # truthy gate
+            window._comparison_conditions = list(project.saved_cases)
+            window.ranking_condition_combo.addItem("h", 0)
+
+            toy = {"base": {"pitch_damping": -2.0,
+                             "heave_damping": -3.0}}
+            with unittest.mock.patch(
+                    "zbemt.api.damping_summary", return_value=toy):
+                with helpers.patch_message_box_everywhere("QMessageBox"):
+                    window._compare_with_derivatives()
+                    deadline = time.time() + 10
+                    while time.time() < deadline:
+                        self.app.processEvents()
+                        if getattr(window, "_damping_summary",
+                                    None) is not None:
+                            break
+                        time.sleep(0.02)
+            self.assertEqual(window._damping_summary, toy)

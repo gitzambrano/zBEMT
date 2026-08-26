@@ -260,6 +260,26 @@ class OptimizeMultiWorker(QObject):
         self.finished.emit(outcome)
 
 
+class FnWorker(QObject):
+    """Runs ANY callable outside the GUI thread (PR-11): ``finished``
+    carries its return value, ``failed`` its exception text. Used where
+    a dedicated worker would duplicate it."""
+    finished = pyqtSignal(object)
+    failed = pyqtSignal(str)
+
+    def __init__(self, fn, *args, **kwargs):
+        super().__init__()
+        self._fn = fn
+        self._args = args
+        self._kwargs = kwargs
+
+    def run(self):
+        try:
+            self.finished.emit(self._fn(*self._args, **self._kwargs))
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+
 class DerivativeWorker(QObject):
     """Runs ``api.compute_derivatives`` outside the GUI thread (SC-14).
 

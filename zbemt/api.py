@@ -562,6 +562,15 @@ def vehicle_matrices(outcome, *, mass: float, Ix: float, Iy: float,
                    hub_offset=hub_offset, g=g, theta_trim=theta_trim)
 
 
+def damping_summary(project: Project, variants: dict, condition,
+                    *, step_w: float = 0.5, step_q: float = 0.02) -> dict:
+    """Heave and pitch damping for EVERY variant at one condition
+    (Item 5, cross-link 12; see ``derivatives.damping_summary``)."""
+    from .derivatives import damping_summary as _compute
+    return _compute(project, variants, condition,
+                     step_w=step_w, step_q=step_q)
+
+
 def export_pareto_csv(outcome, path: str) -> Path:
     """One CSV row per Pareto front member: parameter columns first, then
     the objective columns in their own direction (maximized objectives

@@ -76,7 +76,8 @@ from ..common import (
     set_row_visible,
     show_error,
 )
-from ..workers import CompareWorker, launch_worker
+import dataclasses
+from ..workers import CompareWorker, FnWorker, launch_worker
 
 
 class _AbsoluteRowGeometry:
@@ -1963,6 +1964,14 @@ class GeometryDesignerWindow(QWidget):
             "figure and the full summary table, in the project outputs "
             "folder.")
         self.btn_export_report.clicked.connect(self._export_comparison_report)
+        self.btn_compare_derivatives = QPushButton(
+            "Compare with derivatives")
+        self.btn_compare_derivatives.setToolTip(
+            "Runs the stability derivatives (heave and pitch damping) of "
+            "every variant at the ranking condition, two solves each.")
+        self.btn_compare_derivatives.clicked.connect(
+            self._compare_with_derivatives)
+        export_row.addWidget(self.btn_compare_derivatives)
         export_row.addWidget(self.btn_export_report)
         self.btn_export_csv = QPushButton("Export CSV")
         self.btn_export_csv.setToolTip(
@@ -1992,6 +2001,7 @@ class GeometryDesignerWindow(QWidget):
         except ValueError as exc:
             QMessageBox.warning(self, "Invalid conditions", str(exc))
             return
+        self._comparison_conditions = list(conditions)
         total = len(variants) * len(conditions)
         self._set_compare_running(True)
         self.compare_status.setText(f"Running comparison: 0/{total}…")
@@ -2237,6 +2247,54 @@ class GeometryDesignerWindow(QWidget):
                            ha="center", va="center",
                            transform=canvas.ax.transAxes, wrap=True)
         canvas.draw()
+
+    def _compare_with_derivatives(self):
+        """Cross-link 12 (Item 5): heave and pitch damping for every
+        variant at the ranking condition, computed off-thread (PR-11)
+        and presented per variant when done."""
+        if not self._comparison_results:
+            QMessageBox.information(self, "Nothing to compare",
+                                     "Run a comparison first.")
+            return
+        try:
+            variants = {label: geom for label, geom in
+                         (self._row_resolved(r) for r in
+                          range(self.variants_table.rowCount()))}
+        except ValueError as exc:
+            QMessageBox.warning(self, "Invalid geometry table", str(exc))
+            return
+        conditions = getattr(self, "_comparison_conditions", []) or []
+        ref = self.ranking_condition_combo.currentData()
+        index = int(ref) if ref is not None else 0
+        if not (0 <= index < len(conditions)):
+            index = 0
+        if not conditions:
+            QMessageBox.information(self, "No condition",
+                                     "No ranking condition available.")
+            return
+        condition = conditions[index]
+        self._damping_worker = FnWorker(
+            api.damping_summary, self.state.project, variants,
+            dataclasses.replace(condition))
+        self._damping_worker.finished.connect(self._show_damping_summary)
+        self._damping_worker.failed.connect(lambda msg: show_error(
+            self, "Error comparing derivatives", RuntimeError(msg)))
+        launch_worker(self._damping_worker)
+
+    def _show_damping_summary(self, summary: dict):
+        """Presents the per-variant damping table produced off-thread."""
+        self._damping_summary = summary
+        lines = ["dMy/dq [N·m/(rad/s)] · dThrust/dw [N/(m/s)]"]
+        for label, values in summary.items():
+            lines.append(f"{label}: "
+                          f"{values['pitch_damping']:+.4g} · "
+                          f"{values['heave_damping']:+.4g}")
+        QMessageBox.information(self, "Damping comparison",
+                                 "\n".join(lines))
+
+    def app_process_events(self):
+        from PyQt6.QtWidgets import QApplication
+        QApplication.instance().processEvents()
 
     def _draw_delta(self, results):
         """Draws every variant's percent change against the base
