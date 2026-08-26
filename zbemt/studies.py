@@ -1292,7 +1292,23 @@ def compare_geometries(project: Project,
     # comparison with a name attached, never run to a plausible-looking
     # number.
     from .validation import validate_project
-    from .models import Project as _Project
+    from .models import Project as _Project, VariantDef
+
+    def _parts(value):
+        """A variant is a RotorGeometryDef or a VariantDef wrapping it
+        with its own airfoil/dynamics (SC-7a)."""
+        if isinstance(value, VariantDef):
+            geom = value.geometry
+            if value.dynamics is not None:
+                geom = replace(geom, dynamics=value.dynamics)
+            return geom, value.airfoil
+        return value, None
+
+    # Normalized view used by both the validation gate and the runs.
+    resolved = {label: _parts(value) for label, value in variants.items()}
+    variants = {label: geom for label, (geom, _air) in resolved.items()}
+    variant_airfoils = {label: air for label, (_g, air) in resolved.items()
+                         if air is not None}
     for label, geom in variants.items():
         # Physical sanity of the table itself FIRST (the sorter above it
         # checks order, not physics): chords must be finite and positive,
@@ -1347,12 +1363,17 @@ def compare_geometries(project: Project,
     def _tag(res, label: str, condition: FlightCondition) -> None:
         res.summary["geometry_label"] = label
         res.condition_name = condition.name
+        if variant_airfoils.get(label) is not None:
+            # SC-7a fairness: this run is no longer geometry alone.
+            res.summary["non_geometry_variant"] = True
 
     # Reference pass: the first label defines, per condition, the
     # thrust/CT every other variant is trimmed to. Its own results ARE
     # the final ones -- they are never re-run.
     base_label = labels[0]
-    base_project = replace(project, geometry=variants[base_label])
+    base_project = replace(project, geometry=variants[base_label],
+                            airfoil=variant_airfoils.get(base_label,
+                                                          project.airfoil))
     targets: dict[int, float] = {}
     trim_mode: Optional[str] = None
     results: list[Results] = []
@@ -1371,7 +1392,9 @@ def compare_geometries(project: Project,
         _emit(res)
 
     for label in labels[1:]:
-        variant_project = replace(project, geometry=variants[label])
+        variant_project = replace(project, geometry=variants[label],
+                                   airfoil=variant_airfoils.get(
+                                       label, project.airfoil))
         for index, condition in enumerate(conditions):
             if trim == "none":
                 res = run_single_case(variant_project, condition,

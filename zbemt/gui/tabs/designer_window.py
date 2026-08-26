@@ -650,6 +650,15 @@ class GeometryDesignerWindow(QWidget):
         self._append_absolute_row(f"{family} {count}", geom,
                                   f"generated ({family})")
 
+    def accept_design(self, label: str, overrides: dict):
+        """Receives one design from the Design Optimization window
+        (Item 5, cross-link 11): resolves the overrides against the
+        session base into a complete geometry and appends it as an
+        absolute row whose label states its origin."""
+        geom = api.variant_geometry(self._session_base_geometry(),
+                                     dict(overrides))
+        self._append_absolute_row(label, geom, "optimizer design")
+
     def _append_absolute_row(self, label: str, geom, marker: str):
         """Appends one row whose label item carries a COMPLETE geometry.
 

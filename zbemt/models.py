@@ -789,6 +789,18 @@ class DerivativeRequest:
 
 
 @dataclass
+class VariantDef:
+    """A comparison variant that may carry more than the planform
+    (SC-7a): besides the geometry it may bring its own single airfoil
+    and blade-dynamics block. When either extra is present the run is
+    NOT geometry alone, and the comparison must say so beside its
+    ranking."""
+    geometry: RotorGeometryDef
+    airfoil: Optional[AirfoilDef] = None
+    dynamics: Optional[BladeDynamicsDef] = None
+
+
+@dataclass
 class ComparisonVariantRow:
     """One saved variant row of a comparison (SC-7a): its label and the
     override cells as ``param -> value``."""

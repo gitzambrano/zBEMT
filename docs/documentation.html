@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -8338,6 +8338,20 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         </figure>
 
                         <h3 id="designer-variants">13.1 Variants</h3>
+
+                        <p><b>Integrity and reuse.</b> Every row is validated before a run starts: a chord
+                          table that is not finite and positive, a cutout at or beyond the tip, or any
+                          project-level error stops the comparison naming the offending label. A base whose
+                          planform reads ONE chord quantity keeps the table honest too &mdash; a rectangular
+                          base renames the first column to <i>Chord c/R</i> and an elliptic one to <i>Max chord
+                          c/R</i>, disabling the tip cell in both cases instead of accepting a value that would
+                          be ignored. Two rows resolving to the same radial table warn
+                          with both labels before running (a deliberate repeat measures solver noise), the cost
+                          line states solves and a wall estimate timed from one real solve, a worker count is
+                          stored for future parallel runs, and <i>Save comparison…</i>/<i>Load comparison…</i>
+                          persist the whole setup into <code>inputs/comparisons.bemt</code> (SC-7a). When a run's
+                          variants carry their own airfoil, its results are marked as no longer
+                          geometry-only.</p>
 
                         <p><b>The physics.</b> A variant is one blade planform to compare
                           against the others. Each row of the table states one variant, and

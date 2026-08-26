@@ -348,6 +348,14 @@ class OptimizerWindow(QWidget):
             "plot and planforms of three spread members.")
         btn_report.clicked.connect(self._export_report)
         export_row.addWidget(btn_report)
+        self.btn_send_to_designer = QPushButton("Send front to comparison")
+        self.btn_send_to_designer.setEnabled(False)
+        self.btn_send_to_designer.setToolTip(
+            "Appends every Pareto member to the Geometry Designer's "
+            "variant table, each labeled with the study name and its "
+            "front index.")
+        self.btn_send_to_designer.clicked.connect(self._send_front_to_designer)
+        export_row.addWidget(self.btn_send_to_designer)
         export_row.addStretch(1)
         layout.addLayout(export_row)
         return page
@@ -694,15 +702,15 @@ class OptimizerWindow(QWidget):
         self.btn_cancel.setEnabled(True)
         self.progress.setVisible(False)
         self._outcome = outcome
-        if outcome is None:
-            return
-        self.message_label.setText(outcome.message)
+        self.btn_send_to_designer.setEnabled(
+            bool(outcome.front_params))
         keys = list(outcome.objective_keys) or (
             list(outcome.front_values[0]) if outcome.front_values else [])
         param_names = list(outcome.param_names)
         columns = [*param_names, *keys]
         self.front_table.setColumnCount(len(columns))
         self.front_table.setHorizontalHeaderLabels(columns)
+        self.message_label.setText(outcome.message)
         self.front_table.setRowCount(len(outcome.front_params))
         for r, (params, values) in enumerate(zip(outcome.front_params,
                                                   outcome.front_values)):
@@ -772,6 +780,30 @@ class OptimizerWindow(QWidget):
             line.set_picker(True)
             line.set_pickradius(6)
         canvas.mpl_connect("pick_event", on_pick)
+
+    def _send_front_to_designer(self):
+        """Cross-link 11 (Item 5): the selected study's Pareto members
+        become labeled variant rows in the Geometry Designer."""
+        outcome = self._outcome
+        if outcome is None or not outcome.front_params:
+            QMessageBox.information(self, "Nothing to send",
+                                     "Run the optimization first.")
+            return
+        main = self.parent()
+        while main is not None and not hasattr(main, "geometry_designer"):
+            main = main.parent()
+        designer = getattr(main, "geometry_designer", None) \
+            if main is not None else None
+        if designer is None:
+            QMessageBox.information(
+                self, "Designer unavailable",
+                "Open this window from the main window's Tools menu.")
+            return
+        study = (self._last_definition.name if self._last_definition
+                  else "optimization")
+        for i, params in enumerate(outcome.front_params):
+            designer.accept_design(f"{study} #{i + 1}", params)
+        main.open_geometry_designer()
 
     def _export_csv(self):
         if self._outcome is None or not self._outcome.front_params:

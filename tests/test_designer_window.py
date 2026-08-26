@@ -1079,3 +1079,31 @@ if _HAS_QT:
             fields = GeometryDesignerWindow._live_field_list(
                 results, GeometryDesignerWindow._RANKING_FIELDS)
             self.assertEqual(fields, ["CT"])
+
+
+if _HAS_QT:
+
+    class TestAcceptDesignFromOptimizer(unittest.TestCase):
+        """Item 5, cross-link 11: a Pareto member lands as an absolute
+        row whose label states study and front index."""
+
+        def test_accept_design_appends_labeled_absolute_row(self):
+            from tests.helpers import make_studies_project
+            from zbemt.gui.common import AppState
+            project = make_studies_project()
+            state = AppState()
+            state.set_project(project)
+            from zbemt.gui.tabs.designer_window import GeometryDesignerWindow
+            window = GeometryDesignerWindow(state)
+            self.addCleanup(window.deleteLater)
+            before = window.variants_table.rowCount()
+            window.accept_design("pareto #2",
+                                  {"tip_chord_norm": 0.055})
+            self.assertEqual(window.variants_table.rowCount(), before + 1)
+            label_item = window.variants_table.item(
+                window.variants_table.rowCount() - 1, window._COL_LABEL)
+            self.assertEqual(label_item.text(), "pareto #2")
+            payload = label_item.data(
+                __import__("PyQt6.QtCore", fromlist=["Qt"]).Qt.ItemDataRole.UserRole)
+            self.assertIsNotNone(payload, "the row must carry the full "
+                                           "geometry payload")
