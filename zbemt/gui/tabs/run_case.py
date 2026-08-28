@@ -329,6 +329,21 @@ class RunCaseTab(QWidget):
         results_header_row.addWidget(QLabel("<b>Results</b>"))
         results_header_row.addStretch(1)
         layout.addLayout(results_header_row)
+        # Findings about the result itself (`api.validate_results`): a
+        # marched state that never settled, a flap response past the
+        # small-angle assumption. Hidden while there is nothing to say,
+        # so an ordinary run gains no furniture (`EN-9`, `PR-2`).
+        self.findings_label = QLabel("")
+        self.findings_label.setWordWrap(True)
+        self.findings_label.setStyleSheet(
+            "color: #8a5000; background: #fff6e0; border: 1px solid #e0c080;"
+            " padding: 6px; border-radius: 3px;")
+        self.findings_label.setToolTip(
+            "What the result itself admits: a state that did not settle, or a "
+            "model read outside the range it was derived for. The numbers are "
+            "still shown -- the warning says how far to trust them.")
+        self.findings_label.setVisible(False)
+        layout.addWidget(self.findings_label)
         self.results_table = QTableWidget(0, 2)
         self.results_table.setHorizontalHeaderLabels(["Quantity", "Value"])
         # Columns sized to their CONTENT, not stretched to the edge: with
@@ -659,6 +674,7 @@ class RunCaseTab(QWidget):
             self.state.last_results = result
             self._case_results = result   # kept for quick export
             self._show_summary(result.summary)
+            self._show_findings(result.summary)
             self.state.notify_results()
             settings_desc = describe_case_settings(result.summary)
             saved_name = getattr(self, "_pending_label", None)
@@ -666,6 +682,18 @@ class RunCaseTab(QWidget):
             self.state.add_history_entry(kind="case", label=label, results=result)
             self.btn_export_csv.setEnabled(True)
             self.btn_export_tsv.setEnabled(True)
+
+    def _show_findings(self, summary: dict) -> None:
+        """Fills the findings strip, or hides it when there is nothing to
+        report."""
+        findings = api.validate_results(summary)
+        if not findings:
+            self.findings_label.clear()
+            self.findings_label.setVisible(False)
+            return
+        self.findings_label.setText(
+            "<br>".join(f"&#9888; {issue.message}" for issue in findings))
+        self.findings_label.setVisible(True)
 
     def _on_run_failed(self, message: str):
         self._reset_run_ui()

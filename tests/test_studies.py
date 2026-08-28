@@ -518,6 +518,55 @@ class TestBatchesSavedCasesRoundTrip(unittest.TestCase):
         self.assertEqual(reloaded.saved_cases[0].collective_deg, 9.0)
 
 
+class TestEndpointChordGuardOnlyGuardsWhatWasAsked(unittest.TestCase):
+    """`SC-7`. A table-space chord target rescales an endpoint, so an
+    endpoint that is already zero cannot be rescaled to anything and the
+    engine says so instead of dividing by it.
+
+    The check used to run over BOTH endpoints whatever the override
+    named. A pointed tip -- an ordinary blade, and the natural shape of
+    an elliptic one -- therefore could not accept a ROOT chord target,
+    refused for a tip factor nobody had asked for.
+    """
+
+    def _table(self, tip_chord):
+        from zbemt import geometry
+
+        geom = geometry.generate_tapered(
+            root_chord_norm=0.12, tip_chord_norm=0.04, radius_m=1.0,
+            n_stations=12)
+        chord = list(geom.chord_norm)
+        chord[-1] = tip_chord
+        return replace(geom, chord_norm=chord)
+
+    def _apply(self, geom, overrides):
+        from zbemt.studies import _apply_table_space_planform
+
+        return _apply_table_space_planform(geom, overrides)
+
+    def test_a_pointed_tip_still_accepts_a_root_target(self):
+        geom = self._table(tip_chord=0.0)
+        out = self._apply(geom, {"root_chord_norm": 0.20})
+        self.assertAlmostEqual(out.chord_norm[0], 0.20, places=9)
+        self.assertAlmostEqual(out.chord_norm[-1], 0.0, places=12,
+                                msg="an endpoint nobody targeted must not move")
+
+    def test_a_pointed_tip_still_refuses_a_tip_target(self):
+        geom = self._table(tip_chord=0.0)
+        with self.assertRaises(ValueError) as ctx:
+            self._apply(geom, {"tip_chord_norm": 0.05})
+        message = str(ctx.exception)
+        self.assertIn("tip", message)
+        self.assertIn("near zero", message)
+
+    def test_both_targets_together_still_work_on_a_normal_blade(self):
+        geom = self._table(tip_chord=0.04)
+        out = self._apply(geom, {"root_chord_norm": 0.20,
+                                  "tip_chord_norm": 0.08})
+        self.assertAlmostEqual(out.chord_norm[0], 0.20, places=9)
+        self.assertAlmostEqual(out.chord_norm[-1], 0.08, places=9)
+
+
 if __name__ == "__main__":
     unittest.main()
 

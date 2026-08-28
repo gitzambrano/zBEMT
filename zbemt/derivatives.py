@@ -137,10 +137,17 @@ _VEHICLE_STATES = ("u", "v", "w", "p", "q", "r", "phi", "theta")
 _VEHICLE_CONTROLS = ("theta_0", "theta_1c", "theta_1s")
 
 #: (output, variable) pairs the A matrix consumes.
+#:
+#: M_x is the PITCHING moment of this engine and M_y the ROLLING one --
+#: `api.summary_symbols` states it outright ("+ nose up" and "+ roll
+#: toward the advancing side"), and the damping pairs follow the same
+#: axes (q with M_x, p with M_y). The pairs below used to be the other
+#: way round, so the rigid-body model fed the pitching moment into its
+#: roll row and the rolling moment into its pitch row.
 _A_PAIRS = (
     ("Thrust", "w"), ("H", "u"), ("Y", "v"),
-    ("Mx_total", "v"), ("Mx_total", "p"),
-    ("My_total", "u"), ("My_total", "w"), ("My_total", "q"),
+    ("My_total", "v"), ("My_total", "p"),
+    ("Mx_total", "u"), ("Mx_total", "w"), ("Mx_total", "q"),
     ("Torque", "Omega"),
 )
 
@@ -152,14 +159,36 @@ def vehicle_matrices(outcome, *, mass: float, Ix: float, Iy: float,
     derivative outcome (phase 4.3).
 
     States ``[u, v, w, p, q, r, phi, theta]``; controls
-    ``[theta_0, theta_1c, theta_1s]``. Forces enter divided by the
-    mass and moments by the respective inertia; gravity couples the
-    attitude into the speed rows through the small-angle terms about a
-    ``theta_trim`` pitch; the ``hub_offset`` arm (x forward, y right,
-    z along the shaft, relative to the CG) transfers rotor forces into
-    tilting moments. The yaw row exists but an isolated rotor has no
-    first-order yaw moment -- that is why the derivative set has no r
-    excitation either.
+    ``[theta_0, theta_1c, theta_1s]``. Forces enter divided by the mass
+    and moments by the respective inertia; gravity couples the attitude
+    into the speed rows through the small-angle terms about a
+    ``theta_trim`` pitch.
+
+    AXES, stated because every sign below depends on them. ``u`` is
+    forward, ``v`` to starboard and ``w`` UPWARD -- ``w`` is the climb
+    rate the engine perturbs, not the down-positive w of standard body
+    axes. ``p`` is positive starboard-down, ``q`` positive nose-up.
+    ``hub_offset`` is ``(x forward, y starboard, z above the CG)``.
+
+    The engine's own force conventions, from `api.summary_symbols`:
+    ``H`` is positive AFT, ``Y`` positive to starboard, ``Thrust``
+    positive up, ``Mx_total`` positive nose-up (the PITCHING moment) and
+    ``My_total`` positive rolling toward the advancing side (the ROLLING
+    moment). Hence the forward-speed row carries ``-H`` and not ``+H``,
+    and the pitch row carries ``Mx`` and not ``My``.
+
+    The hub arm transfers the rotor forces into moments about the CG:
+
+        pitch  <- +z_h*H + x_h*T     (a rearward force above the CG tips
+                                      the nose up; lift ahead of the CG
+                                      does the same)
+        roll   <- +z_h*Y - y_h*T     (a starboard force above the CG
+                                      drops the starboard side; lift to
+                                      starboard raises it)
+
+    The yaw row carries only the torque reaction. An isolated rotor has
+    no tail rotor, so this is the whole of its yaw behaviour -- which is
+    why the derivative set has no r excitation either.
 
     Returns a dict with ``A``, ``B``, the state/control name tuples,
     ``eigenvalues`` and the model's stated ``limits``. Raises
@@ -181,25 +210,34 @@ def vehicle_matrices(outcome, *, mass: float, Ix: float, Iy: float,
     s_th = math.sin(math.radians(theta_trim))
 
     # Speed rows: m * dot(velocity) = rotor force + gravity attitude term.
-    A[idx["u"], idx["u"]] = outcome.matrix[("H", "u")] / mass
+    # H is positive AFT, so the FORWARD force is -H.
+    A[idx["u"], idx["u"]] = -outcome.matrix[("H", "u")] / mass
     A[idx["u"], idx["theta"]] = -g * c_th
     A[idx["v"], idx["v"]] = outcome.matrix[("Y", "v")] / mass
     A[idx["v"], idx["phi"]] = g * c_th
+    # w is the CLIMB rate and thrust is positive up, so this one is +.
     A[idx["w"], idx["w"]] = outcome.matrix[("Thrust", "w")] / mass
     A[idx["w"], idx["theta"]] = g * s_th
 
     # Rate rows: I * dot(rate) = rotor moment + hub-offset arm terms.
-    A[idx["p"], idx["v"]] = (outcome.matrix[("Mx_total", "v")]
+    # Roll takes M_y, pitch takes M_x -- see `_A_PAIRS`.
+    A[idx["p"], idx["v"]] = (outcome.matrix[("My_total", "v")]
                               + outcome.matrix[("Y", "v")] * zh) / Ix
-    A[idx["p"], idx["p"]] = outcome.matrix[("Mx_total", "p")] / Ix
-    A[idx["q"], idx["u"]] = (outcome.matrix[("My_total", "u")]
-                              + outcome.matrix[("H", "u")] * (-zh)) / Iy
-    A[idx["q"], idx["w"]] = (outcome.matrix[("My_total", "w")]
+    A[idx["p"], idx["p"]] = outcome.matrix[("My_total", "p")] / Ix
+    A[idx["q"], idx["u"]] = (outcome.matrix[("Mx_total", "u")]
+                              + outcome.matrix[("H", "u")] * zh) / Iy
+    A[idx["q"], idx["w"]] = (outcome.matrix[("Mx_total", "w")]
                               + outcome.matrix[("Thrust", "w")] * xh) / Iy
-    A[idx["q"], idx["q"]] = outcome.matrix[("My_total", "q")] / Iy
-    # Yaw damping only: dQ/dr = dQ/dOmega * Omega (chain rule).
-    A[idx["r"], idx["r"]] = (outcome.matrix[("Torque", "Omega")]
-                              * omega_scale(outcome)) / Iz
+    A[idx["q"], idx["q"]] = outcome.matrix[("Mx_total", "q")] / Iy
+    # Yaw: the only path an isolated rotor has is its torque reaction.
+    # The shaft speed is held relative to the AIRFRAME, so a fuselage
+    # yaw rate r changes the rotor's inertial speed one for one,
+    # dOmega/dr = 1 -- a DIMENSIONLESS factor. Multiplying by Omega
+    # instead, as this line used to, left the entry in 1/s^2 while every
+    # other entry of A is in 1/s, so the yaw pole was wrong by the
+    # numerical value of Omega (a factor of about 60 at 600 rpm).
+    # The reaction on the fuselage is -Q, hence the leading minus.
+    A[idx["r"], idx["r"]] = -outcome.matrix[("Torque", "Omega")] / Iz
 
     # Attitude rows (small angles): phi_dot = p, theta_dot = q.
     A[idx["phi"], idx["p"]] = 1.0
@@ -208,12 +246,12 @@ def vehicle_matrices(outcome, *, mass: float, Ix: float, Iy: float,
     # Control columns: each control's force/moment derivatives, scaled
     # by the same mass/inertia as the state rows above.
     for j, control in enumerate(_VEHICLE_CONTROLS):
-        B[idx["u"], j] = outcome.matrix.get(("H", control), 0.0) / mass
+        B[idx["u"], j] = -outcome.matrix.get(("H", control), 0.0) / mass
         B[idx["v"], j] = outcome.matrix.get(("Y", control), 0.0) / mass
         B[idx["w"], j] = outcome.matrix.get(("Thrust", control), 0.0) / mass
-        B[idx["p"], j] = outcome.matrix.get(("Mx_total", control), 0.0) / Ix
-        B[idx["q"], j] = outcome.matrix.get(("My_total", control), 0.0) / Iy
-        B[idx["r"], j] = outcome.matrix.get(("Torque", control), 0.0) / Iz
+        B[idx["p"], j] = outcome.matrix.get(("My_total", control), 0.0) / Ix
+        B[idx["q"], j] = outcome.matrix.get(("Mx_total", control), 0.0) / Iy
+        B[idx["r"], j] = -outcome.matrix.get(("Torque", control), 0.0) / Iz
 
     return {"A": A, "B": B,
              "state_names": _VEHICLE_STATES,
@@ -222,9 +260,13 @@ def vehicle_matrices(outcome, *, mass: float, Ix: float, Iy: float,
              "limits": "one rotor; no fuselage, tail or engine dynamics"}
 
 
-def omega_scale(outcome) -> float:
-    """d(Torque)/d(Omega) converts to dQ/dr by multiplying by Omega --
-    read back from the trim rpm stored on the outcome."""
+def omega_rad_s(outcome) -> float:
+    """The trim shaft speed in rad/s, read back from the outcome.
+
+    It is NOT the factor that turns dQ/dOmega into dQ/dr: that factor
+    is dOmega/dr, which is dimensionless. This function used to be
+    called `omega_scale` and used as if it were (see the yaw row of
+    `vehicle_matrices`)."""
     return float(outcome.trim_state.get("rpm", 0.0)) * 2.0 * math.pi / 60.0
 
 

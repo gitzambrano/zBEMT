@@ -447,11 +447,34 @@ class MainWindow(QMainWindow):
             "Vehicle model (optional)":              "stability_results",
             "Bar chart — one output across variables": "stability_results",
             "Damping comparison (per variant)":      "stability_results",
+            # Transient Simulation window (same reasoning). The two
+            # titles this window shares with another one ("Cost
+            # estimate", "Validation") are resolved by
+            # `_TRANSIENT_BLOCKS` below, because this map is keyed by
+            # the title alone and cannot tell the windows apart.
+            "Maneuvers stored in this project":      "maneuver_studies",
+            "Trajectory points":                     "maneuver_points",
+            "Build from two saved cases":            "maneuver_build",
+            "Sampling and march":                    "maneuver_march",
+            "Trajectory preview":                    "maneuver_preview",
+            "Time history":                          "maneuver_history",
+            "Disk map at sample":                    "maneuver_disk_map",
             # Results tab
             "Results from this session":             "results",
             "Blade dynamics":                        "flap_plots",
             "3D view":                               "view_3d",
         }
+        # Two tool windows carry a groupbox title that another window
+        # already claims. `_BLOCKS` is keyed by the title alone and
+        # cannot tell one window from another, so the override is
+        # applied where the window IS known: at its own wiring loop.
+        _TRANSIENT_BLOCKS = dict(_BLOCKS, **{
+            "Cost estimate":                         "maneuver_cost",
+            "Validation":                            "maneuver_validation",
+        })
+        _STABILITY_BLOCKS = dict(_BLOCKS, **{
+            "Export":                                "stability_export",
+        })
         for i in range(self.tabs.count()):
             tab = self.tabs.widget(i)
             for gb in tab.findChildren(_QGB):
@@ -483,7 +506,7 @@ class MainWindow(QMainWindow):
         from .tabs.transient_window import TransientWindow
         self.transient_window = TransientWindow(self.state, parent=self)
         for gb in self.transient_window.findChildren(_QGB):
-            block_id = _title_block(_BLOCKS, gb.title())
+            block_id = _title_block(_TRANSIENT_BLOCKS, gb.title())
             if block_id:
                 make_block_title_clickable(gb, block_id)
         _compact(self.transient_window)
@@ -509,7 +532,7 @@ class MainWindow(QMainWindow):
         from .tabs.stability_window import StabilityWindow
         self.stability_window = StabilityWindow(self.state, parent=self)
         for gb in self.stability_window.findChildren(_QGB):
-            block_id = _title_block(_BLOCKS, gb.title())
+            block_id = _title_block(_STABILITY_BLOCKS, gb.title())
             if block_id:
                 make_block_title_clickable(gb, block_id)
         _compact(self.stability_window)

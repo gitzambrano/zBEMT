@@ -532,4 +532,101 @@ BLOCK_HELP: dict[str, dict] = {
         ],
         "anchor": "cap-stability-run",
     },
+    "stability_export": {
+        "title": "Export — the derivative matrix as a file",
+        "body": [
+            "Export writes what is already computed. It runs no solve and cannot change a derivative.",
+            "The CSV file carries the matrix as it stands on screen: one row per output, one column per variable. The HTML report adds the trim point, the perturbation steps, the sign checks and the step-size error of every entry, which is what makes the numbers interpretable later. A matrix without its trim point and its steps is not.",
+            "Run the study before exporting. With no result in the window there is nothing to write.",
+        ],
+        "anchor": "cap-stability-run",
+    },
+    "maneuver_studies": {
+        "title": "Maneuvers stored in this project",
+        "body": [
+            "A maneuver is a persisted trajectory: a list of flight conditions in time, together with the sampling and march settings that turn the list into a run. It lives in inputs/maneuvers.bemt beside the project and survives the session.",
+            "<b>New</b> appends a two-point trajectory as a starting point. <b>Duplicate</b> copies what is on screen under a new name, which is the cheap way to march the same trajectory with another sample interval. <b>Rename</b> changes only the name. <b>Delete</b> removes the maneuver from the project after confirmation.",
+            "An edit in this window writes the maneuver back into the project at once and marks the project unsaved. Saving the project is the separate step that puts the maneuver on disk.",
+        ],
+        "anchor": "cap-transiente",
+    },
+    "maneuver_points": {
+        "title": "Trajectory points — the prescribed flight condition in time",
+        "body": [
+            "Each row is one node of the trajectory: the time, the in-plane advance ratio, the axial speed, the collective, the two cyclic harmonics and the rotational speed. Together the columns fix the whole flight condition at that instant.",
+            "The rows are nodes, not samples. Their times must increase strictly, and the sampler builds the uniform grid between them. Therefore the table states the shape of the input, and the Sampling and march block states the resolution it is read at.",
+            "A node without a rotational speed inherits the nearest earlier value, so the first node must carry one: the inflow march non-dimensionalizes by &Omega;R and cannot start without a rotation.",
+            "<b>Add point</b> appends a node half a second after the last one. <b>Remove selected</b> deletes the selected rows. A row that is still half typed is skipped until every one of its cells holds a number.",
+        ],
+        "anchor": "cap-transiente",
+    },
+    "maneuver_build": {
+        "title": "Build from two saved cases — a ramp between known conditions",
+        "body": [
+            "This block writes the trajectory from two conditions the project already holds, which is faster and safer than typing the nodes by hand. Select a start case, an end case and a duration, then press <b>Build ramp</b>.",
+            "The result is a two-node trajectory: the start condition at the origin of time, and the end condition after the duration plus a short hold. The hold is a quarter of the duration, up to half a second, and it keeps both boundary conditions visible in the time history.",
+            "Building a ramp replaces the whole point table. When the end case carries no rotational speed, the start case supplies it.",
+        ],
+        "anchor": "cap-transiente",
+    },
+    "maneuver_march": {
+        "title": "Sampling and march — how the trajectory becomes a run",
+        "body": [
+            "These settings turn the trajectory into a solve. The sampler resamples the nodes onto a uniform grid, and the march integrates the three Pitt-Peters inflow states along that grid. Every sample inherits the state of the sample before it, so the three states are the marched degrees of freedom.",
+            "<b>Interpolation</b> decides how a sample reads the trajectory between two nodes. Linear blends every quantity between the neighboring nodes. Hold keeps the value of the last node whose time is not past, which is what a step input needs.",
+            "<b>Sample interval</b> is the output resolution: one sample is one row of the time history and one disk map. <b>Sub-steps per sample</b> refine the integration inside one sample without adding rows. The inflow states are stiff, therefore the march integrates them with an exponential step that stays stable at a coarse sub-step count.",
+            "<b>Initial state</b> decides where the march starts. Equilibrium solves the steady inflow at the first sample, so no start-up transient appears. Zero starts the three states from zero and shows the transient decay, which is the honest choice when the first sample is not a settled condition.",
+            "<b>March dynamic stall</b> threads the Øye separation state from sample to sample instead of restarting it at every sample, so separation stays continuous along the trajectory. <b>March flapping</b> solves the periodic flap response at every sample and feeds the motion into the loads. That response stays quasi-steady inside one sample, therefore the march does not resolve the flap mode itself. Each control needs its own model enabled on the Airfoil tab or on the Geometry tab, and stays visible and disabled otherwise.",
+        ],
+        "anchor": "cap-transiente",
+    },
+    "maneuver_cost": {
+        "title": "Cost estimate — the size of the march before it runs",
+        "body": [
+            "The line states the sample count times the sub-steps per sample, which is almost exactly the number of solver calls the march makes. It is arithmetic on the settings above and runs no physics.",
+            "Both factors are cheap to change and expensive to ignore. Halving the sample interval doubles the samples, and doubling the sub-steps doubles the calls again. Read the number before you press <b>Run maneuver</b>.",
+        ],
+        "anchor": "cap-transiente",
+    },
+    "maneuver_validation": {
+        "title": "Validation — the static findings for this trajectory",
+        "body": [
+            "The panel lists what can be checked without a solve, in the same style as the Config tab. It re-reads the form after every edit.",
+            "An <b>error</b> is a condition the march cannot start from: fewer than two nodes, times that do not increase strictly, no rotational speed from the first node onward, or a sample interval that is not positive. A sample interval larger than the shortest interval between two nodes is an error for the same reason: the grid would step over a node and lose part of the prescribed input.",
+            "A <b>warning</b> states a consequence and leaves the decision to you. A trajectory shorter than about five rotor revolutions does not give the inflow states time to shed their initial condition, so a start-up transient remains in the result. A marched separation state on a fine azimuthal mesh costs one sequential step per azimuthal station, which is what makes such a run expensive.",
+        ],
+        "anchor": "cap-transiente",
+    },
+    "maneuver_preview": {
+        "title": "Trajectory preview — the sampled input, not the table",
+        "body": [
+            "The figure draws the in-plane component and the axial speed of every sample against time. It shows the grid the march will read, therefore an interpolation or a sample interval that misrepresents the intended input is visible here before any solver time is spent.",
+            "The two interpolation rules look different on purpose: Hold draws a staircase and Linear draws straight segments between nodes.",
+            "A trajectory that cannot be sampled states the reason in place of the curve. The usual cause is a missing rotational speed or a node order that the Validation panel already reports.",
+        ],
+        "anchor": "cap-transiente",
+    },
+    "maneuver_history": {
+        "title": "Time history — one row per sample",
+        "body": [
+            "The table holds the marched result: the time, the load coefficients, the three inflow states, the collective, the interval the march actually integrated and the sub-step count of that step.",
+            "The three states describe the whole inflow field of Pitt-Peters, with x = r/R:"
+            "\n\n"
+            r"$$\lambda_i(r,\psi) = \nu_0 + \nu_c\,x\cos\psi + \nu_s\,x\sin\psi$$"
+            "\n\n"
+            "&nu;<sub>0</sub> is the uniform part and &nu;<sub>c</sub> and &nu;<sub>s</sub> the two first-harmonic tilts of the disk.",
+            "Reading the states across time is reading the lag of the wake. The apparent-mass terms of the Pitt-Peters system give the disk a time constant of its own, so the inflow does not follow a control input at once and the loads answer the input late. A steady solve at the same condition cannot show that delay, because it assumes the states already settled.",
+            "The marched interval and the sub-step count are recorded per row so that the result stays interpretable later. <b>Export CSV</b> writes this table. <b>Export report</b> writes the self-contained HTML report of the whole maneuver.",
+        ],
+        "anchor": "cap-transiente",
+    },
+    "maneuver_disk_map": {
+        "title": "Disk map at sample — where the transient happened",
+        "body": [
+            "The map draws the induced inflow &lambda;<sub>i</sub> over the disk at one sample of the march. The spin box selects the sample index, so stepping through it walks the transient in space.",
+            "The time history states what the integrated loads did. This map states where on the disk they did it. During a transient the first harmonic of the inflow lags the input, therefore the tilt of the field here is not the tilt a steady solve at the same condition returns.",
+            "One map exists per sample, so the sample interval also sets how finely the transient can be examined in space.",
+        ],
+        "anchor": "cap-transiente",
+    },
 }

@@ -303,5 +303,77 @@ def _project():
     return make_studies_project()
 
 
+class TestPolynomialMutationIsBounded(unittest.TestCase):
+    """`SC-13`. Deb's polynomial mutation scales its step by the distance
+    to the NEARER bound, so the mutated value is inside the box by
+    construction.
+
+    The simplified form -- draw the step from u alone, then clip -- was
+    used here. In the middle of the range the two are the same operator.
+    Near an edge they are not: every step that would have left the box
+    landed exactly ON the bound, so the bounds collected probability
+    mass the operator never meant to give them. A search whose optimum
+    sits at a bound then looks converged because the operator kept
+    putting designs there, not because the search found them.
+    """
+
+    def _samples(self, start, n=4000, eta=20.0, seed=0):
+        import numpy as np
+        from zbemt.optimization import polynomial_mutation
+
+        rng = np.random.default_rng(seed)
+        lower, upper = np.array([0.0]), np.array([1.0])
+        return np.array([
+            polynomial_mutation(rng, np.array([start]), lower, upper,
+                                 eta, 1.0)[0] for _ in range(n)])
+
+    def test_no_mass_piles_on_a_bound(self):
+        for start in (0.001, 0.02, 0.98, 0.999):
+            with self.subTest(x=start):
+                values = self._samples(start)
+                on_bound = ((values <= 1e-12) | (values >= 1.0 - 1e-12)).mean()
+                self.assertLess(on_bound, 0.01,
+                                 "the clip is doing the operator's job")
+
+    def test_it_stays_inside_the_box(self):
+        values = self._samples(0.02)
+        self.assertGreaterEqual(values.min(), 0.0)
+        self.assertLessEqual(values.max(), 1.0)
+
+    def test_it_is_symmetric_in_the_middle(self):
+        """Away from both bounds the operator has no reason to prefer a
+        direction, so the mean stays on the starting point."""
+        values = self._samples(0.5, n=8000)
+        self.assertAlmostEqual(float(values.mean()), 0.5, delta=0.01)
+
+    def test_it_leans_away_from_a_near_bound(self):
+        """At x = 0.02 there is far more room above than below, and the
+        bounded operator uses it. The clipped form could not: it drew
+        the same symmetric step and lost half of it to the bound."""
+        values = self._samples(0.02, n=8000)
+        self.assertGreater(float(values.mean()), 0.02)
+
+    def test_a_zero_rate_changes_nothing(self):
+        import numpy as np
+        from zbemt.optimization import polynomial_mutation
+
+        rng = np.random.default_rng(3)
+        x = np.array([0.3, 0.7])
+        out = polynomial_mutation(rng, x, np.array([0.0, 0.0]),
+                                   np.array([1.0, 1.0]), 20.0, 0.0)
+        np.testing.assert_allclose(out, x)
+
+    def test_a_variable_with_no_range_survives(self):
+        """lower == upper is a pinned variable, not a division by zero."""
+        import numpy as np
+        from zbemt.optimization import polynomial_mutation
+
+        rng = np.random.default_rng(4)
+        out = polynomial_mutation(rng, np.array([2.0]), np.array([2.0]),
+                                   np.array([2.0]), 20.0, 1.0)
+        self.assertTrue(np.all(np.isfinite(out)))
+        self.assertAlmostEqual(float(out[0]), 2.0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -25,21 +25,41 @@ from PyQt6.QtWidgets import (
 
 from ..common import AppState, CanvasHost, show_error, show_all_options_in
 from ..workers import DerivativeWorker, launch_worker
-from ... import api
+from ... import api, nomenclature
 from ...models import DerivativeRequest, FlightCondition
 from ...viz import plots
 
 #: The state/control variables and their display labels, in request order.
-_VARIABLE_LABELS = (
-    ("u", "u — longitudinal speed [m/s]"),
-    ("v", "v — lateral speed [m/s]"),
-    ("w", "w — axial speed [m/s]"),
-    ("p", "p — roll rate [rad/s]"),
-    ("q", "q — pitch rate [rad/s]"),
-    ("Omega", "Omega — rotor speed [rpm]"),
-    ("theta_0", "θ₀ — collective [deg]"),
-    ("theta_1c", "θ₁c — cyclic cosine [deg]"),
-    ("theta_1s", "θ₁s — cyclic sine [deg]"),
+#: The SHORT symbol of each perturbation variable, for a heading with
+#: no room for the sentence. "Omega" spelled out was a plain-text Greek
+#: letter on a user-visible surface, which `PR-4` forbids; the rest of
+#: the program has always printed the letter.
+_VARIABLE_SYMBOL = {
+    "u": "u", "v": "v", "w": "w", "p": "p", "q": "q",
+    "Omega": "Ω",
+    "theta_0": "θ₀",
+    "theta_1c": "θ₁c",
+    "theta_1s": "θ₁s",
+}
+
+_VARIABLE_UNIT = {
+    "u": "m/s", "v": "m/s", "w": "m/s", "p": "rad/s", "q": "rad/s",
+    "Omega": "rpm", "theta_0": "deg", "theta_1c": "deg", "theta_1s": "deg",
+}
+
+_VARIABLE_LABELS = tuple(
+    (key, f"{_VARIABLE_SYMBOL[key]} — {text} [{_VARIABLE_UNIT[key]}]")
+    for key, text in (
+        ("u", "longitudinal speed"),
+        ("v", "lateral speed"),
+        ("w", "axial speed"),
+        ("p", "roll rate"),
+        ("q", "pitch rate"),
+        ("Omega", "rotor speed"),
+        ("theta_0", "collective"),
+        ("theta_1c", "cyclic cosine"),
+        ("theta_1s", "cyclic sine"),
+    )
 )
 _STATE_NAMES = ("u", "v", "w", "p", "q", "Omega")
 _CONTROL_NAMES = ("theta_0", "theta_1c", "theta_1s")
@@ -754,15 +774,39 @@ class StabilityWindow(QWidget):
         self.message_label.setText(outcome.message)
         variables = sorted({v for (_k, v) in outcome.matrix})
         keys = sorted({k for (k, _v) in outcome.matrix})
+        # The engine keys are kept HERE, and only the symbols are shown.
+        # Reading the key back out of the header text -- as this window
+        # used to -- is what forced the raw `Mx_total` and `theta_0` on
+        # screen: the moment the heading became readable, the lookup
+        # broke (`PR-4`, `PR-8`).
+        self._matrix_keys = keys
+        self._matrix_variables = variables
         self.matrix_table.setColumnCount(1 + len(variables))
-        self.matrix_table.setHorizontalHeaderLabels(["output", *variables])
+        self.matrix_table.setHorizontalHeaderLabels(
+            ["Output", *(self._symbol(v) for v in variables)])
         self.matrix_table.setRowCount(len(keys))
-        self.matrix_table.setVerticalHeaderLabels(keys)
+        self.matrix_table.setVerticalHeaderLabels(
+            [self._symbol(k) for k in keys])
         self._refresh_matrix()
         self._refresh_sign_checks(outcome)
         needed = {"u", "v", "w", "p", "q", "Omega"}
         self.vehicle_check.setEnabled(needed <= set(request_states(outcome)))
         self._refresh_bar_chart()
+
+    def _symbol(self, engine_key: str) -> str:
+        """The name the rest of the program shows for this quantity, in
+        the project's own axis convention.
+
+        The OUTPUTS are engine keys that `nomenclature` knows. The
+        perturbation VARIABLES are not -- `theta_0` is a control of this
+        window, not a summary column -- so they carry their own short
+        symbols above."""
+        if engine_key in _VARIABLE_SYMBOL:
+            return f"{_VARIABLE_SYMBOL[engine_key]} [{_VARIABLE_UNIT[engine_key]}]"
+        propeller = bool(self.state.is_propeller()) if self.state else False
+        symbol = nomenclature.symbol_text(engine_key, propeller)
+        unit = nomenclature.unit(engine_key)
+        return f"{symbol} [{unit}]" if unit and unit != "-" else symbol
 
     def _refresh_matrix(self):
         outcome = self._outcome
@@ -770,10 +814,9 @@ class StabilityWindow(QWidget):
             return
         values = (outcome.matrix_nondim if self.radio_nondim.isChecked()
                    else outcome.matrix)
-        for r in range(self.matrix_table.rowCount()):
-            key = self.matrix_table.verticalHeaderItem(r).text()
-            for c in range(1, self.matrix_table.columnCount()):
-                variable = self.matrix_table.horizontalHeaderItem(c).text()
+        for r, key in enumerate(getattr(self, "_matrix_keys", [])):
+            for c, variable in enumerate(
+                    getattr(self, "_matrix_variables", []), start=1):
                 value = values.get((key, variable), "")
                 text = (f"{float(value):.5g}"
                          if isinstance(value, (int, float)) else str(value))

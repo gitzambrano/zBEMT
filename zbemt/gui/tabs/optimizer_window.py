@@ -12,6 +12,8 @@ this window is the multi-objective one.
 
 from __future__ import annotations
 
+import os
+
 import time
 from dataclasses import replace
 
@@ -241,6 +243,14 @@ class OptimizerWindow(QWidget):
             '"mutation_rate" — 0 means ONE OVER THE VARIABLE COUNT (the '
             "NSGA-II default). Without it the population contracts into a "
             "corner.")
+        self.workers_spin = QSpinBox()
+        self.workers_spin.setRange(1, max(1, (os.cpu_count() or 1)))
+        self.workers_spin.setValue(1)
+        self.workers_spin.setToolTip(
+            '"parallel_workers" — how many designs are solved at the same '
+            "time. Each design is an independent solve, so the search "
+            "scales almost linearly until it runs out of cores. One means "
+            "run them one after another.")
         rows = [
             ("Condition:", self.condition_combo),
             ("Algorithm:", self.algorithm_combo),
@@ -250,6 +260,7 @@ class OptimizerWindow(QWidget):
             ("Crossover η_c:", self.crossover_spin),
             ("Mutation η_m:", self.mutation_spin),
             ("Mutation rate:", self.rate_spin),
+            ("Parallel workers:", self.workers_spin),
         ]
         for r, (label, widget) in enumerate(rows):
             grid.addWidget(QLabel(label), r, 0)
@@ -455,7 +466,8 @@ class OptimizerWindow(QWidget):
             seed=self.seed_spin.value(),
             crossover_eta=self.crossover_spin.value(),
             mutation_eta=self.mutation_spin.value(),
-            mutation_rate=self.rate_spin.value())
+            mutation_rate=self.rate_spin.value(),
+            parallel_workers=self.workers_spin.value())
 
     @staticmethod
     def _cell_float(item, default: float) -> float:
@@ -484,6 +496,9 @@ class OptimizerWindow(QWidget):
         self.population_spin.setValue(int(definition.population))
         self.generations_spin.setValue(int(definition.generations))
         self.seed_spin.setValue(int(definition.seed))
+        self.workers_spin.setValue(
+            max(1, min(int(getattr(definition, "parallel_workers", 1) or 1),
+                        self.workers_spin.maximum())))
         self.crossover_spin.setValue(float(definition.crossover_eta))
         self.mutation_spin.setValue(float(definition.mutation_eta))
         self.rate_spin.setValue(float(definition.mutation_rate))

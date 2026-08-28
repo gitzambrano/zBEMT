@@ -140,10 +140,20 @@ class TestRunFillsTheMatrix(StabilityWindowBase):
 
         columns = [self.window.matrix_table.horizontalHeaderItem(c).text()
                     for c in range(self.window.matrix_table.columnCount())]
-        self.assertEqual(columns[0], "output")
-        rows = {self.window.matrix_table.verticalHeaderItem(r).text()
-                 for r in range(self.window.matrix_table.rowCount())}
-        self.assertEqual(rows, {"Thrust", "Mx_total", "My_total"})
+        self.assertEqual(columns[0], "Output")
+        # The matrix shows SYMBOLS, not engine keys: `nomenclature` owns
+        # every name the user meets, and it is what makes the letters
+        # rotate in propeller mode (`PR-4`, `PR-8`). The keys stay on the
+        # window, which is how the cells are still filled.
+        self.assertEqual(self.window._matrix_keys,
+                          ["Mx_total", "My_total", "Thrust"])
+        rows = [self.window.matrix_table.verticalHeaderItem(r).text()
+                 for r in range(self.window.matrix_table.rowCount())]
+        for raw in ("Mx_total", "My_total", "theta_0"):
+            self.assertNotIn(raw, rows + columns,
+                              f"{raw} is an engine key, not a name for a "
+                              "reader")
+        self.assertTrue(any("M" in r for r in rows), rows)
 
         # Sign checks read PASS on this healthy toy.
         text = self.window.sign_panel.text()

@@ -256,7 +256,15 @@ def _trim_by_newton(project: Project, condition: FlightCondition, *,
     returned by ``residual(results)`` to zero, with a forward-difference
     numerical Jacobian (one base solve plus len(controls) perturbed solves
     per step). Raises SolveCancelled through the inner runs and between
-    steps."""
+    steps.
+
+    The loop used to end at ``max_iter`` and hand back the last solve
+    whatever its residual, so a trim that never converged was returned
+    as a trim and every derivative taken about it linearised around a
+    point that is not one. It now records the residual it reached and
+    raises when that residual is still above the tolerance, in the same
+    spirit as `EN-8`: reject the answer rather than return a plausible
+    number."""
     x = np.array([getattr(condition, c) for c in controls], dtype=float)
 
     def _eval(xv) -> Results:
@@ -288,6 +296,18 @@ def _trim_by_newton(project: Project, condition: FlightCondition, *,
         x = x + dx
         res = _eval(x)
         r = np.asarray(residual(res), dtype=float)
+
+    reached = float(np.max(np.abs(r)))
+    res.summary["trim_residual"] = reached
+    res.summary["trim_converged"] = bool(reached <= tol)
+    if reached > tol:
+        names = ", ".join(controls)
+        raise ValueError(
+            f"the trim over ({names}) did not converge: after {max_iter} "
+            f"Newton steps the largest residual is {reached:.6g}, above the "
+            f"tolerance {tol:.6g}. Raise the iteration count, loosen the "
+            "tolerance, or start from a condition closer to the target -- a "
+            "control set that does not solve the trim is not a trim.")
     return res
 
 
@@ -1154,19 +1174,28 @@ def _apply_table_space_planform(geom: RotorGeometryDef,
             "last one applied.")
 
     if "root_chord_norm" in overrides or "tip_chord_norm" in overrides:
-        c_root = float(overrides.get("root_chord_norm", chord[0]))
-        c_tip = float(overrides.get("tip_chord_norm", chord[-1]))
-        for endpoint_name, base_value, wanted in (
-                ("root", chord[0], c_root), ("tip", chord[-1], c_tip)):
-            if abs(base_value) <= 1e-12:
+        # The near-zero check belongs to the endpoint the user ASKED
+        # for. Applied to both, it made a pointed tip -- chord[-1] = 0,
+        # an ordinary blade and the natural shape of an elliptic one --
+        # unable to accept a ROOT chord target, for a tip factor the
+        # override never mentioned. The untargeted endpoint keeps a
+        # factor of one, which leaves it exactly where it was.
+        factors = {}
+        for name, key, base in (("root", "root_chord_norm", chord[0]),
+                                 ("tip", "tip_chord_norm", chord[-1])):
+            if key not in overrides:
+                factors[name] = 1.0
+                continue
+            wanted = float(overrides[key])
+            if abs(base) <= 1e-12:
                 raise ValueError(
-                    f"_apply_table_space_planform: the {endpoint_name} "
+                    f"_apply_table_space_planform: the {name} "
                     "chord of this table is near zero "
-                    f"({base_value:.3e}), so no factor can rescale it to "
+                    f"({base:.3e}), so no factor can rescale it to "
                     f"the requested {wanted:.6g}. Edit the table itself "
                     "(Geometry tab) before targeting that endpoint.")
-        f_root = c_root / chord[0]
-        f_tip = c_tip / chord[-1]
+            factors[name] = wanted / base
+        f_root, f_tip = factors["root"], factors["tip"]
         chord = chord * (f_root + (f_tip - f_root) * x)
     if "chord_norm" in overrides:
         mean = max(float(np.mean(chord)), 1e-12)
@@ -1344,9 +1373,6 @@ def compare_geometries(project: Project,
                 context=f"variant {label!r}")
         except ValueError as exc:
             raise ValueError(f"compare_geometries: {exc}") from exc
-        sub_project = _Project(name=str(label), config=project.config,
-                                geometry=geom, airfoil=project.airfoil,
-                                airfoil_sections=project.airfoil_sections)
         issues = validate_project(project.config, project.airfoil,
                                    airfoil_sections=project.airfoil_sections,
                                    conditions=conditions, geometry=geom)
@@ -1403,7 +1429,7 @@ def compare_geometries(project: Project,
     # every case depends on the reference targets computed above anyway,
     # so workers > 1 falls back to the serial loops untouched.
     if int(workers) > 1 and trim == "none" and len(labels) > 1:
-        from concurrent.futures import ProcessPoolExecutor
+        from concurrent.futures import ProcessPoolExecutor, as_completed
         jobs = []
         for label in labels[1:]:
             variant_project = replace(
@@ -1418,14 +1444,20 @@ def compare_geometries(project: Project,
                 futures = {pool.submit(_comparison_case_task, proj, cond):
                             (label, index)
                            for label, index, cond, proj in jobs}
-                for future in list(futures):
-                    pass   # keys kept for ordered assembly
-                pending = list(futures.items())
-                while pending:
-                    fut, key = pending.pop(0)
+                # AS COMPLETED, not in submission order. Taking the
+                # futures in the order they were submitted meant the
+                # cancel was only read between one `result()` and the
+                # next, so a cancel pressed during the FIRST long solve
+                # waited for that solve to end before it was honoured --
+                # and every later result already computed sat unread
+                # behind it. The results are keyed, so the assembly
+                # order does not depend on the completion order
+                # (`PR-11`).
+                for fut in as_completed(futures):
                     if should_cancel is not None and should_cancel():
                         pool.shutdown(wait=False, cancel_futures=True)
                         raise SolveCancelled()
+                    key = futures[fut]
                     res = fut.result()
                     label, index = key
                     condition = conditions[index]

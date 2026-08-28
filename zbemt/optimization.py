@@ -190,15 +190,42 @@ def sbx_crossover(rng: np.random.Generator, p1: np.ndarray,
 def polynomial_mutation(rng: np.random.Generator, x: np.ndarray,
                          lower: np.ndarray, upper: np.ndarray,
                          eta: float, rate: float) -> np.ndarray:
-    """Polynomial mutation at the given per-gene rate."""
+    """Deb's BOUNDED polynomial mutation, at the given per-gene rate.
+
+    The step is scaled by how far the gene sits from the NEARER bound:
+
+        d1 = (x - lower)/(upper - lower),   d2 = (upper - x)/(upper - lower)
+
+        u < 0.5 :  delta = [2u + (1-2u)(1-d1)^(eta+1)]^(1/(eta+1)) - 1
+        u >= 0.5:  delta = 1 - [2(1-u) + 2(u-0.5)(1-d2)^(eta+1)]^(1/(eta+1))
+
+    so a gene ON a bound cannot be pushed across it and the distribution
+    is already inside the box before any clipping.
+
+    The simplified form -- delta from u alone, then clip -- was used
+    here. It is the same operator in the middle of the range and a
+    different one near an edge: every step that would have left the box
+    landed exactly ON the bound, so the bounds collected probability
+    mass that the operator was never meant to give them, and a search
+    whose optimum sits at a bound looked more converged than it was.
+    """
     mask = rng.random(x.size) < rate
     if not np.any(mask):
         return x
+    span = np.asarray(upper, dtype=float) - np.asarray(lower, dtype=float)
+    # A variable with no range left has nothing to mutate.
+    safe_span = np.where(np.abs(span) < 1e-15, 1.0, span)
+    d1 = np.clip((x - lower) / safe_span, 0.0, 1.0)
+    d2 = np.clip((upper - x) / safe_span, 0.0, 1.0)
     u = rng.random(x.size)
-    delta = np.where(u < 0.5,
-                      (2.0 * u) ** (1.0 / (eta + 1.0)) - 1.0,
-                      1.0 - (2.0 * (1.0 - u)) ** (1.0 / (eta + 1.0)))
-    x = np.where(mask, x + delta * (upper - lower) * 0.5, x)
+    power = 1.0 / (eta + 1.0)
+    delta = np.where(
+        u < 0.5,
+        (2.0 * u + (1.0 - 2.0 * u) * (1.0 - d1) ** (eta + 1.0)) ** power - 1.0,
+        1.0 - (2.0 * (1.0 - u)
+               + 2.0 * (u - 0.5) * (1.0 - d2) ** (eta + 1.0)) ** power)
+    mutated = x + delta * span
+    x = np.where(mask & (np.abs(span) >= 1e-15), mutated, x)
     return np.clip(x, lower, upper)
 
 

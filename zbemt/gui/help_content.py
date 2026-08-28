@@ -1674,4 +1674,68 @@ FIELD_HELP: dict[str, dict] = {
         "range": "−30° to +30°",
         "options": None
     },
+    "sideslip_deg": {
+        "title": "Sideslip of the In-Plane Flow",
+        "definition": (
+            "Angle ψ<sub>w</sub> that turns the direction of the in-plane free "
+            "stream around the shaft, without changing its magnitude.\n\n"
+            "The tangential speed at each azimuth becomes "
+            "U<sub>T</sub> = Ωr + V·sin(ψ − ψ<sub>w</sub>), and the spanwise component "
+            "becomes U<sub>R</sub> = V·cos(ψ − ψ<sub>w</sub>). The along-shaft flow is "
+            "untouched.\n\n"
+            "Zero reproduces the plain edgewise case, so every condition saved "
+            "before this field existed keeps its exact behavior."),
+        "unit": "deg",
+        "equation": r"U_T = \Omega r + V\sin(\psi-\psi_w),\qquad U_R = V\cos(\psi-\psi_w)",
+        "effect": (
+            "At ψ<sub>w</sub> = 90° the advance comes from the side: the in-plane "
+            "force H and the side force Y trade places, while thrust and torque "
+            "stay put.\n\n"
+            "It is the state a lateral-velocity derivative perturbs, so a "
+            "stability study sets it to a small value and reads the hub loads "
+            "it produces."),
+        "range": "−89° to +89° (0° for straight edgewise flight)",
+        "options": None
+    },
+    "p_rate_deg_s": {
+        "title": "Hub Roll Rate",
+        "definition": (
+            "Angular rate p of the hub about the longitudinal axis, positive "
+            "when the rotor rolls toward the advancing side.\n\n"
+            "A rolling hub carries every blade element out of the disk plane. "
+            "The perpendicular speed U<sub>P</sub>, which counts downward, "
+            "receives −r·p·sinψ, and with flap freedom the flap balance "
+            "receives a gyroscopic forcing of its own."),
+        "unit": "deg/s",
+        "equation": r"U_P \mathrel{-}= r\,p\sin\psi,\qquad \bar{M}_{gyro} = \frac{2p\cos\psi}{\Omega}",
+        "effect": (
+            "The hub moment it produces is the roll damping, the derivative of "
+            "the rolling moment M<sub>y</sub> with respect to p.\n\n"
+            "A rotor with no flap freedom still feels the aerodynamic part of "
+            "the effect, because the perpendicular speed reaches the whole "
+            "blade-element aerodynamics."),
+        "range": "−360 to +360 deg/s (0 in steady flight; a few deg/s for a derivative step)",
+        "options": None
+    },
+    "q_rate_deg_s": {
+        "title": "Hub Pitch Rate",
+        "definition": (
+            "Angular rate q of the hub about the lateral axis, positive nose "
+            "up.\n\n"
+            "A pitching hub carries every blade element out of the disk plane. "
+            "The perpendicular speed U<sub>P</sub>, which counts downward, "
+            "receives −r·q·cosψ, so a nose-up rate raises the element at the "
+            "nose of the disk, and with flap freedom the flap balance receives "
+            "a gyroscopic forcing of its own."),
+        "unit": "deg/s",
+        "equation": r"U_P \mathrel{-}= r\,q\cos\psi,\qquad \bar{M}_{gyro} = -\frac{2q\sin\psi}{\Omega}",
+        "effect": (
+            "The hub moment it produces is the pitch damping, the derivative of "
+            "the pitching moment M<sub>x</sub> with respect to q.\n\n"
+            "A rotor with no flap freedom still feels the aerodynamic part of "
+            "the effect, because the perpendicular speed reaches the whole "
+            "blade-element aerodynamics."),
+        "range": "−360 to +360 deg/s (0 in steady flight; a few deg/s for a derivative step)",
+        "options": None
+    },
 }

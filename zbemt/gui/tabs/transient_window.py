@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
 
 from ..common import AppState, CanvasHost, show_error
 from ..workers import ManeuverWorker, launch_worker
-from ... import api
+from ... import api, nomenclature
 from ...models import ManeuverDefinition, ManeuverPoint
 from ...viz import plots
 
@@ -41,10 +41,14 @@ def _save_dialog(parent, default_name: str, kind: str = "csv") -> str:
 class TransientWindow(QWidget):
     """Two-page tool: Trajectory, then Run and results."""
 
-    _POINT_COLUMNS = ["t [s]", "mu", "V [m/s]",
-                      "Collective [deg]", "Cyclic c [deg]",
-                      "Cyclic s [deg]", "RPM"]
-    #: Engine key per editable column of the point table.
+    #: Engine key per editable column of the point table. The HEADINGS
+    #: are built from these through `nomenclature`, not written out
+    #: here: a second table of symbols is what `PR-8` exists to stop,
+    #: and a literal "mu" is a plain-text Greek letter on a user-visible
+    #: surface, which `PR-4` forbids. Going through `nomenclature` also
+    #: makes the columns rotate in propeller mode, where the in-plane
+    #: component is the cross-flow and the axial one is the flight
+    #: speed.
     _POINT_FIELDS = ["t_s", "mu_x", "Vz", "collective_deg",
                       "cyclic_c_deg", "cyclic_s_deg", "rpm"]
 
@@ -80,6 +84,26 @@ class TransientWindow(QWidget):
     # ------------------------------------------------------------------
     # Page 1: Trajectory
     # ------------------------------------------------------------------
+    def _point_columns(self) -> list:
+        """Column headings in the mode's own axis convention."""
+        propeller = bool(self.state.is_propeller()) if self.state else False
+        out = []
+        for key in self._POINT_FIELDS:
+            if key == "t_s":
+                # Time is not an axis, so `nomenclature` does not carry
+                # it and it does not rotate with the mode.
+                out.append("t [s]")
+                continue
+            symbol = nomenclature.symbol_text(key, propeller)
+            unit = nomenclature.unit(key)
+            out.append(f"{symbol} [{unit}]" if unit and unit != "-" else symbol)
+        return out
+
+    def _refresh_point_columns(self) -> None:
+        """The letters rotate with the mode, so the headings are rebuilt
+        when the project changes."""
+        self.points_table.setHorizontalHeaderLabels(self._point_columns())
+
     def _build_trajectory_page(self) -> QWidget:
         page = QWidget()
         layout = QHBoxLayout(page)
@@ -109,8 +133,8 @@ class TransientWindow(QWidget):
 
         points_box = QGroupBox("Trajectory points")
         points_layout = QVBoxLayout(points_box)
-        self.points_table = QTableWidget(0, len(self._POINT_COLUMNS))
-        self.points_table.setHorizontalHeaderLabels(self._POINT_COLUMNS)
+        self.points_table = QTableWidget(0, len(self._POINT_FIELDS))
+        self.points_table.setHorizontalHeaderLabels(self._point_columns())
         self.points_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch)
         self.points_table.itemChanged.connect(self._on_point_edited)
@@ -316,6 +340,10 @@ class TransientWindow(QWidget):
             for m in project.maneuvers:
                 self.maneuver_combo.addItem(m.name)
         self.maneuver_combo.blockSignals(False)
+        # The axis letters rotate with the mode, so the headings are
+        # rebuilt whenever the project changes -- not only when the table
+        # is first built.
+        self._refresh_point_columns()
         self._refresh_saved_cases()
         self._load_selected_definition()
         self._refresh_gating()

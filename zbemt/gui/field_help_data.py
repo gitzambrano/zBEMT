@@ -56,6 +56,13 @@ _NOT_THE_FIELDS_SECTION = frozenset({
         "root_chord_norm", "tip_chord_norm", "twist_root_deg",
         "twist_tip_deg", "max_chord_norm", "chord_norm", "n_blades",
         "radius_m", "root_cutout_norm")},
+    #: Section 15.2 lists the keys ONE TRAJECTORY POINT carries. Every
+    #: one of them is a Run Case field with a section of its own, and
+    #: that section is where the help belongs: the transient chapter
+    #: names them, it does not explain them.
+    *{(name, "cap-transiente-2") for name in (
+        "mu_x", "Vz", "collective_deg", "cyclic_c_deg", "cyclic_s_deg",
+        "rpm")},
 })
 
 #: chapters whose subject is physics/math, not widget description

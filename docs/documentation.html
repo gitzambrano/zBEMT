@@ -769,10 +769,14 @@
 <li><a href="#cap-opt-operators">14.7 Crossover and mutation</a></li>
 <li><a href="#cap-opt-run">14.8 The run page: front table, trade-off plot and exports</a></li>
 </ol></li>
-<li><a href="#sec-15-outside-the-gui">15. Command-line reference</a>
+<li><a href="#cap-transiente">15. Transient Simulation</a>
 <ol>
-<li><a href="#cap-8-1">15.1 Running from the command line</a></li>
-<li><a href="#cap-8-3">15.2 Validation rules</a></li>
+<li><a href="#cap-transiente-1">15.1 The state that is marched</a></li>
+<li><a href="#cap-transiente-2">15.2 The trajectory</a></li>
+<li><a href="#cap-transiente-3">15.3 Sampling</a></li>
+<li><a href="#cap-transiente-4">15.4 Where the march starts</a></li>
+<li><a href="#cap-transiente-5">15.5 The two states that may be carried along</a></li>
+<li><a href="#cap-transiente-6">15.6 Reading the result</a></li>
 </ol></li>
 <li><a href="#cap-stability">16. Stability Derivatives</a>
 <ol>
@@ -782,7 +786,12 @@
 <li><a href="#cap-stability-hub">16.4 The hub-moment path through the hinge</a></li>
 <li><a href="#cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</a></li>
 </ol></li>
-<li><a href="#limitations">17. Limitations</a>
+<li><a href="#sec-15-outside-the-gui">17. Command-line reference</a>
+<ol>
+<li><a href="#cap-8-1">17.1 Running from the command line</a></li>
+<li><a href="#cap-8-3">17.2 Validation rules</a></li>
+</ol></li>
+<li><a href="#limitations">18. Limitations</a>
 <ol>
 </ol></li>
 <li><a href="#sec-references">References</a>
@@ -3633,7 +3642,7 @@ formats and limitations of each polar source.</p>
     <!-- INDICE-DE-CAMPOS:geometria -->
 <div class="boxed">
 <b>Fields in this tab, in the order they appear on screen</b> (19). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>n_blades</code> &rarr; <a href="#cap-2-1">7.1</a></li><li><code>radius_m</code> &rarr; <a href="#cap-2-1">7.1</a></li><li><code>hinge_offset_norm</code> &rarr; <a href="#sec-bd-hinge-offset">7.2.2</a></li><li><code>flap_spring_nm_per_rad</code> &rarr; <a href="#sec-bd-flap-spring">7.2.3</a></li><li><code>inertia_source</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>lock_number</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>flap_inertia_kg_m2</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>blade_mass_kg</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>pitch_flap_coupling_deg</code> &rarr; <a href="#sec-bd-delta3">7.2.5</a></li><li><code>harmonics</code> &rarr; <a href="#sec-bd-harmonics">7.2.6</a></li><li><code>lag_enabled</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>lag_spring_nm_per_rad</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>lag_damping_nms_per_rad</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>lag_inertia_kg_m2</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>lag_feeds_back</code> &rarr; <a href="#sec-bd-lead-lag">7.2.7</a></li><li><code>outer_max_iter</code> &rarr; <a href="#sec-bd-harmonics">7.2.6</a></li><li><code>outer_tol_deg</code> &rarr; <a href="#sec-bd-harmonics">7.2.6</a></li><li><code>outer_relax</code> &rarr; <a href="#sec-bd-harmonics">7.2.6</a></li><li><code>flap_model</code> &rarr; <a href="#sec-bd-flap-model">7.2.1</a></li></ol>
+<ol class="indice-de-campos"><li><code>n_blades</code> &rarr; <a href="#cap-2-1">7.1</a></li><li><code>radius_m</code> &rarr; <a href="#cap-2-1">7.1</a></li><li><code>flap_model</code> &rarr; <a href="#sec-bd-flap-model">7.2.1</a></li><li><code>hinge_offset_norm</code> &rarr; <a href="#sec-bd-hinge-offset">7.2.2</a></li><li><code>flap_spring_nm_per_rad</code> &rarr; <a href="#sec-bd-flap-spring">7.2.3</a></li><li><code>inertia_source</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>lock_number</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>flap_inertia_kg_m2</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>blade_mass_kg</code> &rarr; <a href="#sec-bd-inertia">7.2.4</a></li><li><code>pitch_flap_coupling_deg</code> &rarr; <a href="#sec-bd-delta3">7.2.5</a></li><li><code>harmonics</code> &rarr; <a href="#sec-bd-harmonics">7.2.6</a></li><li><code>lag_enabled</code> &rarr; <a href="#sec-bd-lead-lag">7.2.8</a></li><li><code>lag_spring_nm_per_rad</code> &rarr; <a href="#sec-bd-lead-lag">7.2.8</a></li><li><code>lag_damping_nms_per_rad</code> &rarr; <a href="#sec-bd-lead-lag">7.2.8</a></li><li><code>lag_inertia_kg_m2</code> &rarr; <a href="#sec-bd-lead-lag">7.2.8</a></li><li><code>lag_feeds_back</code> &rarr; <a href="#sec-bd-lead-lag">7.2.8</a></li><li><code>outer_max_iter</code> &rarr; <a href="#sec-bd-outer-loop">7.2.7</a></li><li><code>outer_tol_deg</code> &rarr; <a href="#sec-bd-outer-loop">7.2.7</a></li><li><code>outer_relax</code> &rarr; <a href="#sec-bd-outer-loop">7.2.7</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:geometria -->
     <p class="boxed"><b>Editorial scope.</b> Each field section below defines the quantity, identifies
@@ -3835,28 +3844,57 @@ formats and limitations of each polar source.</p>
     <p><span class="cli">CLI</span>:
       <code>--set geom.dynamics.pitch_flap_coupling_deg=-30</code>.</p>
 
-    <h4 id="sec-bd-harmonics">7.2.6 Harmonics and outer-loop controls</h4>
-    <p><code>harmonics</code> is $N_h$, the number of harmonics kept in the balance. The
-      loading of a rotor varies mostly once per revolution, so $N_h=2$ already describes the
-      response of most designs; each extra harmonic resolves sharper azimuthal features at
-      the cost of one solve per outer iteration, and each one must sit off its own resonance,
-      since the guard checks every kept harmonic. <code>outer_max_iter</code>,
-      <code>outer_tol_deg</code> and <code>outer_relax</code> govern the exchange between
-      inflow and blade motion: iteration limit, convergence tolerance measured as the largest
-      coefficient change in degrees, and relaxation factor applied to each correction. The
-      achieved iteration count and residual travel with the results, and the Results tab draws
-      the trace. Raise the tolerance or the iteration count if the residual never settles, and
-      lower the relaxation if the trace oscillates instead of falling.</p>
-    <p><span class="gui">GUI</span>: <i>Harmonics</i>, <i>Outer iterations</i>, <i>Outer
-      tolerance</i> and <i>Outer relaxation</i> in the Blade Dynamics group.</p>
-    <p><span class="bemt">.bemt</span>: keys <code>harmonics</code>,
-      <code>outer_max_iter</code>, <code>outer_tol_deg</code> and
-      <code>outer_relax</code> inside <code>dynamics</code> in
-      <code>geom.bemt</code>.</p>
-    <p><span class="cli">CLI</span>:
-      <code>--set geom.dynamics.harmonics=3</code>.</p>
+    <h4 id="sec-bd-harmonics">7.2.6 Harmonics</h4>
+    <p><b>The physics.</b> The blade's response is written as a Fourier series in the azimuth
+      and the balance keeps the first $N_h$ terms of it:</p>
 
-    <h4 id="sec-bd-lead-lag">7.2.7 Lead-lag</h4>
+    <div class="eqn">$$\beta(\psi) = \beta_0
+      + \sum_{n=1}^{N_h}\bigl[\beta_{nc}\cos n\psi + \beta_{ns}\sin n\psi\bigr].$$</div>
+
+    <p>The loading of a rotor varies mostly once per revolution, so $N_h=2$ already describes
+      the response of most designs. Each extra harmonic resolves sharper azimuthal features
+      &mdash; the kind a highly twisted blade or a strongly skewed wake produces &mdash; at the
+      cost of one solve per outer iteration. Each kept harmonic must also sit off its own
+      resonance: the balance divides by $\nu_\beta^2-n^2$ for the $n$-th term, and the guard
+      checks every one of them rather than the first alone.</p>
+
+    <p><span class="gui">GUI</span>: <i>Harmonics</i> in the Blade Dynamics group.</p>
+
+    <p><span class="bemt">.bemt</span>: the key <code>harmonics</code>, default $2$, inside
+      <code>dynamics</code> in <code>geom.bemt</code>.</p>
+
+    <p><span class="cli">CLI</span>: <code>--set geom.dynamics.harmonics=3</code>.</p>
+
+    <h4 id="sec-bd-outer-loop">7.2.7 Outer-loop controls</h4>
+    <p><b>The physics.</b> The inflow and the blade motion each depend on the other: the
+      motion changes the loads, the loads change the inflow, and the inflow changes the motion
+      again. The engine solves the pair by alternating between them until they agree, and
+      these three fields govern that exchange.</p>
+
+    <p><code>outer_max_iter</code> is the iteration limit. <code>outer_tol_deg</code> is the
+      convergence tolerance, measured as the largest change of any harmonic coefficient
+      between two iterations, in degrees &mdash; an angle rather than a residual, so the
+      number means something physical. <code>outer_relax</code> is the fraction of each
+      correction that is actually applied; below one it damps the exchange, which is what
+      makes the iteration converge when the raw step would overshoot.</p>
+
+    <p><b>How to read a run.</b> The achieved iteration count and the final residual travel
+      with the results, and the Results tab draws the trace. A residual that never settles
+      wants more iterations or a looser tolerance; a trace that OSCILLATES instead of falling
+      wants a lower relaxation, because oscillation is the signature of a step that is too
+      large, not of a limit that is too low.</p>
+
+    <p><span class="gui">GUI</span>: <i>Outer iterations</i>, <i>Outer tolerance</i> and
+      <i>Outer relaxation</i> in the Blade Dynamics group.</p>
+
+    <p><span class="bemt">.bemt</span>: the keys <code>outer_max_iter</code> (default $30$),
+      <code>outer_tol_deg</code> (default $10^{-4}$) and <code>outer_relax</code> (default
+      $0.5$) inside <code>dynamics</code> in <code>geom.bemt</code>.</p>
+
+    <p><span class="cli">CLI</span>:
+      <code>--set geom.dynamics.outer_relax=0.3</code>.</p>
+
+    <h4 id="sec-bd-lead-lag">7.2.8 Lead-lag</h4>
     <p>Toggling <code>lag_enabled</code> adds the in-plane freedom at the same offset. Its
       equation mirrors the flap one without thrust restoring: nothing in steady flight pulls
       the blade back against lead-lag, so the leading $1$ disappears from the frequency ratio
@@ -4143,7 +4181,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <!-- INDICE-DE-CAMPOS:aerofolio -->
 <div class="boxed">
 <b>Fields in this tab, in the order they appear on screen</b> (37). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>generator_params</code> &rarr; <a href="#cap-3-7-biconvex">8.7.5</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-1-3">8.1.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_time_march_revolutions</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>dynamic_stall_time_march_avg_last</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>dynamic_stall_method</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li></ol>
+<ol class="indice-de-campos"><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>dynamic_stall_method</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li><li><code>generator_params</code> &rarr; <a href="#cap-3-7-biconvex">8.7.5</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-1-3">8.1.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_time_march_revolutions</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>dynamic_stall_time_march_avg_last</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:aerofolio -->
     <p class="boxed"><b>Editorial scope.</b> Each field section below is self-contained. It gives the
@@ -6000,7 +6038,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 </ul>
 
                 <p><b>The checks panel.</b> Below the preview, a panel lists the findings of the validation rules
-                  of <a class="xref" href="#cap-8-3" title="15.2 Validation rules">Section 15.2</a> that concern the
+                  of <a class="xref" href="#cap-8-3" title="17.2 Validation rules">Section 17.2</a> that concern the
                   airfoil: combinations that are mutually exclusive,
                   redundant, or physically inconsistent. It re-runs after every edit, so the verdict on screen is
                   never stale.</p>
@@ -6073,7 +6111,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <!-- INDICE-DE-CAMPOS:config -->
 <div class="boxed">
 <b>Fields in this tab, in the order they appear on screen</b> (27). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>Ne</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>Npsi</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>rho</code> &rarr; <a href="#cap-4-1-2">9.1.2</a></li><li><code>a_sound</code> &rarr; <a href="#cap-4-1-3">9.1.3</a></li><li><code>integration_offset</code> &rarr; <a href="#cap-4-1-4">9.1.4</a></li><li><code>inflow_field_model</code> &rarr; <a href="#cap-4-2">9.2</a></li><li><code>prandtl_loss_mode</code> &rarr; <a href="#cap-4-3">9.3</a></li><li><code>radial_flow_max_skew_deg</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>use_rotational_augmentation</code> &rarr; <a href="#cap-4-4-1">9.4.1</a></li><li><code>use_radial_flow_correction</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>pitt_peters_states</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_outer_iter</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_relax</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_tol</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>relax_root_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_root_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_tip_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>solver</code> &rarr; <a href="#cap-4-5-1">9.5.1</a></li><li><code>max_iter</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>tol</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>relax</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_schedule</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>early_exit_fraction</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_patience</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_min_frac</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li></ol>
+<ol class="indice-de-campos"><li><code>Ne</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>Npsi</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>rho</code> &rarr; <a href="#cap-4-1-2">9.1.2</a></li><li><code>a_sound</code> &rarr; <a href="#cap-4-1-3">9.1.3</a></li><li><code>integration_offset</code> &rarr; <a href="#cap-4-1-4">9.1.4</a></li><li><code>inflow_field_model</code> &rarr; <a href="#cap-4-2">9.2</a></li><li><code>prandtl_loss_mode</code> &rarr; <a href="#cap-4-3">9.3</a></li><li><code>use_rotational_augmentation</code> &rarr; <a href="#cap-4-4-1">9.4.1</a></li><li><code>use_radial_flow_correction</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>pitt_peters_states</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_outer_iter</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_relax</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_tol</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>solver</code> &rarr; <a href="#cap-4-5-1">9.5.1</a></li><li><code>max_iter</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>tol</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>relax</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_schedule</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>early_exit_fraction</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_patience</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_min_frac</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>radial_flow_max_skew_deg</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>relax_root_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_root_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_tip_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:config -->
                 <p class="boxed"><b>Editorial scope.</b> Each field section below states the numerical quantity,
@@ -6896,8 +6934,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                     <!-- INDICE-DE-CAMPOS:run_case -->
 <div class="boxed">
-<b>Fields in this tab, in the order they appear on screen</b> (6). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li></ol>
+<b>Fields in this tab, in the order they appear on screen</b> (9). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>sideslip_deg</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>p_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>q_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:run_case -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below follows the visible order and
@@ -9097,7 +9135,297 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           &mdash; and prints the front as a table. <code>--pareto-csv PATH</code>
                           chooses another destination for the front CSV.</p>
 
-<h2 id="sec-15-outside-the-gui">15. Command-line reference</h2>
+
+                        <h2 id="cap-transiente">15. Transient Simulation</h2>
+
+                        <p>Every other chapter of this manual computes a rotor in EQUILIBRIUM. A flight condition
+                          is given, the inflow is solved until it stops changing, and the loads are read off the
+                          converged field. That is the right answer whenever the condition lasts long enough for the
+                          wake to settle, which covers hover, steady climb and steady forward flight &mdash; most of
+                          what a rotor does.</p>
+
+                        <p>It is the wrong answer when the condition itself is changing. The wake carries memory: the
+                          induced velocity at one instant is the response to what the rotor was doing a moment ago,
+                          not to what it is doing now. Pull collective quickly and the thrust overshoots, because the
+                          inflow that would oppose it has not arrived yet. This chapter is about the window that
+                          marches that memory in time, opened from the <span class="gui">Tools</span> button in the
+                          top bar.</p>
+
+                        <p>Scope, stated before the physics: the state that is marched is the INFLOW. The blade
+                          motion and the separation state can be carried along with it, but the aerodynamics inside
+                          each sample stay quasi-steady. There is no free wake and no aeroelasticity. A manoeuvre
+                          whose time scale approaches one revolution is outside what this model can claim, and the
+                          <a class="xref" href="#limitations" title="18. Limitations">Chapter 18</a> says so in the
+                          same terms.</p>
+
+                        <h3 id="cap-transiente-1">15.1 The state that is marched</h3>
+
+                        <p><b>The physics.</b> A rotor's induced inflow does not follow its loading instantly. Pitt
+                          and Peters wrote the delay as a first-order system in three states &mdash; a uniform
+                          component and two harmonics &mdash; driven by the hub loads:</p>
+
+                        <div class="eqn">$$\mathbf{M}\,\dot{\boldsymbol{\nu}}
+                          + \mathbf{V}\mathbf{L}^{-1}\boldsymbol{\nu} = \mathbf{f},\qquad
+                          \boldsymbol{\nu} = (\nu_0,\ \nu_s,\ \nu_c),\qquad
+                          \mathbf{f} = (C_T,\ C_{My},\ C_{Mx}).$$</div>
+
+                        <p>$\mathbf{M}$ is the apparent-mass matrix, the air the disk has to accelerate before its
+                          own inflow changes; $\mathbf{L}$ is the static gain that relates a load to the inflow it
+                          eventually produces; and $\mathbf{V}$ is a mass-flow parameter that grows with the speed
+                          through the disk. Setting $\dot{\boldsymbol{\nu}}=0$ recovers exactly the steady
+                          Pitt-Peters model of
+                          <a class="xref" href="#cap-4-2" title="9.2 The inflow field model">Section 9.2</a>: the
+                          transient path and the steady path are the same equation, solved with and without its time
+                          derivative.</p>
+
+                        <p><b>How it is marched.</b> Inside one sub-step the matrices are frozen and the resulting
+                          linear system is solved EXACTLY, not stepped:</p>
+
+                        <div class="eqn">$$\boldsymbol{\nu}(\tau+\Delta\tau) = \boldsymbol{\nu}_{eq}
+                          + e^{\mathbf{A}\Delta\tau}\bigl(\boldsymbol{\nu}-\boldsymbol{\nu}_{eq}\bigr),\qquad
+                          \mathbf{A} = -\mathbf{M}^{-1}\mathbf{V}\mathbf{L}^{-1},\qquad
+                          \boldsymbol{\nu}_{eq} = -\mathbf{A}^{-1}\mathbf{M}^{-1}\mathbf{f}.$$</div>
+
+                        <p>This matters more than it may look. The inflow time constant is a small fraction of a
+                          revolution, so an explicit scheme such as Runge-Kutta is only stable when the step is
+                          smaller still, and a manoeuvre sampled every few hundredths of a second would need
+                          thousands of sub-steps to survive. The exponential form has no such limit: it is the exact
+                          solution of the frozen system, so a single sub-step already relaxes smoothly toward
+                          equilibrium when the sample is long compared with the delay, which is the physically
+                          correct behaviour and not an approximation of it. Where the sample is SHORT compared with
+                          the delay, the sub-steps are what resolve the shape of the response.</p>
+
+                        <h3 id="cap-transiente-2">15.2 The trajectory</h3>
+
+                        <p><b>What it is.</b> A manoeuvre is a list of points in time. Each point carries a complete
+                          flight condition &mdash; the in-plane component, the axial component, the collective, the
+                          two cyclic harmonics and the shaft speed &mdash; and the run walks from one to the next.
+                          It is not a batch: a batch solves each case from scratch and the order of the cases is
+                          irrelevant, whereas here every sample inherits the inflow state of the sample before it,
+                          and reversing the order gives a different answer. That inheritance is the whole point.</p>
+
+                        <p>The letters follow the mode, exactly as they do for a saved case: in propeller mode the
+                          in-plane column is the cross-flow and the axial one is the flight speed
+                          (<a class="xref" href="#cap-nomenclatura" title="4. Nomenclature and axes">Chapter 4</a>).</p>
+
+                        <p><b>Between the points.</b> Two readings are offered. <i>Linear</i> blends each quantity
+                          between the two neighbouring points, which is what a control input that is moved smoothly
+                          looks like. <i>Hold</i> keeps the value of the preceding point until the next one arrives,
+                          a zero-order hold, which is what a step input looks like. A step is the harder test of the
+                          two and the one that shows the inflow lag most clearly.</p>
+
+                        <p><span class="gui">GUI</span>: the <i>Trajectory points</i> table, one row per point, with
+                          <i>Add</i> appending a row one interval after the last. <i>Build from two saved cases</i>
+                          fills the table from two conditions already stored in the project and a duration, which is
+                          the quickest way to state "go from this to that in so many seconds". The
+                          <i>Interpolation</i> combo chooses between the two readings.</p>
+
+                        <p><span class="bemt">.bemt</span>: the key <code>points</code>, a list whose entries carry
+                          <code>t_s</code>, <code>mu_x</code>, <code>Vz</code>, <code>collective_deg</code>,
+                          <code>cyclic_c_deg</code>, <code>cyclic_s_deg</code> and an optional <code>rpm</code>; and
+                          the key <code>interpolation</code>, either <code>linear</code> (the default) or
+                          <code>hold</code>. Manoeuvres saved with the project live in
+                          <code>inputs/maneuvers.bemt</code>.</p>
+
+                        <p><span class="cli">CLI</span>: <code>--maneuver NAME</code> runs a manoeuvre saved in the
+                          project, and a bare <code>--maneuver</code> runs the first one.
+                          <code>--list-maneuvers</code> prints the saved names.
+                          <code>--maneuver-file PATH</code> runs a definition held in a <code>.bemt</code> file
+                          outside the project, which is how a trajectory is shared without copying it into every
+                          project that needs it.</p>
+
+                        <h3 id="cap-transiente-3">15.3 Sampling</h3>
+
+                        <p><b>The physics.</b> Two intervals decide the run and they are not the same thing. The
+                          SAMPLE interval is how often the answer is written down: one sample is one row of the time
+                          history and one disk map. The SUB-STEP is how finely the inflow equation is marched between
+                          two samples. Refining the sample interval makes the recorded curve smoother; refining the
+                          sub-steps makes the marched state more accurate without adding a single row to the table.
+                          The distinction matters because the inflow delay is short: a sample interval chosen for a
+                          readable plot is usually far too coarse to resolve the response, and the sub-steps are what
+                          close that gap.</p>
+
+                        <p>A useful reading of the pair: choose the sample interval from what you want to SEE, and
+                          the sub-steps from what the PHYSICS needs. If halving the sub-steps changes the curve, the
+                          march was not resolved.</p>
+
+                        <p><b>Ranges.</b> The sample interval accepts $0.001$ to $5$ seconds and defaults to $0.05$;
+                          the sub-step count accepts $1$ to $200$ and defaults to $8$. Because the scheme is
+                          unconditionally stable, a coarse setting degrades the ANSWER rather than destroying the
+                          run, which is why the window states the cost in solver calls instead of refusing a
+                          setting.</p>
+
+                        <p><span class="gui">GUI</span>: <i>Sample interval [s]</i> and <i>Sub-steps per sample</i>
+                          in the <i>Sampling and march</i> block, with the <i>Cost estimate</i> block turning the
+                          two into a number of solver calls before anything is run.</p>
+
+                        <p><span class="bemt">.bemt</span>: the keys <code>dt_s</code>, default $0.02$, and
+                          <code>substeps_per_step</code>, default $8$.</p>
+
+                        <p><span class="cli">CLI</span>: <code>--maneuver-dt FLOAT</code> and
+                          <code>--maneuver-substeps INT</code> override the values stored with the manoeuvre without
+                          editing it.</p>
+
+                        <h3 id="cap-transiente-4">15.4 Where the march starts</h3>
+
+                        <p><b>The physics.</b> A differential equation needs an initial condition, and here the
+                          choice is a modelling statement rather than a numerical one. <i>Equilibrium</i> solves the
+                          steady inflow at the first point and starts from it, so the rotor is already settled when
+                          the trajectory begins and everything that follows is the response to the trajectory alone.
+                          <i>Zero</i> starts every state at zero, so the first samples show the wake building up from
+                          nothing.</p>
+
+                        <p>Equilibrium is what a manoeuvre flown from steady flight needs. Zero is a diagnostic: it
+                          makes the inflow time constant visible directly, because the decay it produces IS that time
+                          constant. Reading a start-up transient as if it were part of the manoeuvre is the mistake
+                          this control exists to prevent.</p>
+
+                        <p><span class="gui">GUI</span>: the <i>Initial state</i> combo.</p>
+
+                        <p><span class="bemt">.bemt</span>: the key <code>initial_state</code>, either
+                          <code>equilibrium</code> (the default) or <code>zero</code>.</p>
+
+                        <p><span class="cli">CLI</span>: no flag of its own; it is set with
+                          <code>--set initial_state=zero</code> on the manoeuvre, or stored with the definition.</p>
+
+                        <h3 id="cap-transiente-5">15.5 The two states that may be carried along</h3>
+
+                        <p><b>The physics.</b> The inflow is not the only quantity with memory, and two more can be
+                          threaded through the march. Each is off by default, because each costs time and neither is
+                          meaningful unless the corresponding model is enabled elsewhere.</p>
+
+                        <p><i>Dynamic stall</i> carries the &Oslash;ye separation state from one sample to the next
+                          instead of restarting it at every sample. The separation point relaxes toward its static
+                          value with its own time constant
+                          (<a class="xref" href="#cap-3-3" title="8.3 Dynamic stall">Section 8.3</a>), so restarting
+                          it every sample discards exactly the history the model exists to represent. It needs
+                          dynamic stall switched on for the aerofoil.</p>
+
+                        <p><i>Flapping</i> solves the periodic flap response at every sample and feeds the resulting
+                          blade motion into the loads. It is QUASI-STEADY within a sample: the blade is assumed to
+                          have reached its periodic response at the condition of that sample, which is a good
+                          assumption while the manoeuvre is slow compared with one revolution and a poor one when it
+                          is not. It is not a flap transient, and the window says so on the control itself.</p>
+
+                        <p><span class="gui">GUI</span>: the <i>March dynamic stall</i> and
+                          <i>March flapping (quasi-steady)</i> check boxes.</p>
+
+                        <p><span class="bemt">.bemt</span>: the keys <code>march_dynamic_stall</code> and
+                          <code>march_flapping</code>, both <code>false</code> by default.</p>
+
+                        <p><span class="cli">CLI</span>: both travel with the saved manoeuvre; a run that needs them
+                          switched on for one execution uses
+                          <code>--set march_dynamic_stall=true</code>.</p>
+
+                        <h3 id="cap-transiente-6">15.6 Reading the result</h3>
+
+                        <p>The run produces one row per sample. Besides the loads, each row carries the marched
+                          interval, the number of sub-steps taken and the state the march started from, so a stored
+                          history says how it was produced and not only what it produced. The <i>Time history</i>
+                          block plots any column against time; the <i>Disk map at sample</i> block draws the disk at
+                          a chosen sample index, which is how a transient is inspected where a steady run would be
+                          inspected in the Results tab.</p>
+
+                        <p><b>What to check first.</b> A transient that did not settle must not be read as a settled
+                          one. The <i>Validation</i> block reports the findings of the same checks the rest of the
+                          program uses, and a manoeuvre whose last revolutions are still changing is reported rather
+                          than quietly averaged. Where the answer is meant to end in equilibrium, comparing the last
+                          sample against a steady run of the same condition is the cheapest check there is: the two
+                          must agree, and a difference is either a manoeuvre that has not finished settling or a
+                          sample interval too coarse to have followed it.</p>
+
+<h2 id="cap-stability">16. Stability Derivatives</h2>
+
+                        <p>A stability derivative answers one question: if the rotor flies a little
+                          faster, rolls a little quicker, or its collective moves a little, how much does
+                          one hub load change? The answer is a number &mdash; newtons per metre per second,
+                          newton-metres per radian per second &mdash; and a whole flight-dynamics model is
+                          nothing more than a table of such numbers about one trim point. This window builds
+                          that table by finite differences: it flies the trim point once, then again with each
+                          state or control nudged slightly either side of it.</p>
+
+                        <figure>
+                          <img src="img/gui/stability.png" alt="Stability Derivatives window">
+                          <figcaption>The Stability Derivatives window, opened from the
+                            <b>Tools</b> button in the main window's top bar. The Trim point page
+                            is open: the study list and trim mode on the left; the trim-only check
+                            and the project's validation findings on the right.</figcaption>
+                        </figure>
+
+                        <h3 id="cap-stability-trim">16.1 The trim point</h3>
+                        <p>A derivative about a bad trim describes a rotor nobody flies. The trim fixes the
+                          reference controls first: <i>zero flapping</i> solves both cyclic harmonics so the
+                          tip-path plane sits level at the reference state (the usual choice, and the default),
+                          <i>thrust</i> solves collective until a target thrust is hit, and <i>none</i> keeps the
+                          saved controls exactly as they are. Run the trim alone before any sweep: every number
+                          in chapter inherits from this point. A blade without flap freedom has no flap angle to
+                          zero, so the zero-flapping trim is disabled for it.</p>
+
+                        <h3 id="cap-stability-steps">16.2 States, controls and steps</h3>
+                        <p>The perturbation set is nine quantities: longitudinal, lateral and axial speed
+                          ($u$, $v$, $w$), roll and pitch rate ($p$, $q$), rotor speed $\Omega$, and the three
+                          pitch controls $\theta_0$, $\theta_{1c}$, $\theta_{1s}$. Each derivative is a central
+                          difference,
+                          $$\frac{\partial F}{\partial x} = \frac{F(x_0+h) - F(x_0-h)}{2h},$$
+                          with a step stated PER QUANTITY in its own unit &mdash; $0.5$ m/s for speeds,
+                          $0.02$ rad/s for rates, $0.1°$ for pitch controls, half a percent of the trim rpm for
+                          $\Omega$ &mdash; because truncation error grows as $h^2$ while round-off shrinks as
+                          $1/h$: too small a step drowns the answer in solver noise, too large a step averages
+                          over real curvature. Repeating at half the step gives a second estimate; the relative
+                          difference between the two is reported as the step-size error, and any derivative
+                          whose two estimates disagree by more than five percent is marked red. The remedy is
+                          almost always a LARGER step, because the cause is solver noise, not truncation.
+                          Halving the step must move a healthy derivative by less than that reported error.</p>
+
+                        <p>In the <span class="gui">GUI</span>: tick states and controls on the Perturbations
+                          page, adjust any step in its table, and read the solve count before running. With no
+                          flap freedom the rate and cyclic boxes stay visible but disabled: a rigid blade cannot
+                          feel them.</p>
+
+                        <p>In the <span class="bemt">.bemt</span> file: a study lives in
+                          <code>inputs/derivatives.bemt</code> with its <code>states</code>,
+                          <code>controls</code>, <code>outputs</code>, <code>steps</code>,
+                          <code>trim</code> (<code>"none"</code>, <code>"thrust"</code>,
+                          <code>"cyclic_flapback"</code>) and <code>richardson_check</code>.</p>
+
+                        <p>From the <span class="cli">CLI</span>: studies run through the library today;
+                          the persisted file is the interface of record for automation.</p>
+
+                        <h3 id="cap-stability-yaw">16.3 Why there is no yaw rate</h3>
+                        <p>An isolated rotor with a vertical shaft feels no first-order moment from yawing:
+                          rotating about its own shaft changes no blade incidence. The yaw rate therefore stays
+                          out of the perturbation set on purpose. What remains is the yaw DAMPING
+                          ($\partial Q/\partial \Omega$): torque does change with rotor speed. The vehicle model
+                          below keeps a yaw row so the bookkeeping closes, fed by that damping alone.</p>
+
+                        <h3 id="cap-stability-hub">16.4 The hub-moment path through the hinge</h3>
+                        <p>The tilting moments computed from the pressure field alone miss a second path into
+                          the hub: with a hinge offset or a root spring, the flapping blade carries structural
+                          moment,
+                          $$M_{hub} = \frac{N_b}{2} I_\beta \Omega^2 (\nu_\beta^2 - 1)\,\beta_{1c/1s},$$
+                          and for a hingeless rotor that path is the larger one. The totals reported here always
+                          include it when flap freedom exists; a rigid blade's total is simply the aerodynamic
+                          moment. These are the numbers whose derivatives make the pitch and roll damping.</p>
+
+                        <h3 id="cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</h3>
+                        <p>The matrix lists outputs down the rows and variables across the columns, switchable
+                          between dimensional and non-dimensional form without rerunning: forces divided by
+                          $\rho A(\Omega R)^2$, moments by $\rho A(\Omega R)^2 R$, speeds by $\Omega R$ and rates
+                          by $\Omega$. The bar chart draws one output across all variables so the dominant term
+                          is visible at a glance. The SIGN CHECKS panel is the window's conscience: heave damping
+                          must be negative, pitch damping must be negative, thrust must rise with collective. A
+                          FAIL there means a sign flipped somewhere in the engine chain &mdash; do not fly the
+                          numbers.</p>
+
+                        <p>The optional vehicle block turns the table into a rigid-body linear model
+                          ($[u\ v\ w\ p\ q\ r\ \phi\ \theta]$ against the three pitch controls), draws its
+                          eigenvalues on the complex plane and marks unstable poles in red. Its limits are stated
+                          where the checkbox lives and repeated here: ONE rotor, NO fuselage, NO tail, NO engine
+                          dynamics. A classic mode (phugoid, subsidence, Dutch roll) is named only when its
+                          damping and frequency fall inside the expected band; an unnamed pole is not a discovery,
+                          it is the tool refusing to guess.</p>
+
+<h2 id="sec-15-outside-the-gui">17. Command-line reference</h2>
                         <p>This chapter is the concise reference for automation. It lists the supported
                           <span class="cli">CLI</span> commands and flags, the corresponding <code>.bemt</code> files,
                           validation
@@ -9106,7 +9434,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <span class="gui">GUI</span> control.
                         </p>
 
-                        <h3 id="cap-8-1">15.1 Running from the command line</h3>
+                        <h3 id="cap-8-1">17.1 Running from the command line</h3>
 
                         <p>The <span class="cli">CLI</span> points at a project folder, runs the condition or the sweep
                           asked for, and writes the results. It goes through the same code as the <span
@@ -9193,8 +9521,23 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Design optimization, command line only (<a class="xref" href="#sec-15-outside-the-gui"
-                                  title="15. Command-line reference">Chapter 15</a>)</td>
+                                  title="17. Command-line reference">Chapter 17</a>)</td>
                               <td><code>--optimize [NAME]</code> | <code>--max-evals N</code>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Transient simulation (<a class="xref" href="#cap-transiente"
+                                  title="15. Transient Simulation">Chapter 15</a>)</td>
+                              <td><code>--maneuver [NAME]</code> | <code>--maneuver-file PATH</code> |
+                                <code>--list-maneuvers</code> | <code>--maneuver-dt FLOAT</code> |
+                                <code>--maneuver-substeps INT</code>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Stability derivatives (<a class="xref" href="#cap-stability"
+                                  title="16. Stability Derivatives">Chapter 16</a>)</td>
+                              <td><code>--derivatives [NAME]</code> | <code>--list-derivatives</code> |
+                                <code>--derivatives-csv PATH</code>
                               </td>
                             </tr>
                             <tr>
@@ -9274,7 +9617,7 @@ zbemt --project projects/MyProject \
                           file, or
                           setting it in the window and saving.</p>
 
-                        <h3 id="cap-8-3">15.2 Validation rules</h3>
+                        <h3 id="cap-8-3">17.2 Validation rules</h3>
                         <p>Every configuration is checked before the solver is called, and the same checks apply to the
                           <span class="gui">GUI</span>, the <span class="cli">CLI</span> and a project run from a saved
                           file. They flag combinations that are physically inconsistent or not implemented. A finding
@@ -9367,98 +9710,7 @@ zbemt --project projects/MyProject \
                                                 <hr>
 
 
-                        <h2 id="cap-stability">16. Stability Derivatives</h2>
-
-                        <p>A stability derivative answers one question: if the rotor flies a little
-                          faster, rolls a little quicker, or its collective moves a little, how much does
-                          one hub load change? The answer is a number &mdash; newtons per metre per second,
-                          newton-metres per radian per second &mdash; and a whole flight-dynamics model is
-                          nothing more than a table of such numbers about one trim point. This window builds
-                          that table by finite differences: it flies the trim point once, then again with each
-                          state or control nudged slightly either side of it.</p>
-
-                        <figure>
-                          <img src="img/gui/stability.png" alt="Stability Derivatives window">
-                          <figcaption>The Stability Derivatives window, opened from the
-                            <b>Tools</b> button in the main window's top bar. The Trim point page
-                            is open: the study list and trim mode on the left; the trim-only check
-                            and the project's validation findings on the right.</figcaption>
-                        </figure>
-
-                        <h3 id="cap-stability-trim">16.1 The trim point</h3>
-                        <p>A derivative about a bad trim describes a rotor nobody flies. The trim fixes the
-                          reference controls first: <i>zero flapping</i> solves both cyclic harmonics so the
-                          tip-path plane sits level at the reference state (the usual choice, and the default),
-                          <i>thrust</i> solves collective until a target thrust is hit, and <i>none</i> keeps the
-                          saved controls exactly as they are. Run the trim alone before any sweep: every number
-                          in chapter inherits from this point. A blade without flap freedom has no flap angle to
-                          zero, so the zero-flapping trim is disabled for it.</p>
-
-                        <h3 id="cap-stability-steps">16.2 States, controls and steps</h3>
-                        <p>The perturbation set is nine quantities: longitudinal, lateral and axial speed
-                          ($u$, $v$, $w$), roll and pitch rate ($p$, $q$), rotor speed $\Omega$, and the three
-                          pitch controls $\theta_0$, $\theta_{1c}$, $\theta_{1s}$. Each derivative is a central
-                          difference,
-                          $$\frac{\partial F}{\partial x} = \frac{F(x_0+h) - F(x_0-h)}{2h},$$
-                          with a step stated PER QUANTITY in its own unit &mdash; $0.5$ m/s for speeds,
-                          $0.02$ rad/s for rates, $0.1°$ for pitch controls, half a percent of the trim rpm for
-                          $\Omega$ &mdash; because truncation error grows as $h^2$ while round-off shrinks as
-                          $1/h$: too small a step drowns the answer in solver noise, too large a step averages
-                          over real curvature. Repeating at half the step gives a second estimate; the relative
-                          difference between the two is reported as the step-size error, and any derivative
-                          whose two estimates disagree by more than five percent is marked red. The remedy is
-                          almost always a LARGER step, because the cause is solver noise, not truncation.
-                          Halving the step must move a healthy derivative by less than that reported error.</p>
-
-                        <p>In the <span class="gui">GUI</span>: tick states and controls on the Perturbations
-                          page, adjust any step in its table, and read the solve count before running. With no
-                          flap freedom the rate and cyclic boxes stay visible but disabled: a rigid blade cannot
-                          feel them.</p>
-
-                        <p>In the <span class="bemt">.bemt</span> file: a study lives in
-                          <code>inputs/derivatives.bemt</code> with its <code>states</code>,
-                          <code>controls</code>, <code>outputs</code>, <code>steps</code>,
-                          <code>trim</code> (<code>"none"</code>, <code>"thrust"</code>,
-                          <code>"cyclic_flapback"</code>) and <code>richardson_check</code>.</p>
-
-                        <p>From the <span class="cli">CLI</span>: studies run through the library today;
-                          the persisted file is the interface of record for automation.</p>
-
-                        <h3 id="cap-stability-yaw">16.3 Why there is no yaw rate</h3>
-                        <p>An isolated rotor with a vertical shaft feels no first-order moment from yawing:
-                          rotating about its own shaft changes no blade incidence. The yaw rate therefore stays
-                          out of the perturbation set on purpose. What remains is the yaw DAMPING
-                          ($\partial Q/\partial \Omega$): torque does change with rotor speed. The vehicle model
-                          below keeps a yaw row so the bookkeeping closes, fed by that damping alone.</p>
-
-                        <h3 id="cap-stability-hub">16.4 The hub-moment path through the hinge</h3>
-                        <p>The tilting moments computed from the pressure field alone miss a second path into
-                          the hub: with a hinge offset or a root spring, the flapping blade carries structural
-                          moment,
-                          $$M_{hub} = \frac{N_b}{2} I_\beta \Omega^2 (\nu_\beta^2 - 1)\,\beta_{1c/1s},$$
-                          and for a hingeless rotor that path is the larger one. The totals reported here always
-                          include it when flap freedom exists; a rigid blade's total is simply the aerodynamic
-                          moment. These are the numbers whose derivatives make the pitch and roll damping.</p>
-
-                        <h3 id="cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</h3>
-                        <p>The matrix lists outputs down the rows and variables across the columns, switchable
-                          between dimensional and non-dimensional form without rerunning: forces divided by
-                          $\rho A(\Omega R)^2$, moments by $\rho A(\Omega R)^2 R$, speeds by $\Omega R$ and rates
-                          by $\Omega$. The bar chart draws one output across all variables so the dominant term
-                          is visible at a glance. The SIGN CHECKS panel is the window's conscience: heave damping
-                          must be negative, pitch damping must be negative, thrust must rise with collective. A
-                          FAIL there means a sign flipped somewhere in the engine chain &mdash; do not fly the
-                          numbers.</p>
-
-                        <p>The optional vehicle block turns the table into a rigid-body linear model
-                          ($[u\ v\ w\ p\ q\ r\ \phi\ \theta]$ against the three pitch controls), draws its
-                          eigenvalues on the complex plane and marks unstable poles in red. Its limits are stated
-                          where the checkbox lives and repeated here: ONE rotor, NO fuselage, NO tail, NO engine
-                          dynamics. A classic mode (phugoid, subsidence, Dutch roll) is named only when its
-                          damping and frequency fall inside the expected band; an unnamed pole is not a discovery,
-                          it is the tool refusing to guess.</p>
-
-<h2 id="limitations">17. Limitations</h2>
+                        <h2 id="limitations">18. Limitations</h2>
 
                         <p>The following limitations bound the interpretation of every result. Mesh
                           refinement and tighter numerical tolerances reduce numerical error, but they

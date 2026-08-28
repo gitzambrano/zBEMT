@@ -240,6 +240,15 @@ def list_projects(projects_root: str = "projects") -> list[str]:
 # check before running a large unsupervised batch.
 # =============================================================================
 
+def validate_results(summary: dict) -> list:
+    """Findings about a result that already ran -- a state that did not
+    settle, a flap response outside the small-angle assumption
+    (`validation.validate_results`, `EN-9`)."""
+    from .validation import validate_results as _check
+
+    return _check(summary)
+
+
 def validate_project(project: Project, conditions=None) -> list[validation.Issue]:
     """``conditions`` (optional): the ``FlightCondition`` objects that will
     be run. If they are passed, the check also covers each condition's RPM.

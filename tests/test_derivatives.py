@@ -291,22 +291,23 @@ class TestVehicleMatrices(unittest.TestCase):
     def test_missing_pairs_are_named(self):
         from zbemt import derivatives as drv
         outcome = self._FakeOutcome()
-        del outcome.matrix[("My_total", "q")]
+        del outcome.matrix[("Mx_total", "q")]
         with self.assertRaises(ValueError) as ctx:
             drv.vehicle_matrices(outcome, mass=100.0, Ix=50.0,
                                   Iy=80.0, Iz=20.0)
-        self.assertIn("My_total", str(ctx.exception))
+        self.assertIn("Mx_total", str(ctx.exception))
         self.assertIn("q", str(ctx.exception))
 
     def test_synthetic_derivatives_reproduce_exact_poles(self):
         """Feed an outcome whose derivatives place KNOWN eigenvalues:
-        the heave pole is exactly Z_w/m and the yaw pole is
-        dQ/dr = (dQ/dOmega * Omega)/Iz."""
+        the heave pole is exactly Z_w/m, and the yaw pole is -(dQ/dOmega)
+        over I_z -- dOmega/dr is DIMENSIONLESS, so no factor of Omega
+        appears."""
         from zbemt import derivatives as drv
         outcome = self._FakeOutcome()
         m, zw = 250.0, -40.0
         outcome.matrix[("Thrust", "w")] = zw   # only heave coupling on w
-        iz, dq_dom, dqr = 30.0, -5.0, -1.25    # dQ/dr = dq_dom*Omega/Iz
+        iz, dq_dom = 30.0, -5.0
         outcome.matrix[("Torque", "Omega")] = dq_dom
         built = drv.vehicle_matrices(outcome, mass=m, Ix=100.0, Iy=120.0,
                                       Iz=iz, g=9.81)
@@ -314,14 +315,97 @@ class TestVehicleMatrices(unittest.TestCase):
         idx = {name: i for i, name in enumerate(built["state_names"])}
         # Heave decoupled in this synthetic set: column/row w has one term.
         self.assertAlmostEqual(A[idx["w"], idx["w"]], zw / m, places=12)
-        expected_yaw = dq_dom * (600.0 * 2.0 * math.pi / 60.0) / iz
-        self.assertAlmostEqual(A[idx["r"], idx["r"]], expected_yaw,
+        self.assertAlmostEqual(A[idx["r"], idx["r"]], -dq_dom / iz,
                                 places=12)
         # Gravity couples attitude into the speed rows.
         self.assertAlmostEqual(A[idx["u"], idx["theta"]],
                                 -9.81, places=12)
         eig = built["eigenvalues"]
         self.assertEqual(len(eig), 8)
+
+    def test_every_entry_of_A_is_a_rate(self):
+        """The state equation is xdot = A x, so EVERY entry of A has
+        units of 1/s, whatever the state it multiplies.
+
+        The yaw entry did not: it multiplied dQ/dOmega [N*m*s] by Omega
+        [rad/s] and divided by I_z [kg*m^2], which leaves 1/s^2. The
+        yaw pole was therefore wrong by the numerical value of Omega --
+        a factor of about sixty at six hundred rpm. Dimensions are
+        checked here by scaling: doubling every INERTIA and every MASS
+        must halve every entry that carries one, and no entry may change
+        when only the trim rpm changes, because rpm is not part of any
+        of these units."""
+        from zbemt import derivatives as drv
+        import numpy as np
+
+        slow = self._FakeOutcome()
+        fast = self._FakeOutcome()
+        fast.trim_state = {"rpm": 6000.0}      # ten times the shaft speed
+        kwargs = dict(mass=100.0, Ix=50.0, Iy=80.0, Iz=20.0)
+        a_slow = drv.vehicle_matrices(slow, **kwargs)["A"]
+        a_fast = drv.vehicle_matrices(fast, **kwargs)["A"]
+        np.testing.assert_allclose(
+            a_fast, a_slow, atol=0.0, rtol=0.0,
+            err_msg="an entry of A changed with the trim rpm, so it is "
+                    "carrying a stray factor of Omega")
+
+    def test_the_pitch_row_takes_Mx_and_the_roll_row_takes_My(self):
+        """`Mx_total` is this engine's PITCHING moment and `My_total`
+        its rolling one -- `api.summary_symbols` says so, and the
+        damping pairs follow the same axes. The rigid-body model used
+        to feed each into the other's row.
+
+        The check is a pure routing check: put a marker in one
+        derivative and see which row it comes out of."""
+        from zbemt import derivatives as drv
+        outcome = self._FakeOutcome()
+        for pair in list(outcome.matrix):
+            outcome.matrix[pair] = 0.0
+        outcome.matrix[("Mx_total", "q")] = 7.0
+        outcome.matrix[("My_total", "p")] = 5.0
+        built = drv.vehicle_matrices(outcome, mass=1.0, Ix=1.0, Iy=1.0,
+                                      Iz=1.0, g=0.0)
+        A = built["A"]
+        idx = {name: i for i, name in enumerate(built["state_names"])}
+        self.assertAlmostEqual(A[idx["q"], idx["q"]], 7.0,
+                                msg="the pitch row must take Mx_total")
+        self.assertAlmostEqual(A[idx["p"], idx["p"]], 5.0,
+                                msg="the roll row must take My_total")
+
+    def test_forward_speed_row_opposes_the_H_force(self):
+        """`H` is positive AFT (`api.summary_symbols`), so the forward
+        force is -H. Written as +H, a rotor whose drag grew with speed
+        was reported as accelerating itself."""
+        from zbemt import derivatives as drv
+        outcome = self._FakeOutcome()
+        for pair in list(outcome.matrix):
+            outcome.matrix[pair] = 0.0
+        outcome.matrix[("H", "u")] = 8.0      # drag grows with speed
+        built = drv.vehicle_matrices(outcome, mass=2.0, Ix=1.0, Iy=1.0,
+                                      Iz=1.0, g=0.0)
+        idx = {name: i for i, name in enumerate(built["state_names"])}
+        self.assertAlmostEqual(built["A"][idx["u"], idx["u"]], -4.0,
+                                msg="a rotor whose aft force grows with "
+                                    "forward speed must DECELERATE")
+
+    def test_the_hub_arm_tips_the_nose_up_for_a_rearward_force(self):
+        """A force acting aft, above the CG, tips the vehicle nose-up --
+        push the top of a box backwards and it falls backwards. The two
+        hub-offset transfers used opposite relative signs for the same
+        geometry."""
+        from zbemt import derivatives as drv
+        outcome = self._FakeOutcome()
+        for pair in list(outcome.matrix):
+            outcome.matrix[pair] = 0.0
+        outcome.matrix[("H", "u")] = 3.0
+        outcome.matrix[("Y", "v")] = 3.0
+        built = drv.vehicle_matrices(outcome, mass=1.0, Ix=1.0, Iy=1.0,
+                                      Iz=1.0, g=0.0, hub_offset=(0.0, 0.0, 2.0))
+        A = built["A"]
+        idx = {name: i for i, name in enumerate(built["state_names"])}
+        self.assertAlmostEqual(A[idx["q"], idx["u"]], 6.0)
+        # And the same arm, the same sign, for the side force into roll.
+        self.assertAlmostEqual(A[idx["p"], idx["v"]], 6.0)
 
     def test_control_column_scales_by_mass(self):
         from zbemt import derivatives as drv

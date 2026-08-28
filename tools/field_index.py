@@ -93,8 +93,26 @@ def collect_screen_order() -> dict:
             field_name = match.group(1).split(".")[-1]
             if field_name not in label_map or field_name in positions:
                 continue
-            point = widget.mapTo(tab, widget.rect().topLeft())
-            positions[field_name] = (point.y(), point.x())
+            # A HIDDEN widget has no position: `mapTo` returns (0, 0)
+            # for it, so every hidden field sorted to the very top and
+            # the one visible field of the block sorted last. The
+            # Geometry block is the case that showed it -- `flap_model`
+            # is the FIRST row on screen and the eighteen rows it
+            # governs are hidden until it is set, so the published order
+            # put `flap_model` at the END of a list that claims to be
+            # "in the order they appear on screen".
+            #
+            # A field that is not on screen has no screen order, so it
+            # is placed by its position in the form instead, right after
+            # the field that reveals it: `mapTo` on its PARENT still
+            # describes where the block sits.
+            if widget.isVisibleTo(tab):
+                point = widget.mapTo(tab, widget.rect().topLeft())
+                positions[field_name] = (0, point.y(), point.x())
+            else:
+                parent = widget.parentWidget() or tab
+                anchor = parent.mapTo(tab, parent.rect().topLeft())
+                positions[field_name] = (1, anchor.y(), anchor.x())
         ordered = sorted(positions.items(), key=lambda kv: kv[1])
         order[tab_name] = [(name, label_map[name]) for name, _ in ordered]
     return order

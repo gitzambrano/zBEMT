@@ -56,18 +56,40 @@ class TestFrequencyRatioClosedForm(unittest.TestCase):
 
 
 class TestFlapAeroDampingClosedForm(unittest.TestCase):
+    """`EN-4`. The damping is the moment of the ``(r - eR)*beta_dot``
+    term of U_P about the hinge, so it is one elementary integral and
+    there is no reason to ship an approximation of it."""
+
     def test_central_hinge_reduces_to_the_classic_gamma_over_eight(self):
-        """EN-4: at e = 0 the aerodynamic flap damping must reduce to the
-        published gamma/8 of the centrally hinged blade; with an offset
-        it follows gamma*(1/8 - e/3 + e^2/4), hand-integrated from the
-        same U_P term the engine uses."""
         gamma = 8.0
         self.assertAlmostEqual(geometry.flap_aero_damping(gamma, 0.0),
                                 gamma / 8.0, places=12)
-        e = 0.05
-        self.assertAlmostEqual(
-            geometry.flap_aero_damping(gamma, e),
-            gamma * (0.125 - e / 3.0 + 0.25 * e * e), places=12)
+
+    def test_it_matches_the_integral_it_comes_from(self):
+        """Checked against the integral itself, evaluated numerically,
+        rather than against a rewritten formula: that is what makes this
+        a check on the algebra."""
+        from scipy import integrate
+
+        gamma = 8.0
+        for e in (0.0, 0.05, 0.12, 0.30):
+            with self.subTest(hinge_offset=e):
+                value, _err = integrate.quad(
+                    lambda x, e=e: x * (x - e) ** 2, e, 1.0)
+                self.assertAlmostEqual(geometry.flap_aero_damping(gamma, e),
+                                        0.5 * gamma * value, places=10)
+
+    def test_the_old_expansion_is_recovered_for_a_small_offset(self):
+        """gamma*(1/8 - e/3 + e^2/4) is the second-order expansion of the
+        same expression. It has to agree where the expansion is valid,
+        and it is allowed to disagree where it is not -- at e = 0.3 the
+        expansion is 0.7 % high."""
+        gamma = 8.0
+        expansion = lambda e: gamma * (0.125 - e / 3.0 + 0.25 * e * e)
+        self.assertAlmostEqual(geometry.flap_aero_damping(gamma, 0.05),
+                                expansion(0.05), places=5)
+        self.assertLess(geometry.flap_aero_damping(gamma, 0.30),
+                         expansion(0.30))
 
 
 class TestResonanceGuard(unittest.TestCase):

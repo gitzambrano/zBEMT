@@ -336,18 +336,26 @@ def flap_aero_damping(lock_number: float, hinge_offset_norm: float) -> float:
 
         beta'' + nu_beta^2 * beta + d_beta * beta' = Mbar(psi)
 
-    Derived from the ``(r - e*R)*beta_dot`` term of U_P: a blade section
-    moving with the flap rate sees a change of incidence proportional to
-    ``(r/R - e)/(r/R)``, and integrating its moment about the hinge
-    against the Lock inertia gives
+    Derived from the ``(r - e*R)*beta_dot`` term of U_P. A section moving
+    with the flap rate sees its incidence change by ``-(r - eR)*beta_dot
+    / U_T``; multiplying by the lift slope and the local dynamic
+    pressure, taking the moment about the hinge and dividing by the Lock
+    inertia leaves an integral that closes in elementary terms:
 
-        d_beta = gamma * (1/8 - e/3 + e^2/4)
+        d_beta = (gamma/2) * INT_e^1 x*(x - e)^2 dx
+               = (gamma/2) * [ (1-e)^4/4 + e*(1-e)^3/3 ]
 
     with ``gamma`` the RESOLVED Lock number (whatever inertia source the
-    user chose). At e = 0 this reduces to the classic gamma/8 flap
-    damping of the centrally hinged blade. This is the term the solver
-    must treat implicitly -- see `bemt.solve_bemt_flapping` -- because
-    keeping it on the right-hand side makes the outer iteration
-    unstable."""
+    user chose). At e = 0 this is gamma/8, the classic flap damping of
+    the centrally hinged blade.
+
+    The second-order expansion of the same expression, gamma*(1/8 - e/3
+    + e^2/4), was used here before. It agrees to four figures for the
+    small offsets a real articulated rotor uses, and drifts to 0.7 % at
+    e = 0.3, so the exact form costs nothing and removes a needless
+    approximation. This is the term the solver must treat implicitly --
+    see `bemt.solve_bemt_flapping` -- because keeping it on the
+    right-hand side makes the outer iteration unstable."""
     e = float(hinge_offset_norm)
-    return float(lock_number) * (0.125 - e / 3.0 + 0.25 * e * e)
+    return 0.5 * float(lock_number) * ((1.0 - e) ** 4 / 4.0
+                                        + e * (1.0 - e) ** 3 / 3.0)

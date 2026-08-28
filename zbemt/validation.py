@@ -902,3 +902,73 @@ def _time_one_evaluation(project, condition, variables) -> float | None:
         return elapsed
     except Exception:
         return None
+
+
+# =============================================================================
+# Results: what a converged-looking answer still has to admit
+# =============================================================================
+
+#: Above this, the last marched revolutions of the Oye separation state
+#: are still changing and the answer is not periodic (`EN-9`).
+PERIODIC_RESIDUAL_TOLERANCE = 1e-3
+
+#: The flap equation is linear in beta: it drops cos(beta) against one
+#: and sin(beta) against beta. Past about ten degrees that is no longer
+#: a small correction, and the harmonic balance is being read outside
+#: the range it was derived for.
+FLAP_SMALL_ANGLE_LIMIT_DEG = 10.0
+
+
+def validate_results(summary: dict) -> list[Issue]:
+    """Findings about a result that already ran.
+
+    The other validators answer "may this run?"; this one answers "may
+    this number be believed?". Both halves exist because the engine can
+    produce a perfectly converged field for a model that was pushed
+    outside its own assumptions, and a converged field is exactly what
+    hides it.
+    """
+    issues: list[Issue] = []
+    if not summary:
+        return issues
+
+    residual = summary.get("dynamic_stall_periodic_residual")
+    if residual is not None and float(residual) > PERIODIC_RESIDUAL_TOLERANCE:
+        issues.append(Issue(
+            "warning",
+            "the time-marched dynamic stall did not reach a periodic "
+            f"regime: the separation state still moves by {float(residual):.3g} "
+            f"between the last revolutions, above {PERIODIC_RESIDUAL_TOLERANCE:g}. "
+            "March more revolutions, or read the result as a transient "
+            "rather than as a periodic one (EN-9)."))
+
+    peak = _peak_flap_deg(summary)
+    if peak is not None and peak > FLAP_SMALL_ANGLE_LIMIT_DEG:
+        issues.append(Issue(
+            "warning",
+            f"the blade flaps to {peak:.1f} deg, past the "
+            f"{FLAP_SMALL_ANGLE_LIMIT_DEG:g} deg where the small-angle flap "
+            "equation stops being a small correction: it drops cos(beta) "
+            "against one and sin(beta) against beta. Lower the collective, "
+            "raise the shaft speed, or read the flap angles as indicative."))
+    return issues
+
+
+def _peak_flap_deg(summary: dict):
+    """Largest |beta| the reported harmonics can reach, from the sum of
+    their amplitudes -- the bound the response cannot exceed."""
+    if "beta_0_deg" not in summary:
+        return None
+    import math
+
+    peak = abs(float(summary["beta_0_deg"]))
+    harmonic = 1
+    while True:
+        cos_key = f"beta_{harmonic}c_deg"
+        sin_key = f"beta_{harmonic}s_deg"
+        if cos_key not in summary and sin_key not in summary:
+            break
+        peak += math.hypot(float(summary.get(cos_key, 0.0)),
+                            float(summary.get(sin_key, 0.0)))
+        harmonic += 1
+    return peak

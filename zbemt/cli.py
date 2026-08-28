@@ -276,6 +276,20 @@ def _build_parser() -> argparse.ArgumentParser:
     # NOTE: --rpm already exists below (ad hoc condition speed). --compare
     # reuses it when the project has no saved cases; see _run_compare.
 
+    # --- Stability derivatives (SC-14) -----------------------------------
+    derivative_group = p.add_argument_group("Stability derivatives (SC-14)")
+    derivative_group.add_argument(
+        "--derivatives", nargs="?", const="", default=None, metavar="NAME",
+        help="Run a saved stability-derivative study. NAME selects an entry "
+             "of project.derivatives; a bare flag runs the first one.")
+    derivative_group.add_argument(
+        "--list-derivatives", action="store_true",
+        help="Print the saved derivative-study names of --project.")
+    derivative_group.add_argument(
+        "--derivatives-csv", metavar="PATH", default=None,
+        help="Write the derivative matrix to this CSV instead of the "
+             "default path under the project's outputs folder.")
+
     # --- ad hoc condition (used only if no --from-bemt-* is given and the
     # project has no batch.conditions) ----------------------------------
     # Phase 8 (docs/CHANGELOG.md): the representations of one component are
@@ -1237,6 +1251,48 @@ def _run_optimize(project, args) -> int:
     return 0
 
 
+def _run_derivatives(project, args) -> int:
+    """--derivatives: run one saved study and write its matrix.
+
+    The study carries its own trim, its own steps and its own list of
+    states, controls and outputs, so the flag needs nothing but a name.
+    A study whose trim does not converge now raises rather than
+    returning a point that is not a trim, and the message reaches the
+    shell unchanged."""
+    try:
+        request = api.get_derivative_request(project, args.derivatives or None)
+    except KeyError as exc:
+        # exc.args[0]: str(KeyError) wraps the message in another pair of
+        # quotes, which reads like shell noise (same as `_run_optimize`).
+        message = exc.args[0] if exc.args else str(exc)
+        print(f"Error: {message}", file=sys.stderr)
+        return 1
+
+    try:
+        outcome = api.compute_derivatives(project, request)
+    except (RuntimeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.derivatives_csv:
+        destination = Path(args.derivatives_csv)
+    else:
+        outputs_dir = Path(api.project_outputs_dir(project, create=True))
+        slug = api.sanitize_filename(request.name)
+        destination = outputs_dir / f"{slug}_derivatives.csv"
+    try:
+        written = api.export_derivatives_csv(outcome, str(destination))
+    except OSError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Derivative study: {request.name}")
+    for (output, variable), value in sorted(outcome.matrix.items()):
+        print(f"  d{output}/d{variable}\t{value:.6g}")
+    print(f"Matrix written to {written}")
+    return 0
+
+
 def _run_maneuver(project, args) -> int:
     """--maneuver: march one saved trajectory (SC-12) and write the time
     history plus the transient report. A bare --maneuver runs the first
@@ -1363,6 +1419,15 @@ def main(argv=None, options=None) -> int:
         for c in project.saved_cases:
             print(f"{c.name}\tmu={c.mu_x}\tcollective_deg={c.collective_deg}\tVv={c.Vz}\trpm={c.rpm}")
         return 0
+    if args.list_derivatives:
+        studies = getattr(project, "derivatives", [])
+        if not studies:
+            print("This project stores no derivative studies "
+                  "(inputs/derivatives.bemt absent or empty).")
+        for d in studies:
+            variables = ", ".join([*d.states, *d.controls]) or "(none)"
+            print(f"{d.name}\ttrim={d.trim}\tvariables: {variables}")
+        return 0
     if args.list_maneuvers:
         maneuvers = getattr(project, "maneuvers", [])
         if not maneuvers:
@@ -1387,12 +1452,13 @@ def main(argv=None, options=None) -> int:
         ("--gen-neuralfoil", bool(args.gen_neuralfoil)),
         ("--gen-xfoil", bool(args.gen_xfoil)),
         ("--maneuver", args.maneuver is not None),
+        ("--derivatives", args.derivatives is not None),
     ) if given]
     if len(selected_modes) > 1:
         print("cli.py: error: " + ", ".join(selected_modes)
               + " are mutually exclusive. Give at most one of "
-              "--compare, --optimize, --gen-neuralfoil, --gen-xfoil "
-              "or --maneuver.",
+              "--compare, --optimize, --gen-neuralfoil, --gen-xfoil, "
+              "--maneuver or --derivatives.",
               file=sys.stderr)
         return 2
 
@@ -1406,6 +1472,8 @@ def main(argv=None, options=None) -> int:
         return _run_optimize(project, args)
     if args.maneuver is not None:
         return _run_maneuver(project, args)
+    if args.derivatives is not None:
+        return _run_derivatives(project, args)
 
     _apply_geometry_flags(project, args)
     _apply_airfoil_flags(project, args)
