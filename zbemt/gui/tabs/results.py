@@ -71,7 +71,8 @@ from typing import TYPE_CHECKING
 from ..common import (require_optional_package,
                       parse_list, AppState, show_error, CanvasHost, HAS_INTERACTIVE_PLOTS,
                       PlotlyCanvasHost, symbol_to_plain_text, describe_case_settings,
-                      NUMBER_ALIGN, equalize_button_widths)
+                      NUMBER_ALIGN, equalize_button_widths,
+                      apply_figure_minimum_size)
 from .. import instant_tooltip as _instant_tooltip
 from ..instant_tooltip import install_instant_tooltip
 from ..workers import ReportWorker, launch_worker
@@ -311,6 +312,29 @@ class _SymbolCombo(QComboBox):
                      self.palette().color(QPalette.ColorRole.Text), align_left=True)
 
 
+class _CurrentPageStack(QStackedWidget):
+    """A stack whose size demand is the size demand of the page it is
+    SHOWING.
+
+    `QStackedWidget` normally asks for the largest of all its pages, and
+    inside a scroll area that is the wrong question: one cached
+    sixteen-panel grid would put scroll bars on the single-panel views
+    cached beside it, which fit the window perfectly well. Reporting the
+    current page's own minimum keeps each figure's rule to itself
+    (`QR-14`).
+    """
+
+    def _current_minimum(self) -> QSize:
+        page = self.currentWidget()
+        return page.minimumSize() if page is not None else QSize(0, 0)
+
+    def minimumSizeHint(self) -> QSize:       # noqa: N802 -- Qt's name
+        return self._current_minimum()
+
+    def sizeHint(self) -> QSize:              # noqa: N802 -- Qt's name
+        return self._current_minimum()
+
+
 class _CachedCanvas(CanvasHost):
     """`CanvasHost` that KEEPS the already-drawn figures.
 
@@ -348,11 +372,15 @@ class _CachedCanvas(CanvasHost):
         if canvas is self._current:
             return
         if self._pilha is None:
-            self._pilha = QStackedWidget(self)
-            self._layout.addWidget(self._pilha)
+            self._pilha = _CurrentPageStack()
+            self._scroll.setWidget(self._pilha)
         if self._pilha.indexOf(canvas) < 0:
             self._pilha.addWidget(canvas)
         self._pilha.setCurrentWidget(canvas)
+        # The stack's demand changed with the page (`_CurrentPageStack`),
+        # and the scroll area only re-reads it when told to. Without
+        # this the scroll bars belong to the PREVIOUS figure.
+        self._pilha.updateGeometry()
         if self._with_toolbar:
             # The toolbar is bound to ONE canvas; when switching pages it
             # needs to point at the new one (a stale toolbar controls
@@ -394,6 +422,9 @@ class _CachedCanvas(CanvasHost):
             return
         fig = factory()
         canvas = FigureCanvasQTAgg(fig)
+        # A grid keeps a readable minimum and scrolls; a single panel
+        # keeps filling the window (`common.apply_figure_minimum_size`).
+        apply_figure_minimum_size(canvas, fig)
         self._cache[key] = canvas
         while len(self._cache) > self._MAX_CACHED:
             _, oldest = self._cache.popitem(last=False)
@@ -462,6 +493,14 @@ class ResultsTab(QWidget):
     def _propeller_mode(self) -> bool:
         return bool(self.state.is_propeller()) if self.state is not None else False
 
+    #: Built twice at most -- once per mode -- and then reused. The table
+    #: used to call `_symbols` once per column, and each call rewrote the
+    #: description of all 130 columns through
+    #: `api._description_with_symbols`: about a million regular-expression
+    #: substitutions, two seconds of frozen interface, for an answer that
+    #: depends on nothing but the mode (`PR-11`).
+    _SYMBOLS_BY_MODE: dict = {}
+
     def _symbols(self) -> dict:
         """Symbols/descriptions of the columns in the mode's axis
         convention.
@@ -471,11 +510,16 @@ class ResultsTab(QWidget):
         on-screen table and the report's read from the SAME source, since two
         different answers for the same column would be worse than one
         wrong one."""
-        return {
-            key: (symbol, api._description_with_symbols(description))
-            for key, (symbol, description)
-            in api.summary_symbols(self._propeller_mode()).items()
-        }
+        mode = self._propeller_mode()
+        cached = ResultsTab._SYMBOLS_BY_MODE.get(mode)
+        if cached is None:
+            cached = {
+                key: (symbol, api._description_with_symbols(description))
+                for key, (symbol, description)
+                in api.summary_symbols(mode).items()
+            }
+            ResultsTab._SYMBOLS_BY_MODE[mode] = cached
+        return cached
 
     def __init__(self, state: AppState, geometry_tab: GeometryTab, airfoil_tab: AirfoilTab):
         super().__init__()
@@ -800,11 +844,13 @@ class ResultsTab(QWidget):
         # modes can build a heavy Matplotlib/Plotly figure; when switching
         # rapidly between modes, showing an intermediate state and
         # coalescing the redraw avoids blocking the window once per click.
-        if self._current_mode() == "Table":
-            self._refresh_current()
-        else:
+        # The table used to be refreshed synchronously here, on the claim
+        # that it was cheap. It was the most expensive mode of the seven
+        # -- filling it is what froze the window for seconds -- so it now
+        # takes the same deferred path as every figure (`PR-11`).
+        if self._current_mode() != "Table":
             self.canvas_host.show_message("Rendering selected result…")
-            self._schedule_redraw()
+        self._schedule_redraw()
 
     def _schedule_redraw(self, *_args):
         """Schedules a single redraw for mode/option changes.
@@ -869,7 +915,13 @@ class ResultsTab(QWidget):
             self.history_list.blockSignals(True)
             self.history_list.item(self.history_list.count() - 1).setCheckState(Qt.CheckState.Checked)
             self.history_list.blockSignals(False)
-        self._on_selection_changed()
+        # Same split as `_on_history_item_changed`: the cheap part now,
+        # the redraw on the timer. Calling `_on_selection_changed`
+        # straight through is what made deleting one entry hold the
+        # window for seconds -- the delete and a full table rebuild
+        # happened inside the same click (`PR-11`).
+        self._update_selection_state()
+        self._selection_timer.start()
 
     def _select_all_history(self):
         self.history_list.blockSignals(True)
@@ -1372,14 +1424,36 @@ class ResultsTab(QWidget):
         ordered_keys, cfg = api.summary_keys_union(flat, self._propeller_mode())
         columns = ordered_keys + cfg
 
+        symbols = self._symbols()
+        # The vertical header measures EVERY row again on each insertion
+        # while it is in `ResizeToContents`, so filling n rows costs n^2
+        # measurements -- half a second at forty rows, half a minute at
+        # three hundred. It is put back at the end, once, over the
+        # finished table (`PR-11`).
+        vertical = self.table_widget.verticalHeader()
+        vertical.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.table_widget.setUpdatesEnabled(False)
+        try:
+            self._fill_table(flat, columns, symbols)
+        finally:
+            self.table_widget.setUpdatesEnabled(True)
+            # Back to the mode `_VerticalSymbolHeader` is built with, so
+            # the finished table still sizes its rows to the rich label
+            # it really paints -- measured ONCE, over every row, instead
+            # of once per row over every row.
+            vertical.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+
+    def _fill_table(self, flat, columns, symbols) -> None:
+        """The fill itself. Separated only so `_refresh_table` can wrap
+        it in the header/repaint guards above."""
         self.table_widget.setRowCount(len(flat))
         self.table_widget.setColumnCount(len(columns))
         self.table_widget.setHorizontalHeaderLabels([
-            symbol_to_plain_text(self._symbols().get(c, (c.removeprefix("cfg_"), c))[0])
+            symbol_to_plain_text(symbols.get(c, (c.removeprefix("cfg_"), c))[0])
             for c in columns
         ])
         for col, key in enumerate(columns):
-            symbol, description = self._symbols().get(key, (key.removeprefix("cfg_"), key))
+            symbol, description = symbols.get(key, (key.removeprefix("cfg_"), key))
             unit = api.SUMMARY_UNITS.get(key, "")
             tip = f"<b>{symbol}</b>{f' [{unit}]' if unit else ''}<br>{description}"
             item = self.table_widget.horizontalHeaderItem(col)

@@ -38,8 +38,15 @@ def _stub_summary(project, condition, should_cancel=None):
         "Torque": 300.0,
         "H": 10.0 * u,
         "Y": 8.0 * (p / 57.3),
-        "Mx_total": -0.5 * (p / 57.3),
-        "My_total": -2.0 * (q / 57.3),
+        # The damping pairs share an axis: q with M_x, p with M_y. A
+        # rotor in hover cannot tell one in-plane direction from
+        # another, so the toy is written in the rotation-invariant form
+        # [[a, b], [-b, a]] with a = -2 (damping) and b = -0.5 (the
+        # cross coupling). Written the other way round -- M_x from p
+        # alone and M_y from q alone -- the toy encoded the very pairing
+        # mistake the sign panel is supposed to catch.
+        "Mx_total": -2.0 * (q / 57.3) + 0.5 * (p / 57.3),
+        "My_total": -2.0 * (p / 57.3) - 0.5 * (q / 57.3),
         "convergence_pct": 100.0,
     }
     return r
@@ -67,8 +74,8 @@ class StabilityWindowBase(unittest.TestCase):
             name="study",
             condition=project.saved_cases[0],
             trim="none",
-            states=["w", "q"], controls=["theta_0"],
-            outputs=["Thrust", "My_total"]))
+            states=["w", "q", "p"], controls=["theta_0"],
+            outputs=["Thrust", "Mx_total", "My_total"]))
         self.state.project = project
         self.window._refresh_from_project()
         return project
@@ -84,7 +91,9 @@ class TestConstruction(StabilityWindowBase):
         self.assertEqual(self.window.study_combo.count(), 1)
         self.assertTrue(self.window.btn_run.isEnabled())
         request = self.window._current_request()
-        self.assertEqual(request.states, ["w", "q"])
+        # The request reports the states in the canonical order of
+        # _STATE_NAMES, not in the order the saved study listed them.
+        self.assertEqual(request.states, ["w", "p", "q"])
         self.assertEqual(request.trim, "none")
 
 
@@ -134,17 +143,69 @@ class TestRunFillsTheMatrix(StabilityWindowBase):
         self.assertEqual(columns[0], "output")
         rows = {self.window.matrix_table.verticalHeaderItem(r).text()
                  for r in range(self.window.matrix_table.rowCount())}
-        self.assertEqual(rows, {"Thrust", "My_total"})
+        self.assertEqual(rows, {"Thrust", "Mx_total", "My_total"})
 
         # Sign checks read PASS on this healthy toy.
         text = self.window.sign_panel.text()
         self.assertIn("Heave damping: PASS", text)
         self.assertIn("Pitch damping: PASS", text)
+        self.assertIn("Roll damping: PASS", text)
         self.assertIn("Collective thrust: PASS", text)
 
         # The vehicle block becomes available once u/v/w/p/q/Omega ran;
-        # this study only perturbed w/q/theta_0, so it stays disabled.
+        # this study only perturbed w/q/p/theta_0, so it stays disabled.
         self.assertFalse(self.window.vehicle_check.isEnabled())
+
+
+class TestTogglingAVariableDoesNotCrash(StabilityWindowBase):
+    """`PR-11`. `_refresh_step_table` is a slot of `QCheckBox.toggled`,
+    and that signal delivers a bool into the parameter that otherwise
+    carries the saved study's steps. Reading it as a mapping raised
+    `AttributeError`, and PyQt does not let an exception escape a slot:
+    it aborts the process. Ticking any of the nine variables closed the
+    whole application, with no message.
+
+    The slot is called here with exactly what Qt delivers, rather than
+    through `setChecked`, because a regression would abort the test
+    runner itself instead of failing this test.
+    """
+
+    def test_the_slot_accepts_the_bool_that_the_signal_sends(self):
+        self._load_project()
+        for checked in (True, False):
+            with self.subTest(checked=checked):
+                self.window._refresh_step_table(checked)
+
+    def test_the_saved_steps_still_win_when_a_mapping_is_passed(self):
+        self._load_project()
+        self.window.var_checks["w"].setChecked(True)
+        self.window._refresh_step_table({"w": 1.25})
+        rows = {self.window.steps_table.item(r, 0).text():
+                 self.window.steps_table.item(r, 1).text()
+                 for r in range(self.window.steps_table.rowCount())}
+        self.assertIn("1.25", rows.values())
+
+    def test_the_bool_does_not_wipe_the_defaults(self):
+        """The table must still be filled after a toggle -- a slot that
+        silently produced an empty table would pass the first test."""
+        self._load_project()
+        self.window._refresh_step_table(True)
+        self.assertGreater(self.window.steps_table.rowCount(), 0)
+        for row in range(self.window.steps_table.rowCount()):
+            self.assertTrue(self.window.steps_table.item(row, 1).text())
+
+    def test_every_variable_can_be_toggled(self):
+        """The real gesture, once the slot is safe: each checkbox is
+        ticked and unticked, and the step table follows."""
+        self._load_project()
+        for name, check in self.window.var_checks.items():
+            if not check.isEnabled():
+                continue
+            with self.subTest(variable=name):
+                before = check.isChecked()
+                check.setChecked(not before)
+                check.setChecked(before)
+        self.assertGreater(self.window.steps_table.rowCount(), 0)
 
 
 if __name__ == "__main__":

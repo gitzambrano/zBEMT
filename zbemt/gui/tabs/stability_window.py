@@ -47,9 +47,17 @@ _OUTPUT_NAMES = ("Thrust", "H", "Y", "Mx_total", "My_total", "Torque")
 
 #: Sign facts a textbook guarantees; the window shows pass/fail so a
 #: wrong-sign engine change cannot hide (phase 4.5's spirit, on screen).
+#: The damping pairs share an axis: `nomenclature` calls q the rate
+#: about the psi=0 axis and M_x,total the tilting moment about that same
+#: axis, so the pitch damping is dM_x/dq and the roll damping is
+#: dM_y/dp. Pairing q with M_y reads the CROSS term, which on a rotor
+#: whose flap response lags by nearly ninety degrees is the larger
+#: number and carries no information about damping -- the panel reported
+#: a pass while the damping itself was positive (SC-14).
 _SIGN_CHECKS = (
     ("Heave damping", "Thrust", "w", -1.0),
-    ("Pitch damping", "My_total", "q", -1.0),
+    ("Pitch damping", "Mx_total", "q", -1.0),
+    ("Roll damping", "My_total", "p", -1.0),
     ("Collective thrust", "Thrust", "theta_0", +1.0),
 )
 
@@ -547,8 +555,18 @@ class StabilityWindow(QWidget):
         return defaults
 
     def _refresh_step_table(self, force=None):
+        """Rebuilds the per-variable step table.
+
+        ``force`` is the saved study's own steps, when there are any.
+        This method is ALSO a slot of ``QCheckBox.toggled``, which
+        delivers a bool -- so anything that is not a mapping means "no
+        saved steps, use the defaults". Reading the bool as a mapping
+        raised `AttributeError` inside a slot, and PyQt turns an
+        unhandled exception in a slot into an abort: ticking any
+        variable took the whole application down (`PR-11`).
+        """
         defaults = self._default_steps()
-        selected = force if force is not None else {}
+        selected = force if isinstance(force, dict) else {}
         rows = [(name, label) for name, label in _VARIABLE_LABELS
                  if self.var_checks[name].isChecked()]
         self.steps_table.setRowCount(len(rows))

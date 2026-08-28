@@ -207,7 +207,18 @@ different rule.
 - **PR-11 — The GUI never freezes.** No user action may block the main
   thread. Solving, batch runs, report generation, polar generation and file
   import run off the main thread; the GUI stays responsive, reports progress,
-  can be cancelled, and updates itself as results arrive.
+  can be cancelled, and updates itself as results arrive. Work that only the
+  main thread can do — filling a table, building a figure — is done once per
+  user gesture, not once per row or per column, and a burst of clicks
+  produces one refresh, not one per click.
+- **PR-12 — A figure keeps a readable size, or scrolls.** A multi-panel
+  figure has a minimum size per panel and the drawing area scrolls when the
+  window is smaller than that minimum. Text is measured in points and does
+  not shrink with the panel, so squeezing a grid into a small screen makes
+  its labels collide instead of making it smaller. A single-panel figure has
+  no such floor: it fills whatever area the window gives it, at any screen
+  size. A figure's minimum never propagates out of the drawing area to
+  enlarge the window itself.
 
 ---
 
@@ -262,6 +273,15 @@ different rule.
 - **EN-9** — A time-marched state must report the marched interval, the step
   count, and whether the last revolutions reached a periodic regime. A
   transient that did not settle must not pass as a converged result.
+- **EN-10** — Where a model resolves the section drag in spanwise (radial)
+  flow, it must resolve the drag VECTOR along the total relative wind, not
+  merely rescale the drag coefficient. The spanwise component carries no arm
+  about the shaft, so it must reach the in-plane hub forces and leave torque
+  and power untouched, and it must be reported as its own term so the user
+  can see what the option did. The closed form for a constant drag
+  coefficient — C_H,profile rising from σC_d0μ/4 to 3σC_d0μ/8, profile power
+  from (1 + μ²) to (1 + 1.5μ²) — is the reference the implementation is
+  checked against.
 
 ### 3.3 GUI / CLI / `.bemt` parity
 

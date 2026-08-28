@@ -17,7 +17,7 @@ from dataclasses import replace
 
 from zbemt import api
 from zbemt.bemt import BEMTConfig
-from zbemt.models import FlightCondition
+from zbemt.models import BladeDynamicsDef, FlightCondition
 from tests.helpers import make_studies_project
 
 
@@ -101,7 +101,12 @@ class TestHubRates(unittest.TestCase):
         self.assertGreater(amplitude, 1e-4,
                             "a pitch rate must excite the 1/rev flap")
         phase = math.degrees(math.atan2(beta_1s, beta_1c))
-        lag = (phase - 90.0) % 360.0   # forcing sin(psi) peaks at 90 deg
+        # The gyroscopic forcing of a pitch rate is -q*sin(psi), so it
+        # peaks at psi = 270 deg, not at 90. The reference used to say
+        # 90, matching a forcing whose sign made the hover damping
+        # matrix lose its rotation invariance; the ninety-degree lag the
+        # test is really about is unchanged and still measured here.
+        lag = (phase - 270.0) % 360.0
         self.assertTrue(0.0 < lag < 180.0,
                          f"the response must LAG, got {lag:.1f} deg")
         self.assertLess(abs(lag - 90.0), 5.0,
@@ -109,18 +114,46 @@ class TestHubRates(unittest.TestCase):
 
     def test_pitch_damping_is_negative(self):
         """The failure mode this input set must never ship: a hub moment
-        that aids the pitch rate instead of opposing it."""
+        that aids the pitch rate instead of opposing it.
+
+        The pitch damping is dM_x/dq. Both belong to the psi=0 axis --
+        `nomenclature` calls q the rate "about the psi=0 axis" and
+        M_x,total the "tilting moment about the psi=0 axis" -- so
+        pairing q with M_y read the CROSS term instead, which for a
+        rotor whose flap response lags by nearly ninety degrees is the
+        LARGER number and has no reason to share the damping's sign. The
+        check therefore passed while the damping itself was positive.
+        """
         project = self._flapping_project(hinge_offset_norm=0.05)
         h = 2.0   # deg/s, central difference around zero
         plus = api.run_case(project, _condition(
             project, q_rate_deg_s=h)).summary
         minus = api.run_case(project, _condition(
             project, q_rate_deg_s=-h)).summary
-        dmy_dq = ((plus["My_total"] - minus["My_total"])
+        dmx_dq = ((plus["Mx_total"] - minus["Mx_total"])
                    / (2.0 * math.radians(h)))
-        self.assertLess(dmy_dq, 0.0,
-                         f"pitch damping dMy/dq = {dmy_dq:.4f} must be "
+        self.assertLess(dmx_dq, 0.0,
+                         f"pitch damping dMx/dq = {dmx_dq:.4f} must be "
                          "negative")
+
+    def test_roll_damping_matches_the_pitch_damping_in_hover(self):
+        """The partner of the test above. In hover the rotor cannot tell
+        one in-plane direction from another, so the roll damping must
+        equal the pitch damping -- same number, same sign."""
+        project = self._flapping_project(hinge_offset_norm=0.05)
+        h = 2.0
+
+        def slope(key, **rate):
+            plus = api.run_case(project, _condition(
+                project, **{k: +v for k, v in rate.items()})).summary
+            minus = api.run_case(project, _condition(
+                project, **{k: -v for k, v in rate.items()})).summary
+            return (plus[key] - minus[key]) / (2.0 * math.radians(h))
+
+        pitch = slope("Mx_total", q_rate_deg_s=h)
+        roll = slope("My_total", p_rate_deg_s=h)
+        self.assertLess(roll, 0.0)
+        self.assertAlmostEqual(roll, pitch, delta=0.02 * abs(pitch) + 1e-6)
 
     def test_roll_and_pitch_rates_are_reported_back(self):
         project = _project()
@@ -319,6 +352,89 @@ class TestVehicleMatrices(unittest.TestCase):
         self.assertIn("no fuselage", built["limits"])
 
 
+class TestHoverDampingIsRotationInvariant(unittest.TestCase):
+    """`SC-14`. A rotor in hover is axisymmetric about its own shaft, so
+    the two-by-two matrix that maps a hub rate to a hub tilting moment
+    cannot prefer a direction. Written in a consistent pair of
+    orthogonal directions it must have the rotation-invariant form
+
+        [[ a,  b],
+         [-b,  a]]
+
+    -- the two DIRECT terms equal, the two CROSS terms equal and
+    opposite. This holds whatever the sign convention, whatever the
+    hinge offset and whatever the aerodynamic model: it is a symmetry of
+    the configuration, not of the model.
+
+    The hub pitch-rate terms used to carry the wrong sign, in the
+    element velocity and again in the gyroscopic flap forcing. That put
+    the matrix in the form [[a, b], [b, -a]]: the direct terms came out
+    equal and OPPOSITE, so one of pitch and roll damping was always
+    reported as unstable while the other was stable, at exactly the same
+    magnitude. The structure below is what catches that. A sign
+    assertion on one derivative alone cannot, because there is a
+    convention in which either sign looks right.
+    """
+
+    def _damping(self, dynamics):
+        from zbemt import derivatives, geometry
+        from zbemt.models import (AirfoilDef, DerivativeRequest,
+                                  FlightCondition, Project)
+
+        geom = geometry.generate_rectangular(
+            chord_norm=0.08, twist_root_deg=0.0, twist_tip_deg=0.0,
+            radius_m=1.0, n_stations=16)
+        project = Project(
+            name="damping", geometry=replace(geom, dynamics=dynamics),
+            airfoil=AirfoilDef(source="analytical", stall_model="linear"),
+            config=dict(Ne=16, Npsi=24, solver="newton", max_iter=300,
+                        inflow_field_model="pitt_peters_steady",
+                        prandtl_loss_mode="off",
+                        use_rotational_augmentation=False,
+                        use_radial_flow_correction=False,
+                        use_compressibility=False))
+        request = DerivativeRequest(
+            condition=FlightCondition(name="hover", mu_x=0.0,
+                                       collective_deg=8.0, rpm=600.0),
+            trim="none", states=["p", "q"],
+            outputs=["Mx_total", "My_total"], richardson_check=False)
+        return derivatives.compute_derivatives(project, request).matrix
+
+    def _assert_invariant(self, matrix):
+        direct_pitch = matrix[("Mx_total", "q")]
+        direct_roll = matrix[("My_total", "p")]
+        cross_a = matrix[("Mx_total", "p")]
+        cross_b = matrix[("My_total", "q")]
+        scale = max(abs(direct_pitch), abs(direct_roll), abs(cross_a),
+                     abs(cross_b), 1e-9)
+        self.assertLess(abs(direct_pitch - direct_roll) / scale, 0.02,
+                        "the direct terms must be EQUAL in hover, got "
+                        "dMx/dq=%+.4f and dMy/dp=%+.4f"
+                        % (direct_pitch, direct_roll))
+        self.assertLess(abs(cross_a + cross_b) / scale, 0.02,
+                        "the cross terms must be equal and OPPOSITE in hover, "
+                        "got dMx/dp=%+.4f and dMy/dq=%+.4f"
+                        % (cross_a, cross_b))
+
+    def test_a_rigid_rotor_is_rotation_invariant(self):
+        self._assert_invariant(self._damping(BladeDynamicsDef()))
+
+    def test_an_articulated_rotor_is_rotation_invariant(self):
+        self._assert_invariant(self._damping(BladeDynamicsDef(
+            flap_model="offset", hinge_offset_norm=0.05,
+            inertia_source="lock", lock_number=8.0, harmonics=3)))
+
+    def test_a_rigid_rotor_damps_its_own_hub_rate(self):
+        """With no flap freedom the tilting moment is purely
+        aerodynamic, and then the sign is not a matter of convention: a
+        nose-up rate lifts the front of the disk, which raises the
+        inflow there, cuts the lift there, and so produces a nose-DOWN
+        moment. Both damping derivatives must be negative."""
+        matrix = self._damping(BladeDynamicsDef())
+        self.assertLess(matrix[("Mx_total", "q")], 0.0)
+        self.assertLess(matrix[("My_total", "p")], 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -338,8 +454,15 @@ class TestDampingSummary(unittest.TestCase):
             # Distinguish the two variants by their ROOT chord value.
             marker = float(project.geometry.chord_norm[0])
             stiff = -2.0 if marker < 0.11 else -4.0
-            return {"Thrust": 1000.0 + (-3.0 + stiff * 0.25) * w,
-                    "My_total": -2.0 * q}
+            # CROSS TERMS ON PURPOSE. With a separable toy -- thrust
+            # from w alone, moment from q alone -- perturbing w and q in
+            # the same pair of solves gives the right answer by
+            # accident, so the old toy could not tell a directional
+            # derivative from a partial one. Here dT/dq and dM/dw are
+            # both non-zero, and only one-variable-at-a-time recovers
+            # the intended slopes.
+            return {"Thrust": 1000.0 + (-3.0 + stiff * 0.25) * w + 7.0 * q,
+                    "Mx_total": -2.0 * q + 11.0 * w}
 
         project = _project()
         geom_a = replace(project.geometry)

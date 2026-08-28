@@ -401,8 +401,26 @@ def damping_summary(project, variants: dict, condition,
 
     ``variants`` maps label -> RotorGeometryDef (a VariantDef works
     too). Returns ``{label: {"heave_damping": dThrust/dw [N/(m/s)],
-    "pitch_damping": dMy_total/dq [N*m/(rad/s)]}}``. Two solves per
-    variant; cancellation propagates from the underlying run."""
+    "pitch_damping": dMx_total/dq [N*m/(rad/s)]}}``. FOUR solves per
+    variant; cancellation propagates from the underlying run.
+
+    Four and not two, because each derivative needs its own variable
+    perturbed on its own. Moving w and q together costs two solves but
+    measures a directional derivative along the diagonal:
+
+        heave = dT/dw + (h_q/h_w)*dT/dq
+        pitch = dM/dq + (h_w/h_q)*dM/dw
+
+    and with the default steps h_w/h_q is 25, so the pitch number was
+    carrying twenty-five times the cross term it should not have had at
+    all. A separable test function cannot see this -- both cross terms
+    are zero there -- which is why the toy in `tests/test_derivatives.py`
+    now carries one.
+
+    The moment is M_x, not M_y: the pitch rate q and the moment
+    M_x,total belong to the same psi=0 axis (see `nomenclature`), so
+    pairing q with M_y reports the cross-coupling instead of the
+    damping."""
     from .models import VariantDef
 
     def _geometry(value):
@@ -422,11 +440,14 @@ def damping_summary(project, variants: dict, condition,
             thrust = float(summary["Thrust"])
             # Rigid blade: the engine reports no hinge split, so the
             # total IS the aerodynamic moment.
-            my = summary.get("My_total", summary.get("My"))
-            return thrust, float(my)
+            mx = summary.get("Mx_total", summary.get("Mx"))
+            return thrust, float(mx)
 
-        t_plus, m_plus = loads(vz=+step_w, q_rate=+step_q)
-        t_minus, m_minus = loads(vz=-step_w, q_rate=-step_q)
+        # One variable at a time -- see the docstring.
+        t_plus, _m = loads(vz=+step_w)
+        t_minus, _m = loads(vz=-step_w)
+        _t, m_plus = loads(q_rate=+step_q)
+        _t, m_minus = loads(q_rate=-step_q)
         out[label] = {
             "heave_damping": (t_plus - t_minus) / (2.0 * step_w),
             "pitch_damping": (m_plus - m_minus) / (2.0 * step_q),

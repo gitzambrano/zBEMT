@@ -6533,8 +6533,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p>Both corrections here relax the same assumption: that each blade section behaves like an isolated
                   two-dimensional aerofoil. They act on different coefficients and do not overlap, so they are enabled
-                  separately. Rotational augmentation raises lift near the root. The radial-flow correction lowers
-                  drag where the spanwise component of the flow is large.</p>
+                  separately. Rotational augmentation raises lift near the root. The radial-flow correction resolves the drag along the total relative wind, which raises the profile power and the hub force.</p>
 
                 <h4 id="cap-4-4-1">9.4.1 Rotational augmentation</h4>
 
@@ -6603,22 +6602,54 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <div class="eqn">$$U_R=V_x\cos\psi,$$</div>
 
-                <p>largest when the blade points across the flight direction and zero when it points along it. This
-                  component exists only in forward flight. In hover and in purely axial flight it is absent.</p>
+                <p>largest when the blade lies along the flight direction, fore and aft, and zero when it points
+                  across it. This component exists only in forward flight. In hover and in purely axial flight it is
+                  absent.</p>
 
-                <p>The spanwise flow is felt by the boundary-layer, and so contributes to skin friction, but it does
-                  not turn the section, and so contributes nothing to lift. Treating the whole velocity as acting on
-                  the section therefore overstates the drag. This correction, the independence principle, removes the
-                  spanwise part from the drag calculation and leaves the lift untouched. It is the complement of the
-                  augmentation above: one acts on lift, the other on drag, and they do not overlap.</p>
+                <p>The swept-wing independence principle says that the flow <i>normal</i> to the span is what turns
+                  the section and therefore what sets the lift. Lift accordingly keeps the pair
+                  $(U_p,\,U_t)$ and the angle built from it, and this correction leaves it untouched. Drag does not
+                  follow that rule. It is a friction force, generated in the boundary-layer, and it acts along the
+                  <i>total</i> relative wind &mdash; part of which runs along the blade, sweeping the boundary-layer
+                  spanwise as it goes. Written as a vector rather than a number,</p>
 
-                <p><b>Configuration and applicability.</b> Enable it for forward flight at appreciable advance ratio,
-                  where the skew
-                  is large enough to matter. In hover it does nothing. The maximum skew angle bounds how far it is
-                  allowed to act, and it exists because near the reverse-flow boundary the unbounded form drives the
-                  drag coefficient towards zero, which is the opposite of the physics. Leave it at $60$ degrees unless
-                  there is a specific reason to change it, and treat a large increase as a way of producing
-                  implausibly low drag rather than a more accurate answer.</p>
+                <div class="eqn">$$\vec{D}=\tfrac{1}{2}\rho c\,C_d\,\lvert\vec{U}\rvert\,\vec{U},
+                  \qquad \lvert\vec{U}\rvert=\sqrt{W^{2}+U_R^{2}},$$</div>
+
+                <p>the drag splits into two parts. The in-plane part, $\tfrac{1}{2}\rho c\,C_d\lvert\vec{U}\rvert
+                  W$, is the one the $\phi$ resolution turns into thrust and torque, exactly as before. The spanwise
+                  part, $\tfrac{1}{2}\rho c\,C_d\lvert\vec{U}\rvert U_R$, has no arm about the shaft, so it adds
+                  nothing at all to torque or to power, but it does push the rotor backwards and so enters the hub
+                  forces.</p>
+
+                <p><b>How large it is.</b> For a constant drag coefficient both effects are second order in the
+                  advance ratio and both <i>raise</i> the profile numbers. The closed form gives</p>
+
+                <div class="eqn">$$C_{H,\text{profile}}:\ \frac{\sigma C_{d0}\mu}{4}\ \longrightarrow\
+                  \frac{3\,\sigma C_{d0}\mu}{8},\qquad
+                  C_{P,\text{profile}}:\ (1+\mu^{2})\ \longrightarrow\ (1+1.5\,\mu^{2}),$$</div>
+
+                <p>the hub force rising by half as much again. Adding back the work the free stream does on the rotor
+                  turns the second of these into a dissipated profile power of $(1+4.5\,\mu^{2})$, which is the
+                  classical $(1+4.65\,\mu^{2})$ of the helicopter literature; the small remainder is the root and
+                  reverse-flow region that the closed form ignores and this engine integrates directly. A correction
+                  that <i>lowers</i> the profile power is the signature of a model that rescales the drag coefficient
+                  instead of resolving the drag vector.</p>
+
+                <p><b>What it changes on screen.</b> The spanwise part is reported on its own, as $C_{Hr}$ among the
+                  hub-force coefficients and $H_r$ among the dimensional forces, so the effect of the option is
+                  visible rather than inferred. Thrust and induced power do not move. With the option off, $C_{Hr}$
+                  is exactly zero and every number the engine produces is the number it produced before this
+                  correction existed.</p>
+
+                <p><b>Configuration and applicability.</b> Enable it for forward flight at appreciable advance ratio.
+                  In hover it does nothing, because there is no spanwise flow to resolve. The maximum skew angle
+                  bounds the local yaw angle of the blade element,
+                  $\lambda_y=\arctan(U_R/W)$, and with it the largest share of the drag the model may send along the
+                  span. It matters where $W$ collapses and that ratio would otherwise run away: near the blade root,
+                  and inside the reverse-flow region on the retreating side. Over the rest of the disc the local yaw
+                  angle stays well below any sensible ceiling and the value changes nothing. Leave it at $60$ degrees
+                  unless there is a specific reason to change it.</p>
 
                 <p><span class="gui">GUI</span>: the <i>use_radial_flow_correction</i> checkbox, with the
                   maximum skew angle appearing beside it once enabled.</p>
@@ -7718,6 +7749,16 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           and reverse-flow masking (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section
                             8.4</a>).
                         </p>
+
+                        <p><b>Size on screen.</b> A single panel fills whatever area the window gives it, at any
+                          screen size. The multi-panel layout does not: each of its panels keeps a minimum readable
+                          size, and on a screen too small to hold the whole grid the drawing area scrolls over it
+                          instead of shrinking it. This is deliberate. The labels, the azimuth names and the
+                          colour-bar numbers are measured in points and do not shrink with the panel, so a grid
+                          squeezed below about two hundred pixels a cell keeps all of its text at full size and the
+                          text begins to overlap the data. Scrolling keeps every panel legible; shrinking does not.
+                          The toolbar stays above the scrolling area, so the zoom and pan controls remain reachable
+                          exactly when the figure is larger than the window.</p>
 
                         <p><b>Computational discretization.</b> Each mesh cell $(r_i, \psi_j)$ represents one element
                           of the blade discretization containing converged velocity triangle components: in-plane

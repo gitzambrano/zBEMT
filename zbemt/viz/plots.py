@@ -809,6 +809,58 @@ _DISK_GRID_FIELDS = ["Fn", "Ft", "Cl", "Cd", "Vi", "Up",
                      "Ft_i", "Ft_p", "Mach", "q"]
 
 
+#: Smallest a single panel of a multi-panel figure may become on screen.
+#: Below this the panel keeps shrinking but its text does not: the
+#: labels are measured in points, so at about 200 px a cell the azimuth
+#: names climb over the disk, the color-bar numbers grow taller than the
+#: bar, and constrained layout starts letting the panels overlap. The
+#: figure is then made to SCROLL at this size instead of being squeezed
+#: below it (`QR-14`).
+PANEL_MINIMUM_PX = 240
+
+
+def figure_grid_shape(figure) -> tuple:
+    """``(nrows, ncols)`` of the panel grid a figure was drawn on.
+
+    Read from the axes' own grid specification rather than counted,
+    because a color bar built as an inset is an axes too and would
+    inflate any count. An axes that is not part of a grid -- an inset,
+    a manually placed one -- has no specification and is skipped.
+    """
+    nrows = ncols = 1
+    for ax in figure.axes:
+        spec = ax.get_subplotspec() if hasattr(ax, "get_subplotspec") else None
+        if spec is None:
+            continue
+        rows, cols = spec.get_gridspec().get_geometry()
+        nrows, ncols = max(nrows, rows), max(ncols, cols)
+    return nrows, ncols
+
+
+def figure_minimum_pixels(figure, panel_px: int = PANEL_MINIMUM_PX) -> tuple:
+    """``(width, height)`` in pixels below which a figure stops being
+    readable -- ``(0, 0)`` when it has a single panel.
+
+    A single-panel figure has no floor ON PURPOSE: one plot fills the
+    window it is given, whatever the size of the screen, and gains
+    nothing from a scroll bar. A grid does: every panel of it has to
+    stay big enough to read, and a screen too small for the whole grid
+    should scroll over it rather than shrink it (`QR-14`).
+
+    The height keeps the figure's own proportions instead of assuming
+    square cells, so each grid function stays the author of its own
+    aspect ratio.
+    """
+    nrows, ncols = figure_grid_shape(figure)
+    if nrows * ncols <= 1:
+        return (0, 0)
+    width_in, height_in = figure.get_size_inches()
+    min_width = int(ncols * panel_px)
+    if width_in <= 0:
+        return (min_width, int(nrows * panel_px))
+    return (min_width, int(round(min_width * height_in / width_in)))
+
+
 def plot_disk_map_grid(maps: dict, fields=None, fname=None, ncols: int = 4,
                         cmap: str = "viridis", figsize_per_panel: float = 3.2,
                         mask_reverse: bool = True):

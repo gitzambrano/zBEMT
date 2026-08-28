@@ -393,12 +393,19 @@ class LongitudinalInput(QWidget):
             self.spin.setRange(-10000.0, 10000.0)
 
     def _mu_from(self, label: str, value: float):
+        # `CONDITION_UNITS` names this variable "Vx" -- the in-plane
+        # VELOCITY, whatever letter the current mode prints on it. It
+        # used to be tested for as "V" here, so no branch matched, the
+        # helper returned None, and `mu_x` fell back to handing the raw
+        # number to the engine: a rotor asked for 5 m/s was solved at
+        # mu_x = 5. `tests/test_condition_units.py` guards every unit
+        # the table offers against exactly that.
         var = unit_label_variable(self._SLOT, label)
         if var == "mu_x":
             return value
         if var == "J_x":
             return api.J_to_mu(value)
-        if var == "V":
+        if var == "Vx":
             ctx = self._ctx()
             if ctx is None:
                 return None
@@ -412,7 +419,7 @@ class LongitudinalInput(QWidget):
             return mu_x
         if var == "J_x":
             return api.mu_to_J(mu_x)
-        if var == "V":
+        if var == "Vx":
             ctx = self._ctx()
             if ctx is None:
                 return None
@@ -433,7 +440,7 @@ class LongitudinalInput(QWidget):
         return self.variable_name() == "alpha_disk"
 
     def variable_name(self) -> str:
-        """Canonical engine variable (`mu_x`/`J_x`/`V`/`alpha_disk`)
+        """Canonical engine variable (`mu_x`/`J_x`/`Vx`/`alpha_disk`)
         -- NEVER the screen label, which rotates with the mode."""
         return unit_label_variable(self._SLOT, self.unit_combo.currentText()) or "mu_x"
 
@@ -627,12 +634,20 @@ class AxialInput(QWidget):
         self.changed.emit()
 
     def _update_range(self):
+        # The RESOLUTION changes with the unit as much as the range
+        # does. A ratio is a small number: mu_z = 0.05 written with the
+        # three decimals a velocity wants keeps only two significant
+        # figures, so switching m/s -> mu_z -> m/s came back half a
+        # percent away from where it started.
         if self.is_alpha():
             self.spin.setRange(-90, 90)
+            self.spin.setDecimals(3)
         elif self.variable_name() in ("mu_z", "J_z"):
             self.spin.setRange(-100, 100)
+            self.spin.setDecimals(5)
         else:
             self.spin.setRange(-1000, 1000)
+            self.spin.setDecimals(3)
 
     def raw_value(self) -> float:
         return self.spin.value()

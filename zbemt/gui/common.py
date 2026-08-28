@@ -17,6 +17,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QComboBox, QWidget, QVBoxLayout, QMessageBox,
     QDialog, QLabel, QPushButton, QFileDialog, QHBoxLayout,
+    QFrame, QScrollArea, QSizePolicy,
 )
 from PyQt6.QtCore import pyqtSignal, QEvent, QObject, QSize, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
@@ -891,6 +892,24 @@ def make_block_title_clickable(groupbox, block_id: str) -> bool:
 add_block_help_button = make_block_title_clickable
 
 
+def apply_figure_minimum_size(canvas: FigureCanvasQTAgg, figure: Figure) -> tuple:
+    """Gives ``canvas`` the smallest size at which ``figure`` still
+    reads, and returns it.
+
+    A MULTI-PANEL figure gets a floor: each of its panels keeps a
+    minimum number of pixels, and a window too small for the whole grid
+    scrolls over it. A SINGLE-PANEL figure gets no floor at all, so it
+    goes on filling whatever area the window gives it, at any screen
+    size. `viz.plots.figure_minimum_pixels` decides which is which
+    (`QR-14`).
+    """
+    from ..viz import plots
+
+    width, height = plots.figure_minimum_pixels(figure)
+    canvas.setMinimumSize(width, height)
+    return width, height
+
+
 class MplCanvas(FigureCanvasQTAgg):
     """Single-axis canvas (most of the simple plots)."""
     def __init__(self, figsize=(5, 3.5)):
@@ -914,6 +933,12 @@ class CanvasHost(QWidget):
     Results tab (docs/plano.md Section 8; docs/plano_v3.md Part 4),
     which is the only tab with drawing on screen.
     """
+    #: Smallest the drawing area itself may become. It exists so that a
+    #: figure's own minimum NEVER propagates up to the tab: whatever the
+    #: scrolled figure demands stops at this widget, and the surrounding
+    #: layout keeps deciding how much room the plot gets (`QR-14`).
+    _VIEWPORT_MINIMUM_PX = 120
+
     def __init__(self, with_toolbar: bool = False):
         super().__init__()
         self._layout = QVBoxLayout(self)
@@ -922,13 +947,27 @@ class CanvasHost(QWidget):
         self._current: FigureCanvasQTAgg | None = None
         self._with_toolbar = with_toolbar
         self._toolbar: NavigationToolbar2QT | None = None
+        # A figure that cannot stay readable at the window's size is
+        # SCROLLED, not squeezed. `setWidgetResizable` keeps the old
+        # behavior wherever there is room -- the figure still grows to
+        # fill the area -- and only starts scrolling once the area is
+        # smaller than the figure's own minimum.
+        self._scroll = QScrollArea(self)
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                    QSizePolicy.Policy.Expanding)
+        self._scroll.setMinimumSize(self._VIEWPORT_MINIMUM_PX,
+                                     self._VIEWPORT_MINIMUM_PX)
+        self._layout.addWidget(self._scroll)
         self.simple = MplCanvas(figsize=(6, 5))
         self._show(self.simple)
 
     def _show(self, canvas: FigureCanvasQTAgg):
-        if self._current is not None:
-            self._layout.removeWidget(self._current)
-            self._current.setParent(None)
+        if self._scroll.widget() is not None:
+            # `setWidget` DELETES the previous widget; the canvases here
+            # are reused, so the outgoing one has to be taken out first.
+            self._scroll.takeWidget().setParent(None)
         # NavigationToolbar2QT gives zoom (rectangle/wheel), pan, view
         # "back/forward", and the "Edit axis, curve and image
         # parameters" button (axes+curve icon), which opens a dialog
@@ -947,8 +986,12 @@ class CanvasHost(QWidget):
                 self._toolbar.deleteLater()
             self._toolbar = NavigationToolbar2QT(canvas, self)
             self._toolbar.setIconSize(QSize(15, 15))
-            self._layout.addWidget(self._toolbar)
-        self._layout.addWidget(canvas)
+            # Above the drawing area, and OUTSIDE it: a toolbar that
+            # scrolled away with the figure would be unreachable exactly
+            # when the figure is too big for the window, which is the
+            # one moment the user needs to zoom.
+            self._layout.insertWidget(0, self._toolbar)
+        self._scroll.setWidget(canvas)
         self._current = canvas
 
     def use_simple(self) -> MplCanvas:
@@ -962,6 +1005,7 @@ class CanvasHost(QWidget):
         is already built (returned by a ``plots.plot_*_grid``/
         ``plot_*`` function called with ``fname=None``)."""
         canvas = FigureCanvasQTAgg(fig)
+        apply_figure_minimum_size(canvas, fig)
         self._show(canvas)
         canvas.draw()
 

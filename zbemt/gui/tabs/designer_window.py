@@ -1917,7 +1917,7 @@ class GeometryDesignerWindow(QWidget):
         damping_layout = QVBoxLayout(damping_box)
         self.damping_table = QTableWidget(0, 3)
         self.damping_table.setHorizontalHeaderLabels(
-            ["Variant", "dMy/dq [N·m/(rad/s)]",
+            ["Variant", "dMₓ/dq [N·m/(rad/s)]",
              "dThrust/dw [N/(m/s)]"])
         self.damping_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch)
@@ -2316,7 +2316,8 @@ class GeometryDesignerWindow(QWidget):
                     f"{values['pitch_damping']:+.4g}"))
             item = QTableWidgetItem(
                 f"{values['heave_damping']:+.4g}")
-            # A positive heave damping is the classic sign failure.
+            # A positive heave damping is the classic sign failure:
+            # a rotor that pushes harder the faster it descends.
             if values["heave_damping"] > 0:
                 item.setForeground(QColor("#b00000"))
             self.damping_table.setItem(r, 2, item)

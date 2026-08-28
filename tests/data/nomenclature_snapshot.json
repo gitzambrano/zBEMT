@@ -16,6 +16,11 @@
         "mathtext": "$C_{Hp}$ [-]",
         "text": "CHp [-]"
       },
+      "CHr": {
+        "html": "CHr",
+        "mathtext": "CHr",
+        "text": "CHr"
+      },
       "CMx": {
         "html": "C<sub>Mx</sub> [-]",
         "mathtext": "$C_{Mx}$ [-]",
@@ -90,6 +95,11 @@
         "html": "H<sub>p</sub> [N]",
         "mathtext": "$H_p$ [N]",
         "text": "Hₚ [N]"
+      },
+      "Hr": {
+        "html": "Hr",
+        "mathtext": "Hr",
+        "text": "Hr"
       },
       "J_x": {
         "html": "J<sub>z</sub> [-]",
@@ -678,6 +688,11 @@
         "mathtext": "$C_{Hp}$ [-]",
         "text": "CHp [-]"
       },
+      "CHr": {
+        "html": "CHr",
+        "mathtext": "CHr",
+        "text": "CHr"
+      },
       "CMx": {
         "html": "C<sub>Mx</sub> [-]",
         "mathtext": "$C_{Mx}$ [-]",
@@ -752,6 +767,11 @@
         "html": "H<sub>p</sub> [N]",
         "mathtext": "$H_p$ [N]",
         "text": "Hₚ [N]"
+      },
+      "Hr": {
+        "html": "Hr",
+        "mathtext": "Hr",
+        "text": "Hr"
       },
       "J_x": {
         "html": "J<sub>x</sub> [-]",
@@ -1482,6 +1502,7 @@
       "CH",
       "CHi",
       "CHp",
+      "CHr",
       "CY",
       "CMx",
       "CMy",
@@ -1497,6 +1518,7 @@
       "H",
       "Hi",
       "Hp",
+      "Hr",
       "Y",
       "Mx",
       "My",
@@ -1544,6 +1566,10 @@
       "CHp": [
         "C<sub>Hp</sub>",
         "Profile part of the H-force coefficient"
+      ],
+      "CHr": [
+        "C<sub>Hr</sub>",
+        "Spanwise-drag part of the H-force coefficient. Zero unless the radial flow correction is on"
       ],
       "CMx": [
         "C<sub>Mx</sub>",
@@ -1604,6 +1630,10 @@
       "Hp": [
         "H<sub>p</sub>",
         "Profile (sectional drag) part of the H-force [N]"
+      ],
+      "Hr": [
+        "H<sub>r</sub>",
+        "Spanwise-drag part of the H-force [N]. Zero unless the radial flow correction is on"
       ],
       "J_x": [
         "J<sub>z</sub>",
@@ -2075,6 +2105,10 @@
         "C<sub>Hp</sub>",
         "Profile part of the H-force coefficient"
       ],
+      "CHr": [
+        "C<sub>Hr</sub>",
+        "Spanwise-drag part of the H-force coefficient. Zero unless the radial flow correction is on"
+      ],
       "CMx": [
         "C<sub>Mx</sub>",
         "Pitch moment coefficient (+ nose up)"
@@ -2134,6 +2168,10 @@
       "Hp": [
         "H<sub>p</sub>",
         "Profile (sectional drag) part of the H-force [N]"
+      ],
+      "Hr": [
+        "H<sub>r</sub>",
+        "Spanwise-drag part of the H-force [N]. Zero unless the radial flow correction is on"
       ],
       "J_x": [
         "J<sub>x</sub>",
@@ -2597,6 +2635,7 @@
     "CH": "<th class=\"un\">[-]</th>",
     "CHi": "<th class=\"un\">[-]</th>",
     "CHp": "<th class=\"un\">[-]</th>",
+    "CHr": "<th class=\"un\">[-]</th>",
     "CMx": "<th class=\"un\">[-]</th>",
     "CMy": "<th class=\"un\">[-]</th>",
     "CP": "<th class=\"un\">[-]</th>",
@@ -2612,6 +2651,7 @@
     "H": "<th class=\"un\">[N]</th>",
     "Hi": "<th class=\"un\">[N]</th>",
     "Hp": "<th class=\"un\">[N]</th>",
+    "Hr": "<th class=\"un\">[N]</th>",
     "J_x": "<th class=\"un\">[-]</th>",
     "J_z": "<th class=\"un\">[-]</th>",
     "Mx": "<th class=\"un\">[N&middot;m]</th>",

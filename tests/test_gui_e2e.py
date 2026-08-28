@@ -892,6 +892,22 @@ class TestDescribeCaseAndBatchSettings(unittest.TestCase):
 
 
 class TestStep7Results(GuiE2ETestCase):
+    def _show_mode(self, tab, mode: str):
+        """Selects a plot/table mode AND lets the deferred redraw run.
+
+        The Results tab coalesces redraws on a 150 ms single-shot timer
+        so that a burst of clicks costs one refresh instead of one per
+        click (`PR-11`). The table used to be the exception, refreshed
+        inside the click; it was in fact the most expensive of the seven
+        modes, so it now takes the same deferred path. A test that reads
+        the table straight after selecting the mode is reading it before
+        the redraw has run -- as the user would, for 150 ms.
+        """
+        tab.mode_list.setCurrentRow(tab._MODES.index(mode))
+        if tab._selection_timer.isActive():
+            tab._selection_timer.stop()
+            tab._on_selection_changed()
+
     def _project_with_history(self, state):
         from zbemt.models import Results
         self._new_project(state)
@@ -961,7 +977,7 @@ class TestStep7Results(GuiE2ETestCase):
         tab = self._project_with_history(state)
         tab._select_all_history()
 
-        tab.mode_list.setCurrentRow(tab._MODES.index("Table"))
+        self._show_mode(tab, "Table")
 
         # r_case (1 result) + r_batch (2 results) = 3 rows
         self.assertEqual(tab.table_widget.rowCount(), 3)
@@ -980,7 +996,7 @@ class TestStep7Results(GuiE2ETestCase):
                                  results=Results(summary={"mu_x": 0.1, "CT": 0.01, "cfg_Ne": 120},
                                                   maps={}, condition_name="c1"))
         tab._select_all_history()
-        tab.mode_list.setCurrentRow(tab._MODES.index("Table"))
+        self._show_mode(tab, "Table")
 
         headers = [tab.table_widget.horizontalHeaderItem(c).text()
                        for c in range(tab.table_widget.columnCount())]
@@ -992,7 +1008,7 @@ class TestStep7Results(GuiE2ETestCase):
         state = self._make_state()
         tab = self._project_with_history(state)
         tab._clear_history_selection()
-        tab.mode_list.setCurrentRow(tab._MODES.index("Table"))
+        self._show_mode(tab, "Table")
         self.assertEqual(tab.table_widget.rowCount(), 0)
 
     def test_disk_map_continua_disponivel_com_varios_selecionados(self):

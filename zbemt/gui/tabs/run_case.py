@@ -742,13 +742,13 @@ class RunCaseTab(QWidget):
     _ROTOR_COEF_GROUP = ("Rotor coefficients — thrust / torque / power",
                          ["CT", "CQ", "CP", "CPi", "CPp", "FM"])
     _ROTOR_HUB_GROUP = ("Rotor coefficients — hub forces and moments",
-                        ["CH", "CHi", "CHp", "CY", "CMx", "CMy"])
+                        ["CH", "CHi", "CHp", "CHr", "CY", "CMx", "CMy"])
     _PROPELLER_COEF_GROUP = ("Propeller coefficients",
                           ["CT_prop", "CQ_prop", "CP_prop", "eta_prop"])
     _DIM_TQP_GROUP = ("Dimensional — thrust / torque / power",
                       ["Thrust", "Torque", "Power", "Power_i", "Power_p"])
     _DIM_HUB_GROUP = ("Dimensional — hub forces and moments",
-                       ["H", "Hi", "Hp", "Y", "Mx", "My"])
+                       ["H", "Hi", "Hp", "Hr", "Y", "Mx", "My"])
     _CONVERGENCE_GROUP = ("Convergence",
                            ["convergence_pct", "mean_iter", "elapsed_s",
                             "solver", "inflow_coupling"])

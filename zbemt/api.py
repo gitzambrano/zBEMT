@@ -1642,12 +1642,12 @@ _MAIN_COLUMNS = (
     "lambda_i", "lambda_total", "Vi", "Vz_total",
     # --- 3. coefficients, ROTOR convention ------------------------------
     "CT", "CQ", "CP", "CPi", "CPp", "FM",
-    "CH", "CHi", "CHp", "CY", "CMx", "CMy",
+    "CH", "CHi", "CHp", "CHr", "CY", "CMx", "CMy",
     # --- 4. coefficients, PROPELLER convention --------------------------
     "CT_prop", "CQ_prop", "CP_prop", "eta_prop",
     # --- 5. dimensional forces, moments and powers ---------------------
     "Thrust", "Torque", "Power", "Power_i", "Power_p",
-    "H", "Hi", "Hp", "Y", "Mx", "My",
+    "H", "Hi", "Hp", "Hr", "Y", "Mx", "My",
     # --- 6. echo of the resolved rotor (input from the Geometry tab) -------------
     "rotor_R", "rotor_D", "rotor_Nb", "rotor_Omega", "rotor_OmegaR",
     "rotor_rpm",
@@ -1687,6 +1687,7 @@ _COLUMN_SYMBOL = {
     "H":                ("H", "In-plane H-force [N], drag-like, positive aft"),
     "Hi":               ("H<sub>i</sub>", "Induced part of the H-force [N]"),
     "Hp":               ("H<sub>p</sub>", "Profile (sectional drag) part of the H-force [N]"),
+    "Hr":               ("H<sub>r</sub>", "Spanwise-drag part of the H-force [N]. Zero unless the radial flow correction is on"),
     "Y":                ("Y", "In-plane side force [N], positive toward the advancing side"),
     "Mx":               ("M<sub>x</sub>", "Pitch moment about the hub [N&middot;m], positive nose up"),
     "My":               ("M<sub>y</sub>", "Roll moment about the hub [N&middot;m], positive toward the advancing side"),
@@ -1700,6 +1701,7 @@ _COLUMN_SYMBOL = {
     "CH":               ("C<sub>H</sub>", "H-force coefficient, in-plane drag-like force (+ aft)"),
     "CHi":              ("C<sub>Hi</sub>", "Induced part of the H-force coefficient"),
     "CHp":              ("C<sub>Hp</sub>", "Profile part of the H-force coefficient"),
+    "CHr":              ("C<sub>Hr</sub>", "Spanwise-drag part of the H-force coefficient. Zero unless the radial flow correction is on"),
     "CY":               ("C<sub>Y</sub>", "Side-force coefficient (+ toward the advancing side)"),
     "CMx":              ("C<sub>Mx</sub>", "Pitch moment coefficient (+ nose up)"),
     "CMy":              ("C<sub>My</sub>", "Roll moment coefficient (+ roll toward the advancing side)"),
@@ -1855,10 +1857,10 @@ def _description_with_symbols(text: str) -> str:
 _COLUMN_UNITS = {
     "Thrust": "N", "Torque": "N&middot;m", "Power": "W",
     "Power_i": "W", "Power_p": "W",
-    "H": "N", "Hi": "N", "Hp": "N", "Y": "N",
+    "H": "N", "Hi": "N", "Hp": "N", "Hr": "N", "Y": "N",
     "Mx": "N&middot;m", "My": "N&middot;m",
     "CT": "-", "CQ": "-", "CP": "-", "CPi": "-", "CPp": "-",
-    "CH": "-", "CHi": "-", "CHp": "-", "CY": "-", "CMx": "-", "CMy": "-",
+    "CH": "-", "CHi": "-", "CHp": "-", "CHr": "-", "CY": "-", "CMx": "-", "CMy": "-",
     "FM": "-", "CT_prop": "-", "CQ_prop": "-", "CP_prop": "-", "eta_prop": "-",
     "rotor_R": "m", "rotor_D": "m", "rotor_Nb": "-",
     "rotor_Omega": "rad/s", "rotor_OmegaR": "m/s",

@@ -1712,15 +1712,32 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
     Ut = Omega * R_DIM + Vinf * np.sin(PSI - psi_w)
     if motion is not None:
         arm = np.maximum(R_DIM - motion["e_hinge_dim"], 0.0)
-        Up = Up + arm * motion["beta_rate"] + Vinf * motion["beta"] * np.cos(PSI)
+        # The coning term carries cos(psi - psi_w), not cos(psi): it is
+        # the projection of the IN-PLANE free stream onto the blade's
+        # span, and the two lines around it already rotate that stream
+        # by the sideslip angle (U_T uses sin(psi - psi_w), U_R uses
+        # cos(psi - psi_w)). Left at cos(psi) it disagreed with both as
+        # soon as the sideslip was not zero -- which is exactly the
+        # condition the lateral-velocity derivative of SC-14 perturbs.
+        Up = (Up + arm * motion["beta_rate"]
+              + Vinf * motion["beta"] * np.cos(PSI - psi_w))
         Ut = Ut + arm * motion["zeta_rate"]
         # Hub angular rates (SC-14): a pitching/rolling hub carries each
-        # element out of the disk plane. r*(q*cos(psi) - p*sin(psi)),
-        # with r the dimensional station radius.
+        # element out of the disk plane, at -r*(q*cos(psi) + p*sin(psi)).
+        #
+        # BOTH terms are negative because Up counts DOWNWARD and the
+        # bracket is the element's UPWARD speed. A nose-up rate q raises
+        # the front of the disk, which is psi=180 (psi is measured from
+        # the tail, so the advancing blade is at psi=90): the element
+        # there rises at +q*r, and cos(180) = -1 gives it. The q term
+        # used to carry the opposite sign, which made a nose-up rate cut
+        # the lift at the TAIL instead of at the nose and so reported a
+        # nose-up rate as producing a further nose-up moment. See
+        # `tests/test_derivatives.py::TestHoverDampingIsRotationInvariant`.
         p_rate = float(motion.get("p_rate", 0.0))
         q_rate = float(motion.get("q_rate", 0.0))
         if p_rate != 0.0 or q_rate != 0.0:
-            Up = Up + R_DIM * (q_rate * np.cos(PSI) - p_rate * np.sin(PSI))
+            Up = Up - R_DIM * (q_rate * np.cos(PSI) + p_rate * np.sin(PSI))
         # Cyclic pitch varies with azimuth, so it cannot live on the
         # twist vector: it rebinds the LOCAL THETA here. Pitch-flap
         # coupling (delta-3): an up-flapping blade pitches down by
@@ -1800,14 +1817,7 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
     # the polar at a "skewed" angle alpha*cos(lambda_y), where
     # lambda_y=atan(UR/Ut) is the angle between the radial and tangential
     # components. Cl remains unchanged.
-    if cfg.use_radial_flow_correction:
-        UR = Vinf * np.cos(PSI - psi_w)
-        Ut_safe = np.where(np.abs(Ut) < 1e-3 * OmegaR, np.sign(Ut) * 1e-3 * OmegaR + 1e-6, Ut)
-        max_skew = np.deg2rad(cfg.radial_flow_max_skew_deg)
-        lambda_y = np.clip(np.arctan(UR / Ut_safe), -max_skew, max_skew)
-        alpha_y = alpha_eff * np.cos(lambda_y)
-        _, Cd_y = airfoil.cl_cd(alpha_y, Mach, r_norm=R_NORM)
-        Cd = np.asarray(Cd_y, dtype=float)
+    UR = Vinf * np.cos(PSI - psi_w)
 
     if cfg.use_compressibility:
         # Floor on beta, not a cutoff near zero. See
@@ -1823,7 +1833,10 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
     Cd = np.maximum(Cd, 0.0)
 
     Lift = 0.5 * rho * W ** 2 * CHORD * Cl
-    Drag = 0.5 * rho * W ** 2 * CHORD * Cd
+    # Lift keeps the NORMAL dynamic pressure (the independence
+    # principle); only the drag is resolved along the total wind, and
+    # only when the option is on -- see `resolve_drag_with_radial_flow`.
+    Drag, Fr = resolve_drag_with_radial_flow(Cd, W, UR, rho, CHORD, cfg)
 
     if rfm == "viterna_full_range":
         # --- Single formulas, continuous over the whole disk (see Section 1b) --
@@ -1907,8 +1920,8 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
 
     out = dict(Up=Up, Ut=Ut, W=W, phi=phi, phi_rev=phi_rev, reverse=reverse,
                 alpha_eff=alpha_eff, Mach=Mach, Cl=Cl, Cd=Cd, Lift=Lift, Drag=Drag,
-                Fn=Fn, Ft=Ft, Ft_i=Ft_i, Ft_p=Ft_p, F=F, lambda_total=lambda_total,
-                lambda_i_next=lambda_i_next)
+                Fn=Fn, Ft=Ft, Ft_i=Ft_i, Ft_p=Ft_p, Fr=Fr, UR=UR, F=F,
+                lambda_total=lambda_total, lambda_i_next=lambda_i_next)
     if motion is not None:
         # Echoed for `aggregate_results` and the plots: the blade state
         # that produced the loads, on the same (Ne,Npsi) grid. A rigid
@@ -1965,6 +1978,58 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
 # "smoothly fades toward the static polar" in that range) . Reproduced
 # here via `_dynamic_stall_fade_weight` (smoothstep between
 # fade_start_deg and fade_end_deg).
+
+def resolve_drag_with_radial_flow(Cd, W, UR, rho, CHORD, cfg):
+    """Splits the section drag into its in-plane and SPANWISE parts.
+
+    The swept-wing "independence principle" says that the flow normal to
+    the span sets the section coefficients -- so lift keeps using the
+    normal pair (Up, Ut) and the angle built from it. Drag does not
+    follow that rule: it is a friction force, it lies along the TOTAL
+    relative wind, and part of that wind runs along the blade
+    (``U_R = V_inf*cos(psi - psi_w)``, largest over the tail and the
+    nose, zero at 90 and 270 degrees). Writing the drag vector as
+
+        D = 0.5*rho*c*Cd*|U|*U ,   |U| = sqrt(W^2 + U_R^2)
+
+    splits it into the in-plane part ``0.5*rho*c*Cd*|U|*W`` -- the one
+    the phi resolution turns into thrust and torque -- and a spanwise
+    part ``0.5*rho*c*Cd*|U|*U_R`` that produces no torque at all (it has
+    no arm about the shaft) but does push the rotor backward.
+
+    Both effects are second order in mu and both RAISE the profile
+    numbers. For a constant Cd0 the closed form is
+
+        C_H,profile : sigma*Cd0*mu/4  ->  3*sigma*Cd0*mu/8   (+50%)
+        C_P,profile : (1 + mu^2)      ->  (1 + 1.5*mu^2)     , x sigma*Cd0/8
+
+    and the dissipated profile power becomes (1 + 4.5*mu^2), which is
+    the classical (1 + 4.65*mu^2) of the helicopter literature -- the
+    remaining difference being the root and reverse-flow region that the
+    closed form ignores and this engine integrates directly.
+    `tests/test_radial_flow.py` checks all three (`EN-10`).
+
+    ``radial_flow_max_skew_deg`` caps the local yaw angle
+    ``lambda_y = arctan(U_R/W)``, and with it the share of the drag that
+    the model is willing to send along the span. It matters near the
+    blade root and inside the reverse-flow region, where W collapses and
+    the ratio would otherwise run away.
+
+    Returns ``(Drag_in_plane, F_r)``. With the correction off, the first
+    is the plain ``0.5*rho*W^2*c*Cd`` this engine has always used and the
+    second is exactly zero, so every result computed without the option
+    is reproduced bit for bit.
+    """
+    Cd = np.asarray(Cd, dtype=float)
+    if not bool(getattr(cfg, "use_radial_flow_correction", False)):
+        return 0.5 * rho * W ** 2 * CHORD * Cd, np.zeros_like(Cd)
+    max_skew = np.deg2rad(float(getattr(cfg, "radial_flow_max_skew_deg", 60.0)))
+    UR_limit = np.abs(W) * np.tan(max_skew)
+    UR_eff = np.clip(np.asarray(UR, dtype=float), -UR_limit, UR_limit)
+    U_total = np.sqrt(W ** 2 + UR_eff ** 2)
+    scale = 0.5 * rho * CHORD * Cd * U_total
+    return scale * W, scale * UR_eff
+
 
 def _oye_static_separation(alpha_eff: np.ndarray, Cl_st: np.ndarray,
                             cl_alpha: float, alpha0: float, reg: float):
@@ -2194,7 +2259,11 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
 
     rho = cfg.rho
     Lift = 0.5 * rho * W ** 2 * CHORD * Cl_final
-    Drag = 0.5 * rho * W ** 2 * CHORD * Cd_final
+    # The same split as `element_state`: this block rebuilds the forces
+    # from scratch, so without it the spanwise drag would silently
+    # disappear whenever dynamic stall is on.
+    Drag, Fr = resolve_drag_with_radial_flow(
+        Cd_final, W, maps.get("UR", 0.0), rho, CHORD, cfg)
 
     if cfg.reverse_flow_model.lower() == "viterna_full_range":
         # Same continuous reconstruction as `element_state` (Section 1b/4): no
@@ -2218,7 +2287,7 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
         Cl_static=Cl_st, Cd_static=Cd_st, Cl=Cl_final, Cd=Cd_final,
         Cl_dyn=Cl_dyn, Cd_dyn=Cd_dyn, f_oye=f, f_st_oye=f_st,
         dynamic_stall_fade_weight=w_fade, Lift=Lift, Drag=Drag,
-        Fn=Fn, Ft=Ft, Ft_i=Ft_i, Ft_p=Ft_p,
+        Fn=Fn, Ft=Ft, Ft_i=Ft_i, Ft_p=Ft_p, Fr=Fr,
         dynamic_stall_method=cfg.dynamic_stall_method,
         dynamic_stall_time_march_history=time_march_history,
         dynamic_stall_periodic_residual=periodic_residual,
@@ -2643,12 +2712,28 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
         if p_rate != 0.0 or q_rate != 0.0:
             # Gyroscopic forcing of the hub rates (SC-14), in the same
             # Mbar = M/(I*Omega^2) units the harmonic balance consumes:
-            # Mbar_gyro = 2*(q*sin(psi) + p*cos(psi))/Omega.
+            # Mbar_gyro = 2*(p*cos(psi) - q*sin(psi))/Omega.
+            #
+            # The q term is the partner of the velocity term above and
+            # carries the same sign correction: the two describe one
+            # rate, so a sign that disagrees between them makes the
+            # damping matrix stop being rotation invariant in hover,
+            # which is a symmetry of the configuration and cannot depend
+            # on a convention.
             m_beta = m_beta + 2.0 * inertia * omega * (
-                q_rate * np.sin(psi_nodes) + p_rate * np.cos(psi_nodes))
-        new_coeffs, _new_angle, _new_rate = solve_blade_motion(
+                p_rate * np.cos(psi_nodes) - q_rate * np.sin(psi_nodes))
+        # `coeffs_flap` is what step 4 below reads to decide whether
+        # there is a converged flap solution to rebuild the field from.
+        # Leaving it at None -- as it was -- made that guard permanently
+        # false, so the consistency pass never ran: every flapping
+        # result reported a blade sweeping through tens of degrees while
+        # the aerodynamics saw beta_dot = 0, and `lag_feeds_back` was
+        # inert. `tests/test_flapping.py` now checks the rate itself
+        # (`SC-11`).
+        coeffs_flap, _new_angle, _new_rate = solve_blade_motion(
             m_beta, psi_nodes, nu_beta_sq, inertia, omega,
             n_harm, damping=d_beta, freedom="flap", hinge_offset_norm=e_norm)
+        new_coeffs = coeffs_flap
 
         if lag_on:
             m_zeta = _lag_moment(maps, rotor, e_dim)
@@ -4023,6 +4108,10 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
     psi_nodes = maps["psi_nodes"]
     R_DIM, PSI = maps["R_DIM"], maps["PSI"]
     Fn, Ft, Ft_i, Ft_p = maps["Fn"], maps["Ft"], maps["Ft_i"], maps["Ft_p"]
+    # `Fr` is absent only in a payload produced before the spanwise drag
+    # existed; zero reproduces that payload's own numbers.
+    Fr = maps.get("Fr")
+    Fr = np.zeros_like(np.asarray(Ft, dtype=float)) if Fr is None else np.asarray(Fr, dtype=float)
     Nb, Omega, OmegaR, R = rotor.Nb, rotor.Omega, rotor.OmegaR, rotor.R
     rho = cfg.rho
     mu_x, Vz = maps["mu_x"], maps["Vz"]
@@ -4063,8 +4152,17 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
     My = disk_integral(-Fn * R_DIM * np.sin(PSI))
     Hi = disk_integral(Ft_i * np.sin(PSI))
     Hp = disk_integral(Ft_p * np.sin(PSI))
-    H = Hi + Hp
-    Y = -disk_integral(Ft * np.cos(PSI))
+    # Third in-plane contribution: the SPANWISE drag (`Fr`, see
+    # `resolve_drag_with_radial_flow`). The tangential direction projects
+    # onto the two hub axes as (sin psi, -cos psi) -- which is what the
+    # two integrals above and the one for Y already assume -- so the
+    # radial direction, perpendicular to it, projects as (cos psi,
+    # sin psi). It carries no arm about the shaft and therefore adds
+    # nothing to torque or power. Zero unless the radial flow correction
+    # is on (`EN-10`).
+    Hr = disk_integral(Fr * np.cos(PSI))
+    H = Hi + Hp + Hr
+    Y = -disk_integral(Ft * np.cos(PSI)) + disk_integral(Fr * np.sin(PSI))
 
     # Power = Torque * angular speed (basic definition of rotating-shaft
     # power). Split into induced/profile for the same reason as above.
@@ -4089,7 +4187,7 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
     CP = Power / (qA * OmegaR)
     CPi = Power_i / (qA * OmegaR)
     CPp = Power_p / (qA * OmegaR)
-    CH, CHi, CHp = H / qA, Hi / qA, Hp / qA
+    CH, CHi, CHp, CHr = H / qA, Hi / qA, Hp / qA, Hr / qA
     CY = Y / qA
     CMx, CMy = Mx / (qA * R), My / (qA * R)
     # FM (Figure of Merit): ratio between the ideal power of an actuator
@@ -4233,9 +4331,10 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         Vi=Vi_mean, Vz_total=Vz + Vi_mean,
         # --- dimensional forces and moments (SI) ----------------------------
         Thrust=Thrust, Torque=Torque, Power=Power, Power_i=Power_i, Power_p=Power_p,
-        H=H, Hi=Hi, Hp=Hp, Y=Y, Mx=Mx, My=My,
+        H=H, Hi=Hi, Hp=Hp, Hr=Hr, Y=Y, Mx=Mx, My=My,
         # --- coefficients, ROTOR convention --------------------------------
         CT=CT, CQ=CQ, CP=CP, CPi=CPi, CPp=CPp, CH=CH, CHi=CHi, CHp=CHp,
+        CHr=CHr,
         CY=CY, CMx=CMx, CMy=CMy, FM=FM,
         # --- coefficients, PROPELLER convention ----------------------------
         CT_prop=CT_prop, CQ_prop=CQ_prop, CP_prop=CP_prop, eta_prop=eta_prop,
@@ -4278,8 +4377,15 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         nu_sq_minus_1 = maps.get("nu_beta_squared", 1.0) - 1.0
         i_beta = maps["flap_inertia_kg_m2"]
         gain = (rotor.Nb / 2.0) * i_beta * Omega ** 2 * nu_sq_minus_1
-        mx_hub = gain * first[0]
-        my_hub = gain * first[1]
+        # The moment follows the TIP PATH PLANE, and the tilt of that
+        # plane is the NEGATIVE of the first harmonic -- which is what
+        # the two lines just above already say
+        # (`tpp_tilt_long_deg = -beta_1c_deg`). Built from `+beta_1c`,
+        # the hub moment came out nose-DOWN for a rotor flapping back,
+        # reversing the speed stability that this term exists to
+        # represent (`tests/test_flapping.py`, SC-11).
+        mx_hub = -gain * first[0]
+        my_hub = -gain * first[1]
         out["Mx_hub"] = float(mx_hub)
         out["My_hub"] = float(my_hub)
         out["Mx_total"] = float(Mx + mx_hub)

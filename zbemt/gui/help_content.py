@@ -977,18 +977,35 @@ FIELD_HELP: dict[str, dict] = {
             "In ROTOR mode that in-plane component is V<sub>x</sub>, the advance; in "
             "PROPELLER mode it is the cross-flow V<sub>z</sub>.\n\n"
             "The swept-wing independence principle says the section's lift is "
-            "governed only by the flow NORMAL to the span, but that spanwise "
-            "component still sweeps the boundary layer and changes its drag."),
+            "governed only by the flow NORMAL to the span, so lift keeps the "
+            "pair (U<sub>p</sub>, U<sub>t</sub>) and the angle built from it. "
+            "Drag does not follow that rule: it is a friction force on the "
+            "boundary-layer scale, it lies along the TOTAL relative wind, and "
+            "part of that wind runs along the blade.\n\n"
+            "Written as a vector instead of a number, the drag splits in two: "
+            "an in-plane part, which the &phi; resolution turns into thrust "
+            "and torque as before, and a spanwise part, which has no arm about "
+            "the shaft and so adds no torque at all, but does push the rotor "
+            "backward."),
         "unit": '',
-        "equation": r"U_R = V_x\cos\psi,\qquad C_d \leftarrow C_d\,f(\chi)",
+        "equation": (r"\vec{D} = \tfrac{1}{2}\rho c\,C_d\,|\vec{U}|\,\vec{U},"
+                     r"\qquad |\vec{U}| = \sqrt{W^2 + U_R^2}"),
         "effect": (
-            'This acts on DRAG only. It does not change lift, does not add a '
-            'wake state, and does not solve a radial momentum equation. So it '
-            'moves torque and power, and barely moves thrust.\n\n'
+            'It raises the H-force and the profile power and leaves thrust and '
+            'induced power untouched. The spanwise part is reported on its own '
+            'as C<sub>Hr</sub> in the results table, so what this box does is '
+            'visible rather than inferred.\n\n'
+            'For a constant drag coefficient the closed form gives its size: '
+            'the profile H-force rises from &sigma;C<sub>d0</sub>μ/4 to '
+            '3&sigma;C<sub>d0</sub>μ/8, half as much again, and the profile '
+            'power from (1 + μ&sup2;) to (1 + 1.5&nbsp;μ&sup2;). Adding back '
+            'the work the free stream does on the rotor makes the dissipated '
+            'profile power (1 + 4.5&nbsp;μ&sup2;), which is the classical '
+            '(1 + 4.65&nbsp;μ&sup2;) of the helicopter literature.\n\n'
             'In ROTOR mode it is identically zero in hover (V<sub>x</sub> = 0, so no '
             'spanwise component) and grows with the in-plane advance ratio '
             'μ<sub>x</sub>, varying once per revolution around the disc with its peaks '
-            'on the advancing and retreating sides.\n\n'
+            'fore and aft, where the blade lies along the free stream.\n\n'
             'In PROPELLER mode, in straight cruise, it is inactive: the '
             'in-plane component there is the cross-flow and that is zero.'),
         "range": 'off/on',
@@ -997,24 +1014,25 @@ FIELD_HELP: dict[str, dict] = {
     "radial_flow_max_skew_deg": {
         "title": 'Radial-flow saturation skew angle',
         "definition": (
-            'The wake skew angle chi at which the radial-flow correction stops '
-            'growing.\n\n'
-            'Skew compares the IN-PLANE advance ratio μ<sub>x</sub> with the total '
-            'inflow along the shaft λ<sub>total</sub>, so it measures how far the '
-            'wake has been tilted away from the shaft: chi = 0 in hover, and it '
-            'approaches 90 deg as the wake is swept back into the disc plane at '
-            'high in-plane speed.'),
+            'A ceiling on the LOCAL yaw angle of the blade element, '
+            '&lambda;<sub>y</sub> = arctan(U<sub>R</sub>/W): the angle between '
+            'the total relative wind and the plane normal to the span.\n\n'
+            'It decides the largest share of the section drag the model may '
+            'send along the blade. It is not the wake skew angle; it is read '
+            'element by element, from the same two velocities that build the '
+            'drag vector.'),
         "unit": 'deg',
-        "equation": r"\chi = \arctan\dfrac{\mu_x}{\lambda_{total}},\qquad f(\chi)=f(\chi_{max})\ \ (\chi>\chi_{max})",
+        "equation": (r"\lambda_y = \arctan\dfrac{U_R}{W},\qquad"
+                     r"|U_R| \le W \tan \lambda_{y,max}"),
         "effect": (
-            'It sets where the correction plateaus, so it is a ceiling on how '
-            'much drag the spanwise flow may add. Raising it lets the '
-            'correction keep growing further into high-speed flight (more '
-            'profile power predicted there); lowering it caps the effect '
-            'earlier.\n\n'
-            'It changes nothing in hover, where the skew is zero, and nothing '
-            'below the chosen angle. Only the high-μ<sub>x</sub> end of a sweep '
-            'moves.'),
+            'It matters where W collapses and the ratio would otherwise run '
+            'away: near the blade root, and inside the reverse-flow region on '
+            'the retreating side. Over the rest of the disc the local yaw '
+            'angle is well below any sensible ceiling and the value changes '
+            'nothing.\n\n'
+            'Raising it lets more of the drag act along the span (a larger '
+            'C<sub>Hr</sub>); lowering it caps that share earlier. It changes '
+            'nothing in hover, where there is no spanwise flow at all.'),
         "range": '30-90 deg',
         "options": None
     },

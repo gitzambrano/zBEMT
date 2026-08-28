@@ -204,5 +204,98 @@ class TestEngineDoesNotFreezeTheInterface(unittest.TestCase):
                         "worker is not checking it between cases")
 
 
+class TestTheResultsTabDoesNotRepeatItsWork(unittest.TestCase):
+    """`PR-11`, second half: work only the main thread can do is done
+    ONCE per gesture.
+
+    Three defects lived here, and all three were invisible to the tests
+    above because none of them involves a thread:
+
+      * `_symbols()` rebuilt the description of all 130 columns once per
+        COLUMN, about a million regular-expression substitutions per
+        refresh;
+      * the vertical header stayed in `ResizeToContents` during the fill,
+        so inserting n rows measured n rows n times;
+      * selecting a mode, and deleting a history entry, ran the whole
+        refresh inside the click instead of on the coalescing timer.
+
+    Together they were the reported multi-second freeze on selecting or
+    deleting a case.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        if not _HAS_QT:                                  # pragma: no cover
+            raise unittest.SkipTest("PyQt6 is not installed")
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _results_tab(self):
+        from zbemt.gui.app import MainWindow
+
+        window = MainWindow()
+        for index in range(window.tabs.count()):
+            tab = window.tabs.widget(index)
+            if type(tab).__name__ == "ResultsTab":
+                self._window = window        # keep it alive for the test
+                return tab
+        self.fail("the Results tab is not in the window")
+
+    def test_the_column_symbols_are_built_once_per_mode(self):
+        """The same dict object must come back. A fresh dict per call is
+        the defect returning, whatever its contents."""
+        tab = self._results_tab()
+        first = tab._symbols()
+        self.assertIs(tab._symbols(), first)
+        self.assertIs(tab._symbols(), first)
+
+    def test_the_symbols_still_differ_between_the_two_modes(self):
+        """Caching must not flatten the axis rotation: the rotor and the
+        propeller do not label the same key the same way."""
+        from zbemt.gui.tabs.results import ResultsTab
+
+        ResultsTab._SYMBOLS_BY_MODE.clear()
+        tab = self._results_tab()
+        rotor = dict(tab._symbols())
+        original = tab._propeller_mode
+        try:
+            tab._propeller_mode = lambda: True
+            propeller = dict(tab._symbols())
+        finally:
+            tab._propeller_mode = original
+        self.assertNotEqual(rotor, propeller)
+
+    def test_the_vertical_header_is_measuring_again_after_a_fill(self):
+        """It is put back to `ResizeToContents` at the end, so the
+        finished table still sizes its rows to the rich label it paints
+        -- the speed comes from measuring once, not from giving up."""
+        from PyQt6.QtWidgets import QHeaderView
+
+        tab = self._results_tab()
+        tab._refresh_table()
+        self.assertEqual(tab.table_widget.verticalHeader().sectionResizeMode(0)
+                          if tab.table_widget.rowCount() else
+                          QHeaderView.ResizeMode.ResizeToContents,
+                          QHeaderView.ResizeMode.ResizeToContents)
+
+    def test_deleting_a_history_entry_defers_the_redraw(self):
+        """The delete must return to the event loop before the table is
+        rebuilt. `_selection_timer` running is the evidence that the
+        redraw was scheduled rather than executed inside the click."""
+        tab = self._results_tab()
+        tab._selection_timer.stop()
+        tab._on_history_changed()
+        self.assertTrue(tab._selection_timer.isActive(),
+                        "the history change redrew synchronously instead of "
+                        "scheduling the redraw")
+
+    def test_choosing_the_table_mode_defers_the_redraw_too(self):
+        """The table was special-cased as "cheap". It was the most
+        expensive of the seven modes."""
+        tab = self._results_tab()
+        tab._selection_timer.stop()
+        tab._on_mode_changed(0)
+        self.assertTrue(tab._selection_timer.isActive())
+
+
 if __name__ == "__main__":
     unittest.main()
