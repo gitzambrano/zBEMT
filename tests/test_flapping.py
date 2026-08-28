@@ -606,6 +606,152 @@ class TestSideslipRotatesTheConingTerm(unittest.TestCase):
                                 places=9)
 
 
+class TestTheHubRateForcingMatchesItsClosedForm(unittest.TestCase):
+    """`EN-4`/`SC-14`. A hub rate reaches the blade twice, and the two
+    paths have to be right SEPARATELY.
+
+    The first path is aerodynamic: a pitching hub carries the element
+    out of the disk plane, so U_P gains -r*(q*cos(psi) + p*sin(psi)).
+    The second is inertial, and it is the one that is easy to get wrong.
+    Working in vehicle axes (x forward, y to port, z up) with psi
+    measured from the tail, so that e_r = -cos(psi) x - sin(psi) y, the
+    hub-rate part of the element's vertical acceleration comes out of
+    TWO equal halves:
+
+        Euler, because z turns with the body:
+            (dOmega_f/dt) x R      = -Omega*r*(p*cos + q_y*sin) z
+        the centrifugal cross term:
+            omega_b x (Omega*r*e_t) = -Omega*r*(p*cos + q_y*sin) z
+
+    so a_z = -2*Omega*r*(p*cos(psi) + q_y*sin(psi)) and the balance sees
+
+        Mbar_gyro = 2*(p*cos(psi) - q*sin(psi))/Omega,
+
+    the sign of the second term following from q_y = -q once q is the
+    aeronautical nose-up rate. A derivation that keeps only one of the
+    two halves lands on a factor of ONE, which is why the factor is
+    pinned here against a closed form rather than against a comment.
+
+    With the 1/rev balance written out for a hovering rotor, and with
+    kappa = nu_beta^2 - 1 and d the flap aero damping,
+
+        kappa*b1c + d*b1s = +d*qbar          kappa*b1c + d*b1s = +2*pbar
+        kappa*b1s - d*b1c = -2*qbar          kappa*b1s - d*b1c = +d*pbar
+
+    whose solutions are the four numbers checked below. At kappa -> 0
+    the pitch-rate response collapses to the textbook b1c = 16*qbar/gamma
+    cross-coupling, which is the classical statement of the same result.
+
+    The tolerance is five percent on the amplitude. The engine solves a
+    real rotor -- non-uniform inflow, a root cutout, a real polar --
+    against a closed form written for a uniform blade, so the two are
+    not supposed to agree exactly. Five percent is far tighter than the
+    factor of about 1.9 that separates the correct forcing from the
+    half-forcing, which is what the test exists to tell apart.
+    """
+
+    E_HINGE = 0.05
+    LOCK = 8.0
+    RPM = 600.0
+
+    def _project(self):
+        dyn = BladeDynamicsDef(flap_model="rigid_flap",
+                               hinge_offset_norm=self.E_HINGE,
+                               inertia_source="lock", lock_number=self.LOCK,
+                               harmonics=3)
+        geom = geometry.generate_rectangular(
+            chord_norm=0.08, twist_root_deg=0.0, twist_tip_deg=0.0,
+            radius_m=1.0, n_stations=16)
+        return Project(name="gyro",
+                       geometry=replace(geom, dynamics=dyn),
+                       airfoil=AirfoilDef(source="analytical",
+                                          stall_model="linear"),
+                       config=dict(Ne=16, Npsi=36, solver="newton",
+                                   max_iter=300,
+                                   inflow_field_model="glauert_global",
+                                   prandtl_loss_mode="off",
+                                   use_rotational_augmentation=False,
+                                   use_radial_flow_correction=False,
+                                   use_compressibility=False))
+
+    def _first_harmonic(self, project, **rates):
+        condition = FlightCondition(mu_x=0.0, Vz=0.0, collective_deg=6.0,
+                                     rpm=self.RPM, **rates)
+        return studies.run_single_case(project, condition).maps["beta_coeffs"][1]
+
+    def _constants(self):
+        omega = self.RPM * 2.0 * math.pi / 60.0
+        d = geometry.flap_aero_damping(self.LOCK, self.E_HINGE)
+        kappa = geometry.flap_frequency_ratio_squared(
+            self.E_HINGE, 0.0, 1.0, 1.0) - 1.0
+        return omega, d, kappa, kappa ** 2 + d ** 2
+
+    def test_hover_without_a_rate_has_no_first_harmonic(self):
+        """The premise: whatever the rate produces below is the rate's,
+        not a 1/rev the trimmed hover already carried."""
+        base = self._first_harmonic(self._project())
+        self.assertLess(max(abs(base[0]), abs(base[1])), 1e-9)
+
+    def test_the_pitch_rate_response_matches_the_closed_form(self):
+        project = self._project()
+        base = self._first_harmonic(project)
+        omega, d, kappa, det = self._constants()
+        for q_deg_s in (2.0, 4.0):
+            with self.subTest(q_deg_s=q_deg_s):
+                got = self._first_harmonic(project, q_rate_deg_s=q_deg_s)
+                q_bar = math.radians(q_deg_s) / omega
+                b1c = got[0] - base[0]
+                b1s = got[1] - base[1]
+                self.assertAlmostEqual(b1c / (d * q_bar * (kappa + 2.0) / det),
+                                       1.0, delta=0.05)
+                self.assertAlmostEqual(b1s / (q_bar * (d * d - 2.0 * kappa)
+                                              / det), 1.0, delta=0.06)
+
+    def test_halving_the_gyroscopic_term_would_be_caught(self):
+        """The discriminating check, stated on its own so that a failure
+        names the cause. A forcing of 1*(p*cos - q*sin) instead of 2*
+        moves b1c by the ratio (kappa+1)/(kappa+2), about 0.52 here --
+        an order of magnitude outside the tolerance above."""
+        _omega, _d, kappa, _det = self._constants()
+        half = (kappa + 1.0) / (kappa + 2.0)
+        self.assertLess(abs(half - 1.0), 0.5)
+        self.assertGreater(abs(half - 1.0), 0.20,
+                            "the two forcings are no longer far enough "
+                            "apart for this test to discriminate")
+
+    def test_the_roll_rate_response_matches_the_closed_form(self):
+        project = self._project()
+        base = self._first_harmonic(project)
+        omega, d, kappa, det = self._constants()
+        got = self._first_harmonic(project, p_rate_deg_s=2.0)
+        p_bar = math.radians(2.0) / omega
+        b1c = got[0] - base[0]
+        b1s = got[1] - base[1]
+        self.assertAlmostEqual(b1c / (p_bar * (2.0 * kappa - d * d) / det),
+                               1.0, delta=0.06)
+        self.assertAlmostEqual(b1s / (d * p_bar * (kappa + 2.0) / det),
+                               1.0, delta=0.05)
+
+    def test_the_two_rates_are_one_response_turned_by_a_quarter_turn(self):
+        """An axisymmetric rotor in hover cannot tell a roll rate from a
+        pitch rate except by where it points, so the roll response must
+        be the pitch response rotated by 90 degrees:
+        (b1c, b1s)_p = (-b1s, b1c)_q. This holds for the engine's answer
+        without any closed form at all, and it fails the moment one of
+        the four terms -- two aerodynamic, two gyroscopic -- carries a
+        sign the other three do not agree with."""
+        project = self._project()
+        base = self._first_harmonic(project)
+        q = self._first_harmonic(project, q_rate_deg_s=2.0)
+        p = self._first_harmonic(project, p_rate_deg_s=2.0)
+        q1c, q1s = q[0] - base[0], q[1] - base[1]
+        p1c, p1s = p[0] - base[0], p[1] - base[1]
+        scale = max(abs(q1c), abs(q1s))
+        self.assertGreater(scale, 1e-9, "neither rate did anything")
+        self.assertLess(abs(p1c - (-q1s)) / scale, 1e-6)
+        self.assertLess(abs(p1s - q1c) / scale, 1e-6)
+
+
 class TestCancellation(unittest.TestCase):
     def test_should_cancel_on_third_iteration_raises_solve_cancelled(self):
         """PR-11: a should_cancel that fires on the third outer

@@ -12,6 +12,7 @@ convergence limits.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
@@ -49,6 +50,7 @@ from ...models import FlightCondition, BatchDefinition
 
 from ..common import (
     parse_list,
+    parse_list_reporting,
     AppState,
     condition_label_and_tooltip,
     set_row_label,
@@ -630,6 +632,14 @@ class RunBatchTab(QWidget):
         self.batches_combo.setMinimumWidth(180)
         self.batches_combo.currentIndexChanged.connect(self._on_saved_batch_selected)
         row.addWidget(self.batches_combo)
+        btn_load_batch = QPushButton("load")
+        btn_load_batch.setToolTip(
+            "Replaces the queue below with the conditions of the selected "
+            "batch. Choosing a name in the list does the same; this button "
+            "also reloads the name that is ALREADY selected, which is how "
+            "you discard edits made to the queue since it was loaded.")
+        btn_load_batch.clicked.connect(self._load_selected_batch)
+        row.addWidget(btn_load_batch)
         btn_save_batch = QPushButton("save queue")
         btn_save_batch.setToolTip("Saves the current queue as a named batch in the project.")
         btn_save_batch.clicked.connect(self._save_current_as_batch)
@@ -646,21 +656,86 @@ class RunBatchTab(QWidget):
         self.btn_run.setEnabled(n > 0)
         self.btn_run.setText(f"▶ Run {n} case(s)" if n else "▶ Run")
 
+    #: The role the authoritative `FlightCondition` of a row is stored
+    #: under, on the row-number item of column 0.
+    _CONDITION_ROLE = Qt.ItemDataRole.UserRole + 1
+
+    @staticmethod
+    def _cell_texts(condition: "FlightCondition", row_number: int) -> dict:
+        """The text of every cell of a row, for one condition.
+
+        One place, used both to FILL a row and to decide afterwards
+        whether a cell still holds what was filled into it.
+        """
+        rpm = condition.rpm
+        return {
+            0: str(row_number),
+            RunBatchTab._COL_NAME: condition.name or f"case_{row_number}",
+            RunBatchTab._COL_MU: f"{condition.mu_x:.4g}",
+            RunBatchTab._COL_VV: f"{condition.Vz:.4g}",
+            RunBatchTab._COL_COLLECTIVE: f"{condition.collective_deg:.4g}",
+            # An absent RPM is absent, not zero. Written as "0" -- as it
+            # was -- it read back as a rotor commanded to stand still,
+            # and `rpm=None` means "use the speed the configuration
+            # already carries".
+            RunBatchTab._COL_RPM: "" if rpm is None else f"{rpm:.5g}",
+            RunBatchTab._COL_STATUS: "",
+        }
+
     def _queue_conditions(self) -> list[FlightCondition]:
-        conditions = []
+        conditions, rejected = self._queue_conditions_and_rejects()
+        return conditions
+
+    def _queue_conditions_and_rejects(self):
+        """Every queued condition, plus every cell that is not a number.
+
+        The stored condition is the starting point and the cells are an
+        OVERLAY on it, so a field the table does not show survives, and a
+        field the table does show but the user did not touch keeps the
+        precision it was created with rather than the four figures its
+        own display was rounded to.
+        """
+        conditions: list[FlightCondition] = []
+        rejected: list[str] = []
         for i in range(self.batch_table.rowCount()):
+
             def txt(col):
                 item = self.batch_table.item(i, col)
-                return item.text() if item is not None else "0"
+                return item.text().strip() if item is not None else ""
+
+            marker = self.batch_table.item(i, 0)
+            stored = (marker.data(self._CONDITION_ROLE)
+                      if marker is not None else None)
+            if not isinstance(stored, FlightCondition):
+                # A row that predates this (or one built by hand): fall
+                # back to the cells, which is all there is.
+                stored = FlightCondition()
+            filled = self._cell_texts(stored, i + 1)
+
+            def number(col, current, label):
+                """The cell, if the user changed it; the stored value if not."""
+                shown = txt(col)
+                if shown == filled[col]:
+                    return current
+                if not shown:
+                    return None if col == self._COL_RPM else current
+                try:
+                    return float(shown)
+                except ValueError:
+                    rejected.append(f"row {i + 1}: {shown!r}")
+                    return current
+
             name = txt(self._COL_NAME) or f"case_{i + 1}"
-            conditions.append(FlightCondition(
+            conditions.append(replace(
+                stored,
                 name=name,
-                mu_x=float(txt(self._COL_MU)),
-                Vz=float(txt(self._COL_VV)),
-                collective_deg=float(txt(self._COL_COLLECTIVE)),
-                rpm=float(txt(self._COL_RPM)),
+                mu_x=number(self._COL_MU, stored.mu_x, "mu_x"),
+                Vz=number(self._COL_VV, stored.Vz, "Vz"),
+                collective_deg=number(self._COL_COLLECTIVE,
+                                       stored.collective_deg, "collective"),
+                rpm=number(self._COL_RPM, stored.rpm, "rpm"),
             ))
-        return conditions
+        return conditions, rejected
 
     def _fill_queue(self, conditions: list, replace: bool = True):
         if replace:
@@ -668,24 +743,25 @@ class RunBatchTab(QWidget):
         for c in conditions:
             r = self.batch_table.rowCount()
             self.batch_table.insertRow(r)
-            values = {
-                0: str(r + 1),
-                self._COL_NAME: c.name or f"case_{r + 1}",
-                self._COL_MU: f"{c.mu_x:.4g}",
-                self._COL_VV: f"{c.Vz:.4g}",
-                self._COL_COLLECTIVE: f"{c.collective_deg:.4g}",
-                self._COL_RPM: f"{(c.rpm or 0.0):.5g}",
-                self._COL_STATUS: "",
-            }
+            values = self._cell_texts(c, r + 1)
             for col, text in values.items():
                 item = QTableWidgetItem(text)
                 if col == 0:
                     item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+                    # The row keeps the condition it was built from. The
+                    # five visible columns are a VIEW of it, not the
+                    # record: `FlightCondition` has ten fields, and the
+                    # five that are not shown used to be replaced by
+                    # their defaults every time the queue was read back.
+                    item.setData(self._CONDITION_ROLE, c)
                 self.batch_table.setItem(r, col, item)
         self._renumber()
         self._update_queue_label()
 
     def _renumber(self):
+        # Only the TEXT is rewritten. The stored condition lives on the
+        # same item and must survive a removal from the middle of the
+        # queue.
         for i in range(self.batch_table.rowCount()):
             item = self.batch_table.item(i, 0)
             if item is not None:
@@ -707,7 +783,16 @@ class RunBatchTab(QWidget):
             return
         try:
             if self.radio_factorial.isChecked():
-                axes = self._active_axes()
+                axes, rejected = self._active_axes_and_rejects()
+                if rejected:
+                    QMessageBox.warning(
+                        self, "Unreadable values",
+                        "These entries are not numbers, so the batch would "
+                        "not contain the cases you wrote:\n\n    "
+                        + ", ".join(rejected)
+                        + "\n\nCorrect them, or remove them, and generate "
+                          "again.")
+                    return
                 if not axes:
                     QMessageBox.warning(self, "No axis",
                                          "Choose at least 1 axis and specify its values.")
@@ -1196,7 +1281,12 @@ class RunBatchTab(QWidget):
     _RANGE_BY_VARIABLE = {
         "mu_x": (0.0, 0.4, 0.05, 3, 0.0, 2.0),
         "J_x": (0.0, 2.0, 0.1, 3, 0.0, 20.0),
-        "V": (0.0, 80.0, 5.0, 1, -500.0, 500.0),
+        # "Vx", not "V". `CONDITION_UNITS` names the in-plane speed `Vx`;
+        # under the old key this entry never matched, so the "fill" button
+        # kept the advance-ratio range (0 to 1, step 0.1) while the axis was
+        # a speed in metres per second, and filled it with eleven values
+        # under one metre per second.
+        "Vx": (0.0, 80.0, 5.0, 1, -500.0, 500.0),
         "alpha_deg": (-10.0, 10.0, 2.0, 2, -90.0, 90.0),
         "alpha_disk": (-10.0, 10.0, 2.0, 2, -90.0, 90.0),
         "Vz": (-10.0, 10.0, 2.0, 2, -200.0, 200.0),
@@ -1321,15 +1411,28 @@ class RunBatchTab(QWidget):
         values_edit.setText(", ".join(f"{lo + i * step:g}" for i in range(n)))
 
     def _active_axes(self) -> list[dict]:
-        axes = []
+        axes, _rejected = self._active_axes_and_rejects()
+        return axes
+
+    def _active_axes_and_rejects(self) -> tuple[list[dict], list[str]]:
+        """The axes, plus every token that is not a number.
+
+        The two travel together because the live read-out and the generate
+        button want opposite things from a half-typed list: the label has to
+        keep working while the user types, and the button must not build a
+        batch out of the part it happened to understand.
+        """
+        axes: list[dict] = []
+        rejected: list[str] = []
         for slot_combo, unit_combo, values_edit in self.axis_rows:
             var = self._axis_variable(slot_combo, unit_combo)
             if var is None:
                 continue
-            values = parse_list(values_edit.text())
+            values, bad = parse_list_reporting(values_edit.text())
+            rejected.extend(bad)
             if values:
                 axes.append({"variable": var, "values": values})
-        return axes
+        return axes, rejected
 
     def _on_axes_changed(self, *_args):
         """Progressive disclosure: a SLOT already used as an axis is
@@ -1354,7 +1457,7 @@ class RunBatchTab(QWidget):
         self._update_total_cases()
 
     def _update_total_cases(self, *_args):
-        axes = self._active_axes()
+        axes, rejected = self._active_axes_and_rejects()
         if not axes:
             self.total_cases_label.setText("Total cases: — (choose at least 1 axis)")
             return
@@ -1363,7 +1466,15 @@ class RunBatchTab(QWidget):
         for ax in axes:
             total *= len(ax["values"])
             factors.append(str(len(ax["values"])))
-        self.total_cases_label.setText(f"Total cases: {' × '.join(factors)} = {total}")
+        text = f"Total cases: {' × '.join(factors)} = {total}"
+        if rejected:
+            # Said, not hidden: while a number is half typed this is the
+            # normal state, and the count above is the count of what is
+            # readable SO FAR. Silence here would read as "that value
+            # counted", which is the reading that makes a short batch look
+            # like a correct one.
+            text += "   (ignoring: " + ", ".join(rejected) + ")"
+        self.total_cases_label.setText(text)
 
     # =====================================================================
     # Conversion contexts and project state
@@ -1432,6 +1543,22 @@ class RunBatchTab(QWidget):
             self.batches_combo.addItem(b.name)
         self.batches_combo.blockSignals(False)
 
+    def _load_selected_batch(self):
+        """The "load" button: reloads whatever the combo names.
+
+        Selecting a DIFFERENT name already loads it, so this button
+        exists for the two cases the selection cannot serve -- reloading
+        the name already selected, and being visible at all, which the
+        combo alone was not.
+        """
+        index = self.batches_combo.currentIndex()
+        if index <= 0:
+            QMessageBox.information(
+                self, "No batch selected",
+                "Choose a saved batch in the list beside this button.")
+            return
+        self._on_saved_batch_selected(index)
+
     def _on_saved_batch_selected(self, index: int):
         """Loads the saved batch INTO THE QUEUE. A sweep batch stores
         `sweep_params` instead of conditions; in that case we expand it,
@@ -1467,7 +1594,13 @@ class RunBatchTab(QWidget):
     def _save_current_as_batch(self):
         if not require_project(self, self.state):
             return
-        conditions = self._queue_conditions()
+        conditions, rejected = self._queue_conditions_and_rejects()
+        if rejected:
+            QMessageBox.warning(
+                self, "Unreadable cells",
+                "These cells are not numbers, so the batch cannot be saved "
+                "as it is shown:\n\n    " + "\n    ".join(rejected))
+            return
         if not conditions:
             QMessageBox.warning(self, "Queue empty", "Generate cases before saving.")
             return
@@ -1485,7 +1618,14 @@ class RunBatchTab(QWidget):
             batches.append(new_batch)
         self.state.notify_config()
         self._refresh_saved_batches_combo()
+        # Selected WITHOUT reloading. The queue on screen is already
+        # exactly what was saved, and letting the selection fire would
+        # refill it from the freshly written batch -- which is how the
+        # rounding described above became visible the instant the name
+        # was typed.
+        self.batches_combo.blockSignals(True)
         self.batches_combo.setCurrentText(name)
+        self.batches_combo.blockSignals(False)
 
     def _remove_saved_batch(self):
         idx = self.batches_combo.currentIndex()

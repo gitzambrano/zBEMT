@@ -792,7 +792,12 @@ class TestDesignToolsFlags(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertTrue(os.path.exists(custom))
 
-    def test_workers_flag_stores_and_warns_serial(self):
+    def test_workers_flag_runs_and_says_nothing(self):
+        """`--workers` used to print "this build evaluates serially",
+        because the pool did not exist. It exists now, so the correct
+        behaviour is a clean run with NO note: a flag that works has
+        nothing to apologise for, and a leftover apology is how a user
+        learns to distrust a flag."""
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "proj")
             self._with_pareto_optimization(path)
@@ -801,9 +806,35 @@ class TestDesignToolsFlags(unittest.TestCase):
                     contextlib.redirect_stderr(err):
                 code = main_batch.main(
                     ["--project", path, "--optimize", "pareto_study",
-                      "--workers", "4"])
+                      "--workers", "2"])
             self.assertEqual(code, 0)
-            self.assertIn("serially", err.getvalue())
+            self.assertNotIn("serially", err.getvalue())
+            self.assertNotIn("no effect", err.getvalue())
+
+    def test_workers_does_not_change_the_front(self):
+        """The property that makes the flag safe to use: a search is
+        reproducible from its seed, and spreading its designs over
+        processes must not move a single number.
+        `tests/test_optimizer_parallel.py` pins the mechanism; this pins
+        it through the real CLI path, front CSV against front CSV."""
+        fronts = []
+        for workers in ("1", "2"):
+            with tempfile.TemporaryDirectory() as d:
+                path = os.path.join(d, "proj")
+                self._with_pareto_optimization(path)
+                csv_path = os.path.join(d, "front.csv")
+                with contextlib.redirect_stdout(io.StringIO()), \
+                        contextlib.redirect_stderr(io.StringIO()):
+                    code = main_batch.main(
+                        ["--project", path, "--optimize", "pareto_study",
+                          "--workers", workers, "--pareto-csv", csv_path])
+                self.assertEqual(code, 0)
+                with open(csv_path, encoding="utf-8") as handle:
+                    fronts.append(handle.read())
+        self.assertEqual(fronts[0], fronts[1],
+                          "the front moved when the work was spread over "
+                          "processes, so the search is no longer "
+                          "reproducible from its seed")
 
     def test_compare_writes_csv_html_and_prints_labels(self):
         with tempfile.TemporaryDirectory() as d:

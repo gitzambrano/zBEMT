@@ -137,9 +137,21 @@ Shaft vertical, so `x` is in-plane (edgewise) and `z` is along the shaft.
 | Axial total (output) | —                                   | V_z,total, λ_total            | `Vz_total`, `lambda_total`                               | same                |
 | Induced (output)     | —                                   | v_i, λ_i                      | `Vi`, `lambda_i`                                         | same                |
 
-α_rotor = atan2(V_z, V_x), measured from the disk plane; climb is positive,
-descent negative. λ_z = V_z/(ΩR) = μ_z. Level forward cruise is μ_x > 0 with
-α_rotor ≈ 0°.
+**One convention for the whole axial family.** V_z, λ_z, μ_z, J_z, λ_total
+and V_z,total are all positive in the SAME direction: through the disk from
+above to below, the direction the induced velocity acts in. That is why
+λ_total = λ_z + λ_i is a sum, and why a positive V_z lowers the thrust.
+
+α_rotor = −atan2(V_z, V_x), measured from the disk plane. It is positive when
+the stream arrives from BELOW the disk — the case that OPPOSES the induced
+velocity and raises the thrust — exactly as an angle of attack is defined for
+a wing. A positive α_rotor therefore goes with a NEGATIVE V_z. λ_z =
+V_z/(ΩR) = μ_z. Level forward cruise is μ_x > 0 with α_rotor ≈ 0°.
+
+α_disk is NOT the negative of anything: it measures the stream's tilt away
+from the SHAFT and stays 0° for a propeller in straight cruise. Both angles
+are derived from one geometric angle in `bemt._geom_angle_deg`; never write a
+second formula for either.
 
 ### Propeller mode
 

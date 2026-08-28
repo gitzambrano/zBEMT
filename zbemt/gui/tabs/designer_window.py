@@ -67,6 +67,7 @@ from ...models import (FlightCondition, GEOMETRY_PARAMS, INTEGER_PARAMS,
 from ...viz import plots
 
 from ..common import (
+    in_scroll_area,
     AppState,
     CanvasHost,
     equalize_button_widths,
@@ -259,9 +260,9 @@ class GeometryDesignerWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         self.pages = QTabWidget()
-        self.pages.addTab(self._build_variants_page(), "Variants")
-        self.pages.addTab(self._build_conditions_page(), "Conditions")
-        self.pages.addTab(self._build_run_page(), "Run && results")
+        self.pages.addTab(in_scroll_area(self._build_variants_page()), "Variants")
+        self.pages.addTab(in_scroll_area(self._build_conditions_page()), "Conditions")
+        self.pages.addTab(in_scroll_area(self._build_run_page()), "Run && results")
         layout.addWidget(self.pages)
 
         self.state.project_changed.connect(self._on_project_changed)
@@ -1566,8 +1567,9 @@ class GeometryDesignerWindow(QWidget):
         self.workers_spin.setValue(1)
         self.workers_spin.setToolTip(
             "Requested evaluation processes for the comparison, stored "
-            "with the session. This build evaluates serially; the count "
-            "is remembered so a future parallel build picks it up.")
+            "with the session. The variants are spread over this many "
+            "processes, so the wall time falls almost in proportion until "
+            "there are more workers than cores.")
         trim_row.addWidget(self.workers_label)
         trim_row.addWidget(self.workers_spin)
         trim_row.addStretch(1)

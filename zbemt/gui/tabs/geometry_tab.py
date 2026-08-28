@@ -29,8 +29,20 @@ from ..widgets import ScientificSpinBox
 
 
 def _sym(latex: str) -> str:
-    """Rendered HTML symbol for a label (PR-4: never a plain-text name)."""
-    return symbol_html(latex)
+    """Rendered HTML symbol for a label (`PR-4`: never a plain-text name).
+
+    The argument is LATEX, always, so it is wrapped in dollar signs
+    before it is handed over. `nomenclature` is deliberately narrow
+    about what it treats as mathematics -- a bare `cfg_solver` must
+    survive untouched, or its underscore would be lowered into a
+    subscript -- and it decides by looking for a dollar sign or a
+    backslash. Names like `f_1`, `N_h` and `m_b` have neither, so they
+    reached the screen with their underscore showing, which is the very
+    thing `PR-4` forbids. Marking the string as mathematics here removes
+    the ambiguity at the call site, where it is known.
+    """
+    body = latex if latex.startswith("$") else "$" + latex + "$"
+    return symbol_html(body)
 
 
 class GeometryTab(QWidget):
@@ -196,7 +208,7 @@ class GeometryTab(QWidget):
             "raises the flap frequency ratio by (3/2)·e/(1−e) above 1 and "
             "lets part of the blade load reach the hub as a structural "
             "moment."))
-        form.addRow(_sym(r"\bar{e") + " — Hinge offset [r/R]:",
+        form.addRow(_sym(r"\bar{e}") + " — Hinge offset [r/R]:",
                     self.dyn_hinge_offset)
 
         self.dyn_flap_spring = ScientificSpinBox()

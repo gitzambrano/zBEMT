@@ -465,9 +465,64 @@ _SUBSCRIPT_UNICODE = {
 
 
 #: A subscript, in either mathtext spelling: braced (`_{x,total}`) or a lone
-#: character (`_x`). Matched as one alternation so a rejected braced group is
-#: not re-read as a lone-character subscript.
-_SUBSCRIPT = re.compile(r"_\{([^}]*)\}|_(\w)")
+#: token (`_x`, `_\beta`). Matched as one alternation so a rejected braced
+#: group is not re-read as a lone-character subscript.
+#:
+#: The lone-token branch accepts a MACRO as well as a word character, because
+#: a Greek subscript is written `\nu_\beta` and `\beta` is not `\w`.
+#: Left at `_(\w)` the group never matched, the `_` survived to the end, and
+#: the flap frequency ratio reached the Geometry tab as the literal text
+#: "&nu;_&beta;^2".
+_SUBSCRIPT = re.compile(r"_\{([^}]*)\}|_(\\[a-zA-Z]+|\w)")
+
+#: A superscript, in the same two spellings. The flap frequency ratio squared
+#: is a real symbol of this application, so `^` cannot be left on the line as
+#: a caret.
+_SUPERSCRIPT = re.compile(r"\^\{([^}]*)\}|\^(\\[a-zA-Z]+|\w)")
+
+#: The characters that have a Unicode SUPERSCRIPT form. Far fewer than the
+#: subscript table, which is why the rule below is all-or-nothing in the same
+#: way: a half-raised exponent reads worse than a caret.
+_SUPERSCRIPT_UNICODE = {
+    "0": "\u2070", "1": "\u00b9", "2": "\u00b2", "3": "\u00b3",
+    "4": "\u2074", "5": "\u2075", "6": "\u2076", "7": "\u2077",
+    "8": "\u2078", "9": "\u2079", "+": "\u207a", "-": "\u207b",
+    "n": "\u207f", "i": "\u2071",
+}
+
+#: An overbar is an OVERBAR, not the three letters "bar". It is drawn with the
+#: combining macron, which Qt and a browser both place over the character it
+#: follows, so no markup is needed and one string serves a label, a CSV header
+#: and HTML alike.
+_OVERBAR = re.compile(r"\\bar\{([^}]*)\}|\\bar(\\[a-zA-Z]+|\w)")
+_COMBINING_MACRON = "\u0304"
+
+
+def _overbar(text: str) -> str:
+    """Replaces every overbar group by its body plus a combining macron.
+
+    Applied BEFORE the Greek substitution, so the macron ends up on the glyph
+    the macro becomes. Applied after it, the macron would land on the last
+    character of an entity name instead.
+    """
+    def repl(match):
+        body = match.group(1) if match.group(1) is not None else match.group(2)
+        return (body + _COMBINING_MACRON) if body else ""
+    return _OVERBAR.sub(repl, text)
+
+
+def _superscript_unicode(text: str) -> str:
+    """Raises a superscript only when EVERY character has a raised form.
+
+    The same all-or-nothing rule as `_subscript_unicode`, and for the same
+    reason: a mixture of raised and flat characters inside one exponent reads
+    worse than leaving the whole exponent flat.
+    """
+    if not text:
+        return text
+    if all(c in _SUPERSCRIPT_UNICODE for c in text):
+        return "".join(_SUPERSCRIPT_UNICODE[c] for c in text)
+    return "^" + text
 
 
 def _subscript_unicode(text: str, lower: str = "all") -> str:
@@ -533,18 +588,30 @@ def to_unicode(mathtext: str, lower_subscripts: str = "all") -> str:
         return ""
     if not _is_mathtext(mathtext):
         return mathtext
-    text = mathtext
-    for macro, symbol in _GREEK_UNICODE.items():
-        text = text.replace(macro + " ", symbol).replace(macro, symbol)
-    text = text.replace(r"\,", " ").replace(r"\ ", " ")
+    # The ORDER matters. The scripts are lifted off the LaTeX FIRST, while a
+    # Greek subscript is still spelled as a macro and the pattern can see it;
+    # the Greek substitution then runs over the result, macros inside the
+    # lifted groups included. Done the other way round -- as it was -- the
+    # macro had already become a glyph the word-character branch does not
+    # match, so the flap frequency ratio kept its underscore and its caret all
+    # the way to the screen.
+    text = _overbar(mathtext)
     # ONE pass over both subscript forms. Two passes would re-read the `_`
     # that the braced form leaves behind when it cannot be lowered:
     # `_{x,total}` -> `_x,total` -> `ₓ,total`, which lowers half of a group
     # that was rejected as a whole.
     text = re.sub(_SUBSCRIPT,
-                   lambda m: _subscript_unicode(m.group(1) or m.group(2),
-                                                 lower_subscripts),
+                   lambda m: _subscript_unicode(
+                       m.group(1) if m.group(1) is not None else m.group(2),
+                       lower_subscripts),
                    text)
+    text = re.sub(_SUPERSCRIPT,
+                   lambda m: _superscript_unicode(
+                       m.group(1) if m.group(1) is not None else m.group(2)),
+                   text)
+    for macro, symbol in _GREEK_UNICODE.items():
+        text = text.replace(macro + " ", symbol).replace(macro, symbol)
+    text = text.replace(r"\,", " ").replace(r"\ ", " ")
     text = text.replace("$", "").replace("{", "").replace("}", "")
     return text.strip()
 
@@ -560,13 +627,22 @@ def to_html(mathtext: str) -> str:
         return ""
     if not _is_mathtext(mathtext):
         return mathtext
-    text = mathtext
+    # Same order as `to_unicode`, and for the same reason: a Greek subscript
+    # has to be lifted while it is still a macro.
+    text = _overbar(mathtext)
+    text = re.sub(_SUBSCRIPT,
+                   lambda m: "<sub>%s</sub>" % (m.group(1)
+                                                 if m.group(1) is not None
+                                                 else m.group(2)),
+                   text)
+    text = re.sub(_SUPERSCRIPT,
+                   lambda m: "<sup>%s</sup>" % (m.group(1)
+                                                 if m.group(1) is not None
+                                                 else m.group(2)),
+                   text)
     for macro, entity in _GREEK_HTML.items():
         text = text.replace(macro + " ", entity).replace(macro, entity)
     text = text.replace(r"\,", " ").replace(r"\ ", " ")
-    text = re.sub(_SUBSCRIPT,
-                   lambda m: f"<sub>{m.group(1) if m.group(1) is not None else m.group(2)}</sub>",
-                   text)
     text = text.replace("$", "").replace("{", "").replace("}", "")
     return text.strip()
 

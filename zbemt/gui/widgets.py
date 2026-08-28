@@ -115,7 +115,7 @@ _UNIT_TOOLTIPS = {
     "Vz": "<b>V<sub>z</sub></b><br><br>Free-stream velocity component along the vehicle z-axis.<br><br>It is climb/descent for a rotor and cross-flow for a propeller.",
     "mu_z": "<b>μ<sub>z</sub></b><br><br>Velocity ratio based on the vehicle z component.<br><br>μ<sub>z</sub> = V<sub>z</sub>/(ΩR).",
     "J_z": "<b>J<sub>z</sub></b><br><br>Velocity ratio based on the vehicle z component.<br><br>J<sub>z</sub> = V<sub>z</sub>/(nD).",
-    "alpha_deg": "<b>α<sub>rotor</sub></b><br><br>Rotor inflow angle measured from the disk plane.<br><br>It is positive when the flow has a positive V<sub>z</sub> component.",
+    "alpha_deg": "<b>α<sub>rotor</sub></b><br><br>Rotor inflow angle measured from the disk plane.<br><br>It is positive when the stream arrives from BELOW the disk, which is the case that opposes the induced velocity: a positive angle therefore goes with a NEGATIVE V<sub>z</sub>.",
     "alpha_disk": "<b>α<sub>disk</sub></b><br><br>Propeller inflow angle measured from the shaft.<br><br>It is zero when V<sub>z</sub> is zero and the free stream is aligned with the shaft.",
 }
 

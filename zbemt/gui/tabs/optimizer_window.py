@@ -203,7 +203,12 @@ class OptimizerWindow(QWidget):
             "evolution drives the FIRST objective only (single-result "
             "search).")
         self.population_spin = QSpinBox()
-        self.population_spin.setRange(4, 400)
+        # 8 is the FLOOR the validation enforces (`validate_optimization`):
+        # below it a generational search has too few parents to keep a
+        # front alive. The spin box used to start at 4, so the user could
+        # pick a value the run then refused -- a control offering a
+        # setting that cannot be used.
+        self.population_spin.setRange(8, 500)
         self.population_spin.setValue(40)
         self.population_spin.setToolTip(
             '"population" — designs alive per generation. Every generation '

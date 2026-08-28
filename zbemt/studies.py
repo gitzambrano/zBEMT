@@ -1523,6 +1523,22 @@ def _evaluate_variant(project: Project, condition: FlightCondition,
         return None
 
 
+def _optimizer_design_task(project: Project, condition: FlightCondition,
+                            params: dict):
+    """One design, evaluated in a worker process (`SC-13`).
+
+    Returns the SUMMARY dict, not the `Results`: the maps are megabytes
+    of arrays per design and nothing downstream of the search reads them,
+    so shipping them back across the process boundary would cost more
+    than the parallelism saves. `None` marks a design that failed to
+    solve, which the Evaluator turns into maximal infeasibility.
+
+    At module level, because a worker imports it by name.
+    """
+    result = _evaluate_variant(project, condition, params)
+    return None if result is None else dict(result.summary)
+
+
 def optimize_design(project: Project, definition: OptimizationDefinition,
                     *, on_progress=None, should_cancel=None) -> OptimizationOutcome:
     """Drive bounded geometry parameters toward the best objective value.
@@ -1701,25 +1717,74 @@ def optimize_design_multi(project: Project,
     signs = np.array([-1.0 if kind_by_key.get(k) == "maximize" else 1.0
                        for k in keys])
 
-    def evaluate(x):
+    def _params_of(x):
         params = {}
         for name, value in zip(names, x):
             params[name] = int(round(value)) if name in INTEGER_PARAMS \
                 else float(value)
+        return params
+
+    def _values_of(summary):
+        """RAW summary values in the user's own direction -- never the
+        search's negated view. Constraint keys ride along so the
+        Evaluator can score feasibility."""
+        return {key: (float(summary.get(key, float("nan")))
+                      if summary is not None else float("nan"))
+                for key in all_keys}
+
+    def _report(values):
         state["evals"] += 1
-        res = _evaluate_variant(project, condition, params,
-                                 should_cancel=should_cancel)
-        # RAW summary values in the user's own direction -- never the
-        # search's negated view. Constraint keys ride along so the
-        # Evaluator can score feasibility.
-        values = {key: (float(res.summary.get(key, float("nan")))
-                        if res is not None else float("nan"))
-                  for key in all_keys}
         if on_progress is not None and math.isfinite(values[keys[0]]):
             on_progress(state["evals"], None, values)
+
+    def evaluate(x):
+        res = _evaluate_variant(project, condition, _params_of(x),
+                                 should_cancel=should_cancel)
+        values = _values_of(None if res is None else res.summary)
+        _report(values)
         return values
 
     evaluate.objective_keys = keys
+
+    # --- parallel evaluation of a whole population (Phase 3.3) ------------
+    # NSGA-II asks for a BLOCK of designs at a time, so the block is the
+    # unit of parallelism. The pool is opened once for the whole search
+    # rather than once per generation: starting a process costs more than
+    # evaluating one design, and a search is many generations long.
+    workers = max(1, int(getattr(definition, "parallel_workers", 1) or 1))
+    pool = None
+    if workers > 1:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        pool = ProcessPoolExecutor(max_workers=workers)
+
+        def map_many(xs):
+            """Every design of one block, returned in SUBMISSION order.
+
+            The order is the point. Designs are collected as they finish,
+            so a slow one does not hold up reading the rest, but each is
+            written back into the slot it was submitted from: the
+            search's selection and the evaluation ledger are both
+            positional, and a front that depended on which worker won a
+            race would not be reproducible from its seed.
+            """
+            jobs = [_params_of(x) for x in xs]
+            out = [None] * len(jobs)
+            futures = {pool.submit(_optimizer_design_task, project,
+                                    condition, params): index
+                       for index, params in enumerate(jobs)}
+            for future in as_completed(futures):
+                if should_cancel is not None and should_cancel():
+                    for pending in futures:
+                        pending.cancel()
+                    raise SolveCancelled()
+                out[futures[future]] = future.result()
+            values = [_values_of(summary) for summary in out]
+            for row in values:
+                _report(row)
+            return values
+
+        evaluate.map_many = map_many
 
     integer_mask = np.array([n in INTEGER_PARAMS for n in names])
     common = dict(objective_keys=keys,
@@ -1727,6 +1792,7 @@ def optimize_design_multi(project: Project,
                    integer_mask=integer_mask, seed=int(definition.seed),
                    should_cancel=should_cancel, signs=signs)
     try:
+      try:
         if algorithm == "nsga2":
             outcome = nsga2(evaluate, np.asarray(lower), np.asarray(upper),
                             population=max(int(definition.population), 8),
@@ -1746,18 +1812,23 @@ def optimize_design_multi(project: Project,
                 f"optimize_design_multi: algorithm must be 'nsga2' or 'de' "
                 f"(got {algorithm!r}). Powell/Nelder-Mead stay single-objective "
                 "on `optimize_design`.")
-    except SearchCancelled as exc:
+      except SearchCancelled as exc:
         # The search itself stopped on request; what was already evaluated
         # still holds a front worth reporting (SC-13). This branch MUST
         # precede the SolveCancelled one: SearchCancelled is one of them.
         outcome = front_from_ledger(exc.evaluations, keys, signs=signs)
         outcome.n_evals = len(exc.evaluations)
         outcome.message = "cancelled"
-    except SolveCancelled:
+      except SolveCancelled:
         # Cancelled inside a physics evaluation: nothing to salvage beyond
         # the ledger-free empty outcome, and the message says why.
         outcome = ParetoOutcome()
         outcome.message = "cancelled"
+    finally:
+        # The pool holds live processes. A search that raised, or that was
+        # cancelled, must not leave them behind.
+        if pool is not None:
+            pool.shutdown(wait=False, cancel_futures=True)
 
     # The searches track variables positionally (v0, v1, ...); rename the
     # front back to the definition's own parameter names so every consumer

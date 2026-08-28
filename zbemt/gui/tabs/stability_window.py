@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
     QTextEdit,
 )
 
-from ..common import AppState, CanvasHost, show_error, show_all_options_in
+from ..common import AppState, CanvasHost, show_error, show_all_options_in, in_scroll_area
 from ..workers import DerivativeWorker, launch_worker
 from ... import api, nomenclature
 from ...models import DerivativeRequest, FlightCondition
@@ -110,9 +110,9 @@ class StabilityWindow(QWidget):
         self._vehicle = None
 
         tabs = QTabWidget(self)
-        tabs.addTab(self._build_trim_page(), "Trim point")
-        tabs.addTab(self._build_perturbations_page(), "Perturbations")
-        tabs.addTab(self._build_run_page(), "Run and results")
+        tabs.addTab(in_scroll_area(self._build_trim_page()), "Trim point")
+        tabs.addTab(in_scroll_area(self._build_perturbations_page()), "Perturbations")
+        tabs.addTab(in_scroll_area(self._build_run_page()), "Run and results")
         outer = QVBoxLayout(self)
         outer.addWidget(tabs)
         show_all_options_in(self)
@@ -257,7 +257,11 @@ class StabilityWindow(QWidget):
         outputs_grid = QGridLayout(outputs_box)
         self.output_checks = {}
         for i, name in enumerate(_OUTPUT_NAMES):
-            check = QCheckBox(name)
+            # The LABEL is the rendered symbol; the engine key stays the
+            # dictionary key, so `_collect_request` is untouched.
+            check = QCheckBox(self._symbol(name))
+            check.setToolTip(f'"{name}" — the engine key this column '
+                              f"carries in the CSV and the report.")
             check.setChecked(True)
             outputs_grid.addWidget(check, i % 3, i // 3)
             self.output_checks[name] = check
@@ -387,7 +391,9 @@ class StabilityWindow(QWidget):
         bar_layout = QHBoxLayout(bar_box)
         self.bar_output_combo = QComboBox()
         for name in _OUTPUT_NAMES:
-            self.bar_output_combo.addItem(name)
+            # Rendered text, engine key as the item's data: reading the
+            # TEXT back would make the chart depend on how it is spelled.
+            self.bar_output_combo.addItem(self._symbol(name), name)
         self.bar_output_combo.currentIndexChanged.connect(
             self._refresh_bar_chart)
         bar_layout.addWidget(self.bar_output_combo)
@@ -793,6 +799,33 @@ class StabilityWindow(QWidget):
         self.vehicle_check.setEnabled(needed <= set(request_states(outcome)))
         self._refresh_bar_chart()
 
+    def _condition_caption(self) -> str:
+        """The flight condition a plot in this window was produced at.
+
+        Every plot title must state it (the repository's plot rule): a
+        stability derivative is a slope AT a point, and the same rotor
+        gives different numbers at another one, so a chart that does not
+        name its point cannot be compared with anything.
+        """
+        outcome = getattr(self, "_outcome", None)
+        condition = getattr(outcome, "condition", None)
+        if condition is None:
+            index = self.condition_combo.currentIndex()
+            cases = (self.state.project.saved_cases
+                     if self.state and self.state.project else [])
+            if 0 <= index < len(cases):
+                condition = cases[index]
+        if condition is None:
+            return "condition not recorded"
+        from ..common import describe_case_settings
+        try:
+            return describe_case_settings(
+                {"mu_x": condition.mu_x, "Vz": condition.Vz,
+                 "collective_deg": condition.collective_deg,
+                 "rpm": condition.rpm})
+        except Exception:
+            return str(getattr(condition, "name", "") or "condition")
+
     def _symbol(self, engine_key: str) -> str:
         """The name the rest of the program shows for this quantity, in
         the project's own axis convention.
@@ -855,18 +888,29 @@ class StabilityWindow(QWidget):
                             transform=canvas.ax.transAxes)
             canvas.draw()
             return
-        chosen = self.bar_output_combo.currentText()
+        chosen = self.bar_output_combo.currentData()
+        if chosen is None:                      # nothing selected yet
+            chosen = self.bar_output_combo.currentText()
         pairs = {(k, v): val for (k, v), val in outcome.matrix.items()
                   if k == chosen}
         names = list(dict.fromkeys(v for (_k, v) in pairs))
+        if not names:
+            canvas.draw()
+            return
         values = [pairs[(chosen, n)] for n in names]
         colors = ["tab:red" if abs(v) == max(abs(x) for x in values)
                    else "tab:blue" for v in values]
         canvas.ax.bar(range(len(names)), values, color=colors)
         canvas.ax.set_xticks(range(len(names)))
-        canvas.ax.set_xticklabels(names, fontsize=8)
+        canvas.ax.set_xticklabels([self._symbol(n) for n in names],
+                                   fontsize=8)
         canvas.ax.axhline(0.0, color="0.3", linewidth=0.8)
-        canvas.ax.set_title(f"d{chosen}/d(variable)")
+        # The condition belongs in the title: a derivative is a slope AT
+        # a point, and the same rotor gives different numbers at another
+        # one. This is the repository's rule for every plot.
+        canvas.ax.set_title(
+            f"∂{self._symbol(chosen)} / ∂(variable)\n"
+            f"{self._condition_caption()}", fontsize=9)
         canvas.draw()
 
     def _refresh_vehicle(self):

@@ -3956,7 +3956,7 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
         raise ValueError(
             "resolve_advance_velocity: alpha_deg, measured from the PLANE, and "
             "alpha_disk_deg, measured from the SHAFT, are the same angle written "
-            "two ways (alpha_disk = 90 - alpha_rotor). If you give both, no "
+            "two ways (alpha_disk = 90 + alpha_rotor). If you give both, no "
             "component fixes the velocity scale. Give one angle and one "
             "dimensional or non-dimensional component.")
 
@@ -3969,7 +3969,11 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
             return float(spec["mu_z"]) * rotor.OmegaR
         if "J_z" in spec:
             return (float(spec["J_z"]) / np.pi) * rotor.OmegaR
-        return float(np.tan(np.deg2rad(spec["alpha_deg"]))) * Vinf_long_conhecido
+        # MINUS: `alpha_deg` is positive when the stream arrives from
+        # BELOW the disk, which is the case that OPPOSES the induced
+        # velocity, so it produces a negative `Vz`. See the module note
+        # on the axial convention.
+        return -float(np.tan(np.deg2rad(spec["alpha_deg"]))) * Vinf_long_conhecido
 
     if long_kind == "alpha_disk_deg":
         Vv_val = _axial_de(given_axial, 0.0)
@@ -3993,40 +3997,79 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
         Vv_val = _axial_de(given_axial, Vinf_long)
 
     mu_z_val = Vv_val / rotor.OmegaR
-    alpha_rotor_deg = (float(np.degrees(np.arctan2(Vv_val, Vinf_long)))
-                        if abs(Vinf_long) > 1e-6 else (90.0 if Vv_val > 0 else (-90.0 if Vv_val < 0 else 0.0)))
+    # ONE geometric angle, from which BOTH reported angles are derived.
+    # `alpha_geom` is the raw `atan2(Vz, Vx)`: it carries the sign of
+    # `Vz`, and it is what `_angle_from_axis` has always consumed.
+    alpha_geom_deg = _geom_angle_deg(Vv_val, Vinf_long)
+    # The reported disk angle of attack is its NEGATIVE, so that it means
+    # what the same symbol means for a wing: positive when the stream
+    # arrives from below the disk. That is the case with `Vz < 0`, which
+    # opposes the induced velocity and raises the thrust.
+    alpha_rotor_deg = -alpha_geom_deg + 0.0     # the +0.0 kills a -0.0
 
     meta = dict(
         mu_x=mu_val, J_x=np.pi * mu_val,
         Vz=Vv_val, mu_z=mu_z_val, J_z=np.pi * mu_z_val,
         alpha_rotor_deg=alpha_rotor_deg,
-        alpha_disk_deg=_angle_from_axis(alpha_rotor_deg),
+        # From the GEOMETRIC angle, not from the reported one: a
+        # propeller in straight cruise must keep reading zero here, and
+        # deriving one reported angle from the other is what would let
+        # the pair drift apart after a change like this one.
+        alpha_disk_deg=_angle_from_axis(alpha_geom_deg),
         Vx=Vinf_long,
     )
     return mu_val, Vv_val, meta
 
 
-def _angle_from_axis(alpha_rotor_deg: float) -> float:
-    """Complement of `alpha_rotor_deg`: the same angle measured from the
-    rotor AXIS instead of the disk plane.
+def _geom_angle_deg(Vz: float, Vx: float) -> float:
+    """The stream's GEOMETRIC angle from the disk plane: `atan2(Vz, Vx)`.
+
+    This is the raw angle, carrying the sign of `Vz`. It is NOT what is
+    reported: the reported `alpha_rotor_deg` is its negative, because the
+    disk angle of attack is positive when the stream arrives from BELOW
+    the disk -- the case that opposes the induced velocity -- exactly as
+    an angle of attack is defined for a wing.
+
+    Two derived quantities read this, and both used to compute it for
+    themselves:
+
+        alpha_rotor_deg = -_geom_angle_deg(Vz, Vx)
+        alpha_disk_deg  = _angle_from_axis(_geom_angle_deg(Vz, Vx))
+
+    With one copy in `resolve_advance_velocity` and another in
+    `aggregate_results`, changing the convention in one place left the
+    other reporting the old one, which is what happened.
+    """
+    if abs(Vx) > 1e-6:
+        return float(np.degrees(np.arctan2(float(Vz), float(Vx))))
+    return 90.0 if Vz > 0 else (-90.0 if Vz < 0 else 0.0)
+
+
+def _angle_from_axis(alpha_geom_deg: float) -> float:
+    """The stream's angle from the rotor AXIS, from the GEOMETRIC angle.
+
+    The argument is `atan2(Vz, Vx)` -- the angle from the disk plane
+    carrying the sign of `Vz` -- and NOT the reported `alpha_rotor_deg`,
+    which is its negative. Passing the reported angle here would put a
+    propeller in straight cruise at 180 degrees instead of zero.
 
     Purely axial flight (propeller in cruise) is 0deg here and 90deg
     there. Purely edgewise flight (helicopter in level forward flight) is
-    90deg here and 0deg there. Axial descent (`Vz<0`, `alpha_rotor=-90deg`)
+    90deg here and 0deg there. Axial descent (`Vz<0`, geometric angle -90deg)
     gives 180deg: the flow arrives from the FRONT of the disk, and that is
     what 180deg says.
 
     The propeller in cruise is the case motivating this column . There
-    `alpha_rotor` reads 90deg on a flight the pilot calls "aligned", and
+    the geometric angle reads 90deg on a flight the pilot calls "aligned", and
     no reader would spot a 2deg misalignment by reading "88deg".
 
-    NORMALIZED to (-180deg, 180deg]: the identity is `90 - alpha_rotor`
+    NORMALIZED to (-180deg, 180deg]: the identity is `90 - alpha_geom`
     MODULO 360, not the raw subtraction. With negative cross-flow AND
     axial descent (`mu_x<0`, `Vz<0`) the raw value gives 190deg, whose
     ABSOLUTE VALUE is no longer the angle between the free stream and the
     axis . 170deg is. Normalized, |alpha_disk| is always that angle,
     which is what one reads in an angle column."""
-    bruto = 90.0 - float(alpha_rotor_deg)
+    bruto = 90.0 - float(alpha_geom_deg)
     normalizado = (bruto + 180.0) % 360.0 - 180.0        # [-180, 180)
     if normalizado == -180.0:
         normalizado = 180.0        # pure axial descent reads 180, not -180
@@ -4258,24 +4301,22 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         flight_cols = dict(meta)
     else:
         mu_z_val = Vz / OmegaR
-        alpha_rotor_calc = (float(np.degrees(np.arctan2(Vz, mu_x * OmegaR)))
-                             if abs(mu_x * OmegaR) > 1e-6
-                             else (90.0 if Vz > 0 else (-90.0 if Vz < 0 else 0.0)))
         flight_cols = dict(mu_x=mu_x, J_x=J_adv,
                             Vz=Vz, mu_z=mu_z_val, J_z=Jz_adv,
-                            alpha_rotor_deg=alpha_rotor if alpha_rotor is not None else alpha_rotor_calc,
+                            alpha_rotor_deg=-_geom_angle_deg(Vz, mu_x * OmegaR),
                             Vx=mu_x * OmegaR)
     # An explicit `alpha_rotor` (if passed by the caller) always takes
     # display priority over the reconstructed value, for backward
     # compatibility.
     if alpha_rotor is not None:
         flight_cols["alpha_rotor_deg"] = alpha_rotor
-    # The angle from the AXIS ALWAYS follows whatever ended up in
-    # `alpha_rotor_deg` (including when the explicit `alpha_rotor` above
-    # overwrote the resolved one) . Two columns that contradicted each
-    # other would be worse than just one.
+    # The angle from the AXIS follows the same GEOMETRY as the angle from
+    # the plane, which is the negative of the reported one. Derived from
+    # the reported angle instead -- as it was -- a propeller in straight
+    # cruise would read 180 degrees here rather than zero, because the
+    # reported angle changed sign and this line did not.
     flight_cols["alpha_disk_deg"] = _angle_from_axis(
-        flight_cols["alpha_rotor_deg"])
+        -float(flight_cols["alpha_rotor_deg"]))
 
     # =========================================================================
     # RESOLVED AXIAL FLOW: v_i, lambda_i, lambda (disk averages) ------------

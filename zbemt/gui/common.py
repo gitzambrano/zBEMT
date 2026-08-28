@@ -72,11 +72,70 @@ from ..models import Project, ResultEntry
 PROJECTS_ROOT = str(paths.projects_root())
 
 
+def in_scroll_area(page: QWidget, minimum_px: int = 120) -> QScrollArea:
+    """Wraps a page so a window built from it can be made SMALLER.
+
+    A tool window whose pages state a large minimum size cannot be
+    resized below it: Qt honours the minimum, the content runs past the
+    screen edge, and nothing scrolls to it. The Stability window asked
+    for 1490 pixels of width, which a 1366-wide laptop cannot give.
+
+    `setWidgetResizable(True)` keeps the page stretched to the viewport
+    whenever there IS room, so on a large screen the layout is exactly
+    what it was; the scroll bars appear only once the viewport is
+    smaller than what the page needs.
+
+    `minimum_px` is the floor the SCROLL AREA itself keeps, so the
+    viewport never collapses to nothing and leaves the user with two
+    scroll bars around an empty square.
+    """
+    area = QScrollArea()
+    area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.Shape.NoFrame)
+    area.setWidget(page)
+    area.setMinimumSize(minimum_px, minimum_px)
+    return area
+
+
+def parse_list_reporting(text: str) -> tuple[list[float], list[str]]:
+    """Splits a comma-separated list into the numbers and the leftovers.
+
+    Returns ``(values, rejected)``. A token that is not a number is NOT an
+    exception: every one of these fields is read on `textChanged`, so the
+    function sees each number in every half-typed state it passes through --
+    "-", "0.", "1e", "1e-" -- and a partial number is the normal case, not an
+    error.
+
+    It used to raise. `float("-")` is a `ValueError`, the call happened inside
+    a Qt slot, and PyQt6 aborts the process on an exception it cannot return
+    across the C++ boundary. Typing the minus sign of the first disk angle
+    therefore closed the whole application (`PR-11`).
+
+    The rejected tokens are returned instead of dropped so that the paths
+    which BUILD something -- generating a batch, generating a polar -- can
+    refuse a list they cannot read in full, rather than quietly producing
+    fewer cases than the user wrote.
+    """
+    values: list[float] = []
+    rejected: list[str] = []
+    for token in (text or "").split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            values.append(float(token))
+        except ValueError:
+            rejected.append(token)
+    return values, rejected
+
+
 def parse_list(text: str) -> list[float]:
-    text = text.strip()
-    if not text:
-        return []
-    return [float(v) for v in text.split(",") if v.strip()]
+    """The numbers of a comma-separated list, skipping what is not one.
+
+    For a LIVE read-out. Use `parse_list_reporting` where an unreadable
+    token has to stop the action.
+    """
+    return parse_list_reporting(text)[0]
 
 
 def symbol_to_plain_text(symbol_html: str) -> str:

@@ -69,7 +69,7 @@ from ...viz import plots
 from typing import TYPE_CHECKING
 
 from ..common import (require_optional_package,
-                      parse_list, AppState, show_error, CanvasHost, HAS_INTERACTIVE_PLOTS,
+                      parse_list, in_scroll_area, AppState, show_error, CanvasHost, HAS_INTERACTIVE_PLOTS,
                       PlotlyCanvasHost, symbol_to_plain_text, describe_case_settings,
                       NUMBER_ALIGN, equalize_button_widths,
                       apply_figure_minimum_size)
@@ -597,7 +597,15 @@ class ResultsTab(QWidget):
         self.mode_list.setCurrentRow(0)
         self.mode_list.currentRowChanged.connect(self._on_mode_changed)
         left.addWidget(self.mode_list)
-        outer.addWidget(history_group, stretch=1)
+        # SCROLLED. The history panel asks for 582 pixels of width, and
+        # added to the plot side that made the whole tab -- and with it
+        # the main window -- refuse to go below about 1430 pixels, so on
+        # a 1366-wide laptop the right edge of the plot was unreachable.
+        # In a scroll area the panel keeps its natural width and the user
+        # reaches the rest of it by scrolling, which is what lets the
+        # window shrink at all.
+        outer.addWidget(in_scroll_area(history_group, minimum_px=180),
+                        stretch=1)
 
         # --- right panel: sub-selection + mode options + canvas -----------
         right = QVBoxLayout()

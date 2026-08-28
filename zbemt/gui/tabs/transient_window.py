@@ -84,7 +84,35 @@ class TransientWindow(QWidget):
     # ------------------------------------------------------------------
     # Page 1: Trajectory
     # ------------------------------------------------------------------
-    def _point_columns(self) -> list:
+    #: Columns of the RESULT table that `nomenclature` does not own: they
+    #: are diagnostics of the march itself, not axis quantities.
+    _MARCH_HEADINGS = {
+        "t": "t [s]",
+        "nu0": "\u03bd\u2080 [-]",
+        "nu_s": "\u03bd_s [-]",
+        "nu_c": "\u03bd_c [-]",
+        "marched_interval_s": "\u0394t marched [s]",
+        "substeps": "sub-steps [-]",
+    }
+
+    def _column_heading(self, key: str) -> str:
+        """The heading for one result column.
+
+        `nomenclature` owns every axis and summary quantity and is asked
+        first, so the collective, the cyclic angles and the flap
+        harmonics rotate with the mode exactly as they do in the Results
+        tab. What it does not own -- the three inflow states of the
+        Pitt-Peters model and the two march diagnostics -- is spelled
+        above, WITH its Greek letter, rather than left as an engine key.
+        """
+        propeller = bool(self.state.is_propeller()) if self.state else False
+        symbol = nomenclature.symbol_text(key, propeller)
+        if symbol and symbol != key:
+            unit = nomenclature.unit(key)
+            return f"{symbol} [{unit}]" if unit else symbol
+        return self._MARCH_HEADINGS.get(key, key)
+
+    def _point_columns(self):
         """Column headings in the mode's own axis convention."""
         propeller = bool(self.state.is_propeller()) if self.state else False
         out = []
@@ -672,16 +700,24 @@ class TransientWindow(QWidget):
         canvas = self.preview_canvas.use_simple()
         canvas.clear()
         ax = canvas.ax
-        ax.plot(t, [s.mu_x for s in samples], label="mu (in-plane)",
+        propeller = bool(self.state.is_propeller()) if self.state else False
+        ax.plot(t, [s.mu_x for s in samples],
+                 label=nomenclature.symbol_text("mu_x", propeller),
                  color="tab:blue")
-        ax.plot(t, [s.Vz for s in samples], label="V axial [m/s]",
+        ax.plot(t, [s.Vz for s in samples],
+                 label=nomenclature.symbol_text("Vz", propeller) + " [m/s]",
                  color="tab:cyan")
         ax.set_xlabel("Time [s]")
         ax.set_ylabel("Flow components")
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=7, loc="best")
-        ax2 = ax.twiny()
-        ax2.set_visible(False)
+        # The maneuver and its endpoints ARE this plot's condition, and
+        # the repository asks every plot title to state its condition. A
+        # preview copied into a note used to say nothing about which
+        # trajectory it drew.
+        name = self.maneuver_combo.currentText() or "maneuver"
+        ax.set_title(f"{name}: {t[0]:.3g} to {t[-1]:.3g} s, "
+                      f"{len(samples)} samples", fontsize=9)
         canvas.draw()
 
     # ------------------------------------------------------------------
@@ -724,10 +760,17 @@ class TransientWindow(QWidget):
         self._history = history
         self._maps_list = maps_list
         columns = ["t", "CT", "CQ", "CP", "nu0", "nu_s", "nu_c",
-                    "collective_deg", "marched_interval_s", "substeps"]
+                    "collective_deg", "cyclic_c_deg", "cyclic_s_deg",
+                    "beta_0_deg", "beta_1c_deg", "beta_1s_deg",
+                    "marched_interval_s", "substeps"]
         columns = [c for c in columns if c in history.columns]
         self.history_table.setColumnCount(len(columns))
-        self.history_table.setHorizontalHeaderLabels(columns)
+        # Rendered headings, not engine keys. The flap and cyclic columns
+        # are listed above and appear only when the march produced them,
+        # which is what the `in history.columns` filter decides: a run
+        # without marched flapping simply has no such column.
+        self.history_table.setHorizontalHeaderLabels(
+            [self._column_heading(c) for c in columns])
         self.history_table.setRowCount(len(history))
         for r in range(len(history)):
             for c, col in enumerate(columns):

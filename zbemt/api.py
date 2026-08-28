@@ -666,20 +666,26 @@ def V_to_mu(V: float, rpm: float, radius_m: float) -> float:
 
 
 def vv_from_alpha_deg(alpha_deg: float, mu_x: float, rpm: float, radius_m: float) -> float:
-    """Vz = tan(alpha_rotor_deg) * mu_x * OmegaR (bemt.resolve_advance_velocity)."""
+    """``Vz = -tan(alpha_rotor) * mu_x * OmegaR`` (`bemt.resolve_advance_velocity`).
+
+    The MINUS is the convention: `alpha_rotor` is positive when the
+    stream arrives from BELOW the disk, and that stream opposes the
+    induced velocity, so its `Vz` is negative.
+    """
     vinf_long = float(mu_x) * omega_r(rpm, radius_m)
-    return float(np.tan(np.deg2rad(alpha_deg))) * vinf_long
+    return -float(np.tan(np.deg2rad(alpha_deg))) * vinf_long
 
 
 def alpha_deg_from_vv(Vz: float, mu_x: float, rpm: float, radius_m: float) -> float:
+    """The inverse of `vv_from_alpha_deg`, and the same sign convention."""
     vinf_long = float(mu_x) * omega_r(rpm, radius_m)
     if abs(vinf_long) < 1e-9:
         if Vz > 0:
-            return 90.0
-        if Vz < 0:
             return -90.0
+        if Vz < 0:
+            return 90.0
         return 0.0
-    return float(np.degrees(np.arctan2(float(Vz), vinf_long)))
+    return -float(np.degrees(np.arctan2(float(Vz), vinf_long))) + 0.0
 
 
 # =============================================================================

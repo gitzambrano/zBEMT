@@ -537,7 +537,7 @@
         "text": "ηₚᵣₒₚ [-]"
       },
       "flap_inertia_kg_m2": {
-        "html": "I_&beta; [kg·m²]",
+        "html": "I<sub>&beta;</sub> [kg·m²]",
         "mathtext": "$I_\\beta$ [kg·m²]",
         "text": "Iβ [kg·m²]"
       },
@@ -582,12 +582,12 @@
         "text": "μₓ [-]"
       },
       "nu_beta": {
-        "html": "&nu;_&beta; [-]",
+        "html": "&nu;<sub>&beta;</sub> [-]",
         "mathtext": "$\\nu_\\beta$ [-]",
         "text": "νβ [-]"
       },
       "nu_zeta": {
-        "html": "&nu;_&zeta; [-]",
+        "html": "&nu;<sub>&zeta;</sub> [-]",
         "mathtext": "$\\nu_\\zeta$ [-]",
         "text": "νζ [-]"
       },
@@ -1209,7 +1209,7 @@
         "text": "ηₚᵣₒₚ [-]"
       },
       "flap_inertia_kg_m2": {
-        "html": "I_&beta; [kg·m²]",
+        "html": "I<sub>&beta;</sub> [kg·m²]",
         "mathtext": "$I_\\beta$ [kg·m²]",
         "text": "Iβ [kg·m²]"
       },
@@ -1254,12 +1254,12 @@
         "text": "μz [-]"
       },
       "nu_beta": {
-        "html": "&nu;_&beta; [-]",
+        "html": "&nu;<sub>&beta;</sub> [-]",
         "mathtext": "$\\nu_\\beta$ [-]",
         "text": "νβ [-]"
       },
       "nu_zeta": {
-        "html": "&nu;_&zeta; [-]",
+        "html": "&nu;<sub>&zeta;</sub> [-]",
         "mathtext": "$\\nu_\\zeta$ [-]",
         "text": "νζ [-]"
       },
@@ -1984,7 +1984,7 @@
         "Propulsive efficiency: &eta; = T&middot;V<sub>x</sub>/P = J<sub>x</sub>&middot;C<sub>T,prop</sub>/C<sub>P,prop</sub>. Built from the airspeed ALONG THE SHAFT, since thrust acts there; meaningful with V<sub>x</sub> &gt; 0"
       ],
       "flap_inertia_kg_m2": [
-        "I_&beta;",
+        "I<sub>&beta;</sub>",
         "Resolved flap inertia of one blade about its hinge [kg·m²], whichever inertia source was chosen. It normalizes the flap moment in the harmonic balance"
       ],
       "inflow_coupling": [
@@ -2020,11 +2020,11 @@
         "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R), the airspeed normalized by tip speed. THE SAME NUMBER as &lambda;<sub>x</sub>, in the advance-ratio vocabulary"
       ],
       "nu_beta": [
-        "&nu;_&beta;",
+        "&nu;<sub>&beta;</sub>",
         "Flap frequency ratio: &nu;<sub>&beta;</sub><sup>2</sup> = 1 + (3/2)&middot;e/(1&minus;e) + K<sub>&beta;</sub>/(I<sub>&beta;</sub>&Omega;<sup>2</sup>). How far the first flap mode sits above the rotor rotation. An articulated rotor has exactly 1, which is why its first harmonic resonates"
       ],
       "nu_zeta": [
-        "&nu;_&zeta;",
+        "&nu;<sub>&zeta;</sub>",
         "Lead-lag frequency ratio: &nu;<sub>&zeta;</sub><sup>2</sup> = (3/2)&middot;e/(1&minus;e) + K<sub>&zeta;</sub>/(I<sub>&zeta;</sub>&Omega;<sup>2</sup>). No leading 1: the lag freedom gets no restoring term from the thrust"
       ],
       "p_rate_deg_s": [
@@ -2522,7 +2522,7 @@
         "Propulsive efficiency: &eta; = T&middot;V<sub>z</sub>/P = J<sub>z</sub>&middot;C<sub>T,prop</sub>/C<sub>P,prop</sub>. Built from the AXIAL free-stream, since thrust acts along the shaft; meaningful in propeller mode with V<sub>z</sub> &gt; 0"
       ],
       "flap_inertia_kg_m2": [
-        "I_&beta;",
+        "I<sub>&beta;</sub>",
         "Resolved flap inertia of one blade about its hinge [kg·m²], whichever inertia source was chosen. It normalizes the flap moment in the harmonic balance"
       ],
       "inflow_coupling": [
@@ -2558,11 +2558,11 @@
         "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R). In rotor mode z is the SHAFT direction, so this is climb (positive) or descent (negative). Same number as &lambda;<sub>z</sub>, written in the advance-ratio vocabulary instead of the inflow one"
       ],
       "nu_beta": [
-        "&nu;_&beta;",
+        "&nu;<sub>&beta;</sub>",
         "Flap frequency ratio: &nu;<sub>&beta;</sub><sup>2</sup> = 1 + (3/2)&middot;e/(1&minus;e) + K<sub>&beta;</sub>/(I<sub>&beta;</sub>&Omega;<sup>2</sup>). How far the first flap mode sits above the rotor rotation. An articulated rotor has exactly 1, which is why its first harmonic resonates"
       ],
       "nu_zeta": [
-        "&nu;_&zeta;",
+        "&nu;<sub>&zeta;</sub>",
         "Lead-lag frequency ratio: &nu;<sub>&zeta;</sub><sup>2</sup> = (3/2)&middot;e/(1&minus;e) + K<sub>&zeta;</sub>/(I<sub>&zeta;</sub>&Omega;<sup>2</sup>). No leading 1: the lag freedom gets no restoring term from the thrust"
       ],
       "p_rate_deg_s": [

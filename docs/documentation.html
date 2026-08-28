@@ -757,6 +757,7 @@
 <li><a href="#designer-variants">13.1 Variants</a></li>
 <li><a href="#designer-conditions">13.2 Conditions</a></li>
 <li><a href="#designer-run">13.3 Run & results</a></li>
+<li><a href="#designer-damping">13.4 Damping comparison</a></li>
 </ol></li>
 <li><a href="#cap-optimization">14. Design Optimization</a>
 <ol>
@@ -768,6 +769,8 @@
 <li><a href="#cap-opt-budget">14.6 Population, generations and seed</a></li>
 <li><a href="#cap-opt-operators">14.7 Crossover and mutation</a></li>
 <li><a href="#cap-opt-run">14.8 The run page: front table, trade-off plot and exports</a></li>
+<li><a href="#cap-opt-workers">14.9 Parallel workers</a></li>
+<li><a href="#cap-opt-hypervolume">14.10 Hypervolume: how a front is scored</a></li>
 </ol></li>
 <li><a href="#cap-transiente">15. Transient Simulation</a>
 <ol>
@@ -1611,7 +1614,17 @@ record of the mesh, solver, and rotor used (<a class="xref" href="#cap-6-6" titl
         component along the shaft, the one the induced velocity adds to, is $z$ for a rotor
         and $x$ for a propeller, while the in-plane component is $x$ for a rotor and $z$ for a propeller.
         The angle is measured from the disk plane for a rotor ($\alpha_{rotor}$) and from the shaft for a
-        propeller ($\alpha_{disk}$). The solver always works in disk axes. What rotates is what appears on
+        propeller ($\alpha_{disk}$).
+        <b>Sign.</b> Every axial quantity shares one direction: $V_z$, $\lambda_z$, $\mu_z$, $J_z$,
+        $\lambda_{total}$ and $V_{z,total}$ are positive through the disk from above to below, the
+        direction the induced velocity acts in — which is why $\lambda_{total}=\lambda_z+\lambda_i$
+        is a sum and why a positive $V_z$ lowers the thrust. The disk angle of attack is the one
+        quantity written the other way round, and deliberately so:
+        $\alpha_{rotor}=-\arctan(V_z/V_x)$ is positive when the stream arrives from <b>below</b>
+        the disk, the case that opposes the induced velocity and raises the thrust, exactly as an
+        angle of attack is defined for a wing. A positive $\alpha_{rotor}$ therefore goes with a
+        negative $V_z$. $\alpha_{disk}$ keeps its own meaning — the tilt away from the shaft — and
+        reads $0^\circ$ for a propeller in straight cruise. The solver always works in disk axes. What rotates is what appears on
         screen and what is written into <code>.bemt</code> files, CSV headers and <span class="cli">CLI</span> flags.
       </figcaption>
     </figure>
@@ -4983,8 +4996,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       what is reported is the settled cycle rather than one arbitrary revolution. The number averaged must
       not exceed the number run.</p>
 
-    <p><span class="gui">GUI</span>: not offered as a choice: the frequency-domain method is
-      always used, and the block shows it as the method in force.</p>
+    <p><span class="gui">GUI</span>: <i>Method</i> in the Dynamic stall block, with
+      <i>Frequency</i> and <i>Time march</i>. The two fields that belong to the march alone
+      &mdash; the number of revolutions and how many of the last ones are averaged &mdash; stay
+      visible under either method and are enabled only under the march, so the reader can see
+      that they exist before choosing it. A march reports how far the last revolution still
+      differed from the one before it, and a value above one part in a thousand raises a
+      finding: the cycle had not settled, so the averaged answer is not yet periodic.</p>
 
     <p><span class="bemt">.bemt</span>: in <code>airfoil.bemt</code>,
       <code>dynamic_stall_method</code>, either <code>"frequency"</code> (default) or
@@ -7081,15 +7099,26 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <p>Because $v_i$ itself depends on the load, and the load depends on the total velocity, this is
                       the coupling that the solver has to resolve. The angle form is related to the two components
                       by</p>
-                    <div class="eqn">$$\alpha=\operatorname{atan2}(V_z,\;V_x),$$</div>
-                    <p>which shows why an angle on its own is not enough to define a case: it fixes the direction of
+                    <div class="eqn">$$\alpha_{rotor}=-\operatorname{atan2}(V_z,\;V_x),$$</div>
+                    <p>where the leading minus sign is the convention, not an accident of the algebra: the disk angle
+                      of attack is written the way a wing's is, POSITIVE when the free stream arrives from
+                      <b>below</b> the disk. That is the case in which the along-shaft component OPPOSES the
+                      induced velocity and the thrust rises, so the sign of the angle predicts the sign of the
+                      thrust change. A positive $\alpha_{rotor}$ therefore goes with a <b>negative</b> $V_z$,
+                      and the two are the same statement about the same flow. The formula also shows why an
+                      angle on its own is not enough to define a case: it fixes the direction of
                       the free stream but not its magnitude. For a propeller the advance ratio on this row,
                       $J_x=V_x/(nD)$, is the classic propeller advance ratio, the quantity against which thrust
                       coefficient and efficiency are normally plotted.</p>
 
-                    <p><b>Configuration and sign convention.</b> For a <b>rotor</b>, leave it at zero for hover and for
+                    <p><b>Configuration and sign convention.</b> Every along-shaft quantity of this row &mdash;
+                      $V_z$, $\lambda_z$, $\mu_z$ and $J_z$ &mdash; is positive in the SAME direction, the one
+                      the induced velocity acts in, which is why $\lambda_{total}=\lambda_z+\lambda_i$ above
+                      is a sum. The angle is the one entry written the other way round, for the reason given
+                      under the mathematics. For a <b>rotor</b>, leave it at zero for hover and for
                       level forward
-                      flight, use a positive value in m/s to model a climb, and a negative one to model a descent. A
+                      flight, use a positive value in m/s to model a climb (equivalently a NEGATIVE
+                      $\alpha_{rotor}$), and a negative one to model a descent (a positive $\alpha_{rotor}$). A
                       descent in the band between roughly $-2v_h$ and zero, where $v_h$ is the hover induced velocity,
                       falls in the region where momentum theory has no valid solution, and results there are unreliable
                       no matter how fine the mesh or how tight the tolerance. For a <b>propeller</b> this is where the
@@ -8428,8 +8457,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           c/R</i>, disabling the tip cell in both cases instead of accepting a value that would
                           be ignored. Two rows resolving to the same radial table warn
                           with both labels before running (a deliberate repeat measures solver noise), the cost
-                          line states solves and a wall estimate timed from one real solve, a worker count is
-                          stored for future parallel runs, and <i>Save comparison…</i>/<i>Load comparison…</i>
+                          line states solves and a wall estimate timed from one real solve, a worker count spreads the
+                          variants over that many processes, and <i>Save comparison…</i>/<i>Load comparison…</i>
                           persist the whole setup into <code>inputs/comparisons.bemt</code> (SC-7a). When a run's
                           variants carry their own airfoil, its results are marked as no longer
                           geometry-only.</p>
@@ -8881,7 +8910,52 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                                                 <hr>
 
 
-                        <h2 id="cap-optimization">14. Design Optimization</h2>
+                                                <h3 id="designer-damping">13.4 Damping comparison</h3>
+                        <p><b>What it answers.</b> The ranking above compares variants on performance:
+                          thrust, torque, efficiency. A rotor that wins on performance can still be the
+                          worse aircraft, because how strongly it RESISTS a disturbance is a separate
+                          property from how much it lifts. This table puts the two side by side, so a
+                          planform is not chosen on hover figure of merit alone.</p>
+
+                        <p><b>The physics.</b> Four quantities are reported per variant, each the slope of
+                          a hub load with respect to one disturbance, held at the ranking condition:</p>
+
+                        <div class="eqn">$$\frac{\partial M_y}{\partial q},\quad
+                          \frac{\partial M_x}{\partial p},\quad
+                          \frac{\partial M_y}{\partial u},\quad
+                          \frac{\partial T}{\partial w}.$$</div>
+
+                        <p>The first two are the rate dampings: a rotor pitching nose-up meets a larger
+                          incidence at the front of the disk, the extra lift there opposes the motion, and
+                          the resulting moment is negative. Negative is therefore the healthy sign, and a
+                          LARGER magnitude means a rotor that resists the disturbance harder. The third is
+                          speed stability, the moment produced by flying faster, whose positive sign is
+                          what makes a helicopter want to pitch up as it accelerates. The fourth is heave
+                          damping: climbing lowers the incidence everywhere, so the thrust falls and the
+                          derivative is negative.</p>
+
+                        <p><b>How it is computed.</b> Each variant is trimmed at the chosen condition and
+                          then perturbed by a central difference, exactly as in
+                          <a class="xref" href="#cap-stability"
+                             title="16. Stability Derivatives">chapter 16</a> &mdash; that chapter is where
+                          the step size, the Richardson check and the sign conventions are set out. Four
+                          solves are needed per variant, one variable at a time, so the button is separate
+                          from the run: it costs about as much again as the comparison itself, and it is
+                          only worth paying when the ranking is already settled.</p>
+
+                        <p><span class="gui">GUI</span>: <i>Compare damping</i> on the Run &amp; results
+                          page fills the <i>Damping comparison</i> table beside the ranking. It is enabled
+                          once a comparison has been run, because the trim point comes from it.</p>
+
+                        <p><span class="bemt">.bemt</span>: nothing to set. The table is a view of the
+                          comparison already defined in <code>inputs/comparisons.bemt</code>.</p>
+
+                        <p><span class="cli">CLI</span>: not offered as one step. Run
+                          <code>--compare NAME</code> for the ranking and <code>--derivatives NAME</code>
+                          for the derivatives of a saved study.</p>
+
+
+<h2 id="cap-optimization">14. Design Optimization</h2>
                         <p>The Design Optimization window searches for the blade geometry that best
                           satisfies two goals at once. One goal alone is a single-objective study: the
                           software has always been able to maximize the figure of merit or minimize the
@@ -9136,6 +9210,74 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           chooses another destination for the front CSV.</p>
 
 
+                        <h3 id="cap-opt-workers">14.9 Parallel workers</h3>
+                        <p><b>What it is.</b> How many designs are solved at the same time. Every design
+                          in a generation is an independent solve &mdash; a variant geometry evaluated at
+                          one flight condition, reading nothing the other designs write &mdash; so the
+                          generation can be spread over several processes and reassembled afterwards.</p>
+
+                        <p><b>The mathematics.</b> There is none to speak of, and that is the point: the
+                          answer must not depend on this setting. A generational search is reproducible
+                          from its seed only if the population keeps its ORDER, because selection is
+                          positional and so is the record each front member is rebuilt from. Designs are
+                          therefore collected as they finish &mdash; so that one slow design does not hold
+                          up the reading of the rest &mdash; and each is written back into the slot it was
+                          submitted from. The front produced with eight workers is identical, to the last
+                          digit, to the front produced with one.</p>
+
+                        <p>The wall time falls close to proportionally until there are more workers than
+                          the machine has cores, after which the processes compete and the gain stops. The
+                          useful ceiling is therefore the core count, which is what the field's upper limit
+                          is set from. One means the designs are solved one after another.</p>
+
+                        <p><span class="gui">GUI</span>: <i>Parallel workers</i> in the Search block of the
+                          Study page.</p>
+
+                        <p><span class="bemt">.bemt</span>: the key <code>parallel_workers</code>, default
+                          $1$, in <code>inputs/optimizations.bemt</code>.</p>
+
+                        <p><span class="cli">CLI</span>: <code>--workers 8</code> alongside
+                          <code>--optimize NAME</code>, which overrides what the study stores.</p>
+
+                        <h3 id="cap-opt-hypervolume">14.10 Hypervolume: how a front is scored</h3>
+                        <p><b>What it is.</b> A single number saying how good a whole Pareto front is.
+                          Comparing two fronts by eye works only when one clearly dominates the other; when
+                          they cross, a measure is needed, and the hypervolume is the standard one.</p>
+
+                        <p><b>The mathematics.</b> Fix a reference point $r$ worse than every member of the
+                          front in every objective. Each front member $f^{(i)}$ then spans a box between
+                          itself and $r$, and the hypervolume is the AREA of the union of those boxes (the
+                          volume, for more than two objectives):</p>
+
+                        <div class="eqn">$$HV = \Lambda\!\left(\bigcup_i
+                          \left[f^{(i)}_1, r_1\right] \times
+                          \left[f^{(i)}_2, r_2\right]\right)$$</div>
+
+                        <p>where $\Lambda$ is the ordinary area. A union, not a sum: overlapping boxes are
+                          counted once, which is what makes the measure reward a front that is both close
+                          to the ideal corner and spread along it, rather than one that piles many members
+                          onto the same spot. It grows as the search improves and never falls, so its
+                          history is a convergence trace: a curve that has flattened says further
+                          generations are buying nothing.</p>
+
+                        <p>The reference point is taken as the worst value seen on the current front in
+                          each objective, moved ten percent further out. It is therefore recomputed each
+                          generation, which is worth knowing when reading the trace: the number is a fair
+                          comparison BETWEEN generations of one run, and not between two runs with
+                          different objectives or scales.</p>
+
+                        <p><span class="gui">GUI</span>: computed on every generation of an
+                          <code>nsga2</code> run with two objectives; a single-objective run records the
+                          best value instead, since an area needs two axes.</p>
+
+                        <p><span class="bemt">.bemt</span>: nothing to set. It is a diagnostic of the run,
+                          not an input.</p>
+
+                        <p><span class="cli">CLI</span>: written into
+                          <code>&lt;study&gt;_pareto_evaluations.csv</code> alongside the evaluation
+                          ledger.</p>
+
+
                         <h2 id="cap-transiente">15. Transient Simulation</h2>
 
                         <p>Every other chapter of this manual computes a rotor in EQUILIBRIUM. A flight condition
@@ -9388,8 +9530,12 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>trim</code> (<code>"none"</code>, <code>"thrust"</code>,
                           <code>"cyclic_flapback"</code>) and <code>richardson_check</code>.</p>
 
-                        <p>From the <span class="cli">CLI</span>: studies run through the library today;
-                          the persisted file is the interface of record for automation.</p>
+                        <p>From the <span class="cli">CLI</span>: <code>--derivatives NAME</code> runs a
+                          saved study and prints the matrix; given no name it runs the first one in the file.
+                          <code>--list-derivatives</code> names what the project holds, and
+                          <code>--derivatives-csv PATH</code> writes the matrix to a chosen file instead of
+                          the outputs folder. The persisted <code>inputs/derivatives.bemt</code> remains the
+                          interface of record: the flags select and run a study, they do not define one.</p>
 
                         <h3 id="cap-stability-yaw">16.3 Why there is no yaw rate</h3>
                         <p>An isolated rotor with a vertical shaft feels no first-order moment from yawing:
@@ -9723,7 +9869,7 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Rigid-blade formulation</td>
-                              <td>zBEMT neglects aeroelastic blade deflection and flapping dynamics. Therefore, the hub pitching and rolling moments represent rigid-structure loads only.</td>
+                              <td>zBEMT models the blade as RIGID in bending and torsion. Rigid-body flap and lead-lag about a hinge are solved (SC-11), and the hub pitching and rolling moments they carry are reported; what is neglected is elastic deflection of the blade itself, so a blade soft enough to bend appreciably is outside the model.</td>
                             </tr>
                             <tr>
                               <td>Annular independence</td>
@@ -9735,7 +9881,7 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Single-parameter thrust trim</td>
-                              <td>Trim uses 1D root-finding on the collective pitch. Therefore, zBEMT does not support multivariable trim, which would couple the collective, the cyclic pitch, and the 6-DOF moments.</td>
+                              <td>Trim solves the collective alone, or the collective together with both cyclic angles against the two hub flapping moments (a 3&times;3 Newton). It is not a vehicle trim: the fuselage, the tail rotor and the 6-DOF force and moment balance of the aircraft are outside it, so the rotor is trimmed, not the helicopter.</td>
                             </tr>
                             <tr>
                               <td>Offline external polar generation</td>

@@ -63,14 +63,46 @@ _ROTOR_RESULT = _example_result()
 
 
 class TestAngleFromAxis(unittest.TestCase):
-    """`alpha_disk_deg` is the complement of `alpha_rotor_deg`."""
+    """The two reported angles, and the identity that ties them.
 
-    def test_purely_axial_cruise_reads_zero(self):
+    `alpha_rotor` is the disk ANGLE OF ATTACK: positive when the stream
+    arrives from BELOW the disk, the case that opposes the induced
+    velocity and raises the thrust, exactly as an angle of attack is
+    defined for a wing. It is therefore the NEGATIVE of the geometric
+    angle `atan2(Vz, Vx)`, and it carries the opposite sign to `Vz`.
+
+    `alpha_disk` is not an angle of attack at all: it is the stream's
+    tilt away from the SHAFT, it keeps the geometric sign, and it reads
+    zero for a propeller in straight cruise. That zero is the whole
+    point of the column, so it did NOT change with the convention.
+
+    The identity between them is consequently a DIFFERENCE:
+
+        alpha_disk = 90 - alpha_geom = 90 + alpha_rotor
+
+    which is what the third test checks, over both signs of both
+    components.
+    """
+
+    def test_purely_axial_flow_reads_zero_from_the_shaft(self):
+        """`Vz > 0` is flow through the disk from above, so it is the
+        stream ARRIVING FROM ABOVE and the angle of attack is negative.
+        Measured from the shaft, the same flow is aligned: zero."""
         cfg = bemt.BEMTConfig(is_propeller=True)
         rot = _rotor()
         _mu, _Vv, meta = bemt.resolve_advance_velocity(rot, cfg, mu_x=0.0, Vz=50.0)
-        self.assertAlmostEqual(meta["alpha_rotor_deg"], 90.0, places=9)
+        self.assertAlmostEqual(meta["alpha_rotor_deg"], -90.0, places=9)
         self.assertAlmostEqual(meta["alpha_disk_deg"], 0.0, places=9)
+
+    def test_a_stream_from_below_is_a_positive_angle_of_attack(self):
+        """The convention itself, stated on the case that names it."""
+        cfg = bemt.BEMTConfig()
+        rot = _rotor()
+        _mu, _Vv, meta = bemt.resolve_advance_velocity(rot, cfg, mu_x=0.3,
+                                                        Vz=-10.0)
+        self.assertGreater(meta["alpha_rotor_deg"], 0.0,
+                            "a negative Vz is a stream from below, which is a "
+                            "POSITIVE disk angle of attack")
 
     def test_edgewise_flight_reads_ninety(self):
         cfg = bemt.BEMTConfig()
@@ -78,19 +110,24 @@ class TestAngleFromAxis(unittest.TestCase):
         self.assertAlmostEqual(meta["alpha_rotor_deg"], 0.0, places=9)
         self.assertAlmostEqual(meta["alpha_disk_deg"], 90.0, places=9)
 
-    def test_the_two_angles_always_sum_to_ninety(self):
+    def test_the_two_angles_always_differ_by_ninety(self):
         """Modulo 360: `alpha_disk` is normalized to (-180°, 180°], so the
-        sum closes at 90° within one revolution (see
-        `bemt._angle_from_axis`)."""
+        identity closes within one revolution (see
+        `bemt._angle_from_axis`).
+
+        It used to be a SUM, back when `alpha_rotor` carried the
+        geometric sign. Flipping that sign turned the sum into a
+        difference, and this is the test that says so.
+        """
         cfg = bemt.BEMTConfig()
         rot = _rotor()
         for mu_x in (-0.2, 0.0, 0.05, 0.2, 0.6):
             for Vz in (-30.0, -1.0, 0.0, 1.0, 40.0):
                 with self.subTest(mu_x=mu_x, Vz=Vz):
                     _m, _v, meta = bemt.resolve_advance_velocity(rot, cfg, mu_x=mu_x, Vz=Vz)
-                    total = meta["alpha_rotor_deg"] + meta["alpha_disk_deg"]
+                    total = meta["alpha_disk_deg"] - meta["alpha_rotor_deg"]
                     # difference AROUND (-180, 180]: `x % 360` returns
-                    # 360.0 for a -1e-14, and the sum closes exactly this way
+                    # 360.0 for a -1e-14, and it closes exactly this way
                     # in half the cases
                     deviation = (total - 90.0 + 180.0) % 360.0 - 180.0
                     self.assertAlmostEqual(deviation, 0.0, places=9)
@@ -302,9 +339,12 @@ class TestOutputTableInPropellerMode(unittest.TestCase):
 
     def test_summary_carries_angle_from_axis(self):
         self.assertIn("alpha_disk_deg", self.result.summary)
+        # A DIFFERENCE, not a sum: `alpha_rotor` is the disk angle of
+        # attack and carries the sign opposite to the geometric angle
+        # `alpha_disk` is built from. See `TestAngleFromAxis`.
         self.assertAlmostEqual(
             self.result.summary["alpha_disk_deg"]
-            + self.result.summary["alpha_rotor_deg"], 90.0, places=6)
+            - self.result.summary["alpha_rotor_deg"], 90.0, places=6)
 
     def test_axial_cruise_reads_zero_degree_in_right_column(self):
         self.assertAlmostEqual(self.result.summary["alpha_disk_deg"], 0.0,

@@ -231,7 +231,9 @@ def _build_parser() -> argparse.ArgumentParser:
     design_group.add_argument(
         "--workers", type=int, default=None, metavar="N",
         help="Evaluation processes requested for the evolutionary searches. Stored "
-             "on the study; this build evaluates serially regardless.")
+             "on the study. Each generation is spread over that many "
+             "processes, so the wall time falls almost in proportion "
+             "until there are more workers than cores.")
     design_group.add_argument(
         "--pareto-csv", metavar="PATH", default=None,
         help="Destination of the Pareto front CSV written by --optimize when the run "
@@ -347,13 +349,18 @@ def _build_parser() -> argparse.ArgumentParser:
                                   "Alternative to --v-axial.")
     axial_group.add_argument("--alpha-rotor-deg",
                               dest="alpha_rotor_deg", type=float, default=None,
-                              help="Disk angle [deg]. The ALONG-SHAFT component is "
-                                   "derived from the in-plane one, --rpm (required with "
-                                   "this flag) and the project's rotor radius. Measured "
-                                   "from the disk PLANE (90 deg is "
-                                   "purely axial); for the propeller convention, measured "
-                                   "from the shaft, use --alpha-disk-deg. Alternative to "
-                                   "--v-axial. "
+                              help="Disk angle of attack [deg]. The ALONG-SHAFT "
+                                   "component is derived from the in-plane one, --rpm "
+                                   "(required with this flag) and the project's rotor "
+                                   "radius. Measured from the disk PLANE and POSITIVE "
+                                   "when the stream arrives from BELOW the disk, as an "
+                                   "angle of attack is for a wing: a positive angle "
+                                   "therefore gives a NEGATIVE along-shaft component, "
+                                   "which opposes the induced velocity and raises the "
+                                   "thrust. -90 deg is purely axial with the stream from "
+                                   "above (climb). For the propeller convention, measured "
+                                   "from the shaft and zero in straight cruise, use "
+                                   "--alpha-disk-deg. Alternative to --v-axial. "
                                    "Rotor mode only; a propeller reads --alpha-disk-deg. "
                                    "(--disk-alpha-deg is kept as an alias of this flag.)")
     p.add_argument("--collective", type=float, default=8.0, help="Collective pitch [deg] for ad hoc.")
@@ -1151,10 +1158,6 @@ def _print_front_table(definition, outcome) -> None:
 def _optimize_multi(project, definition, args) -> int:
     """The Pareto branch of --optimize (SC-13): runs the evolutionary
     search and writes the report, the front CSV and the evaluations CSV."""
-    if getattr(definition, "parallel_workers", 1) not in (None, 1):
-        print("Note: this build evaluates serially; --workers is stored "
-              "but has no effect yet.", file=sys.stderr)
-
     try:
         outcome = api.optimize_design_multi(project, definition)
     except (RuntimeError, ValueError) as exc:

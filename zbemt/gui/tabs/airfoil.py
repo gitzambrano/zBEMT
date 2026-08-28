@@ -172,7 +172,12 @@ class AirfoilTab(QWidget):
     #: Width of the left panel (item 3). The minimum is what guarantees that
     #: the QDoubleSpinBox spin buttons appear without dragging the
     #: splitter; the initial value gives some slack above that.
-    _FORM_MIN_WIDTH = 520
+    #: Floor of the LEFT form. Below this the labels wrap into unreadable
+    #: two-line rows, so the form scrolls instead of shrinking further.
+    _FORM_MIN_WIDTH = 360
+    #: Floor of the RIGHT preview, for the same reason. The two together
+    #: plus the handle are what the tab can shrink to.
+    _PREVIEW_MIN_WIDTH = 320
     _FORM_INITIAL_WIDTH = 600
 
     @staticmethod
@@ -261,7 +266,16 @@ class AirfoilTab(QWidget):
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(scroll)
-        splitter.addWidget(self._build_preview_panel())
+        preview = self._build_preview_panel()
+        # A splitter's own minimum is the SUM of its panes' minimums, so a
+        # 520-pixel form beside a 954-pixel preview made this tab -- and
+        # with it the whole main window -- refuse to go below about 1500
+        # pixels of width. On a 1366-wide laptop the preview simply ran off
+        # the edge, with nothing to scroll it back. The preview keeps a
+        # readable floor and scrolls inside itself below that; the form
+        # already sits in a `QScrollArea` and does the same.
+        preview.setMinimumWidth(self._PREVIEW_MIN_WIDTH)
+        splitter.addWidget(preview)
         # Extra space goes to the CANVAS, not to the form, see the
         # equivalent note in `geometry_tab.py`.
         splitter.setStretchFactor(0, 0)

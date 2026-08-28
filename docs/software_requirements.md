@@ -93,8 +93,9 @@ different rule.
   derivative-free search over parametric planform parameters (Powell or
   Nelder-Mead). The search starts deterministically from the center of the
   bounds, respects them throughout, and penalizes failed evaluations instead
-  of stopping. Optimization runs as an outer loop from the CLI (`--optimize`)
-  and the library.
+  of stopping. This single-objective search is reachable from the CLI
+  (`--optimize`) and the library; the multi-objective search of `SC-13` adds
+  the GUI window.
 - **SC-9** — XFOIL as an external polar engine. Polar generation may drive
   the `xfoil` binary, which the software looks up through a four-place
   chain: the `ZBEMT_XFOIL_BIN`

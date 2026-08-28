@@ -279,10 +279,13 @@ class Evaluator:
         self.signs = (np.ones(len(objective_keys))
                        if signs is None else np.asarray(signs, dtype=float))
 
-    def __call__(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, dict]:
-        x = repair_integers(x, self.integer_mask, self.lower, self.upper)
-        result = self.evaluate_raw(x)
-        values = result[0] if isinstance(result, tuple) else result
+    def _score(self, x: np.ndarray, values: dict):
+        """Turns one design's RAW summary values into (F, violation).
+
+        Split out of `__call__` so the batch path scores exactly the same
+        way. Two copies of this arithmetic would be two definitions of
+        what "feasible" means, and only one of them would be tested.
+        """
         F = np.array([float(values.get(k, math.nan)) * s
                        for k, s in zip(self.objective_keys, self.signs)],
                       dtype=float)
@@ -304,12 +307,58 @@ class Evaluator:
             # A failed evaluation is MAXIMALLY infeasible -- never a
             # magic penalty number pretending to be a fitness.
             violation = math.inf
-        record = {"x": x.tolist(), "values": {
+        record = {"x": np.asarray(x, dtype=float).tolist(), "values": {
             k: (float(v) if math.isfinite(v) else None)
             for k, v in values.items()}, "violation": violation}
         if self.log is not None:
             self.log.append(record)
-        return x, F, np.float64(violation)
+        return F, np.float64(violation)
+
+    def batch(self, xs: np.ndarray, should_cancel=None):
+        """Evaluates a whole block of designs, in parallel when it can.
+
+        Returns ``(repaired_xs, F, violation)`` for the block. The order
+        of the returned rows is the order of `xs`, whatever order the
+        designs actually finished in: the search's arithmetic and the
+        evaluation log both depend on it, and a search whose answer
+        depended on which worker won a race would not be reproducible
+        from its seed.
+
+        The parallel path is used only when `evaluate_raw` carries a
+        `map_many`. Without one this is exactly the serial loop it
+        replaces, which is what keeps the single-worker answer identical
+        to the answer before this existed.
+        """
+        xs = np.asarray(xs, dtype=float)
+        repaired = np.array([repair_integers(x, self.integer_mask,
+                                              self.lower, self.upper)
+                             for x in xs])
+        mapper = getattr(self.evaluate_raw, "map_many", None)
+        if mapper is None:
+            F = np.zeros((len(repaired), len(self.objective_keys)))
+            violation = np.zeros(len(repaired))
+            for i, x in enumerate(repaired):
+                if should_cancel is not None and should_cancel():
+                    raise SearchCancelled(self.log if self.log is not None
+                                           else [])
+                repaired[i], F[i], violation[i] = self(x)
+            return repaired, F, violation
+
+        if should_cancel is not None and should_cancel():
+            raise SearchCancelled(self.log if self.log is not None else [])
+        results = mapper([x.copy() for x in repaired])
+        F = np.zeros((len(repaired), len(self.objective_keys)))
+        violation = np.zeros(len(repaired))
+        for i, values in enumerate(results):
+            F[i], violation[i] = self._score(repaired[i], values)
+        return repaired, F, violation
+
+    def __call__(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, dict]:
+        x = repair_integers(x, self.integer_mask, self.lower, self.upper)
+        result = self.evaluate_raw(x)
+        values = result[0] if isinstance(result, tuple) else result
+        F, violation = self._score(x, values)
+        return x, F, violation
 
 
 def _rank_population(F: np.ndarray, violations: np.ndarray):
@@ -371,10 +420,17 @@ def nsga2(evaluate, lower, upper, *, objective_keys: list[str],
                                      - 0.5)
     xs = np.clip(xs, lower, upper)
 
-    F = np.zeros((population, len(objective_keys)))
-    viol = np.zeros(population)
-    for i in range(population):
-        xs[i], F[i], viol[i] = evaluator(xs[i])
+    # The population IS the batch: with a `map_many` on the evaluator this
+    # is where the process pool earns its keep, and without one it is the
+    # same serial loop it replaces.
+    #
+    # NO cancel check here, deliberately, and that is the behaviour this
+    # replaced: the initial stratified sweep runs to completion so that
+    # even an immediate stop reports its designs instead of an empty
+    # front (`tests/test_optimization.py::TestCancellation`). The
+    # offspring loop below checks per design, where a cancel can save
+    # real time.
+    xs, F, viol = evaluator.batch(xs)
     n_evals = population
 
     hypervolume_history: list[float] = []
@@ -423,13 +479,8 @@ def nsga2(evaluate, lower, upper, *, objective_keys: list[str],
             children[i] = polynomial_mutation(
                 rng, c1, lower, upper, mutation_eta, rate)
 
-        child_F = np.zeros((population, len(objective_keys)))
-        child_viol = np.zeros(population)
-        for i in range(population):
-            if should_cancel is not None and should_cancel():
-                raise SearchCancelled(evaluations)
-            xs_child, child_F[i], child_viol[i] = evaluator(children[i])
-            children[i] = xs_child
+        children, child_F, child_viol = evaluator.batch(
+            children, should_cancel=should_cancel)
         n_evals += population
 
         # --- environmental selection over the union --------------------
