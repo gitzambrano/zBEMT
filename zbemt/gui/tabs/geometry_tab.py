@@ -413,15 +413,6 @@ class GeometryTab(QWidget):
         combo.setCurrentIndex(0)
         return combo
 
-    def _make_combo(self, pairs):
-        """Combo box whose items carry (text, stored value)."""
-        from PyQt6.QtWidgets import QComboBox
-        combo = QComboBox()
-        for text, _value in pairs:
-            combo.addItem(text)
-        combo.setCurrentIndex(0)
-        return combo
-
     def _combo_value(self, combo, pairs):
         return pairs[combo.currentIndex()][1]
 

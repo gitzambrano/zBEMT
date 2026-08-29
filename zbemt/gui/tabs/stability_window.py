@@ -375,9 +375,25 @@ class StabilityWindow(QWidget):
         self.ix_spin = self._spin(0.01, 1e7, 50.0, 1, "kg*m2")
         self.iy_spin = self._spin(0.01, 1e7, 80.0, 1, "kg*m2")
         self.iz_spin = self._spin(0.01, 1e7, 20.0, 1, "kg*m2")
-        for label, w in (("Mass [kg]:", self.mass_spin),
-                          ("I_x:", self.ix_spin), ("I_y:", self.iy_spin),
-                          ("I_z:", self.iz_spin)):
+        # The hub arm is what turns a hub FORCE into a moment about the
+        # centre of gravity. It was not offered at all, so every matrix
+        # was built with a zero arm -- a real modelling choice presented
+        # as an absence.
+        self.hub_x_spin = self._spin(-20.0, 20.0, 0.0, 3, "m")
+        self.hub_z_spin = self._spin(-20.0, 20.0, 0.0, 3, "m")
+        self.gravity_spin = self._spin(0.0, 30.0, 9.81, 3, "m/s2")
+        rows = (("Mass [kg]:", self.mass_spin),
+                 (nomenclature.to_html(r"$I_x$") + " [kg\u00b7m\u00b2]:",
+                  self.ix_spin),
+                 (nomenclature.to_html(r"$I_y$") + " [kg\u00b7m\u00b2]:",
+                  self.iy_spin),
+                 (nomenclature.to_html(r"$I_z$") + " [kg\u00b7m\u00b2]:",
+                  self.iz_spin),
+                 ("Hub ahead of the CG [m]:", self.hub_x_spin),
+                 ("Hub above the CG [m]:", self.hub_z_spin),
+                 (nomenclature.to_html(r"$g$") + " [m/s\u00b2]:",
+                  self.gravity_spin))
+        for label, w in rows:
             form.addRow(label, w)
         vehicle_layout.addLayout(form)
         self.eigen_canvas = CanvasHost()
@@ -513,7 +529,20 @@ class StabilityWindow(QWidget):
                                  else None),
             states=states, controls=controls, outputs=outputs,
             steps=steps, richardson_check=self.richardson_check.isChecked(),
-            parallel_workers=self.workers_spin.value())
+            parallel_workers=self.workers_spin.value(),
+            # The rigid-body block travels WITH the study. Left in the
+            # spin boxes it was a session value: absent from the `.bemt`
+            # file, unreachable from the CLI, and gone when the window
+            # closed, although it decides every eigenvalue drawn beside
+            # it (`PA-3`).
+            vehicle_enabled=self.vehicle_check.isChecked(),
+            vehicle_mass_kg=self.mass_spin.value(),
+            vehicle_Ix_kg_m2=self.ix_spin.value(),
+            vehicle_Iy_kg_m2=self.iy_spin.value(),
+            vehicle_Iz_kg_m2=self.iz_spin.value(),
+            hub_offset_x_m=self.hub_x_spin.value(),
+            hub_offset_z_m=self.hub_z_spin.value(),
+            gravity_m_s2=self.gravity_spin.value())
 
     def _fill_editor(self, request: DerivativeRequest):
         for name in _STATE_NAMES + _CONTROL_NAMES:
@@ -525,6 +554,19 @@ class StabilityWindow(QWidget):
         self.trim_combo.setCurrentIndex(max(idx, 0))
         self.richardson_check.setChecked(bool(request.richardson_check))
         self.workers_spin.setValue(int(max(request.parallel_workers, 1)))
+        # `getattr` with the dataclass default, so a study written before
+        # these fields existed loads without a migration step.
+        self.vehicle_check.setChecked(
+            bool(getattr(request, "vehicle_enabled", False)))
+        for spin, attribute, fallback in (
+                (self.mass_spin, "vehicle_mass_kg", 100.0),
+                (self.ix_spin, "vehicle_Ix_kg_m2", 50.0),
+                (self.iy_spin, "vehicle_Iy_kg_m2", 80.0),
+                (self.iz_spin, "vehicle_Iz_kg_m2", 20.0),
+                (self.hub_x_spin, "hub_offset_x_m", 0.0),
+                (self.hub_z_spin, "hub_offset_z_m", 0.0),
+                (self.gravity_spin, "gravity_m_s2", 9.81)):
+            spin.setValue(float(getattr(request, attribute, fallback)))
         if request.condition is not None and self.state.project:
             for i, case in enumerate(self.state.project.saved_cases):
                 if case.name == request.condition.name:
@@ -924,7 +966,10 @@ class StabilityWindow(QWidget):
             built = api.vehicle_matrices(
                 outcome, mass=self.mass_spin.value(),
                 Ix=self.ix_spin.value(), Iy=self.iy_spin.value(),
-                Iz=self.iz_spin.value())
+                Iz=self.iz_spin.value(),
+                hub_offset=(self.hub_x_spin.value(), 0.0,
+                             self.hub_z_spin.value()),
+                g=self.gravity_spin.value())
         except Exception as exc:
             canvas.ax.text(0.5, 0.5, f"Cannot build: {exc}",
                             ha="center", va="center", fontsize=9,

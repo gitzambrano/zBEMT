@@ -788,6 +788,7 @@
 <li><a href="#cap-stability-yaw">16.3 Why there is no yaw rate</a></li>
 <li><a href="#cap-stability-hub">16.4 The hub-moment path through the hinge</a></li>
 <li><a href="#cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</a></li>
+<li><a href="#cap-stability-vehicle">16.6 The vehicle: mass, inertia and the hub arm</a></li>
 </ol></li>
 <li><a href="#sec-15-outside-the-gui">17. Command-line reference</a>
 <ol>
@@ -9570,6 +9571,61 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           dynamics. A classic mode (phugoid, subsidence, Dutch roll) is named only when its
                           damping and frequency fall inside the expected band; an unnamed pole is not a discovery,
                           it is the tool refusing to guess.</p>
+                        <h3 id="cap-stability-vehicle">16.6 The vehicle: mass, inertia and the hub arm</h3>
+                        <p><b>What these are.</b> The derivatives above belong to the ROTOR. Turning them
+                          into aircraft motion needs the aircraft, and the aircraft is not derivable from
+                          the blade: its mass, its three moments of inertia and where the hub sits relative
+                          to the centre of gravity have to be stated. That is what this block asks for, and
+                          why it is optional &mdash; a rotor study that stops at the derivative matrix
+                          never needs it.</p>
+
+                        <p><b>The mathematics.</b> The linearised rigid-body model is
+                          $\dot{x}=Ax+Bu$ with the state
+                          $x=[u,\;v,\;w,\;p,\;q,\;r,\;\phi,\;\theta]$ and the controls
+                          $u=[\theta_0,\;\theta_{1c},\;\theta_{1s}]$. A rotor force enters divided by
+                          the mass and a rotor moment divided by the inertia about its own axis:</p>
+
+                        <div class="eqn">$$A_{u,u}=-\frac{1}{m}\frac{\partial H}{\partial u},\qquad
+                          A_{q,q}=\frac{1}{I_y}\frac{\partial M_x}{\partial q}.$$</div>
+
+                        <p>The hub arm is what makes a FORCE produce a moment. With the hub a height
+                          $z_h$ above the centre of gravity, a rearward hub force pitches the aircraft, so
+                          the pitching row gains the arm term</p>
+
+                        <div class="eqn">$$A_{q,u}=\frac{1}{I_y}
+                          \left(\frac{\partial M_x}{\partial u}
+                          + z_h\,\frac{\partial H}{\partial u}\right).$$</div>
+
+                        <p>A zero arm is therefore a modelling choice and not a neutral default: it removes
+                          the term that couples thrust and drag changes into the pitching and rolling
+                          equations, which for a helicopter is most of the coupling there is. Gravity
+                          enters through the attitude rows, coupling $\phi$ and $\theta$ into the speeds
+                          about the trimmed pitch attitude.</p>
+
+                        <p><b>What it does not model.</b> One rotor and nothing else: no fuselage drag, no
+                          tail rotor, no horizontal stabiliser, no engine or governor dynamics. The
+                          eigenvalues drawn beside the block are those of a rotor-and-mass system, useful
+                          for comparing designs against each other, and not a flight-dynamics model of an
+                          aircraft.</p>
+
+                        <p><span class="gui">GUI</span>: <i>Vehicle model (optional)</i> on the Run page.
+                          <i>Build the rigid-body A/B matrices</i> enables it; <i>Mass</i>, the three
+                          inertias, <i>Hub ahead of the CG</i>, <i>Hub above the CG</i> and $g$ are the
+                          inputs.</p>
+
+                        <p><span class="bemt">.bemt</span>: the keys <code>vehicle_enabled</code>,
+                          <code>vehicle_mass_kg</code>, <code>vehicle_Ix_kg_m2</code>,
+                          <code>vehicle_Iy_kg_m2</code>, <code>vehicle_Iz_kg_m2</code>,
+                          <code>hub_offset_x_m</code>, <code>hub_offset_z_m</code> and
+                          <code>gravity_m_s2</code> in <code>inputs/derivatives.bemt</code>. They used to
+                          live only in the window, which put the whole block outside the file and outside
+                          the CLI.</p>
+
+                        <p><span class="cli">CLI</span>: set in the persisted study and run with
+                          <code>--derivatives NAME</code>; there is no flag that overrides them, because
+                          they describe the aircraft rather than the run.</p>
+
+
 
 <h2 id="sec-15-outside-the-gui">17. Command-line reference</h2>
                         <p>This chapter is the concise reference for automation. It lists the supported

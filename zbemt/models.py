@@ -786,6 +786,26 @@ class DerivativeRequest:
     steps: dict = field(default_factory=dict)            # per-variable override
     richardson_check: bool = True
     parallel_workers: int = 1
+    #: The optional rigid-body model (phase 4.3). These describe the
+    #: AIRCRAFT, not the rotor, so they cannot be derived from the
+    #: geometry and have to be stated. They used to live only in the
+    #: window's spin boxes, which put them outside the `.bemt` file and
+    #: outside the CLI, against `PA-3`; the defaults below are exactly
+    #: the values those spin boxes were born with, so a study saved
+    #: before this existed builds the same matrices.
+    vehicle_enabled: bool = False
+    vehicle_mass_kg: float = 100.0
+    vehicle_Ix_kg_m2: float = 50.0
+    vehicle_Iy_kg_m2: float = 80.0
+    vehicle_Iz_kg_m2: float = 20.0
+    #: Hub position relative to the centre of gravity, in metres,
+    #: (x forward, y starboard, z ABOVE the CG). A rotor above the CG is
+    #: what turns a hub force into a moment about it, so a zero here is
+    #: a real modelling choice and not a neutral default.
+    hub_offset_x_m: float = 0.0
+    hub_offset_y_m: float = 0.0
+    hub_offset_z_m: float = 0.0
+    gravity_m_s2: float = 9.81
 
 
 @dataclass

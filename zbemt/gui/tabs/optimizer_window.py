@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import (
 
 from ..common import AppState, CanvasHost, show_error, show_all_options_in
 from ..workers import OptimizeMultiWorker, launch_worker
-from ... import api
+from ... import api, nomenclature
 from ...models import (
     ConstraintDef, DesignVariable, FlightCondition, ObjectiveDef,
     OptimizationDefinition,
@@ -43,6 +43,22 @@ _GEOMETRY_PARAM_TIP = (
 #: these are the ones optimization studies usually drive.
 _COMMON_OBJECTIVE_KEYS = ("FM", "CT", "CP", "CQ", "eta_prop", "CY",
                            "Power")
+
+
+def _key_label(key: str) -> str:
+    """What a summary key is CALLED, for a heading or a combo item.
+
+    `nomenclature` owns every quantity it knows, so the label rotates
+    with the mode exactly as it does in the Results table. A design
+    PARAMETER -- `root_chord_norm`, `n_blades` -- is not an axis
+    quantity and has no entry there; it keeps its own name, which is
+    also what the user typed into the variable table, so the two agree.
+    """
+    symbol = nomenclature.symbol_text(key)
+    if symbol and symbol != key:
+        unit = nomenclature.unit(key)
+        return f"{symbol} [{unit}]" if unit else symbol
+    return key
 
 
 def _save_dialog(parent, default_name: str, kind: str = "csv") -> str:
@@ -119,7 +135,11 @@ class OptimizerWindow(QWidget):
             key_combo = QComboBox()
             key_combo.setEditable(True)
             for key in _COMMON_OBJECTIVE_KEYS:
-                key_combo.addItem(key)
+                # Rendered text, engine key as the item's data. The key
+                # is what the definition stores and what the engine is
+                # asked for; the text is only what the user reads, and
+                # "eta_prop" is not how this program writes that symbol.
+                key_combo.addItem(_key_label(key), key)
             kind_combo = QComboBox()
             kind_combo.addItem("Maximize", "maximize")
             kind_combo.addItem("Minimize", "minimize")
@@ -327,9 +347,17 @@ class OptimizerWindow(QWidget):
             QHeaderView.ResizeMode.ResizeToContents)
         self.front_table.setEditTriggers(
             QTableWidget.EditTrigger.NoEditTriggers)
+        # SORTABLE. The first question asked of a front is "which member
+        # is best on this column", and without a sort the answer had to
+        # be found by eye.
+        self.front_table.setSortingEnabled(True)
+        self.front_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows)
         self.front_table.setToolTip(
             "One row per non-dominated design: its parameters and its raw "
-            "objective values. No row dominates another.")
+            "objective values. No row dominates another, so the ranking a "
+            "sort produces is a ranking on ONE column, not an overall one. "
+            "Click a column heading to sort.")
         front_layout.addWidget(self.front_table)
         layout.addWidget(front_box, 2)
 
@@ -340,11 +368,16 @@ class OptimizerWindow(QWidget):
         self.view_combo.addItem("Objectives (Pareto)", "pareto")
         self.view_combo.addItem("All quantities (parallel coordinates)",
                                  "parallel")
+        self.view_combo.addItem("Convergence (hypervolume per generation)",
+                                 "convergence")
         self.view_combo.setToolTip(
             "The Pareto view plots the two objectives against each other; "
             "click a front marker to select that design in the table. The "
             "parallel view draws one polyline per front member across every "
-            "variable and objective, normalized to each axis.")
+            "variable and objective, normalized to each axis. The "
+            "convergence view plots the hypervolume of the front against "
+            "the generation: it never falls, and a curve that has "
+            "flattened says further generations are buying nothing.")
         self.view_combo.currentIndexChanged.connect(self._refresh_plot)
         view_row.addWidget(self.view_combo)
         view_row.addStretch(1)
@@ -372,6 +405,16 @@ class OptimizerWindow(QWidget):
             "front index.")
         self.btn_send_to_designer.clicked.connect(self._send_front_to_designer)
         export_row.addWidget(self.btn_send_to_designer)
+        self.btn_apply = QPushButton("Apply selected to project")
+        self.btn_apply.setEnabled(False)
+        self.btn_apply.setToolTip(
+            "Writes the SELECTED row's planform into the open project's "
+            "geometry, so the design that won can be run, plotted and "
+            "reported like any other. The project is marked as edited and "
+            "nothing is written to disk until you save it, so the change "
+            "can still be abandoned.")
+        self.btn_apply.clicked.connect(self._apply_selected_design)
+        export_row.addWidget(self.btn_apply)
         export_row.addStretch(1)
         layout.addLayout(export_row)
         return page
@@ -724,13 +767,21 @@ class OptimizerWindow(QWidget):
         self._outcome = outcome
         self.btn_send_to_designer.setEnabled(
             bool(outcome.front_params))
+        self.btn_apply.setEnabled(bool(outcome.front_params))
         keys = list(outcome.objective_keys) or (
             list(outcome.front_values[0]) if outcome.front_values else [])
         param_names = list(outcome.param_names)
         columns = [*param_names, *keys]
         self.front_table.setColumnCount(len(columns))
-        self.front_table.setHorizontalHeaderLabels(columns)
+        # The COLUMN LIST stays engine keys -- the cells are looked up by
+        # them just below -- and only the headings are rendered.
+        self.front_table.setHorizontalHeaderLabels(
+            [_key_label(c) for c in columns])
         self.message_label.setText(outcome.message)
+        # The sort is turned OFF while the rows are written. With it on,
+        # Qt re-sorts after every `setItem`, so a half-filled row moves
+        # under the loop that is still filling it.
+        self.front_table.setSortingEnabled(False)
         self.front_table.setRowCount(len(outcome.front_params))
         for r, (params, values) in enumerate(zip(outcome.front_params,
                                                   outcome.front_values)):
@@ -739,8 +790,37 @@ class OptimizerWindow(QWidget):
                 value = source.get(col, "")
                 text = (f"{float(value):.6g}" if isinstance(value, float)
                         else str(value))
-                self.front_table.setItem(r, c, QTableWidgetItem(text))
+                item = QTableWidgetItem(text)
+                if c == 0:
+                    # The front index travels WITH the row, so a sort
+                    # cannot separate a row from the design it shows.
+                    item.setData(Qt.ItemDataRole.UserRole, r)
+                if isinstance(value, float):
+                    # Sort NUMERICALLY. A table of strings puts 0.9 after
+                    # 0.42, which on a Pareto front is a wrong answer to
+                    # the question the sort was asked.
+                    item.setData(Qt.ItemDataRole.EditRole, float(value))
+                self.front_table.setItem(r, c, item)
+        self.front_table.setSortingEnabled(True)
         self._refresh_plot()
+
+    def _plot_title(self, what: str) -> str:
+        """Every plot title states the run it came from.
+
+        A front or a convergence curve is meaningless without the
+        condition it was evaluated at and the algorithm that produced
+        it: the same study under `de` and under `nsga2` gives different
+        curves, and the same algorithm at another condition gives a
+        different front. This is the repository's rule for every plot.
+        """
+        definition = self._last_definition
+        if definition is None:
+            return what
+        condition = getattr(definition, "condition", None)
+        where = getattr(condition, "name", "") if condition else ""
+        algorithm = definition.algorithm or definition.method or "search"
+        parts = [p for p in (definition.name, algorithm, where) if p]
+        return f"{what}\n{' | '.join(parts)}" if parts else what
 
     def _refresh_plot(self):
         outcome = self._outcome
@@ -756,6 +836,37 @@ class OptimizerWindow(QWidget):
             list(outcome.front_values[0]))
         view = self.view_combo.currentData() if hasattr(self, "view_combo") \
             else "pareto"
+        if view == "convergence":
+            history = list(getattr(outcome, "hypervolume_history", []) or [])
+            label = "Hypervolume of the front"
+            if not history:
+                # A single-objective run has no area to measure, so the
+                # best value is what it records instead. Saying which of
+                # the two is drawn matters: they are not comparable.
+                history = list(getattr(outcome, "best_history", []) or [])
+                label = "Best objective value"
+            if not history:
+                canvas.ax.text(0.5, 0.5, "This run recorded no trace.",
+                                ha="center", va="center", fontsize=10,
+                                color="0.35",
+                                transform=canvas.ax.transAxes)
+                canvas.draw()
+                return
+            # Drawn here rather than through
+            # `plots.plot_optimization_convergence`, which takes the
+            # per-EVALUATION ledger of the single-objective search and a
+            # key to read from it. This is a per-GENERATION scalar, a
+            # different shape, and bending one function around both
+            # would make each call harder to read than two.
+            generations = list(range(1, len(history) + 1))
+            canvas.ax.plot(generations, history, marker="o", markersize=3,
+                            color="tab:blue")
+            canvas.ax.set_xlabel("Generation")
+            canvas.ax.set_ylabel(label)
+            canvas.ax.grid(True, alpha=0.3)
+            canvas.ax.set_title(self._plot_title(label), fontsize=9)
+            canvas.draw()
+            return
         if view == "parallel":
             plots.plot_parallel_coordinates(
                 outcome.front_values, keys,
@@ -800,6 +911,70 @@ class OptimizerWindow(QWidget):
             line.set_picker(True)
             line.set_pickradius(6)
         canvas.mpl_connect("pick_event", on_pick)
+
+    def _apply_selected_design(self):
+        """Writes the selected front member into the open project.
+
+        The search ended one manual transcription short of being useful:
+        the winning design could be exported or sent to the comparison
+        window, but not become the project's own geometry.
+
+        The row index is read through the table's own mapping, because
+        the table SORTS: after a sort the visual row order is not the
+        front's order, and applying "row 3" of a sorted view would apply
+        a different design than the one highlighted.
+        """
+        outcome = self._outcome
+        if outcome is None or not outcome.front_params:
+            QMessageBox.information(self, "Nothing to apply",
+                                     "Run the optimization first.")
+            return
+        row = self.front_table.currentRow()
+        if row < 0:
+            QMessageBox.information(
+                self, "No design selected",
+                "Choose a row in the front table first.")
+            return
+        index = self._front_index_of_row(row)
+        if index is None:
+            QMessageBox.information(
+                self, "No design selected",
+                "That row does not correspond to a front member.")
+            return
+        project = self.state.project
+        if project is None:
+            QMessageBox.information(self, "No project",
+                                     "Open a project first.")
+            return
+        params = outcome.front_params[index]
+        try:
+            from ...studies import variant_geometry
+
+            project.geometry = variant_geometry(project.geometry, params)
+        except Exception as exc:
+            show_error(self, "Cannot apply this design", exc)
+            return
+        self.state.notify_geometry()
+        readable = ", ".join(f"{k}={v:.4g}" if isinstance(v, float)
+                             else f"{k}={v}" for k, v in params.items())
+        QMessageBox.information(
+            self, "Applied",
+            "The project's geometry is now:\n\n    " + readable
+            + "\n\nNothing has been written to disk yet; save the project "
+              "to keep it.")
+
+    def _front_index_of_row(self, row: int):
+        """The front member a VISUAL row belongs to.
+
+        Stored on the row's first item when the table was filled, so a
+        sort carries it along. Reading the row number instead would break
+        the moment the user sorted the table.
+        """
+        item = self.front_table.item(row, 0)
+        if item is None:
+            return None
+        index = item.data(Qt.ItemDataRole.UserRole)
+        return int(index) if index is not None else None
 
     def _send_front_to_designer(self):
         """Cross-link 11 (Item 5): the selected study's Pareto members
