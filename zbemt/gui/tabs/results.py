@@ -442,6 +442,16 @@ if TYPE_CHECKING:            # only for annotations: a real import would be a cy
 # Section 8). The only tab that draws on screen (principle 5).
 # =============================================================================
 
+#: The field dropdown's first item. Selecting it draws NOTHING: the disk
+#: map is the tab's most expensive view, so it is produced when it is
+#: asked for and not when the view is merely opened.
+_DISK_PROMPT = "(choose a field below)"
+
+#: The item that draws every field at once. One image per field, so it
+#: is the single most expensive thing the tab does.
+_DISK_GRID = "(grid with all fields)"
+
+
 class ResultsTab(QWidget):
     """"Results" tab, the Results hub (docs/plano_v3.md Part 4). Replaces
     the old `PlotsTab`, which only saw `AppState.last_results` (the most
@@ -1205,7 +1215,14 @@ class ResultsTab(QWidget):
         # field's raw key; the key remains `currentText()`, and the
         # spelled-out name goes into each item's tooltip.
         self.disk_field_combo = _SymbolCombo()
-        self.disk_field_combo.add_item("(grid with all fields)",
+        # FIRST, so it is the default: the disk map is the most expensive
+        # view in the tab, and drawing the whole grid on the way past --
+        # before the user has said what to look at -- is the freeze that
+        # was reported. Nothing is drawn until a disk is asked for.
+        self.disk_field_combo.add_item(_DISK_PROMPT, "Choose",
+                                         "Nothing is drawn until you pick a "
+                                         "field, or the grid of all of them")
+        self.disk_field_combo.add_item(_DISK_GRID,
                                          "All fields",
                                          "Every disk map at once on one screen")
         for field in self._DISK_FIELDS:
@@ -1217,9 +1234,13 @@ class ResultsTab(QWidget):
                 self._disk_field_tooltip(field))
         self.disk_field_combo.setMinimumWidth(150)
         self.disk_field_combo.setToolTip(
-            "'(grid with all fields)' shows every disk map at once on one screen; picking a "
-            "single field gives that one disc the whole canvas, with the color-scale controls "
-            "next to it enabled (log scale, manual min/max).")
+            "Which disk map to draw. NOTHING is drawn until one is chosen: "
+            "the grid is one image per field and is the slowest view in the "
+            "tab, so opening this view no longer produces it on the way "
+            "past. '" + _DISK_GRID + "' shows every disk at once; picking a "
+            "single field gives that one disc the whole canvas, with the "
+            "colour-scale controls beside it enabled (log scale, manual "
+            "min/max).")
         row1.addWidget(self.disk_field_combo)
         # Item 10: this is the ONLY home of `mask_reverse_flow_plots` in
         # the GUI. It used to also appear in the Airfoil tab, among
@@ -1326,7 +1347,10 @@ class ResultsTab(QWidget):
         self.disk_mask_check.blockSignals(False)
 
     def _update_disk_color_controls_enabled(self, *_args):
-        enabled = self.disk_field_combo.currentText() != "(grid with all fields)"
+        # The colour-scale controls act on ONE disk, so they are dead on
+        # the grid and dead on the placeholder.
+        chosen = self.disk_field_combo.currentText()
+        enabled = chosen not in (_DISK_GRID, _DISK_PROMPT)
         for w in (self.disk_color_scale_combo, self.disk_color_vmin_edit, self.disk_color_vmax_edit):
             w.setEnabled(enabled)
 
@@ -1343,6 +1367,14 @@ class ResultsTab(QWidget):
             return
         mask = self.disk_mask_check.isChecked()
         field = self.disk_field_combo.currentText()
+        if field == _DISK_PROMPT:
+            self.canvas_host.show_message(
+                "Pick a field in the dropdown above to draw its disk map, "
+                "or '" + _DISK_GRID + "' to draw every field at once.\n\n"
+                "Nothing is drawn until then: the grid is one image per "
+                "field, and on a long queue it is the slowest view in the "
+                "tab.")
+            return
 
         def _parse_bound(edit: QLineEdit):
             txt = edit.text().strip()
@@ -1358,7 +1390,7 @@ class ResultsTab(QWidget):
         vmax = _parse_bound(self.disk_color_vmax_edit)
         key = ("disk", self._selection_signature(), field, mask, log_color, vmin, vmax)
         try:
-            if field == "(grid with all fields)":
+            if field == _DISK_GRID:
                 self.canvas_host.show_figure(
                     key, lambda: plots.plot_disk_map_grid(result.maps, mask_reverse=mask))
             else:
@@ -2265,9 +2297,37 @@ class ResultsTab(QWidget):
         label = f"{symbol} [{unit}]" if unit and unit != "-" else symbol
         return label if drawn else plots.summary_label_text(label)
 
+    @staticmethod
+    def _decimate_for_drawing(*arrays, radial: int = 64, azimuthal: int = 160):
+        """Thins a disc grid down to what the preview can actually show.
+
+        `plot_surface` with `facecolors` converts one colour per QUAD
+        through matplotlib's slow per-element path, so the drawing cost
+        is the face count. The solver's mesh is 150 x 360 on a typical
+        project, which is 53,640 faces onto a canvas about 400 pixels
+        across: more than one face per pixel, in both directions.
+
+        The first and last index of each axis is always kept, so the
+        disc still reaches the tip and still closes on itself; the rows
+        and columns between them are sampled evenly. Only the DRAWING is
+        thinned -- the values, the 2D disk map, the exports and the
+        report all keep the full grid.
+        """
+        rows, cols = arrays[0].shape
+        r_index = (np.linspace(0, rows - 1, min(rows, radial))
+                   .round().astype(int))
+        c_index = (np.linspace(0, cols - 1, min(cols, azimuthal))
+                   .round().astype(int))
+        r_index = np.unique(r_index)
+        c_index = np.unique(c_index)
+        return tuple(a[np.ix_(r_index, c_index)] for a in arrays)
+
     def _figure_3d_matplotlib(self, maps: dict, field: str, relief_field: str | None):
         X, Y, Z, values = visualization.build_disk_grid(
             maps, field=field, z_field=relief_field)
+        # DRAWING resolution, not solving resolution: see
+        # `_decimate_for_drawing`. This is the whole cost of the view.
+        X, Y, Z, values = self._decimate_for_drawing(X, Y, Z, values)
         fig = Figure(figsize=(6, 5), tight_layout=True)
         ax = fig.add_subplot(111, projection="3d")
         normal = plt_colors.Normalize(
@@ -2493,7 +2553,7 @@ class ResultsTab(QWidget):
 
         field_list = QListWidget()
         field_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
-        grid_item = QListWidgetItem("(grid with all fields)")
+        grid_item = QListWidgetItem(_DISK_GRID)
         grid_item.setFlags(grid_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
         grid_item.setCheckState(Qt.CheckState.Checked)
         field_list.addItem(grid_item)

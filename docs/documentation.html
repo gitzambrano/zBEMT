@@ -7943,7 +7943,27 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><b>Limits.</b> Masking reverse flow is a visualization toggle. Underlying force integrations
                           and exported tabular metrics retain all blade element contributions.</p>
-                        <h4 id="cap-7-2">12.1.2 Coefficients vs. Axis</h4>
+                                                <p><b>Nothing is drawn until a disk is chosen.</b> The dropdown above the canvas
+                          opens on <i>(choose a field below)</i>, and that item draws nothing at all. The
+                          reason is cost: <i>(grid with all fields)</i> is one contoured disc per field,
+                          sixteen of them on one page, and it used to be the dropdown's first item and
+                          therefore its default &mdash; so merely selecting this view produced the most
+                          expensive figure the program makes, before the reader had said what they wanted
+                          to look at. Opening the view is now immediate; a single field is drawn in about
+                          a tenth of a second; the grid is one click away and is produced when it is
+                          asked for.</p>
+
+                        <p>The choice survives a switch to another view and back, so returning to the
+                          disk map does not silently re-run the grid. The colour-scale controls beside the
+                          dropdown act on ONE disc, so they stay visible and disabled both on the
+                          placeholder and on the grid, and become active as soon as a single field is
+                          picked.</p>
+
+                        <p><span class="gui">GUI</span>: the <i>Field</i> dropdown above the canvas. <span class="bemt">.bemt</span>: this is a view
+                          control and is not stored. Which figures a batch EXPORTS is decided on the
+                          Run Batch tab, independently of what is on screen here.</p>
+
+<h4 id="cap-7-2">12.1.2 Coefficients vs. Axis</h4>
                         <p>This view accepts one run or several. It gives the <b>sweep</b> answer: each solved condition
                           collapses to
                           a single point, and the points line up into the performance curves. Where a disk map shows one
@@ -8100,7 +8120,19 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           condition, like every spatial view: it shows where the blade is loaded now, not how that
                           changes as
                           the condition moves.</p>
-                        <h4 id="cap-7-convergence">12.1.5 Convergence</h4>
+                                                <p><b>Drawing resolution.</b> The preview draws a thinned copy of the mesh, not
+                          the mesh the solver converged. The surface is coloured face by face, and the
+                          drawing cost is set by the number of faces and by nothing else: a 150 by 360
+                          grid is 53,640 of them, on a canvas about four hundred pixels across. That is
+                          more than one face per pixel in both directions, so the extra faces cost time
+                          and cannot appear in the image.</p>
+
+                        <p>The first and last radial station and the first and last azimuth are always
+                          kept, so the disc still reaches the tip and still closes on itself. Only the
+                          drawing is thinned: the 2D disk map, the exported tables and the report all
+                          read the full grid, and the numbers behind the preview are unchanged.</p>
+
+<h4 id="cap-7-convergence">12.1.5 Convergence</h4>
                         <p>This view needs exactly one run selected. It draws how the inflow solve
                           behaved rather than what it produced: the fraction of the mesh that
                           converged within the iteration limit, and the maximum residual left by
