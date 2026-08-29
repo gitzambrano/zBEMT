@@ -1219,7 +1219,10 @@ class ResultsTab(QWidget):
         # view in the tab, and drawing the whole grid on the way past --
         # before the user has said what to look at -- is the freeze that
         # was reported. Nothing is drawn until a disk is asked for.
-        self.disk_field_combo.add_item(_DISK_PROMPT, "Choose",
+        # The SYMBOL is what the combo paints, so it has to name the
+        # action AND its object: "Choose" alone is a verb with nothing
+        # after it.
+        self.disk_field_combo.add_item(_DISK_PROMPT, "Choose a field…",
                                          "Nothing is drawn until you pick a "
                                          "field, or the grid of all of them")
         self.disk_field_combo.add_item(_DISK_GRID,

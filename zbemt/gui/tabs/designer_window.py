@@ -82,6 +82,26 @@ from PyQt6.QtGui import QColor
 from ..workers import CompareWorker, FnWorker, launch_worker
 
 
+def _button_row(button):
+    """Wraps a button so a SPANNING form row does not stretch it.
+
+    `form.addRow(button)` gives the button the full width of the form,
+    because the row has nothing else to share it with, and a button as
+    wide as its panel reads as a banner rather than a control. The
+    trailing stretch absorbs the slack. `setSizePolicy(Fixed)` is not
+    enough: with the stylesheet applied the button still grows to its
+    `max-width`.
+    """
+    from PyQt6.QtWidgets import QHBoxLayout, QWidget
+
+    holder = QWidget()
+    row = QHBoxLayout(holder)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.addWidget(button)
+    row.addStretch(1)
+    return holder
+
+
 class _AbsoluteRowGeometry:
     """A COMPLETE geometry carried by one variant row.
 
@@ -434,7 +454,10 @@ class GeometryDesignerWindow(QWidget):
             "Appends one geometry row per value of the sweep, under a "
             "label naming the parameter and its value.")
         self.btn_build_sweep.clicked.connect(self._build_sweep_variants)
-        form.addRow(self.btn_build_sweep)
+        # A SPANNING row hands the button the whole width of the
+        # form; the trailing stretch takes it instead. Same fix as
+        # the action rows of the main window's tabs.
+        form.addRow(_button_row(self.btn_build_sweep))
         return box
 
     # --- generate variant block ---------------------------------------------

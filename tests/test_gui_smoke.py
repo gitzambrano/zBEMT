@@ -500,7 +500,12 @@ class TestAirfoilPreviewCanvas(unittest.TestCase):
         state = self.gui.AppState()
         tab = self.gui.AirfoilTab(state)
         names = [tab.preview_tabs.tabText(i) for i in range(tab.preview_tabs.count())]
-        self.assertEqual(names, ["C_L × α", "C_D × α", "C_D × C_L", "Profile"])
+        # `PR-4`: these used to be "C_L x α", with the subscript typed
+        # as an UNDERSCORE, and this assertion pinned that. A QTabWidget
+        # paints plain text, so `nomenclature` supplies the fallback it
+        # uses everywhere else for a symbol Unicode cannot subscript.
+        self.assertEqual(names, ["CL \u00d7 \u03b1", "CD \u00d7 \u03b1",
+                                  "CD \u00d7 CL", "Profile"])
 
     def test_preview_canvases_have_zoom_toolbar(self):
         """Item 4: zoom (rectangle/wheel) and axis scale/limit editing

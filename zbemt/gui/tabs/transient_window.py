@@ -38,6 +38,26 @@ def _save_dialog(parent, default_name: str, kind: str = "csv") -> str:
     return path
 
 
+def _button_row(button):
+    """Wraps a button so a SPANNING form row does not stretch it.
+
+    `form.addRow(button)` gives the button the full width of the form,
+    because the row has nothing else to share it with, and a button as
+    wide as its panel reads as a banner rather than a control. The
+    trailing stretch absorbs the slack. `setSizePolicy(Fixed)` is not
+    enough: with the stylesheet applied the button still grows to its
+    `max-width`.
+    """
+    from PyQt6.QtWidgets import QHBoxLayout, QWidget
+
+    holder = QWidget()
+    row = QHBoxLayout(holder)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.addWidget(button)
+    row.addStretch(1)
+    return holder
+
+
 class TransientWindow(QWidget):
     """Two-page tool: Trajectory, then Run and results."""
 
@@ -215,7 +235,9 @@ class TransientWindow(QWidget):
             "Fills the trajectory with a hold - ramp - hold between the "
             "two saved cases.")
         btn_build.clicked.connect(self._build_ramp)
-        build_form.addRow(btn_build)
+        # See `_button_row`: a spanning row would make this button
+        # as wide as the whole form.
+        build_form.addRow(_button_row(btn_build))
         left.addWidget(points_box)
         left.addWidget(build_box)
         layout.addLayout(left, 0)

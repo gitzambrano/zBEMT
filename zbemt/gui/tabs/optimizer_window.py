@@ -257,14 +257,14 @@ class OptimizerWindow(QWidget):
         self.crossover_spin.setDecimals(1)
         self.crossover_spin.setValue(15.0)
         self.crossover_spin.setToolTip(
-            '"crossover_eta" — η_c, the SBX distribution index. Larger '
+            '"crossover_eta" — the SBX distribution index. Larger '
             "keeps children near their parents.")
         self.mutation_spin = QDoubleSpinBox()
         self.mutation_spin.setRange(1.0, 100.0)
         self.mutation_spin.setDecimals(1)
         self.mutation_spin.setValue(20.0)
         self.mutation_spin.setToolTip(
-            '"mutation_eta" — η_m, the polynomial-mutation distribution '
+            '"mutation_eta" — the polynomial-mutation distribution '
             "index. Larger mutates less violently.")
         self.rate_spin = QDoubleSpinBox()
         self.rate_spin.setRange(0.0, 1.0)
@@ -289,14 +289,28 @@ class OptimizerWindow(QWidget):
             ("Population:", self.population_spin),
             ("Generations:", self.generations_spin),
             ("Seed:", self.seed_spin),
-            ("Crossover η_c:", self.crossover_spin),
-            ("Mutation η_m:", self.mutation_spin),
+            # `PR-4`: the SUBSCRIPT, not an underscore. `to_html` gives
+            # `&eta;<sub>c</sub>`, which a QLabel renders; written by
+            # hand it reached the screen as the two characters "_c".
+            (nomenclature.to_html(r"$\eta_c$") + " (crossover):",
+             self.crossover_spin),
+            (nomenclature.to_html(r"$\eta_m$") + " (mutation):",
+             self.mutation_spin),
             ("Mutation rate:", self.rate_spin),
             ("Parallel workers:", self.workers_spin),
         ]
         for r, (label, widget) in enumerate(rows):
             grid.addWidget(QLabel(label), r, 0)
             grid.addWidget(widget, r, 1)
+        # The SLACK goes to a third column, not to the field. Column 1
+        # was the last one, so it absorbed everything the box was wider
+        # than the labels -- about nine hundred pixels -- and the value
+        # ended up at the far right, an arm's length from the label it
+        # belongs to. Same defect, and same fix, as the flow rows in
+        # `widgets.py`.
+        grid.setColumnStretch(0, 0)
+        grid.setColumnStretch(1, 0)
+        grid.setColumnStretch(2, 1)
         right.addWidget(search_box)
 
         cost_box = QGroupBox("Cost estimate")

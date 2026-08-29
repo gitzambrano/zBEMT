@@ -1704,9 +1704,28 @@ class AirfoilTab(QWidget):
         self.cd_alpha_canvas = CanvasHost(with_toolbar=True)
         self.cd_cl_canvas = CanvasHost(with_toolbar=True)
         self.profile_canvas = CanvasHost(with_toolbar=True)
-        self.preview_tabs.addTab(self.cl_alpha_canvas, "C_L × α")
-        self.preview_tabs.addTab(self.cd_alpha_canvas, "C_D × α")
-        self.preview_tabs.addTab(self.cd_cl_canvas, "C_D × C_L")
+        # `PR-4`: a QTabWidget tab paints PLAIN text, so the underscore
+        # of "C_L" reached the screen as a character. `nomenclature` owns
+        # the fallback for a symbol Unicode has no subscript for, and it
+        # is the same one the results table already shows.
+        from ... import nomenclature
+
+        def _tab_label(*symbols: str) -> str:
+            """Each symbol converted on its own, joined by the operator.
+
+            Rendering the whole expression in one call swallows the
+            spaces around the multiplication sign and gives "CL xα" with
+            nothing between them.
+            """
+            return " \u00d7 ".join(nomenclature.to_unicode(f"${sym}$")
+                                    for sym in symbols)
+
+        self.preview_tabs.addTab(self.cl_alpha_canvas,
+                                  _tab_label("C_L", r"\alpha"))
+        self.preview_tabs.addTab(self.cd_alpha_canvas,
+                                  _tab_label("C_D", r"\alpha"))
+        self.preview_tabs.addTab(self.cd_cl_canvas,
+                                  _tab_label("C_D", "C_L"))
         self.preview_tabs.addTab(self.profile_canvas, "Profile")
         self.preview_tabs.currentChanged.connect(lambda _i: self._refresh_preview())
         layout.addWidget(self.preview_tabs, stretch=1)

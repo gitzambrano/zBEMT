@@ -16,6 +16,7 @@ from dataclasses import replace as dc_replace
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
+    QSizePolicy,
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGridLayout, QGroupBox,
     QPushButton, QComboBox, QDoubleSpinBox, QSpinBox, QLabel, QLineEdit,
     QCheckBox, QTableWidget, QTableWidgetItem, QTabWidget, QProgressBar,
@@ -206,6 +207,12 @@ class StabilityWindow(QWidget):
         run_trim_box = QGroupBox("Check the trim alone")
         rt_layout = QVBoxLayout(run_trim_box)
         self.btn_trim = QPushButton("Run trim only")
+        # A button as wide as the panel reads as a banner rather than a
+        # control, and the repository's rule is that none stretches much
+        # beyond its own text. The rule was enforced over the main
+        # window's tabs and never over a Tools window.
+        self.btn_trim.setSizePolicy(QSizePolicy.Policy.Maximum,
+                                     QSizePolicy.Policy.Fixed)
         self.btn_trim.setToolTip(
             "Solves just the trim point so it can be judged before paying "
             "for the full derivative sweep.")

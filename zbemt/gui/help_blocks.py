@@ -24,7 +24,7 @@ BLOCK_HELP: dict[str, dict] = {
     "global_geometry": {
         "title": "Global Geometry — the scales that set everything else",
         "body": [
-            "Four numbers fix the size of the problem before any aerodynamics happens: the number of blades, the radius, the root cutout, and the reference chord that the radial table is normalized against.",
+            "Two numbers on this block fix the size of the problem before any aerodynamics happens: the number of blades and the radius. The root cutout and the reference chord belong to the same set and are set where the radial table is BUILT, in the Generate Table dialog, because they describe how that table is laid out; the table below then carries them as its first station and as the c/R it is normalized against.",
             "<b>Radius</b> is the strongest lever in the tool. It sets the tip speed ΩR at a given rpm, hence the dynamic pressure ½ρW² at every station, hence every force. Thrust scales roughly as R⁴ at fixed rpm and fixed blade loading, and power as R⁵. Doubling the radius is not a small change, and it is also what pushes the tip toward the Mach numbers where compressibility and wave drag start to matter.",
             "<b>Number of blades</b> enters in two distinct places that pull in opposite directions. It multiplies the total load through the solidity:"
             "\n\n"

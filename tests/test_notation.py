@@ -227,6 +227,8 @@ class TestGuiLabels(unittest.TestCase):
         from PyQt6.QtWidgets import (QCheckBox, QGroupBox, QLabel, QPushButton,
                                      QRadioButton)
 
+        from PyQt6.QtWidgets import QTabWidget
+
         violations = []
         for widget_class in (QLabel, QGroupBox, QCheckBox, QRadioButton, QPushButton):
             for widget in self.window.findChildren(widget_class):
@@ -235,6 +237,30 @@ class TestGuiLabels(unittest.TestCase):
                     continue
                 if NOTATION_IN_TEXT.search(_without_math_nor_code(text)):
                     violations.append(f"{widget_class.__name__}: {text.strip()[:70]!r}")
+        # A TAB label is user-facing text like any other, and it was
+        # outside this scan: the Airfoil tab's three plot tabs read
+        # "C_L x alpha" on screen, underscore and all, while every test
+        # passed. `NOTATION_IN_TEXT` did not catch it either -- it looks
+        # for a Greek letter spelled out, not for a subscript written
+        # with an underscore -- so a tab label is checked for BOTH.
+        import re as _re
+
+        #: `X_y`: a symbol with its subscript typed as an underscore.
+        #: Narrow on purpose, and applied only to tab labels: a tooltip
+        #: legitimately quotes a field name like "mu_x", and a prose
+        #: label may cite one too. A tab is two or three words of pure
+        #: user-facing text, so there the underscore is always a symbol
+        #: that was not rendered.
+        plain_subscript = _re.compile(r"[A-Za-z]_[A-Za-z0-9]")
+        for tabs in self.window.findChildren(QTabWidget):
+            for i in range(tabs.count()):
+                text = tabs.tabText(i)
+                if not text:
+                    continue
+                stripped = _without_math_nor_code(text)
+                if (NOTATION_IN_TEXT.search(stripped)
+                        or plain_subscript.search(stripped)):
+                    violations.append(f"tab: {text.strip()[:70]!r}")
         self.assertEqual(sorted(set(violations)), [],
                          "plain-text notation on a GUI label: " + str(sorted(set(violations))))
 
