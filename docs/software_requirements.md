@@ -297,6 +297,18 @@ different rule.
   project's mode, and the CLI's help describes each flag by the slot it
   fills and the letter it carries in each mode. The engine keeps its own
   disk-axes names, which never reach a user-facing surface.
+- **PA-5** — The three interfaces accept the same INPUTS, not only the same
+  fields. Where the GUI lets a quantity be given in an alternative form
+  that it converts on the spot, the CLI and the `.bemt` file must accept
+  that form too. The axial component of a flight condition may be stated
+  as `alpha_rotor_deg` (from the disk plane) or `alpha_disk_deg` (from
+  the shaft) instead of `Vz`, in a file exactly as on a flag. Such a
+  form is an INPUT ALIAS: the canonical field stays the only thing
+  stored, so no axis has two stored forms that can disagree. An alias
+  that cannot be resolved -- no RPM, both angles at once, or an angle
+  beside the very component it would set -- must be REFUSED. It must
+  never be dropped, because a dropped angle leaves the case running at
+  the default velocity and returning a plausible wrong answer.
 
 ### 3.4 Reports
 

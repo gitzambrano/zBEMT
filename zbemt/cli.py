@@ -1393,7 +1393,15 @@ def main(argv=None, options=None) -> int:
         project = api.new_project(args.new, name=args.name)
         project_path = args.new
     else:
-        project = api.open_project(args.project)
+        try:
+            project = api.open_project(args.project)
+        except (ValueError, OSError) as exc:
+            # A project that cannot be read is the user's file being
+            # wrong, not the program failing. A traceback buries the one
+            # line that says which condition is at fault.
+            print(f"cli.py: error: cannot open {args.project!r}: {exc}",
+                  file=sys.stderr)
+            return 2
         project_path = args.project
 
     if args.list_batches:

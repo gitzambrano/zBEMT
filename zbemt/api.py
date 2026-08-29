@@ -162,12 +162,115 @@ def open_project(path: str) -> Project:
     comparisons = (load_bemt_list(ComparisonDefinition,
                                    paths["comparisons"], is_propeller)
                     if paths["comparisons"].exists() else [])
-    return Project(name=name, path=str(path), config=config,
-                    geometry=geom, airfoil=airfoil_def, airfoil_sections=airfoil_sections,
-                    batches=batches, saved_cases=saved_cases,
-                    optimizations=optimizations, maneuvers=maneuvers,
-                    derivatives=derivatives,
-                    comparisons=comparisons)
+    project = Project(name=name, path=str(path), config=config,
+                       geometry=geom, airfoil=airfoil_def,
+                       airfoil_sections=airfoil_sections,
+                       batches=batches, saved_cases=saved_cases,
+                       optimizations=optimizations, maneuvers=maneuvers,
+                       derivatives=derivatives,
+                       comparisons=comparisons)
+    # Only now: the conversion needs the rotor RADIUS, which is in
+    # `geom.bemt` and therefore unknown while the condition files above
+    # are being read (`PA-1`).
+    resolve_alpha_aliases(project)
+    return project
+
+
+def _every_condition(project: Project):
+    """Every `FlightCondition` and `ManeuverPoint` the project holds.
+
+    One walker rather than a loop per file, because a condition the
+    walker forgets is a condition whose angle is silently ignored --
+    which is the defect this path exists to remove."""
+    yield from project.saved_cases or []
+    for batch in project.batches or []:
+        yield from getattr(batch, "conditions", None) or []
+    for maneuver in project.maneuvers or []:
+        yield from getattr(maneuver, "points", None) or []
+    for holder in (list(project.optimizations or [])
+                   + list(project.derivatives or [])):
+        condition = getattr(holder, "condition", None)
+        if condition is not None:
+            yield condition
+    for comparison in project.comparisons or []:
+        yield from getattr(comparison, "conditions", None) or []
+
+
+def _condition_label(condition) -> str:
+    name = getattr(condition, "name", None)
+    if name:
+        return str(name)
+    if hasattr(condition, "t_s"):
+        return f"the maneuver point at t = {condition.t_s:g} s"
+    return "a flight condition"
+
+
+def resolve_alpha_aliases(project: Project) -> int:
+    """Turns every angle written in a `.bemt` file into its velocity.
+
+    `PA-1`: the three interfaces accept the same inputs. The GUI and the
+    CLI both let the flight condition be given as an ANGLE and convert
+    it immediately. Before this, a `.bemt` file could not: the key was
+    dropped with a warning and the case went on to run at Vz = 0.
+
+    WHICH component is derived depends on which angle was given, and
+    the rule is the CLI's, not a second one:
+
+    - ``alpha_rotor_deg`` is measured from the disk plane, so the
+      in-plane component is the known one and the AXIAL one comes out of
+      it: ``Vz = -tan(alpha_rotor) * mu_x * Omega R``.
+    - ``alpha_disk_deg`` is measured from the shaft, so the dependency
+      inverts and the IN-PLANE one comes out of the axial:
+      ``mu_x = tan(alpha_disk) * |Vz| / (Omega R)``. This is the
+      propeller's case: an airspeed along the shaft, tilted.
+
+    Refuses rather than guesses. An angle with no RPM does not define a
+    velocity at all, and falling back to zero is how the original defect
+    did its damage. Returns how many conditions were converted."""
+    radius = float(getattr(project.geometry, "radius_m", 0.0) or 0.0)
+    converted = 0
+    for condition in _every_condition(project):
+        alias = getattr(condition, models.ALPHA_ALIAS_ATTRIBUTE, None)
+        if alias is None:
+            continue
+        key, degrees = alias
+        label = _condition_label(condition)
+        rpm = getattr(condition, "rpm", None)
+        if not rpm:
+            raise ValueError(
+                f"{label}: {key!r} needs an 'rpm'. The angle says only how "
+                f"the stream is TILTED; turning it into a velocity needs the "
+                f"speed the tip runs at. Add an 'rpm', or give the "
+                f"velocities directly.")
+        if radius <= 0.0:
+            raise ValueError(
+                f"{label}: {key!r} needs the rotor radius, and the project's "
+                f"geometry has none. Set 'radius_m' in geom.bemt, or give "
+                f"the velocities directly.")
+        mu_x = float(getattr(condition, "mu_x", 0.0) or 0.0)
+        Vz = float(getattr(condition, "Vz", 0.0) or 0.0)
+        if key == "alpha_rotor_deg":
+            if Vz:
+                raise ValueError(
+                    f"{label}: 'alpha_rotor_deg' and a nonzero 'Vz' are two "
+                    f"ways of setting the same axial component, and they "
+                    f"need not agree. Give one.")
+            condition.Vz = vv_from_alpha_deg(degrees, mu_x, float(rpm), radius)
+        else:
+            if mu_x:
+                raise ValueError(
+                    f"{label}: 'alpha_disk_deg' and a nonzero 'mu_x' are two "
+                    f"ways of setting the same in-plane component, and they "
+                    f"need not agree. Give one.")
+            # abs(Vz): the tilt has a sign of its own, so taking the
+            # signed value would cancel it. Same reason as in
+            # `bemt.resolve_advance_velocity`.
+            condition.mu_x = V_to_mu(
+                float(np.tan(np.deg2rad(degrees))) * abs(Vz),
+                float(rpm), radius)
+        delattr(condition, models.ALPHA_ALIAS_ATTRIBUTE)
+        converted += 1
+    return converted
 
 
 def save_project(project: Project) -> None:

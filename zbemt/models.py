@@ -250,6 +250,9 @@ def _from_jsonable(cls: type, raw: Any, is_propeller: bool = False) -> Any:
     if cls is FlightCondition and isinstance(raw, dict):
         legacy_warned = warn_legacy_nomenclature(raw, is_propeller)
         raw = nomenclature.from_display_keys(raw, is_propeller)
+    alpha_alias = None
+    if cls in (FlightCondition, ManeuverPoint) and isinstance(raw, dict):
+        raw, alpha_alias = _take_alpha_alias(raw)
     if isinstance(raw, dict) and not legacy_warned:
         # Skipped when the old-nomenclature warning already fired: the leftover
         # keys are the OLD names, and a second warning calling them "fields
@@ -264,7 +267,46 @@ def _from_jsonable(cls: type, raw: Any, is_propeller: bool = False) -> Any:
         ftype = type_hints[f.name]
         kwargs[f.name] = _coerce_field(ftype, _from_jsonable_scalar(val),
                                        is_propeller)
-    return cls(**kwargs)
+    built = cls(**kwargs)
+    if alpha_alias is not None:
+        # Parked on the instance, NOT stored as a field. Resolving it
+        # needs the rotor RADIUS, which lives in another file
+        # (`geom.bemt`) and is unknown here; `api.load_project` finishes
+        # the job once the geometry is in hand. Because it is not a
+        # field it never reaches `_to_jsonable`, so the file still holds
+        # `mu_x` and `Vz` alone and there is no second stored form of
+        # one axis.
+        setattr(built, ALPHA_ALIAS_ATTRIBUTE, alpha_alias)
+    return built
+
+
+#: Where `_from_jsonable` parks an unresolved angle for
+#: `api.resolve_alpha_aliases` to finish.
+ALPHA_ALIAS_ATTRIBUTE = "_alpha_alias_deg"
+
+#: The two names for the tilt of the stream. `alpha_rotor` is measured
+#: from the DISK PLANE, `alpha_disk` from the SHAFT, so they are not the
+#: same number and a file that gives both is stating one axis twice.
+ALPHA_ALIAS_KEYS = ("alpha_rotor_deg", "alpha_disk_deg")
+
+
+def _take_alpha_alias(raw: dict):
+    """Removes an angle alias from a condition dict and returns it.
+
+    Removed rather than left in place, so `warn_unknown_keys` does not
+    report as an unknown field a key that IS understood. Returns the
+    dict to build from, and either ``None`` or ``(key, degrees)``."""
+    present = [k for k in ALPHA_ALIAS_KEYS if raw.get(k) is not None]
+    if not present:
+        return raw, None
+    stripped = {k: v for k, v in raw.items() if k not in ALPHA_ALIAS_KEYS}
+    if len(present) > 1:
+        raise ValueError(
+            "A flight condition gives both 'alpha_rotor_deg' and "
+            "'alpha_disk_deg'. They are the same tilt measured from two "
+            "different references (the disk plane and the shaft), so with "
+            "both, neither velocity component sets the scale. Give one.")
+    return stripped, (present[0], float(raw[present[0]]))
 
 
 def warn_legacy_nomenclature(raw: dict, is_propeller: bool) -> bool:

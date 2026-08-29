@@ -7055,11 +7055,22 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       rotor project and <code>mu_z</code> in a propeller project, inside every condition of
                       <code>saved_cases.bemt</code> and <code>batches.bemt</code>. The default is $0.0$. The file always
                       stores the ratio, whichever
-                      option was used to enter it. The advance ratio, the speed in m/s and the angle exist only in the
-                      window, which converts them to the ratio before saving. There is therefore no key named after
-                      them: a file containing <code>J_x</code> or <code>alpha_disk</code> has that entry reported as an
-                      unknown key and ignored, and the field falls back to its default of $0.0$. When editing a file by
-                      hand, convert the value to the ratio first.
+                      option was used to enter it. The advance ratio and the speed in m/s exist only in the
+                      window, which converts them to the ratio before saving, so there is no key named after them: a
+                      file containing <code>J_x</code> has that entry reported as an unknown key and ignored, and the
+                      field falls back to its default of $0.0$. When editing a file by hand, convert those to the ratio
+                      first.</p>
+
+                    <p>The ANGLE is the exception, and the only one. A condition may set
+                      <code>alpha_disk_deg</code> instead of the ratio, exactly as the command line accepts
+                      <code>--alpha-disk-deg</code>. It is measured from the shaft, so it is the along-shaft component
+                      that is the known one and the in-plane one that is derived from it:
+                      $\mu_x=\tan(\alpha_{disk})\,|V_z|/(\Omega R)$. The angle is an input form only: what the file
+                      keeps after the next save is still the ratio, so no component ever has two stored values that can
+                      disagree. Because the conversion needs the tip speed, a condition that gives the angle must also
+                      give an <code>rpm</code>, and the project's geometry must have a radius. A condition that gives
+                      the angle together with a nonzero ratio, or that gives both angles at once, is REFUSED when the
+                      project is opened rather than resolved by guessing which of the two was meant.
                     </p>
 
                     <p><span class="cli">CLI</span>: define in-plane flow using exactly one of
@@ -7134,10 +7145,24 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <p><span class="bemt">.bemt</span>: stored as a speed in m/s, under the key <code>Vz</code>
                       in a rotor project and <code>Vx</code> in a propeller project, inside every condition of
                       <code>saved_cases.bemt</code> and <code>batches.bemt</code>. The default is $0.0$. As on the first
-                      row, only this one form is stored: there is no key for the angle or for either ratio, and a file
-                      that uses one of those names has the field ignored and falls back to the default. A case that was
-                      set up using an angle must therefore be written to the file as the velocity component it produced,
-                      which the interface shows as soon as the dropdown is switched back.
+                      row, only this one form is stored, and there is no key for either ratio: a file that uses one of
+                      those names has the field ignored and falls back to the default.</p>
+
+                    <p>The ANGLE may be given, and is the only alternative form the file accepts. A condition may set
+                      <code>alpha_rotor_deg</code> instead of the velocity, exactly as the command line accepts
+                      <code>--alpha-rotor-deg</code>. It is measured from the disk plane, so the in-plane component is
+                      the known one and the along-shaft component is derived from it:
+                      $V_z=-\tan(\alpha_{rotor})\,\mu_x\,\Omega R$. The minus sign is the convention stated above,
+                      and it is what makes a positive $\alpha_{rotor}$ &mdash; a stream arriving from below the disk
+                      &mdash; a descent. The angle is an input form only: after the next save the file holds the
+                      velocity again, so the component never has two stored values that can disagree. The conversion
+                      needs the tip speed, so a condition that gives the angle must also give an <code>rpm</code>, and
+                      the project's geometry must have a radius. A condition that gives the angle together with a
+                      nonzero <code>Vz</code>, or that gives both angles at once, is REFUSED when the project is opened
+                      rather than resolved by guessing which of the two was meant. This holds in every file that
+                      carries a flight condition, not only the two named above: <code>maneuvers.bemt</code>,
+                      <code>optimizations.bemt</code>, <code>derivatives.bemt</code> and <code>comparisons.bemt</code>
+                      read the angle the same way.
                     </p>
 
                     <p><span class="cli">CLI</span>: define along-shaft flow using exactly one of
