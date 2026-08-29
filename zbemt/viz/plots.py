@@ -565,6 +565,33 @@ def _colorbar_axis(ax, r_max: float, compact: bool):
                           fx(x0 + width) - fx(x0), fy(r_max) - fy(-r_max)])
 
 
+def _structured_triangles(rows: int, cols: int) -> np.ndarray:
+    """Triangles of a structured (rows x cols) grid, C-ordered.
+
+    Two per cell, which is exactly what a Delaunay of the same nodes
+    would find and what `matplotlib._qhull.delaunay` was being asked to
+    rediscover 16 times per disk-map redraw, at about 0.45 s each. Here
+    it is index arithmetic.
+
+    Node (i, j) of a C-ordered ravel is at ``i * cols + j``, so the cell
+    whose corners are (i, j), (i, j+1), (i+1, j) and (i+1, j+1) splits
+    into the two triangles below. The winding is consistent across the
+    whole grid, which `tripcolor` needs and a Delaunay does not
+    guarantee.
+    """
+    if rows < 2 or cols < 2:
+        return np.zeros((0, 3), dtype=np.int32)
+    i, j = np.meshgrid(np.arange(rows - 1), np.arange(cols - 1),
+                       indexing="ij")
+    top_left = (i * cols + j).ravel()
+    top_right = top_left + 1
+    bottom_left = top_left + cols
+    bottom_right = bottom_left + 1
+    lower = np.column_stack([top_left, top_right, bottom_left])
+    upper = np.column_stack([top_right, bottom_right, bottom_left])
+    return np.vstack([lower, upper]).astype(np.int32)
+
+
 def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
                    cmap: str = "viridis", show_r_guides: bool = True,
                    mask_reverse: bool = True, log_color: bool = False,
@@ -677,8 +704,12 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
         extend = "neither"
 
     contour_kwargs = dict(levels=levels, cmap=cmap, norm=norm, extend=extend)
+    # The grid's OWN triangles, not a Delaunay of its nodes. See
+    # `_structured_triangles`: this is where the disk map's cost was.
+    triangles = _structured_triangles(*X.shape)
     if reverse_c is not None:
-        triang = mtri.Triangulation(X.ravel(), Y.ravel())
+        triang = mtri.Triangulation(X.ravel(), Y.ravel(),
+                                     triangles=triangles)
         node_reverse = reverse_c.ravel()
         # Masks the triangle if ANY of its 3 vertices are in reverse
         # flow. This leaves a clean "hole" in the region, like MATLAB's
@@ -691,7 +722,8 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
         # COMPLEMENTARY mask on the same triangulation, so the "hole"
         # in the main contour is never left empty or white.
         if np.any(tri_mask):
-            triang_reverse = mtri.Triangulation(X.ravel(), Y.ravel(), triangles=triang.triangles)
+            triang_reverse = mtri.Triangulation(
+                X.ravel(), Y.ravel(), triangles=triang.triangles)
             triang_reverse.set_mask(~tri_mask)
             ax.tripcolor(triang_reverse, facecolors=np.zeros(triang.triangles.shape[0]),
                          cmap=ListedColormap([_REVERSE_MASK_COLOR]),
@@ -700,8 +732,11 @@ def plot_disk_map(maps: dict, field: str = "lambda_i", ax=None, fname=None,
         triang.set_mask(tri_mask)
         cf = ax.tricontourf(triang, Z_c.ravel(), zorder=_ZORDER_FIELD, **contour_kwargs)
     else:
-        cf = ax.tricontourf(X.ravel(), Y.ravel(), Z_c.ravel(),
-                            zorder=_ZORDER_FIELD, **contour_kwargs)
+        # Same reason as above: passing the coordinates alone makes
+        # `tricontourf` build its own Delaunay internally.
+        cf = ax.tricontourf(
+            mtri.Triangulation(X.ravel(), Y.ravel(), triangles=triangles),
+            Z_c.ravel(), zorder=_ZORDER_FIELD, **contour_kwargs)
     ax.set_aspect("equal", adjustable="box")
     label, unit, _ = _DISK_FIELD_META.get(field, (field, "-", False))
     # NO title per disk (see `describe_condition`): with many disks on the

@@ -49,26 +49,81 @@ def _ancestor_scroll_area(widget: QWidget) -> QAbstractScrollArea | None:
     return None
 
 
+#: Marks the widget the user last CLICKED into. Kept as an attribute on
+#: the widget rather than in a set held here, so a deleted widget takes
+#: it with it and no reference to a dead QObject survives.
+_CLICKED = "_wheel_guard_clicked"
+
+
 class WheelGuard(QObject):
-    """Application-wide event filter: discards the wheel on an unfocused
-    field and returns it to the surrounding scrollable scroll_area."""
+    """Application-wide event filter.
+
+    The wheel edits a field only when the user CLICKED into that field.
+    Otherwise the event is handed back to the page, which scrolls.
+    """
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        if event.type() != QEvent.Type.Wheel:
+        kind = event.type()
+
+        # --- keep every sensitive field off `WheelFocus` ---------------
+        # Done here, at polish time, instead of by a sweep over one
+        # window: a sweep has to be called for each window and re-called
+        # for every field built later, and the one call that existed ran
+        # before the widget tree was attached, so it adjusted nothing.
+        if kind == QEvent.Type.Polish and isinstance(obj, _SENSITIVE_WIDGETS):
+            if obj.focusPolicy() == Qt.FocusPolicy.WheelFocus:
+                obj.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            return False
+
+        # --- remember the field the user actually clicked into ---------
+        if kind == QEvent.Type.MouseButtonPress:
+            if isinstance(obj, _SENSITIVE_WIDGETS):
+                setattr(obj, _CLICKED, True)
+            return False
+        # Leaving the field ends the permission. Without this, one click
+        # early in a session would keep that field wheel-editable for as
+        # long as it lived.
+        if kind == QEvent.Type.FocusOut and isinstance(obj, _SENSITIVE_WIDGETS):
+            setattr(obj, _CLICKED, False)
+            return False
+
+        if kind != QEvent.Type.Wheel:
             return False
         if not isinstance(obj, _SENSITIVE_WIDGETS):
             return False
-        # Open combo (the dropdown list) should scroll normally: there the
-        # wheel navigates the list, it doesn't change the value by accident.
+        # An OPEN combo (its dropdown list) scrolls normally: there the
+        # wheel navigates the list, it does not change the value blindly.
         if isinstance(obj, QComboBox) and obj.view().isVisible():
             return False
-        if obj.hasFocus():
-            return False   # deliberate gesture: a focused field edits as usual
+        # The deliberate gesture: clicked into, and still there.
+        if obj.hasFocus() and getattr(obj, _CLICKED, False):
+            return False
 
-        scroll_area = _ancestor_scroll_area(obj)
-        if scroll_area is not None:
-            QApplication.sendEvent(scroll_area.viewport(), event)
+        _hand_back_to_the_page(obj, event)
         return True   # never reaches the field -- no value changes
+
+
+def _hand_back_to_the_page(widget: QWidget, event: QEvent) -> None:
+    """Gives the wheel to whatever would have scrolled.
+
+    The nearest scrollable ancestor first, because that is the page the
+    user is scrolling. When there is none -- the Results tab, the Design
+    Optimization window and the Transient window have no field inside a
+    scroll area -- the event walks UP THE PARENT CHAIN instead of being
+    dropped, which is how Qt propagates a wheel nobody handled. Dropping
+    it is what made the wheel do nothing at all over those 37 controls.
+    """
+    scroll_area = _ancestor_scroll_area(widget)
+    if scroll_area is not None:
+        QApplication.sendEvent(scroll_area.viewport(), event)
+        return
+    parent = widget.parentWidget()
+    while parent is not None:
+        event.setAccepted(False)
+        QApplication.sendEvent(parent, event)
+        if event.isAccepted():
+            return
+        parent = parent.parentWidget()
 
 
 def install_wheel_guard(app: QApplication) -> WheelGuard:
@@ -85,6 +140,11 @@ def adjust_focus_policy(root: QWidget) -> int:
     ``root``. Without this, the first turn of the wheel would give focus
     to the field and the second would already edit the value -- the guard
     above would be bypassed by the very gesture it exists to neutralize.
+
+    `WheelGuard` now does the same thing per widget, when the widget is
+    polished, which is what actually covers every window. This remains
+    for an explicit sweep over a tree that is already built, and it is
+    what a test uses to assert that a window is clean.
 
     Returns how many widgets were adjusted."""
     adjusted = 0

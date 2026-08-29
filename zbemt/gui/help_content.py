@@ -7,6 +7,1071 @@ and typical range. Enum fields also list each option with a short description.
 from __future__ import annotations
 
 FIELD_HELP: dict[str, dict] = {
+    "batches": {
+        "title": "Saved batch",
+        "definition": (
+            "The named queue of conditions stored with the project.\n\n"
+            "A batch is what makes a set of runs repeatable: the same "
+            "queue, re-run after a change to the blade, is the only way "
+            "to say the change did anything."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Selecting one replaces the queue on screen. Saving under an existing name overwrites that batch.",
+        "range": "any name in the project",
+        "options": None,
+        "anchor": "cap-6-4",
+    },
+    "replace_queue": {
+        "title": "Replace the queue when generating",
+        "definition": (
+            "Whether generating a sweep replaces the queue or adds to "
+            "it.\n\n"
+            "Adding is how a queue is built from more than one sweep: a "
+            "hover point, then a forward-flight sweep, then a descent, "
+            "all in one batch."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Checked, each generation starts a fresh queue. Unchecked, the generated cases are appended, so a second generation with the same axes doubles the queue rather than rebuilding it.",
+        "range": "checked for a single sweep",
+        "options": None,
+        "anchor": "cap-6-3",
+    },
+    "outdir": {
+        "title": "Output folder",
+        "definition": (
+            "Where the exported tables and figures are written.\n\n"
+            "A batch produces one CSV and, depending on the plot "
+            "switches, a large number of images, so it needs a "
+            "destination of its own."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Left empty it defaults to a folder inside the project, so the results travel with the project they belong to. An absolute path sends them anywhere.",
+        "range": "any writable folder",
+        "options": None,
+        "anchor": "cap-6-5",
+    },
+    "axis_quantity": {
+        "title": "Axis quantity",
+        "definition": (
+            "Which flight-condition quantity this axis of the factorial "
+            "sweeps.\n\n"
+            "A factorial builds the FULL CROSS PRODUCT: every value of "
+            "this axis is combined with every value of the others."),
+        "unit": "that of the chosen quantity",
+        "equation": r"N_{cases} = \prod_i N_i",
+        "effect": "Two axes of ten values each is a hundred cases, not twenty. Adding a third axis of five makes it five hundred. The queue below shows what was actually built, and it is worth reading before running.",
+        "range": "each axis must name a different quantity",
+        "options": None,
+        "anchor": "cap-6-1",
+    },
+    "axis_unit": {
+        "title": "Axis unit",
+        "definition": (
+            "The form the values on this axis are written in.\n\n"
+            "The same physical condition can be stated as a ratio, a "
+            "speed or an angle; this says which one the list below "
+            "uses."),
+        "unit": "—",
+        "equation": None,
+        "effect": "It converts what is typed, not what is stored: the queue always holds the canonical quantity. A dimensional or angular unit needs the rpm and the radius, because the conversion runs through the tip speed.",
+        "range": "depends on the chosen quantity",
+        "options": None,
+        "anchor": "cap-6-1",
+    },
+    "axis_values": {
+        "title": "Axis values",
+        "definition": (
+            "The values this axis takes, separated by commas.\n\n"
+            "This list is what the factorial actually uses. The range "
+            "controls beside it are a convenience that WRITES into this "
+            "list; they are not read directly."),
+        "unit": "that of the axis unit",
+        "equation": None,
+        "effect": "Editing the list by hand is the way to cluster points where the answer changes fastest, which an evenly spaced range cannot do.",
+        "range": "for example 0.0, 0.05, 0.1, 0.15",
+        "options": None,
+        "anchor": "cap-6-1",
+    },
+    "range_from": {
+        "title": "Range start",
+        "definition": (
+            "First value the fill button writes into this axis's list."),
+        "unit": "that of the axis unit",
+        "equation": None,
+        "effect": "Nothing happens until the fill button is pressed: this control does not change the sweep by itself, it only prepares what fill will write.",
+        "range": "within the model's valid band",
+        "options": None,
+        "anchor": "cap-6-1",
+    },
+    "range_to": {
+        "title": "Range end",
+        "definition": (
+            "Last value the fill button writes into this axis's list."),
+        "unit": "that of the axis unit",
+        "equation": None,
+        "effect": "Reached exactly when the step divides the interval evenly, and otherwise the last value written is the largest one that still fits inside it.",
+        "range": "within the model's valid band",
+        "options": None,
+        "anchor": "cap-6-1",
+    },
+    "range_step": {
+        "title": "Range step",
+        "definition": (
+            "Spacing between consecutive values of the generated "
+            "range.\n\n"
+            "It sets the case count, and the case count sets the run "
+            "time."),
+        "unit": "that of the axis unit",
+        "equation": r"N = \left\lfloor\dfrac{x_{to}-x_{from}}{\Delta x}\right\rfloor + 1",
+        "effect": "Halving the step doubles the number of cases on this axis, and multiplies the total by two on every other axis as well.",
+        "range": "coarse first, refined once the shape is known",
+        "options": None,
+        "anchor": "cap-6-1",
+    },
+    "plots": {
+        "title": "Exported plots",
+        "definition": (
+            "Which figures are written for the batch.\n\n"
+            "Each one answers a different question: how the "
+            "coefficients move across the queue, what one blade does "
+            "through a revolution, how the load is distributed along "
+            "the span, and what the disk looks like from above."),
+        "unit": "—",
+        "equation": None,
+        "effect": "The disk maps are by far the most expensive, because they are one image per field per condition. On a long queue, switching them off is the difference between a quick batch and a slow one.",
+        "range": "any combination, including none",
+        "options": None,
+        "anchor": "cap-6-5",
+    },
+    "save_csv": {
+        "title": "Save CSV",
+        "definition": (
+            "Writes the summary table of the batch as a comma-separated "
+            "file.\n\n"
+            "One row per condition and one column per summary quantity, "
+            "under the axis letters of the project's mode."),
+        "unit": "—",
+        "equation": None,
+        "effect": "It is the export the results are usually read from outside the program. The figures are a view of the same numbers; the CSV is the numbers.",
+        "range": "on for any batch whose results will be used elsewhere",
+        "options": None,
+        "anchor": "cap-6-5",
+    },
+    "trim_mode": {
+        "title": "Trim mode",
+        "definition": (
+            "What the solver holds fixed while it solves.\n\n"
+            "Without a trim, the collective written in the condition is "
+            "the answer's input and the thrust is its output. With one, "
+            "the roles swap: the thrust is stated and the collective is "
+            "solved for."),
+        "unit": "—",
+        "equation": r"\text{solve}\;\theta_0\;\text{such that}\;T(\theta_0)=T_{target}",
+        "effect": "It changes what a comparison MEANS. Two rotors at the same collective are being compared at two different thrusts; at the same thrust they are being compared at two different collectives, which is nearly always the intended question.",
+        "range": "off | thrust | a coefficient",
+        "options": None,
+        "anchor": "cap-5-5",
+    },
+    "target_kind": {
+        "title": "Trim target quantity",
+        "definition": (
+            "Which quantity the trim drives to its target.\n\n"
+            "Thrust is dimensional and belongs to one rotor at one air "
+            "density. The coefficient is non-dimensional and is what "
+            "makes two rotors of different size comparable at all."),
+        "unit": "—",
+        "equation": r"C_T=\dfrac{T}{\rho A(\Omega R)^2}",
+        "effect": "Trimming to a thrust in newtons compares rotors carrying the same weight. Trimming to a thrust coefficient compares them at the same blade loading, which is the fairer comparison between different diameters.",
+        "range": "thrust [N] | thrust coefficient",
+        "options": None,
+        "anchor": "cap-5-5",
+    },
+    "target_value": {
+        "title": "Trim target value",
+        "definition": (
+            "The number the trim drives the chosen quantity to.\n\n"
+            "It has to be reachable: a target above what the blade can "
+            "produce before it stalls has no collective that satisfies "
+            "it."),
+        "unit": "N, or dimensionless",
+        "equation": None,
+        "effect": "The solver iterates the collective until the quantity matches. An unreachable target does not fail silently: the run reports that it did not converge, and the collective it stopped at.",
+        "range": "within what the rotor can produce unstalled",
+        "options": None,
+        "anchor": "cap-5-5",
+    },
+    # ---- Geometry Designer (chapter 13) ------------------------------
+    "vsweep_param": {
+        "title": "Swept geometry parameter",
+        "definition": (
+            "Which property of the blade is varied across the generated "
+            "variants.\n\n"
+            "A variation study answers one question at a time: what "
+            "happens when THIS changes and nothing else does."),
+        "unit": "that of the chosen parameter",
+        "equation": None,
+        "effect": "Every generated row differs from the base geometry in this parameter alone, so any difference in the result belongs to it and not to a second change made at the same time.",
+        "range": "any parameter the generator accepts",
+        "options": None,
+        "anchor": "designer-variants",
+    },
+    "vsweep_start": {
+        "title": "First generated value",
+        "definition": "The lower bound of the generated sweep, included.",
+        "unit": "that of the swept parameter",
+        "equation": r"x_k = x_{start} + k\,\dfrac{x_{end}-x_{start}}{N-1}",
+        "effect": "Choose it and the end so the base geometry sits inside the range: a sweep that never reaches the current design gives no reference point to read the others against.",
+        "range": "physically buildable values",
+        "options": None,
+        "anchor": "designer-variants",
+    },
+    "vsweep_end": {
+        "title": "Last generated value",
+        "definition": "The upper bound of the generated sweep, included.",
+        "unit": "that of the swept parameter",
+        "equation": None,
+        "effect": "Included exactly, so a sweep of N rows lands on this value rather than one step short of it.",
+        "range": "physically buildable values",
+        "options": None,
+        "anchor": "designer-variants",
+    },
+    "vsweep_count": {
+        "title": "Number of generated variants",
+        "definition": (
+            "How many evenly spaced values are produced between the "
+            "bounds."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Each variant is a full solve at every condition, so this multiplies the run time directly. Three points show a trend; they do not show a maximum, which needs at least five.",
+        "range": "3 to 15",
+        "options": None,
+        "anchor": "designer-variants",
+    },
+    "vsweep_values": {
+        "title": "Explicit values",
+        "definition": (
+            "A comma-separated list used INSTEAD of the evenly spaced "
+            "sweep.\n\n"
+            "An even sweep spends the same effort everywhere. A real "
+            "study usually wants points clustered where the answer is "
+            "changing fastest."),
+        "unit": "that of the swept parameter",
+        "equation": None,
+        "effect": "When it is not empty it overrides Start, End and Count. Leave it empty to use the even sweep.",
+        "range": "for example 0.04, 0.06, 0.07, 0.075",
+        "options": None,
+        "anchor": "designer-variants",
+    },
+    "gen_family": {
+        "title": "Planform family",
+        "definition": (
+            "The shape of the generated blade.\n\n"
+            "Each family is a different way of spending the same blade "
+            "area along the span, and the span is where the local "
+            "velocity varies as r."),
+        "unit": "—",
+        "equation": r"\sigma = \dfrac{N_b\,\bar{c}}{\pi R}",
+        "effect": "Rectangular keeps one chord throughout and is the reference case. Tapered moves area inboard, cutting the tip loading where the velocity is highest. Elliptic approaches the minimum induced power for a given thrust.",
+        "range": "rectangular | tapered | elliptic",
+        "options": None,
+        "anchor": "designer-variants",
+    },
+    "sweep_axis": {
+        "title": "Swept flight quantity",
+        "definition": (
+            "The quantity carried through evenly spaced values to build "
+            "the list of conditions.\n\n"
+            "It is the x axis of every curve the comparison draws."),
+        "unit": "that of the chosen quantity",
+        "equation": None,
+        "effect": "Sweeping the advance ratio gives the forward-flight curves; sweeping the collective gives the thrust curves; sweeping the rotational speed gives the tip-speed trend.",
+        "range": "mu_x | collective | rpm | the axial component",
+        "options": None,
+        "anchor": "designer-conditions",
+    },
+    "sweep_start": {
+        "title": "First swept value",
+        "definition": "The lower bound of the condition sweep, included.",
+        "unit": "that of the swept quantity",
+        "equation": None,
+        "effect": "It sets where every curve begins. Starting at zero includes hover or the static case, which is often the only point with an independent reference to check against.",
+        "range": "within the model's valid band",
+        "options": None,
+        "anchor": "designer-conditions",
+    },
+    "sweep_stop": {
+        "title": "Last swept value",
+        "definition": "The upper bound of the condition sweep, included.",
+        "unit": "that of the swept quantity",
+        "equation": None,
+        "effect": "Included exactly. Pushing it past the point where the blade stalls or the momentum theory loses its solution produces numbers, but not answers.",
+        "range": "within the model's valid band",
+        "options": None,
+        "anchor": "designer-conditions",
+    },
+    "sweep_count": {
+        "title": "Number of swept conditions",
+        "definition": (
+            "How many evenly spaced conditions the sweep produces."),
+        "unit": "—",
+        "equation": r"N_{solves} = N_{variants}\times N_{conditions}",
+        "effect": "It multiplies with the variant count, so a five-variant study over twenty conditions is a hundred solves. Refine it once the shape of the curve is known, not before.",
+        "range": "5 to 25",
+        "options": None,
+        "anchor": "designer-conditions",
+    },
+    "ranking_field": {
+        "title": "Ranking quantity",
+        "definition": (
+            "The summary quantity the variants are ordered by.\n\n"
+            "A comparison has to choose what 'better' means before it "
+            "can rank anything, and no single quantity means it in every "
+            "study."),
+        "unit": "that of the chosen quantity",
+        "equation": None,
+        "effect": "The ranking is on ONE quantity at the reference condition. A variant that wins on the figure of merit may lose on torque, which is exactly what the full table beside the ranking is for.",
+        "range": "any summary key the results carry",
+        "options": None,
+        "anchor": "designer-run",
+    },
+    "ranking_condition": {
+        "title": "Reference condition of the ranking",
+        "definition": (
+            "Which of the swept conditions the ranking reads.\n\n"
+            "The ordering is not the same at every condition: a blade "
+            "that is best in hover is frequently not the one that is "
+            "best in cruise, and that reversal is usually the finding."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Changing it re-orders the table without re-running anything, because every variant was already solved at every condition.",
+        "range": "any condition in the sweep",
+        "options": None,
+        "anchor": "designer-run",
+    },
+    "root_chord_norm": {
+        "title": "Root chord",
+        "definition": (
+            "Chord at the root station of the generated blade, as c/R.\n\n"
+            "Together with the tip chord it fixes the taper, and taper "
+            "is how area is moved inboard, away from the fast-moving "
+            "tip."),
+        "unit": "—",
+        "equation": r"c(r) = c_{root} + (c_{tip}-c_{root})\,\bar{r}",
+        "effect": "A wider root raises solidity and thrust at the same collective, at stations where the local velocity is low, so it buys thrust more cheaply in power than widening the tip would.",
+        "range": "0.02 to 0.2 of the radius",
+        "options": None,
+        "anchor": "designer-variants",
+    },
+    "max_chord_norm": {
+        "title": "Maximum chord",
+        "definition": (
+            "The peak chord of the elliptic planform, as c/R, reached at "
+            "mid span.\n\n"
+            "An elliptic blade has no free root or tip chord: the whole "
+            "distribution follows from this one number."),
+        "unit": "—",
+        "equation": r"c(\bar{r}) = c_{max}\sqrt{1-\bar{r}^{\,2}}",
+        "effect": "It scales the whole planform, so it sets the solidity and with it the thrust at a given collective. The elliptic shape is what approaches the minimum induced power for that thrust.",
+        "range": "0.05 to 0.25 of the radius",
+        "options": None,
+        "anchor": "designer-variants",
+    },
+    # ---- the Transient builder (15.2) --------------------------------
+    "build_case_a": {
+        "title": "Start condition of the ramp",
+        "definition": (
+            "The saved case the trajectory begins at.\n\n"
+            "The builder is a shortcut for the common transient: hold "
+            "one condition, move to another over a stated time, hold "
+            "that one."),
+        "unit": "—",
+        "equation": None,
+        "effect": "It becomes the first node of the maneuver. Everything the case carries travels with it: the advance ratio, the collective, the cyclic and the rotational speed.",
+        "range": "any case saved in the project",
+        "options": None,
+        "anchor": "cap-transiente-2",
+    },
+    "build_case_b": {
+        "title": "End condition of the ramp",
+        "definition": (
+            "The saved case the trajectory finishes at."),
+        "unit": "—",
+        "equation": None,
+        "effect": "It becomes the last node. The two cases may differ in more than one quantity at once, and then all of them ramp together, which is a maneuver rather than a parameter study.",
+        "range": "any case saved in the project",
+        "options": None,
+        "anchor": "cap-transiente-2",
+    },
+    # ---- states perturbed by the derivative study (16.2) -------------
+    "u": {
+        "title": "u — longitudinal speed",
+        "definition": (
+            "Perturbation of the speed along the vehicle's x axis.\n\n"
+            "It changes the IN-PLANE component of the free stream, so "
+            "the disk sees a different advance ratio and the advancing "
+            "and retreating sides become more unequal."),
+        "unit": "m/s",
+        "equation": r"\partial(\cdot)/\partial u",
+        "effect": "Gives the speed-damping and speed-stability derivatives. With a hub arm above the CG, the drag change it produces is what pitches the aircraft, and therefore what drives the long-period mode.",
+        "range": "step of about 0.1 to 1 m/s",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    "v": {
+        "title": "v — lateral speed",
+        "definition": (
+            "Perturbation of the speed along the vehicle's y axis.\n\n"
+            "It rotates the in-plane free stream rather than changing "
+            "its size, which is why it is entered as a sideslip on the "
+            "condition."),
+        "unit": "m/s",
+        "equation": r"\partial(\cdot)/\partial v",
+        "effect": "Gives the lateral force and rolling-moment derivatives. In hover they are near zero by symmetry; in forward flight they are not, and that asymmetry is what couples roll to sideslip.",
+        "range": "step of about 0.1 to 1 m/s",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    "w": {
+        "title": "w — axial speed",
+        "definition": (
+            "Perturbation of the speed along the shaft.\n\n"
+            "It is the component the induced velocity adds to, so it "
+            "moves the rotor along its own momentum-theory curve."),
+        "unit": "m/s",
+        "equation": r"\partial T/\partial w",
+        "effect": "Gives the heave damping, the strongest and most reliable derivative of a rotor. It is negative in every normal state: climb into the flow and the thrust falls, which is what makes heave stable.",
+        "range": "step of about 0.1 to 1 m/s",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    "p": {
+        "title": "p — roll rate",
+        "definition": (
+            "Perturbation of the roll rate of the hub.\n\n"
+            "A rate, not a displacement: the hub is rolling while the "
+            "blade goes round, so each blade meets a different "
+            "out-of-plane velocity depending on where it is in azimuth."),
+        "unit": "rad/s",
+        "equation": r"\partial M/\partial p",
+        "effect": "Gives the roll damping. On a blade with flap freedom it also produces a pitching moment, the classical cross-coupling whose phase lag is set by the Lock number.",
+        "range": "step of about 0.01 to 0.1 rad/s",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    "q": {
+        "title": "q — pitch rate",
+        "definition": (
+            "Perturbation of the pitch rate of the hub.\n\n"
+            "The counterpart of p about the other in-plane axis, and it "
+            "reaches the blade the same way: as a 1/rev variation of the "
+            "out-of-plane velocity."),
+        "unit": "rad/s",
+        "equation": r"\partial M/\partial q",
+        "effect": "Gives the pitch damping, and the roll moment that comes with it. The two cross-derivatives are what make a helicopter answer a pitch input partly in roll.",
+        "range": "step of about 0.01 to 0.1 rad/s",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    "Omega": {
+        "title": "Ω — rotor speed",
+        "definition": (
+            "Perturbation of the rotational speed.\n\n"
+            "Unlike the others it rescales EVERYTHING at once: the tip "
+            "speed, the dynamic pressure at every station, and the "
+            "advance ratio the condition is stated at."),
+        "unit": "rpm",
+        "equation": r"\partial Q/\partial \Omega",
+        "effect": "Gives the derivative an engine or governor model would need. Because it changes the reference scale, the non-dimensional coefficients move even when the dimensional forces barely do.",
+        "range": "step of about 1 to 10 rpm",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    # ---- controls ----------------------------------------------------
+    "theta_0": {
+        "title": "θ₀ — collective",
+        "definition": (
+            "Perturbation of the collective pitch.\n\n"
+            "A rigid offset added to the twist at every station, so it "
+            "moves the whole blade's angle of attack together."),
+        "unit": "deg",
+        "equation": r"\partial T/\partial \theta_0",
+        "effect": "The primary thrust control, and the largest column of the B matrix. It falls off as the blade approaches stall, which is one of the few places the derivative itself stops being constant.",
+        "range": "step of about 0.1 to 0.5 deg",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    "theta_1c": {
+        "title": "θ₁c — cosine cyclic",
+        "definition": (
+            "Perturbation of the cosine harmonic of the cyclic pitch.\n\n"
+            "Unlike the collective it varies with azimuth, so it does "
+            "not change the total thrust much: it TILTS the disk."),
+        "unit": "deg",
+        "equation": r"\theta(\psi)=\theta_0+\theta_{1c}\cos\psi+\theta_{1s}\sin\psi",
+        "effect": "Needs a blade with flap freedom. On a rigid blade the pitch change produces no disk tilt and the derivative is meaningless, which is why the control is disabled there.",
+        "range": "step of about 0.1 to 0.5 deg",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    "theta_1s": {
+        "title": "θ₁s — sine cyclic",
+        "definition": (
+            "Perturbation of the sine harmonic of the cyclic pitch.\n\n"
+            "The other half of the disk tilt, ninety degrees of azimuth "
+            "away from the cosine one."),
+        "unit": "deg",
+        "equation": r"\theta(\psi)=\theta_0+\theta_{1c}\cos\psi+\theta_{1s}\sin\psi",
+        "effect": "The blade answers a pitch input about a quarter of a revolution later, so a sine input tilts the disk mostly in the cosine direction. That phase lag is the reason the two cyclic columns are strongly cross-coupled.",
+        "range": "step of about 0.1 to 0.5 deg",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    # ---- outputs measured (16.5) -------------------------------------
+    "Thrust": {
+        "title": "Thrust",
+        "definition": (
+            "Total force along the shaft, summed over the blades and "
+            "averaged over one revolution."),
+        "unit": "N",
+        "equation": r"T=\int_{0}^{R} dT",
+        "effect": "The output most derivatives are read against. Its derivative with respect to w is the heave damping and its derivative with respect to the collective is the primary control power.",
+        "range": "—",
+        "options": None,
+        "anchor": "cap-stability-run",
+    },
+    "H": {
+        "title": "H — in-plane drag force",
+        "definition": (
+            "In-plane force along the longitudinal axis: the rotor's "
+            "drag in the disk plane."),
+        "unit": "N",
+        "equation": r"H=\int (dD\sin\psi + dL\,\ldots)",
+        "effect": "Small compared with the thrust and decisive anyway: with a hub above the CG it is the force whose arm pitches the aircraft, so it carries the speed-to-pitch coupling.",
+        "range": "—",
+        "options": None,
+        "anchor": "cap-stability-run",
+    },
+    "Y": {
+        "title": "Y — in-plane side force",
+        "definition": (
+            "In-plane force along the lateral axis, the companion of H "
+            "about the other axis."),
+        "unit": "N",
+        "equation": None,
+        "effect": "Near zero in hover by symmetry. In forward flight it is what a sideslip produces, and with a hub arm it rolls the aircraft.",
+        "range": "—",
+        "options": None,
+        "anchor": "cap-stability-run",
+    },
+    "Mx_total": {
+        "title": "Mx,total — hub moment about the ψ=0 axis",
+        "definition": (
+            "Total moment about the reference in-plane axis, INCLUDING "
+            "the structural part carried through a hinge offset or a "
+            "root spring."),
+        "unit": "N·m",
+        "equation": r"M_{hub}=\tfrac{N_b}{2}I_\beta\Omega^2(\nu_\beta^2-1)\beta_1",
+        "effect": "On an articulated blade with no offset the structural part vanishes and only the aerodynamic tilt remains. Offset and spring are what let the rotor transmit a moment to the aircraft at all.",
+        "range": "—",
+        "options": None,
+        "anchor": "cap-stability-hub",
+    },
+    "My_total": {
+        "title": "My,total — hub moment about the ψ=90° axis",
+        "definition": (
+            "The companion of Mx,total about the other in-plane axis, "
+            "built from the same hinge path."),
+        "unit": "N·m",
+        "equation": None,
+        "effect": "The two together are the disk tilt expressed as a moment. Their cross-derivatives with p and q carry the phase lag that couples pitch and roll.",
+        "range": "—",
+        "options": None,
+        "anchor": "cap-stability-hub",
+    },
+    "Torque": {
+        "title": "Torque",
+        "definition": (
+            "Moment about the shaft: what the engine has to supply."),
+        "unit": "N·m",
+        "equation": r"Q=\int_{0}^{R} r\,dF_{\text{in-plane}}",
+        "effect": "Its derivative with respect to the collective is what an engine or governor model needs, and its derivative with respect to Ω is the rotor's own speed stability.",
+        "range": "—",
+        "options": None,
+        "anchor": "cap-stability-run",
+    },
+    # ---- shared by the Optimization and Stability windows ------------
+    "condition": {
+        "title": "Flight condition of the study",
+        "definition": (
+            "The saved case every design or perturbation is solved "
+            "at.\n\n"
+            "A rotor is not better or worse in the abstract: it is "
+            "better at a stated advance ratio, collective and rotational "
+            "speed. Comparing designs across different conditions "
+            "compares nothing."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Every number the study reports belongs to this condition and to no other. It must carry an rpm, because the engine needs one to form the tip speed.",
+        "range": "any case saved in the project",
+        "options": None,
+        "anchor": "cap-opt-condition",
+    },
+    "trim": {
+        "title": "Trim",
+        "definition": (
+            "What is held fixed before the run begins.\n\n"
+            "Without a trim, a comparison between two rotors at the same "
+            "collective is a comparison at two different thrusts, which "
+            "is rarely the question being asked."),
+        "unit": "—",
+        "equation": r"\theta_0\;\text{or}\;(\theta_{1c},\theta_{1s})\;\text{solved first}",
+        "effect": "Zero flapping leaves the controls as written. A thrust trim drives the collective to a stated thrust. A cyclic flapback trim removes the 1/rev disk tilt and needs a blade with flap freedom.",
+        "range": "none | thrust | cyclic flapback",
+        "options": None,
+        "anchor": "cap-stability-trim",
+    },
+    "parallel_workers": {
+        "title": "Parallel workers",
+        "definition": (
+            "How many designs are solved at the same time.\n\n"
+            "Each one runs in its own process, so they do not share "
+            "memory and the answer does not depend on how many are "
+            "running."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Only the wall-clock time changes: results are collected in submission order, so one worker and eight workers produce the same front, member for member. In the derivative study the value is stored but not yet used; that run is serial.",
+        "range": "1 to the number of cores",
+        "options": None,
+        "anchor": "cap-opt-workers",
+    },
+    # ---- Design Optimization (chapter 14) ----------------------------
+    "optimization": {
+        "title": "Optimization study",
+        "definition": (
+            "The named search this window runs.\n\n"
+            "A study fixes the objectives, the constraints, the design "
+            "variables, the condition and the algorithm, so a search can "
+            "be repeated instead of re-entered."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Stored in inputs/optimizations.bemt and run from the CLI with --optimize NAME.",
+        "range": "any name in the project",
+        "options": None,
+        "anchor": "cap-optimization",
+    },
+    "objectives": {
+        "title": "Objective",
+        "definition": (
+            "The quantity the search drives, taken from the results "
+            "summary.\n\n"
+            "One objective gives a single best design. Two give a "
+            "PARETO FRONT: a set of designs where nothing can be "
+            "improved on one objective without giving up the other."),
+        "unit": "that of the chosen quantity",
+        "equation": r"\min_{x\in X} \;\big(f_1(x),\;f_2(x)\big)",
+        "effect": "Leaving the second objective empty runs a single-objective search. Filling it runs NSGA-II and produces a front instead of a winner.",
+        "range": "any summary key (FM, CT, eta_prop, Torque, ...)",
+        "options": None,
+        "anchor": "cap-opt-objectives",
+    },
+    "kind": {
+        "title": "Direction of the objective",
+        "definition": (
+            "Whether the quantity is to be made larger or smaller.\n\n"
+            "The search minimizes internally, so a maximization is "
+            "carried as its negative. Getting the direction wrong does "
+            "not fail: it converges, on the worst design it can find."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Maximize for a figure of merit or an efficiency; minimize for torque, power or a loading.",
+        "range": "maximize | minimize",
+        "options": None,
+        "anchor": "cap-opt-objectives",
+    },
+    "algorithm": {
+        "title": "Search algorithm",
+        "definition": (
+            "How the population is moved from one generation to the "
+            "next.\n\n"
+            "Both are population methods that need no gradient, which "
+            "matters because a BEMT solve gives none and the objective "
+            "surface has flat and stalled regions where a gradient would "
+            "be misleading anyway."),
+        "unit": "—",
+        "equation": None,
+        "effect": "NSGA-II ranks by non-domination and crowding, so it evolves a whole front and is the choice for two objectives. Differential evolution drives a single value and is the cheaper choice for one.",
+        "range": "nsga2 | de",
+        "options": None,
+        "anchor": "cap-opt-algorithm",
+    },
+    "population": {
+        "title": "Population",
+        "definition": (
+            "How many designs are alive in each generation.\n\n"
+            "It sets how much of the design space is sampled at once. "
+            "Too small a population converges quickly onto one corner of "
+            "the front and reports it as the whole front."),
+        "unit": "—",
+        "equation": r"N_{eval} = N_{pop}\,(1+N_{gen})",
+        "effect": "Every generation costs one solve per member, so this multiplies the run time directly. A front needs a larger population than a single-objective search, because the members have to spread along it.",
+        "range": "8 to 500; 40 to 100 for two objectives",
+        "options": None,
+        "anchor": "cap-opt-budget",
+    },
+    "generations": {
+        "title": "Generations",
+        "definition": (
+            "How many rounds of selection and variation run after the "
+            "initial sample.\n\n"
+            "The population converges over generations; the hypervolume "
+            "curve on the Convergence view is what says whether it "
+            "already has."),
+        "unit": "—",
+        "equation": None,
+        "effect": "More generations refine the front but cost one population of solves each. A hypervolume curve that has flattened says further generations buy nothing.",
+        "range": "10 to 100",
+        "options": None,
+        "anchor": "cap-opt-budget",
+    },
+    "seed": {
+        "title": "Random seed",
+        "definition": (
+            "Fixes the random numbers the search draws.\n\n"
+            "An evolutionary search is stochastic: the same study run "
+            "twice gives two different fronts unless the seed is held."),
+        "unit": "—",
+        "equation": None,
+        "effect": "The same seed reproduces the same search exactly. Changing it is the honest way to ask whether a front is a property of the design space or of one lucky draw.",
+        "range": "any integer",
+        "options": None,
+        "anchor": "cap-opt-budget",
+    },
+    "crossover_eta": {
+        "title": "Crossover distribution index",
+        "definition": (
+            "The distribution index \u03b7\u1d04 of simulated binary "
+            "crossover.\n\n"
+            "It decides how far a child may fall from the two parents "
+            "that produced it, and therefore how much of the search is "
+            "exploration rather than refinement."),
+        "unit": "—",
+        "equation": r"\eta_c",
+        "effect": "Larger keeps children close to their parents, refining what is already found. Smaller spreads them, which explores but converges more slowly.",
+        "range": "5 to 30; 15 is the usual default",
+        "options": None,
+        "anchor": "cap-opt-operators",
+    },
+    "mutation_eta": {
+        "title": "Mutation distribution index",
+        "definition": (
+            "The distribution index \u03b7\u2098 of polynomial "
+            "mutation.\n\n"
+            "Mutation is what stops the population collapsing onto one "
+            "point: it perturbs a variable away from its inherited "
+            "value."),
+        "unit": "—",
+        "equation": r"\eta_m",
+        "effect": "Larger makes the perturbation smaller, so the search settles sooner. Smaller keeps it moving and is the remedy when every member has become the same design.",
+        "range": "5 to 50; 20 is the usual default",
+        "options": None,
+        "anchor": "cap-opt-operators",
+    },
+    "mutation_rate": {
+        "title": "Mutation rate",
+        "definition": (
+            "The probability that any one variable is mutated.\n\n"
+            "ZERO IS NOT OFF: it selects the NSGA-II default of one over "
+            "the number of variables, so on average one variable per "
+            "child is perturbed."),
+        "unit": "—",
+        "equation": r"p_m = 1/n_{var}\;\text{when set to }0",
+        "effect": "Raising it explores harder at the cost of destroying good combinations more often. The default is a deliberate compromise and is rarely worth changing first.",
+        "range": "0 (the default rule) to 1",
+        "options": None,
+        "anchor": "cap-opt-operators",
+    },
+    # ---- Transient (chapter 15) --------------------------------------
+    "maneuver": {
+        "title": "Maneuver",
+        "definition": (
+            "The named trajectory this window marches.\n\n"
+            "A maneuver is not a batch: each sample INHERITS the inflow "
+            "state of the sample before it, which is the whole reason a "
+            "transient differs from a sequence of steady solves."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Stored in inputs/maneuvers.bemt and run from the CLI with --maneuver NAME.",
+        "range": "any name in the project",
+        "options": None,
+        "anchor": "cap-transiente",
+    },
+    "build_duration": {
+        "title": "Ramp duration",
+        "definition": (
+            "Seconds of transition between the two saved cases the "
+            "builder ramps across.\n\n"
+            "It is what makes the trajectory a transient rather than a "
+            "step: the shorter it is, the further the inflow lags "
+            "behind the condition."),
+        "unit": "s",
+        "equation": None,
+        "effect": "A long ramp approaches a sequence of steady states. A short one is where the dynamic inflow, and any dynamic stall carried along with it, actually show themselves.",
+        "range": "one to a few rotor revolutions",
+        "options": None,
+        "anchor": "cap-transiente-2",
+    },
+    "interpolation": {
+        "title": "Interpolation between points",
+        "definition": (
+            "How the condition moves between two nodes of the "
+            "trajectory.\n\n"
+            "The nodes state where the vehicle is at given instants; "
+            "this states what it does in between."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Linear ramps every quantity smoothly between the nodes. Hold keeps each node's value until the next one, which turns the trajectory into a staircase of steps.",
+        "range": "linear | hold",
+        "options": None,
+        "anchor": "cap-transiente-2",
+    },
+    "dt_s": {
+        "title": "Output sample interval",
+        "definition": (
+            "The time between two rows of the marched result.\n\n"
+            "It sets what the output can resolve, not what the solver "
+            "resolves: the inflow is advanced on the finer sub-step "
+            "grid underneath."),
+        "unit": "s",
+        "equation": r"N_{rows} = T/\Delta t",
+        "effect": "Smaller gives a finer trace and a longer file. It has to be small enough to resolve the fastest thing the maneuver does, or the trace will alias it into something smoother than it was.",
+        "range": "a small fraction of one revolution",
+        "options": None,
+        "anchor": "cap-transiente-3",
+    },
+    "substeps_per_step": {
+        "title": "Inflow sub-steps per sample",
+        "definition": (
+            "How many times the inflow state is advanced inside one "
+            "output sample.\n\n"
+            "The dynamic inflow has its own time constant, and it is "
+            "usually shorter than the interval anyone wants to write "
+            "rows at."),
+        "unit": "—",
+        "equation": r"\delta t = \Delta t / N_{sub}",
+        "effect": "More sub-steps integrate the inflow more accurately at no cost in file size. Too few make the march itself inaccurate, which does not look like an error: it looks like a slightly different answer.",
+        "range": "4 to 16",
+        "options": None,
+        "anchor": "cap-transiente-3",
+    },
+    "initial_state": {
+        "title": "Where the march starts",
+        "definition": (
+            "The inflow the first sample begins from.\n\n"
+            "A transient has to start somewhere, and that choice is "
+            "visible in the first few samples of every result."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Equilibrium solves the steady inflow at the first condition and starts from it, so the trace begins already settled. Zero starts from no inflow at all and shows the build-up, which is the honest choice for a start from rest.",
+        "range": "equilibrium | zero",
+        "options": None,
+        "anchor": "cap-transiente-4",
+    },
+    "march_dynamic_stall": {
+        "title": "March dynamic stall",
+        "definition": (
+            "Carries the separation state from one sample to the next "
+            "instead of re-solving it.\n\n"
+            "Dynamic stall is a memory effect: what the boundary layer "
+            "does now depends on what the angle of attack has been "
+            "doing, not only on what it is."),
+        "unit": "—",
+        "equation": None,
+        "effect": "On, the hysteresis loop appears, and with it the overshoot in lift and the delayed drag rise. Off, each sample is solved as if the blade had always been at that angle.",
+        "range": "needs a dynamic-stall model in Config",
+        "options": None,
+        "anchor": "cap-transiente-5",
+    },
+    "march_flapping": {
+        "title": "March flapping",
+        "definition": (
+            "Solves the periodic flap response at every sample and "
+            "carries it forward.\n\n"
+            "The disk tilt is what couples the blade's motion back into "
+            "the flow, so a maneuver that changes the disk tilt changes "
+            "the inflow through it."),
+        "unit": "—",
+        "equation": None,
+        "effect": "On, the coning and 1/rev harmonics are recomputed as the condition moves. Off, the blade is held rigid. Needs flap freedom set in the Geometry tab: on a rigid blade there is nothing to march.",
+        "range": "needs a non-rigid flap model",
+        "options": None,
+        "anchor": "cap-transiente-5",
+    },
+    # ---- Stability derivatives (chapter 16) --------------------------
+    "derivatives": {
+        "title": "Derivative study",
+        "definition": (
+            "The named study this window runs.\n\n"
+            "A study fixes what is perturbed, what is measured, how big "
+            "each step is and at which flight condition, so that a set "
+            "of derivatives can be reproduced exactly rather than "
+            "re-typed."),
+        "unit": "—",
+        "equation": None,
+        "effect": "Selecting a study loads its whole definition into the form. Studies are stored in inputs/derivatives.bemt and are what the CLI runs with --derivatives NAME.",
+        "range": "any name in the project",
+        "options": None,
+        "anchor": "cap-stability",
+    },
+    "trim_target_thrust": {
+        "title": "Thrust target of the trim",
+        "definition": (
+            "The thrust the collective is driven to before any "
+            "perturbation is applied.\n\n"
+            "A derivative is a slope AT A POINT, so the point has to be "
+            "defined. Comparing two rotors at the same collective "
+            "compares them at different thrusts; comparing them at the "
+            "same thrust is almost always the question actually being "
+            "asked."),
+        "unit": "N",
+        "equation": r"\theta_0 \;\text{such that}\; T(\theta_0)=T_{target}",
+        "effect": "Zero leaves the condition untrimmed and uses its collective as written. A nonzero value solves for the collective first, so every perturbation is taken about the trimmed state.",
+        "range": "0 (untrimmed), or the vehicle weight",
+        "options": None,
+        "anchor": "cap-stability-trim",
+    },
+    "richardson_check": {
+        "title": "Richardson half-step check",
+        "definition": (
+            "Repeats every derivative at half the step and compares.\n\n"
+            "A central difference carries two errors that move in "
+            "opposite directions: truncation, which falls as the square "
+            "of the step, and round-off, which grows as the step "
+            "shrinks. A single step size cannot tell you which one you "
+            "are dominated by; two can."),
+        "unit": "—",
+        "equation": r"f'(x)\approx\dfrac{f(x+h)-f(x-h)}{2h}+O(h^2)",
+        "effect": "Doubles the cost of the study and reports, per derivative, how far the half-step answer moved. A value that changes a lot means the step is wrong for that variable, not that the derivative is uncertain by that much.",
+        "range": "on for any study whose numbers will be quoted",
+        "options": None,
+        "anchor": "cap-stability-steps",
+    },
+    # ---- The vehicle block (16.6) ------------------------------------
+    "vehicle_enabled": {
+        "title": "Build the rigid-body A/B matrices",
+        "definition": (
+            "Turns the rotor derivatives into aircraft motion.\n\n"
+            "The derivatives above belong to the ROTOR. Making them "
+            "predict how a vehicle moves needs the vehicle, and the "
+            "vehicle is not derivable from the blade: its mass, its "
+            "inertias and where the hub sits have to be stated."),
+        "unit": "—",
+        "equation": r"\dot{x}=Ax+Bu",
+        "effect": "Off, the window reports the derivative matrix alone. On, it also builds A and B and draws their eigenvalues. It models ONE ROTOR: no fuselage, no tail rotor, no stabiliser, no engine or governor dynamics.",
+        "range": "needs u, v, w and p, q among the states",
+        "options": None,
+        "anchor": "cap-stability-vehicle",
+    },
+    "vehicle_mass_kg": {
+        "title": "Vehicle mass",
+        "definition": (
+            "Total mass the rotor forces accelerate.\n\n"
+            "It is what converts a force derivative into an "
+            "acceleration, so it scales every translational row of the "
+            "A matrix and nothing else."),
+        "unit": "kg",
+        "equation": r"A_{u,u}=-\dfrac{1}{m}\dfrac{\partial H}{\partial u}",
+        "effect": "A heavier vehicle responds more slowly to the same rotor force, which moves the translational modes toward the origin. It does not touch the rotational rows.",
+        "range": "the all-up mass of the aircraft",
+        "options": None,
+        "anchor": "cap-stability-vehicle",
+    },
+    "vehicle_Ix_kg_m2": {
+        "title": "Roll inertia",
+        "definition": (
+            "Moment of inertia about the longitudinal axis.\n\n"
+            "It converts a rolling moment into a roll acceleration, so "
+            "it sets the time scale of the roll response."),
+        "unit": "kg·m²",
+        "equation": r"A_{p,p}=\dfrac{1}{I_x}\dfrac{\partial M_y}{\partial p}",
+        "effect": "Larger inertia slows the roll mode. For a helicopter Ix is normally the smallest of the three, which is why roll is the fastest of the rigid-body responses.",
+        "range": "typically the smallest of the three",
+        "options": None,
+        "anchor": "cap-stability-vehicle",
+    },
+    "vehicle_Iy_kg_m2": {
+        "title": "Pitch inertia",
+        "definition": (
+            "Moment of inertia about the lateral axis.\n\n"
+            "It converts a pitching moment into a pitch acceleration. "
+            "It is the inertia the hub arm acts through, because a hub "
+            "force at a height above the centre of gravity pitches the "
+            "aircraft."),
+        "unit": "kg·m²",
+        "equation": r"A_{q,q}=\dfrac{1}{I_y}\dfrac{\partial M_x}{\partial q}",
+        "effect": "Larger inertia slows the pitch mode and, with a nonzero hub arm, weakens the speed-to-pitch coupling that drives the classic long-period instability.",
+        "range": "usually the largest of the three",
+        "options": None,
+        "anchor": "cap-stability-vehicle",
+    },
+    "vehicle_Iz_kg_m2": {
+        "title": "Yaw inertia",
+        "definition": (
+            "Moment of inertia about the vertical axis.\n\n"
+            "It converts a yawing moment into a yaw acceleration. With "
+            "a single rotor and no tail it is the least constrained of "
+            "the three, because nothing in this model restores yaw."),
+        "unit": "kg·m²",
+        "equation": r"A_{r,r}=\dfrac{1}{I_z}\dfrac{\partial Q}{\partial r}",
+        "effect": "Affects the yaw row alone. The yaw response of a single rotor with no tail is not a flight-dynamics result: read it as a comparison between designs, not as an aircraft prediction.",
+        "range": "between Ix and Iy for most layouts",
+        "options": None,
+        "anchor": "cap-stability-vehicle",
+    },
+    "hub_offset_x_m": {
+        "title": "Hub ahead of the CG",
+        "definition": (
+            "Longitudinal distance from the centre of gravity to the "
+            "hub, positive forward.\n\n"
+            "An arm is what makes a FORCE produce a moment. With no "
+            "arm, a change in rotor force never reaches the rotational "
+            "equations at all."),
+        "unit": "m",
+        "equation": r"A_{q,u}=\dfrac{1}{I_y}\left(\dfrac{\partial M_x}{\partial u}+z_h\dfrac{\partial H}{\partial u}\right)",
+        "effect": "A zero arm is a MODELLING CHOICE, not a neutral default: it removes the term coupling thrust and drag changes into pitch and roll, which for a helicopter is most of the coupling there is.",
+        "range": "small compared with the radius on most layouts",
+        "options": None,
+        "anchor": "cap-stability-vehicle",
+    },
+    "hub_offset_z_m": {
+        "title": "Hub above the CG",
+        "definition": (
+            "Vertical distance from the centre of gravity to the hub, "
+            "positive up.\n\n"
+            "It is the arm through which a rearward hub force pitches "
+            "the aircraft, and the dominant one on a helicopter, where "
+            "the rotor sits well above the mass it carries."),
+        "unit": "m",
+        "equation": r"M_{y}\;{+}{=}\;z_h\,H",
+        "effect": "Raising the hub strengthens the speed-to-pitch coupling. It is the term behind the pitch-up a helicopter shows when it gains speed, and the one that makes the long-period mode unstable in hover.",
+        "range": "of the order of one metre on a light helicopter",
+        "options": None,
+        "anchor": "cap-stability-vehicle",
+    },
+    "gravity_m_s2": {
+        "title": "Gravitational acceleration",
+        "definition": (
+            "The value of g used in the attitude rows.\n\n"
+            "Gravity does not enter the rotor derivatives at all. It "
+            "enters the rigid-body model, where a change of attitude "
+            "tilts the weight vector and therefore accelerates the "
+            "vehicle."),
+        "unit": "m/s²",
+        "equation": r"\dot{u}\;{+}{=}\;-g\cos\theta_{trim}\,\theta",
+        "effect": "It is what closes the loop between attitude and speed, and therefore what makes the long-period mode exist at all. Setting it to zero removes that coupling and the mode with it.",
+        "range": "9.81 on Earth",
+        "options": None,
+        "anchor": "cap-stability-vehicle",
+    },
     "n_blades": {
         "title": "Number of Blades",
         "definition": (

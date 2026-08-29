@@ -6953,8 +6953,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                     <!-- INDICE-DE-CAMPOS:run_case -->
 <div class="boxed">
-<b>Fields in this tab, in the order they appear on screen</b> (9). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>sideslip_deg</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>p_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>q_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li></ol>
+<b>Fields in this tab, in the order they appear on screen</b> (12). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>sideslip_deg</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>p_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>q_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:run_case -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below follows the visible order and
@@ -7299,8 +7299,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       failed.</p>
 
                     <p><span class="gui">GUI</span>: the <i>Run mode</i> dropdown at the top of the tab,
-                      together with the <i>Trim target</i> and <i>Target value</i> fields, which appear only when a trim
-                      mode is selected.</p>
+                      <code>trim_mode</code>, together with the <i>Trim target</i>
+                      (<code>target_kind</code>, the thrust or its coefficient) and <i>Target value</i>
+                      (<code>target_value</code>) fields, which appear only when a trim mode is
+                      selected. The same three controls appear on the Run Batch tab, where every queued
+                      condition is trimmed independently.</p>
 
                     <p><span class="bemt">.bemt</span>: not part of a stored condition. A trim is a way of
                       running a condition, not a property of one, so a saved case records the operating point and not
@@ -7406,8 +7409,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                     <!-- INDICE-DE-CAMPOS:run_batch -->
 <div class="boxed">
-<b>Fields in this tab, in the order they appear on screen</b> (4). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li></ol>
+<b>Fields in this tab, in the order they appear on screen</b> (18). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>range_from</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_to</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_step</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_quantity</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_values</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>replace_queue</code> &rarr; <a href="#cap-6-3">11.4</a></li><li><code>batches</code> &rarr; <a href="#cap-6-4">11.5</a></li><li><code>outdir</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>plots</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>save_csv</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>axis_unit</code> &rarr; <a href="#cap-6-1">11.2</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:run_batch -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below explains how the control changes
@@ -7587,7 +7590,26 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       project and exits.
                     </p>
 
-                    <h3 id="cap-6-2">11.3 Fixed values</h3>
+                                            <p><b>The three controls of one axis.</b> <span class="gui">GUI</span>: the dropdown
+                          <code>axis_quantity</code> chooses which flight-condition quantity the axis
+                          sweeps, <code>axis_unit</code> chooses the form its values are written in, and
+                          <code>axis_values</code> is the comma-separated list the factorial actually
+                          reads. The fill button beside them writes an evenly spaced range into that
+                          list, from <code>range_from</code> to <code>range_to</code> in steps of
+                          <code>range_step</code>; those three prepare what fill will write and are never
+                          read by the sweep themselves.</p>
+
+                        <p>The number of cases is the product over the axes,
+                          $N_{cases}=\prod_i N_i$, so two axes of ten values are a hundred cases and
+                          not twenty. A dimensional or angular unit needs the rotational speed and the
+                          radius, because the conversion runs through the tip speed.</p>
+
+                        <p><span class="bemt">.bemt</span>: none of these six is stored. The factorial is expanded when it is
+                          generated, and what reaches <code>batches.bemt</code> is the resulting list of
+                          conditions, each under the canonical keys of the project's mode. <span class="cli">CLI</span>: run
+                          the saved batch with <code>--from-bemt-batch NAME</code>.</p>
+
+<h3 id="cap-6-2">11.3 Fixed values</h3>
 
                     <p><b>The physics.</b> The quantities not chosen as axes are held at the values given in the
                       <i>Fixed</i> block. These are not administrative details: every batch answers the question "how
@@ -7689,7 +7711,18 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>batches.bemt</code> directly.
                         </p>
 
-                        <h3 id="cap-6-4">11.5 Saved batches</h3>
+                                                <p><b>Building the queue from more than one sweep.</b> <span class="gui">GUI</span>:
+                          <code>replace_queue</code> decides what the generate button does with what is
+                          already there. Checked, each generation starts a fresh queue. Unchecked, the
+                          generated cases are APPENDED, which is how a queue is assembled out of several
+                          sweeps &mdash; a hover point, then a forward-flight sweep, then a descent
+                          &mdash; and also how a second generation with the same axes silently doubles
+                          the queue.</p>
+
+                        <p><span class="bemt">.bemt</span>: the control belongs to the builder and is not stored; what reaches
+                          <code>batches.bemt</code> is the queue it produced.</p>
+
+<h3 id="cap-6-4">11.5 Saved batches</h3>
 
                         <p><b>Definition.</b> A saved batch is a named queue kept with the project, together with a
                           record
@@ -7727,7 +7760,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>From the <span class="cli">CLI</span>, <code>--list-batches</code> prints the names and exits. <code>--from-bemt-batch NAME</code> runs one.
                         </p>
 
-                        <h3 id="cap-6-5">11.6 Where the results are written</h3>
+                                                <p><b>Selecting one.</b> <span class="gui">GUI</span>: <code>batches</code> lists the queues stored
+                          with the project, and choosing one replaces the queue on screen. Saving under
+                          a name that already exists overwrites that batch.</p>
+
+                        <p><span class="bemt">.bemt</span>: every saved batch is an entry of <code>batches.bemt</code>. <span class="cli">CLI</span>:
+                          <code>--from-bemt-batch NAME</code> runs one without opening the interface,
+                          and <code>--list-batches</code> prints what the project holds.</p>
+
+<h3 id="cap-6-5">11.6 Where the results are written</h3>
 
                         <p><b>Definition.</b> A batch produces one row of results per condition, and optionally a set of
                           figures. This section sets where those files go and which figures are drawn.</p>
@@ -7757,7 +7798,28 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           dedicated condition subdirectories.
                         </p>
 
-                        <h3 id="cap-6-6">11.7 Reports</h3>
+                                                <p><b>What is exported.</b> <span class="gui">GUI</span>: <code>save_csv</code> writes the summary table
+                          as a comma-separated file, one row per condition and one column per summary
+                          quantity, under the axis letters of the project's mode. The four check boxes
+                          under <code>plots</code> choose the figures: the coefficients across the queue,
+                          the blade load through one revolution, the load along the radius, and the
+                          disk maps. The disk maps are by far the most expensive, because they are one
+                          image per field per condition.</p>
+
+                        <p><span class="bemt">.bemt</span>: the four switches are stored together as the
+                          <code>plots</code> list inside the batch in <code>batches.bemt</code>; the CSV is always written when the batch runs from
+                          the <span class="cli">CLI</span>, which has no flag to suppress it.</p>
+
+                        <p><b>The destination.</b> <span class="gui">GUI</span>: <code>outdir</code> is the folder that
+                          receives the tables and the figures. Left empty it defaults to a folder inside
+                          the project, so the results travel with the project they belong to; an
+                          absolute path sends them anywhere.</p>
+
+                        <p><span class="bemt">.bemt</span>: the key <code>outdir</code> inside the batch in
+                          <code>batches.bemt</code>. <span class="cli">CLI</span>: <code>--outdir PATH</code> overrides it for
+                          one run.</p>
+
+<h3 id="cap-6-6">11.7 Reports</h3>
 
                         <p>A report gathers a batch into a single HTML file: the summary table for every condition, the
                           mesh, solver, rotor and polar that were used, and the figures embedded inside the file itself,
@@ -8706,7 +8768,29 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>--optimize</code>, <code>--gen-neuralfoil</code> or
                           <code>--gen-xfoil</code>.</p>
 
-                        <h3 id="designer-conditions">13.2 Conditions</h3>
+                                                <p><b>The generated sweep, control by control.</b> <span class="gui">GUI</span>:
+                          <code>vsweep_param</code> chooses which property of the blade varies across the
+                          generated rows, and every row differs from the base geometry in that property
+                          alone, so any difference in the result belongs to it. The rows run from
+                          <code>vsweep_start</code> to <code>vsweep_end</code>, both included, in
+                          <code>vsweep_count</code> evenly spaced steps. <code>vsweep_values</code> overrides
+                          all three when it is not empty: an even sweep spends the same effort
+                          everywhere, and a real study usually wants points clustered where the answer
+                          changes fastest.</p>
+
+                        <p><code>gen_family</code> sets the planform of the generated blade. Rectangular
+                          keeps one chord throughout and is the reference case. Tapered runs from
+                          <code>root_chord_norm</code> at the root to the tip chord, moving area inboard
+                          and cutting the loading where the local velocity is highest. Elliptic has no
+                          free root or tip chord: <code>max_chord_norm</code> at mid span fixes the whole
+                          distribution, $c(\bar r)=c_{max}\sqrt{1-\bar r^{\,2}}$, which
+                          approaches the minimum induced power for a given thrust.</p>
+
+                        <p><span class="bemt">.bemt</span>: the generated variants are geometries, so what is stored is a
+                          <code>geom.bemt</code> per variant, not the sweep that produced them. The
+                          sweep itself lives in the window.</p>
+
+<h3 id="designer-conditions">13.2 Conditions</h3>
 
                         <p><b>The physics.</b> Every variant must run something, and this page
                           decides what. Three radio buttons select the mode. <i>Saved cases</i>
@@ -8753,7 +8837,22 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           ratio or <code>theta=8.00</code> for the collective, and those names
                           identify the conditions downstream.</p>
 
-                        <h4 id="designer-trim">13.2.1 Thrust matching</h4>
+                                                <p><b>The swept condition.</b> <span class="gui">GUI</span>: <code>sweep_axis</code> chooses the flight
+                          quantity carried through evenly spaced values, and it becomes the horizontal
+                          axis of every curve the comparison draws. The sweep runs from
+                          <code>sweep_start</code> to <code>sweep_stop</code>, both included, in
+                          <code>sweep_count</code> points.</p>
+
+                        <p>The count multiplies with the number of variants: five variants over twenty
+                          conditions is a hundred solves. Push the upper bound past the point where the
+                          blade stalls, or where momentum theory loses its solution, and the sweep still
+                          produces numbers but not answers.</p>
+
+                        <p><span class="bemt">.bemt</span>: the conditions are expanded when the comparison runs, so what a
+                          saved comparison holds in <code>comparisons.bemt</code> is the resulting list
+                          of conditions rather than the sweep. <span class="cli">CLI</span>: <code>--compare NAME</code>.</p>
+
+<h4 id="designer-trim">13.2.1 Thrust matching</h4>
 
                         <p><b>The physics.</b> A comparison at equal controls does not, by itself,
                           hold the loading constant: a planform that happens to make more thrust
@@ -8936,7 +9035,17 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                                                 <hr>
 
 
-                                                <h3 id="designer-damping">13.4 Damping comparison</h3>
+                                                                        <p><b>Ordering the variants.</b> <span class="gui">GUI</span>: <code>ranking_field</code> is the summary
+                          quantity the table is ordered by, and <code>ranking_condition</code> is which of
+                          the swept conditions that ordering reads. Both change the view alone: every
+                          variant was already solved at every condition, so re-ordering runs nothing.</p>
+
+                        <p>The ordering is on ONE quantity at ONE condition. A variant that wins on the
+                          figure of merit may lose on torque, and a blade that is best in hover is
+                          frequently not the one that is best in cruise; that reversal is usually the
+                          finding, which is why the full table stays beside the ranking.</p>
+
+<h3 id="designer-damping">13.4 Damping comparison</h3>
                         <p><b>What it answers.</b> The ranking above compares variants on performance:
                           thrust, torque, efficiency. A rotor that wins on performance can still be the
                           worse aircraft, because how strongly it RESISTS a disturbance is a separate
@@ -9015,7 +9124,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                             estimate on the right.</figcaption>
                         </figure>
 
-                        <h3 id="cap-opt-objectives">14.1 Objectives</h3>
+                                                <p><b>The study.</b> <span class="gui">GUI</span>: <code>optimization</code> at the top of the window
+                          selects the named study, which fixes the objectives, the constraints, the
+                          design variables, the condition and the algorithm together, so a search can be
+                          repeated instead of re-entered.</p>
+
+                        <p><span class="bemt">.bemt</span>: the studies are stored in <code>inputs/optimizations.bemt</code>.
+                          <span class="cli">CLI</span>: <code>--optimize NAME</code> runs one of them.</p>
+
+<h3 id="cap-opt-objectives">14.1 Objectives</h3>
                         <p>An objective names one quantity of the results summary and states which
                           direction is better. The first row is required. The second row turns the run
                           into a Pareto search: an empty second key keeps the single-result search, and
@@ -9326,7 +9443,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <a class="xref" href="#limitations" title="18. Limitations">Chapter 18</a> says so in the
                           same terms.</p>
 
-                        <h3 id="cap-transiente-1">15.1 The state that is marched</h3>
+                                                <p><b>The maneuver.</b> <span class="gui">GUI</span>: <code>maneuver</code> at the top of the window
+                          selects the named trajectory. A maneuver is not a batch: each sample inherits
+                          the inflow state of the sample before it, which is the whole reason a
+                          transient differs from a sequence of steady solves.</p>
+
+                        <p><span class="bemt">.bemt</span>: stored in <code>inputs/maneuvers.bemt</code>. <span class="cli">CLI</span>:
+                          <code>--maneuver NAME</code>.</p>
+
+<h3 id="cap-transiente-1">15.1 The state that is marched</h3>
 
                         <p><b>The physics.</b> A rotor's induced inflow does not follow its loading instantly. Pitt
                           and Peters wrote the delay as a first-order system in three states &mdash; a uniform
@@ -9402,7 +9527,20 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           outside the project, which is how a trajectory is shared without copying it into every
                           project that needs it.</p>
 
-                        <h3 id="cap-transiente-3">15.3 Sampling</h3>
+                                                <p><b>The two-case builder.</b> <span class="gui">GUI</span>: instead of typing the nodes, the builder
+                          ramps between two saved cases. <code>build_case_a</code> is the case the ramp
+                          starts at and becomes the first node; <code>build_case_b</code> is the case it
+                          ends at and becomes the last. If the two differ in more than one quantity,
+                          all of them ramp together, which is a maneuver rather than a parameter
+                          study.</p>
+
+                        <p><code>build_duration</code> is what makes the trajectory a transient rather
+                          than a step: the shorter it is, the further the inflow lags behind the
+                          condition. A long ramp approaches a sequence of steady states, and a short one
+                          is where the dynamic inflow, and any dynamic stall carried along with it,
+                          actually show themselves.</p>
+
+<h3 id="cap-transiente-3">15.3 Sampling</h3>
 
                         <p><b>The physics.</b> Two intervals decide the run and they are not the same thing. The
                           SAMPLE interval is how often the answer is written down: one sample is one row of the time
@@ -9520,7 +9658,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                             and the project's validation findings on the right.</figcaption>
                         </figure>
 
-                        <h3 id="cap-stability-trim">16.1 The trim point</h3>
+                                                <p><b>The study.</b> <span class="gui">GUI</span>: <code>derivatives</code> at the top of the window
+                          selects the named study, which fixes what is perturbed, what is measured, how
+                          big each step is and at which flight condition, so that a set of derivatives
+                          can be reproduced rather than re-typed.</p>
+
+                        <p><span class="bemt">.bemt</span>: the studies are stored in <code>inputs/derivatives.bemt</code>.
+                          <span class="cli">CLI</span>: <code>--derivatives NAME</code>.</p>
+
+<h3 id="cap-stability-trim">16.1 The trim point</h3>
                         <p>A derivative about a bad trim describes a rotor nobody flies. The trim fixes the
                           reference controls first: <i>zero flapping</i> solves both cyclic harmonics so the
                           tip-path plane sits level at the reference state (the usual choice, and the default),
@@ -9529,7 +9675,18 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           in chapter inherits from this point. A blade without flap freedom has no flap angle to
                           zero, so the zero-flapping trim is disabled for it.</p>
 
-                        <h3 id="cap-stability-steps">16.2 States, controls and steps</h3>
+                                                <p><b>Setting the point.</b> <span class="gui">GUI</span>: <code>trim_target_thrust</code> is the thrust
+                          the collective is driven to before any perturbation is applied. A derivative
+                          is a slope AT A POINT, so the point has to be defined: comparing two rotors at
+                          the same collective compares them at different thrusts, and comparing them at
+                          the same thrust is almost always the question actually being asked. Zero
+                          leaves the condition untrimmed and uses its collective as written.</p>
+
+                        <p><span class="bemt">.bemt</span>: the key <code>trim_target_thrust</code> inside the study in
+                          <code>inputs/derivatives.bemt</code>, alongside <code>trim</code>, which
+                          chooses between no trim, a thrust trim and a cyclic flapback trim.</p>
+
+<h3 id="cap-stability-steps">16.2 States, controls and steps</h3>
                         <p>The perturbation set is nine quantities: longitudinal, lateral and axial speed
                           ($u$, $v$, $w$), roll and pitch rate ($p$, $q$), rotor speed $\Omega$, and the three
                           pitch controls $\theta_0$, $\theta_{1c}$, $\theta_{1s}$. Each derivative is a central
@@ -9563,7 +9720,28 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           the outputs folder. The persisted <code>inputs/derivatives.bemt</code> remains the
                           interface of record: the flags select and run a study, they do not define one.</p>
 
-                        <h3 id="cap-stability-yaw">16.3 Why there is no yaw rate</h3>
+                                                <p><b>The states and the controls, one by one.</b> <span class="gui">GUI</span>: the check boxes name
+                          the perturbations. The speeds are <code>u</code> along the longitudinal axis,
+                          <code>v</code> along the lateral one and <code>w</code> along the shaft; the rates
+                          are <code>p</code> in roll and <code>q</code> in pitch; <code>Omega</code> perturbs the
+                          rotational speed itself. The controls are the collective <code>theta_0</code> and
+                          the two cyclic harmonics <code>theta_1c</code> and <code>theta_1s</code>.</p>
+
+                        <p><code>w</code> gives the heave damping, the strongest and most reliable
+                          derivative of a rotor: it is negative in every normal state, because climbing
+                          into the flow lowers the thrust. <code>Omega</code> is unlike the others in that
+                          it rescales the reference quantities as well, so the coefficients move even
+                          when the dimensional forces barely do. <code>theta_1c</code> and
+                          <code>theta_1s</code> need a blade with flap freedom: on a rigid blade a cyclic
+                          input produces no disk tilt, and the control is shown disabled rather than
+                          hidden.</p>
+
+                        <p><code>richardson_check</code> repeats every derivative at half the step. A
+                          central difference carries truncation error, which falls as the square of the
+                          step, against round-off, which grows as the step shrinks; one step size cannot
+                          say which of the two dominates, and two can.</p>
+
+<h3 id="cap-stability-yaw">16.3 Why there is no yaw rate</h3>
                         <p>An isolated rotor with a vertical shaft feels no first-order moment from yawing:
                           rotating about its own shaft changes no blade incidence. The yaw rate therefore stays
                           out of the perturbation set on purpose. What remains is the yaw DAMPING
@@ -9579,7 +9757,17 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           include it when flap freedom exists; a rigid blade's total is simply the aerodynamic
                           moment. These are the numbers whose derivatives make the pitch and roll damping.</p>
 
-                        <h3 id="cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</h3>
+                                                <p><b>The two moments this path produces.</b> <span class="gui">GUI</span>: <code>Mx_total</code> is the
+                          total moment about the reference in-plane axis and <code>My_total</code> its
+                          companion about the other, both INCLUDING the structural part carried through
+                          the hinge offset or the root spring. On an articulated blade with no offset
+                          that part vanishes and only the aerodynamic tilt remains.</p>
+
+                        <p><span class="bemt">.bemt</span>: both are names in the study's <code>outputs</code> list in
+                          <code>inputs/derivatives.bemt</code>, and both are column headings of the
+                          exported table.</p>
+
+<h3 id="cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</h3>
                         <p>The matrix lists outputs down the rows and variables across the columns, switchable
                           between dimensional and non-dimensional form without rerunning: forces divided by
                           $\rho A(\Omega R)^2$, moments by $\rho A(\Omega R)^2 R$, speeds by $\Omega R$ and rates
@@ -9596,7 +9784,19 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           dynamics. A classic mode (phugoid, subsidence, Dutch roll) is named only when its
                           damping and frequency fall inside the expected band; an unnamed pole is not a discovery,
                           it is the tool refusing to guess.</p>
-                        <h3 id="cap-stability-vehicle">16.6 The vehicle: mass, inertia and the hub arm</h3>
+                                                <p><b>The outputs.</b> <span class="gui">GUI</span>: <code>Thrust</code> is the force along the shaft and
+                          the output most derivatives are read against. <code>H</code> is the in-plane drag
+                          force: small beside the thrust and decisive anyway, because with a hub above
+                          the centre of gravity it is the force whose arm pitches the aircraft.
+                          <code>Y</code> is its lateral companion, near zero in hover by symmetry.
+                          <code>Torque</code> is the moment about the shaft, which is what an engine or a
+                          governor model needs.</p>
+
+                        <p><span class="bemt">.bemt</span>: the study's <code>outputs</code> list in
+                          <code>inputs/derivatives.bemt</code> holds these names, and they are the
+                          column headings of the exported table.</p>
+
+<h3 id="cap-stability-vehicle">16.6 The vehicle: mass, inertia and the hub arm</h3>
                         <p><b>What these are.</b> The derivatives above belong to the ROTOR. Turning them
                           into aircraft motion needs the aircraft, and the aircraft is not derivable from
                           the blade: its mass, its three moments of inertia and where the hub sits relative

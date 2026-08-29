@@ -809,8 +809,12 @@ class TestHelpOpensInTheTabChapter(unittest.TestCase):
     looks wrong when that happens -- the link simply lands somewhere else.
     """
 
-    #: The four condition fields Run Case and Run Batch share.
-    CONDITION = {"mu_x", "Vz", "collective_deg", "rpm"}
+    #: The fields Run Case and Run Batch SHARE. They are one quantity
+    #: shown on two tabs, not two, so their help opens the Run Case
+    #: description rather than a second copy of it: the four condition
+    #: fields, and the three trim controls.
+    CONDITION = {"mu_x", "Vz", "collective_deg", "rpm",
+                 "trim_mode", "target_kind", "target_value"}
 
     #: GUI tab -> the chapter title that documents it
     TAB_CHAPTER = {

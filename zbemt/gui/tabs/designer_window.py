@@ -268,6 +268,14 @@ class GeometryDesignerWindow(QWidget):
         self.state.project_changed.connect(self._on_project_changed)
         self.state.mode_changed.connect(self._refresh_mode_labels)
         self._on_project_changed()
+        # CLAUDE.md: every configurable field needs a popup. The call
+        # that installs them ran only for the main window's tabs, so no
+        # control in this window opened anything when clicked. It goes
+        # LAST, because it replaces each row's label and inherits that
+        # row's visibility from the progressive disclosure above.
+        from ..field_help import install_field_popups
+
+        install_field_popups(self)
 
     # =====================================================================
     # Page 1 -- variants
@@ -374,7 +382,7 @@ class GeometryDesignerWindow(QWidget):
 
         self.vsweep_param_combo = QComboBox()
         self.vsweep_param_combo.setToolTip(
-            "Geometry parameter varied across the generated rows. The "
+            "\"vsweep_param\" — Geometry parameter varied across the generated rows. The "
             "builder validates each value against the base planform and "
             "turns it into "
             "one new table row. On a base without a parametric generator "
@@ -388,13 +396,13 @@ class GeometryDesignerWindow(QWidget):
         self.vsweep_param_combo.setCurrentText("tip_chord_norm")
         form.addRow("Parameter:", self.vsweep_param_combo)
 
-        start_end_tooltip = "The generated values run between these two bounds, both included."
         self.vsweep_start = QDoubleSpinBox()
         self.vsweep_start.setRange(-10.0, 10.0)
         self.vsweep_start.setDecimals(4)
         self.vsweep_start.setSingleStep(0.005)
         self.vsweep_start.setValue(0.03)
-        self.vsweep_start.setToolTip(start_end_tooltip)
+        self.vsweep_start.setToolTip(
+            '"vsweep_start" — the FIRST generated value, included. The rows run from here to End in evenly spaced steps, unless an explicit list is given below.')
         form.addRow("Start:", self.vsweep_start)
 
         self.vsweep_end = QDoubleSpinBox()
@@ -402,20 +410,21 @@ class GeometryDesignerWindow(QWidget):
         self.vsweep_end.setDecimals(4)
         self.vsweep_end.setSingleStep(0.005)
         self.vsweep_end.setValue(0.06)
-        self.vsweep_end.setToolTip(start_end_tooltip)
+        self.vsweep_end.setToolTip(
+            '"vsweep_end" — the LAST generated value, included, so a sweep of N rows reaches this value exactly.')
         form.addRow("End:", self.vsweep_end)
 
         self.vsweep_count = QSpinBox()
         self.vsweep_count.setRange(1, 50)
         self.vsweep_count.setValue(3)
         self.vsweep_count.setToolTip(
-            "Number of evenly spaced values between Start and End.")
+            "\"vsweep_count\" — Number of evenly spaced values between Start and End.")
         form.addRow("Count:", self.vsweep_count)
 
         self.vsweep_values_edit = QLineEdit()
         self.vsweep_values_edit.setPlaceholderText("0.04, 0.06, 0.09")
         self.vsweep_values_edit.setToolTip(
-            "Optional explicit values, comma separated, for example "
+            "\"vsweep_values\" — Optional explicit values, comma separated, for example "
             "0.04, 0.06, 0.09. When this field "
             "has content it replaces Start, End and Count.")
         form.addRow("Values:", self.vsweep_values_edit)
@@ -470,7 +479,7 @@ class GeometryDesignerWindow(QWidget):
         self.gen_family_combo = QComboBox()
         self.gen_family_combo.addItems(list(self._GENERATE_FAMILIES))
         self.gen_family_combo.setToolTip(
-            "Planform family of the generated blade: rectangular keeps "
+            "\"gen_family\" — Planform family of the generated blade: rectangular keeps "
             "one chord along the span. Tapered interpolates the chord "
             "from root to tip. Elliptic peaks at the root.")
         form.addRow("Family:", self.gen_family_combo)
@@ -1547,7 +1556,7 @@ class GeometryDesignerWindow(QWidget):
             self.trim_combo.addItem(choice)
         self.trim_combo.setCurrentText("(off)")
         self.trim_combo.setToolTip(
-            "Holds the loading constant across every variant, so every "
+            "\"trim\" — Holds the loading constant across every variant, so every "
             "variant runs at the same loading and efficiency stays "
             "comparable.\n\n"
             "Thrust or CT is read from the first variant of the table "
@@ -1566,7 +1575,7 @@ class GeometryDesignerWindow(QWidget):
         self.workers_spin.setRange(1, 64)
         self.workers_spin.setValue(1)
         self.workers_spin.setToolTip(
-            "Requested evaluation processes for the comparison, stored "
+            "\"parallel_workers\" — Requested evaluation processes for the comparison, stored "
             "with the session. The variants are spread over this many "
             "processes, so the wall time falls almost in proportion until "
             "there are more workers than cores.")
@@ -1656,7 +1665,7 @@ class GeometryDesignerWindow(QWidget):
 
         self.sweep_axis_combo = QComboBox()
         self.sweep_axis_combo.setToolTip(
-            "Quantity carried through evenly spaced values. mu_x sweeps "
+            "\"sweep_axis\" — Quantity carried through evenly spaced values. mu_x sweeps "
             "the edgewise flow, and collective sweeps the blade pitch.")
         for key in ("mu_x", "collective_deg"):
             self.sweep_axis_combo.addItem(key, userData=key)
@@ -1668,21 +1677,23 @@ class GeometryDesignerWindow(QWidget):
         self.sweep_start.setRange(-1000.0, 1000.0)
         self.sweep_start.setDecimals(3)
         self.sweep_start.setValue(0.0)
-        self.sweep_start.setToolTip("The first value of the sweep is included.")
+        self.sweep_start.setToolTip(
+            '"sweep_start" — the FIRST value of the sweep, included. The sweep runs from here to Stop in evenly spaced steps.')
         form.addRow("Start:", self.sweep_start)
 
         self.sweep_stop = QDoubleSpinBox()
         self.sweep_stop.setRange(-1000.0, 1000.0)
         self.sweep_stop.setDecimals(3)
         self.sweep_stop.setValue(0.2)
-        self.sweep_stop.setToolTip("The last value of the sweep is included.")
+        self.sweep_stop.setToolTip(
+            '"sweep_stop" — the LAST value of the sweep, included, so a sweep of N points reaches this value exactly.')
         form.addRow("Stop:", self.sweep_stop)
 
         self.sweep_count = QSpinBox()
         self.sweep_count.setRange(1, 200)
         self.sweep_count.setValue(5)
         self.sweep_count.setToolTip(
-            "Number of evenly spaced values between start and stop.")
+            "\"sweep_count\" — Number of evenly spaced values between start and stop.")
         form.addRow("Count:", self.sweep_count)
 
         fixed_hint = QLabel(
@@ -1938,7 +1949,7 @@ class GeometryDesignerWindow(QWidget):
         # index from -1 to 0.
         self.ranking_field_combo.addItem("(none)")
         self.ranking_field_combo.setToolTip(
-            "Summary quantity ranked across variants at the reference "
+            "\"ranking_field\" — Summary quantity ranked across variants at the reference "
             "condition. The list keeps only the quantities this run "
             "produced.")
         # `activated`, not `currentIndexChanged`: programmatic rebuilds
@@ -1954,7 +1965,7 @@ class GeometryDesignerWindow(QWidget):
         ranking_row.addWidget(QLabel("Condition:"))
         self.ranking_condition_combo = QComboBox()
         self.ranking_condition_combo.setToolTip(
-            "Case whose results the ranking reads. The list holds the "
+            "\"ranking_condition\" — Case whose results the ranking reads. The list holds the "
             "distinct conditions of the last run; the first one ranks "
             "by default.")
         self.ranking_condition_combo.activated.connect(

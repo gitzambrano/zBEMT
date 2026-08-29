@@ -1174,7 +1174,8 @@ class AirfoilTab(QWidget):
         # only looks at the last segment -- the help would land on the
         # wrong section.
         self.profile_source_combo.setToolTip(
-            "How the 2D contour of the profile is described. The contour "
+            '"source" — how the 2D contour of the profile is described. '
+            "The contour "
             "feeds the drawing and the external solver; it does not feed the "
             "engine directly, which reads lift and drag from the polar.")
         # The combo goes in wrapped in a stretch container, exactly like

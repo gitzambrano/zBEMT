@@ -218,7 +218,7 @@ class RunBatchTab(QWidget):
         self.check_replace_queue = QCheckBox("Replace queue")
         self.check_replace_queue.setChecked(True)
         self.check_replace_queue.setToolTip(
-            "Checked: generating replaces the queue with the cases generated now.\n"
+            "\"replace_queue\" — Checked: generating replaces the queue with the cases generated now.\n"
             "Unchecked: the cases are ADDED to what's already in the queue "
             "-- this is how you mix a factorial with individual cases.\n"
             "The line beside the box always states which of the two will happen.")
@@ -627,7 +627,7 @@ class RunBatchTab(QWidget):
         self.batches_combo = QComboBox()
         self.batches_combo.addItem("(none selected)")
         self.batches_combo.setToolTip(
-            "Case queues stored with this project. Selecting one replaces the "
+            "\"batches\" — Case queues stored with this project. Selecting one replaces the "
             "queue below with its conditions; it does not run anything.")
         self.batches_combo.setMinimumWidth(180)
         self.batches_combo.currentIndexChanged.connect(self._on_saved_batch_selected)
@@ -1078,7 +1078,7 @@ class RunBatchTab(QWidget):
         eform = QFormLayout(box)
         self.outdir_edit = QLineEdit()
         self.outdir_edit.setToolTip(
-            "Folder that receives the exported tables and figures. It defaults "
+            "\"outdir\" — Folder that receives the exported tables and figures. It defaults "
             "to the project's own outputs/ folder; an existing file of the "
             "same name is never overwritten silently.")
         btn_browse = QPushButton("…")
@@ -1096,13 +1096,13 @@ class RunBatchTab(QWidget):
         # figure comes out of each.
         _PLOT_LABEL = {
             "coefficients": ("Coefficients",
-                              "Thrust/torque/power coefficients across the queued conditions."),
+                              "\"plots\" — Thrust/torque/power coefficients across the queued conditions."),
             "azimuth": ("Azimuthal loads",
-                         "Blade load through one revolution, at fixed radial stations."),
+                         "\"plots\" — Blade load through one revolution, at fixed radial stations."),
             "span": ("Spanwise loads",
-                      "Blade load along the radius, at fixed azimuths."),
+                      "\"plots\" — Blade load along the radius, at fixed azimuths."),
             "disk_map": ("Disk maps",
-                          "Top view of the rotor disk, one map per field."),
+                          "\"plots\" — Top view of the rotor disk, one map per field."),
         }
         for kind in ("coefficients", "azimuth", "span", "disk_map"):
             label, tip = _PLOT_LABEL[kind]
@@ -1113,6 +1113,8 @@ class RunBatchTab(QWidget):
         plot_row.addStretch(1)
         eform.addRow("Plots:", plot_row)
         self.save_csv_check = QCheckBox("Save CSV")
+        self.save_csv_check.setToolTip(
+            '"save_csv" — writes the batch summary as a comma-separated file: one row per condition, one column per summary quantity, under the axis letters of this project\'s mode. The figures are a view of these numbers; this is the numbers.')
         self.save_csv_check.setChecked(True)
         eform.addRow(self.save_csv_check)
         self.btn_export = QPushButton("Export")
@@ -1178,7 +1180,7 @@ class RunBatchTab(QWidget):
         # full options (no truncated text).
         slot_combo.view().setMinimumWidth(slot_combo.sizeHint().width())
         slot_combo.setToolTip(
-            "Which flight-condition quantity this axis sweeps. Every axis in "
+            "\"axis_quantity\" — Which flight-condition quantity this axis sweeps. Every axis in "
             "use is combined with every other one (a full factorial), so the "
             "number of cases is the product of the value counts — not their "
             "sum. Leave it at (none) to disable the axis.")
@@ -1188,7 +1190,7 @@ class RunBatchTab(QWidget):
             unit_combo, CONDITION_UNITS[("inplane", False)])
         unit_combo.view().setMinimumWidth(unit_combo.sizeHint().width())
         unit_combo.setToolTip(
-            "Unit the values below are written in. It changes how the numbers "
+            "\"axis_unit\" — Unit the values below are written in. It changes how the numbers "
             "are read, not the condition itself: the engine always works with "
             "the advance ratio, and the other units are converted into it "
             "using the current radius and RPM.")
@@ -1219,27 +1221,27 @@ class RunBatchTab(QWidget):
         values_edit = QLineEdit()
         values_edit.setPlaceholderText("e.g.: 0, 0.1, 0.2, 0.3")
         values_edit.setToolTip(
-            "The values this axis takes, separated by commas. This list is "
+            "\"axis_values\" — The values this axis takes, separated by commas. This list is "
             "what actually gets swept — the from/to/step boxes beside it are "
             "only a way to fill it in.")
         row.addWidget(values_edit, stretch=1)
         row.addWidget(QLabel("from:"))
         v_from = QDoubleSpinBox(); v_from.setRange(-100000, 100000); v_from.setDecimals(3)
         v_from.setSingleStep(0.1)
-        v_from.setToolTip("First value of the range that the 'fill' button writes "
+        v_from.setToolTip("\"range_from\" — First value of the range that the 'fill' button writes "
                           "into the values list.")
         row.addWidget(v_from)
         row.addWidget(QLabel("to:"))
         v_to = QDoubleSpinBox(); v_to.setRange(-100000, 100000); v_to.setDecimals(3); v_to.setValue(1.0)
         v_to.setSingleStep(0.1)
-        v_to.setToolTip("Last value of the range that the 'fill' button writes "
+        v_to.setToolTip("\"range_to\" — Last value of the range that the 'fill' button writes "
                         "into the values list.")
         row.addWidget(v_to)
         row.addWidget(QLabel("step:"))
         v_step = QDoubleSpinBox(); v_step.setRange(0.001, 100000); v_step.setDecimals(3); v_step.setValue(0.1)
         v_step.setSingleStep(0.01)
         v_step.setToolTip(
-            "Spacing between consecutive values in the generated range. "
+            "\"range_step\" — Spacing between consecutive values in the generated range. "
             "Halving it doubles the number of cases on this axis, and "
             "multiplies the total by two.")
         row.addWidget(v_step)

@@ -297,6 +297,12 @@ class TestMountedWindowLayout(unittest.TestCase):
         # GUI-only controls: not persisted under these names, but real
         # contracts documented in FIELD_HELP and in the manual.
         known |= {"geometry_spec"}
+        # The Run Batch factorial builder. Its six controls are expanded
+        # into flight conditions when the sweep is generated, so what
+        # reaches `batches.bemt` is the resulting list; none of the six
+        # is stored under its own name. All six are documented in 11.2.
+        known |= {"axis_quantity", "axis_unit", "axis_values",
+                  "range_from", "range_to", "range_step"}
 
         invented = []
         for tab_name, tab in self._tabs():

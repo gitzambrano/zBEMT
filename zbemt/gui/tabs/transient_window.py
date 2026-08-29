@@ -80,6 +80,12 @@ class TransientWindow(QWidget):
         self.state.geometry_changed.connect(self._refresh_gating)
         self.state.airfoil_changed.connect(self._refresh_gating)
         self._refresh_from_project()
+        # CLAUDE.md: every configurable field needs a popup. The call
+        # that installs them ran only for the main window's tabs, so no
+        # control in this window opened anything when clicked.
+        from ..field_help import install_field_popups
+
+        install_field_popups(self)
 
     # ------------------------------------------------------------------
     # Page 1: Trajectory
@@ -183,9 +189,15 @@ class TransientWindow(QWidget):
         self.build_case_a = QComboBox()
         self.build_case_b = QComboBox()
         for combo, tip in ((self.build_case_a,
-                            "Start condition of the ramp."),
+                            '"build_case_a" — the saved case the ramp '
+                            "STARTS at. It becomes the first node of the "
+                            "maneuver, and everything the case carries "
+                            "travels with it."),
                            (self.build_case_b,
-                            "End condition of the ramp.")):
+                            '"build_case_b" — the saved case the ramp '
+                            "ENDS at. It becomes the last node; if the two "
+                            "cases differ in more than one quantity, all of "
+                            "them ramp together.")):
             combo.setToolTip(tip)
         self.build_duration = QDoubleSpinBox()
         self.build_duration.setRange(0.1, 60.0)

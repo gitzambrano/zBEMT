@@ -119,6 +119,13 @@ class StabilityWindow(QWidget):
 
         self.state.project_changed.connect(self._refresh_from_project)
         self.state.geometry_changed.connect(lambda: self._refresh_gating())
+        # The rule in CLAUDE.md has no exception for a Tools window: every
+        # configurable field needs a popup. The enforcement did have one --
+        # this call was made only for the main window's tabs -- so no
+        # control in any of the four Tools windows opened anything.
+        from ..field_help import install_field_popups
+
+        install_field_popups(self)
         self._refresh_from_project()
 
     # ------------------------------------------------------------------
@@ -187,6 +194,7 @@ class StabilityWindow(QWidget):
         self.trim_target_spin.setDecimals(2)
         self.trim_target_spin.setValue(0.0)
         self.trim_target_spin.setToolTip(
+            '"trim_target_thrust" \u2014 ' +
             "Target thrust [N] of the thrust trim. Leave 0 to use the "
             "untrimmed case's own thrust.")
         trim_form.addRow("Thrust target [N]:", self.trim_target_spin)
@@ -231,6 +239,7 @@ class StabilityWindow(QWidget):
         for name, label in _VARIABLE_LABELS:
             if name in _STATE_NAMES:
                 check = QCheckBox(label)
+                check.setToolTip(self._variable_tip(name, label))
                 check.setChecked(name in ("w", "q", "theta_0"))
                 check.toggled.connect(self._refresh_step_table)
                 check.toggled.connect(self._update_cost_estimate)
@@ -245,6 +254,7 @@ class StabilityWindow(QWidget):
         for name, label in _VARIABLE_LABELS:
             if name in _CONTROL_NAMES:
                 check = QCheckBox(label)
+                check.setToolTip(self._variable_tip(name, label))
                 check.setChecked(name == "theta_0")
                 check.toggled.connect(self._refresh_step_table)
                 check.toggled.connect(self._update_cost_estimate)
@@ -285,6 +295,12 @@ class StabilityWindow(QWidget):
         options_box = QGroupBox("Options")
         options_form = QFormLayout(options_box)
         self.richardson_check = QCheckBox("Richardson half-step check")
+        self.richardson_check.setToolTip(
+            '"richardson_check" \u2014 repeats every derivative at HALF '
+            "the step and reports how far the answer moved. A central "
+            "difference carries truncation error, which falls as the "
+            "square of the step, against round-off, which grows as the "
+            "step shrinks; one step size cannot say which dominates.")
         self.richardson_check.setChecked(True)
         self.richardson_check.toggled.connect(self._update_cost_estimate)
         options_form.addRow(self.richardson_check)
@@ -292,8 +308,10 @@ class StabilityWindow(QWidget):
         self.workers_spin.setRange(1, 64)
         self.workers_spin.setValue(1)
         self.workers_spin.setToolTip(
-            "Requested evaluation processes; stored on the study. This "
-            "build evaluates serially.")
+            '"parallel_workers" — requested evaluation processes, '
+            "stored on the study. This build evaluates the derivatives "
+            "SERIALLY, so the value travels with the file and does not "
+            "yet change the run time.")
         options_form.addRow("Parallel workers:", self.workers_spin)
         right.addWidget(options_box)
 
@@ -365,23 +383,47 @@ class StabilityWindow(QWidget):
         vehicle_layout = QVBoxLayout(vehicle_box)
         self.vehicle_check = QCheckBox("Build the rigid-body A/B matrices")
         self.vehicle_check.setToolTip(
-            "One rotor only: no fuselage, no tail, no engine dynamics. "
-            "Needs the speeds u/v/w and the rates p/q plus rotor speed among the states.")
+            '"vehicle_enabled" \u2014 turns the ROTOR derivatives into '
+            "aircraft motion. One rotor only: no fuselage, no tail, no "
+            "stabiliser, no engine or governor dynamics. Needs the "
+            "speeds u/v/w and the rates p/q among the states.")
         self.vehicle_check.setEnabled(False)
         self.vehicle_check.toggled.connect(self._refresh_vehicle)
         vehicle_layout.addWidget(self.vehicle_check)
         form = QFormLayout()
-        self.mass_spin = self._spin(1.0, 1e6, 100.0, 1, "kg")
-        self.ix_spin = self._spin(0.01, 1e7, 50.0, 1, "kg*m2")
-        self.iy_spin = self._spin(0.01, 1e7, 80.0, 1, "kg*m2")
-        self.iz_spin = self._spin(0.01, 1e7, 20.0, 1, "kg*m2")
+        self.mass_spin = self._spin(
+            1.0, 1e6, 100.0, 1, "kg", "vehicle_mass_kg",
+            "Total mass the rotor forces accelerate; it scales every "
+            "translational row of the A matrix.")
+        self.ix_spin = self._spin(
+            0.01, 1e7, 50.0, 1, "kg*m2", "vehicle_Ix_kg_m2",
+            "Roll inertia: it sets the time scale of the roll response.")
+        self.iy_spin = self._spin(
+            0.01, 1e7, 80.0, 1, "kg*m2", "vehicle_Iy_kg_m2",
+            "Pitch inertia: the one the hub arm acts through.")
+        self.iz_spin = self._spin(
+            0.01, 1e7, 20.0, 1, "kg*m2", "vehicle_Iz_kg_m2",
+            "Yaw inertia. Nothing in this model restores yaw, so read "
+            "that row as a comparison, not as a prediction.")
         # The hub arm is what turns a hub FORCE into a moment about the
         # centre of gravity. It was not offered at all, so every matrix
         # was built with a zero arm -- a real modelling choice presented
         # as an absence.
-        self.hub_x_spin = self._spin(-20.0, 20.0, 0.0, 3, "m")
-        self.hub_z_spin = self._spin(-20.0, 20.0, 0.0, 3, "m")
-        self.gravity_spin = self._spin(0.0, 30.0, 9.81, 3, "m/s2")
+        self.hub_x_spin = self._spin(
+            -20.0, 20.0, 0.0, 3, "m", "hub_offset_x_m",
+            "Longitudinal arm from the CG to the hub, positive forward. "
+            "A ZERO arm is a modelling choice, not a neutral default: it "
+            "removes the term that couples a hub force into pitch.")
+        self.hub_z_spin = self._spin(
+            -20.0, 20.0, 0.0, 3, "m", "hub_offset_z_m",
+            "Height of the hub above the CG. It is the arm through "
+            "which a rearward hub force pitches the aircraft, and the "
+            "dominant one on a helicopter.")
+        self.gravity_spin = self._spin(
+            0.0, 30.0, 9.81, 3, "m/s2", "gravity_m_s2",
+            "Used only in the attitude rows, where a change of attitude "
+            "tilts the weight vector. It is what makes the long-period "
+            "mode exist at all.")
         rows = (("Mass [kg]:", self.mass_spin),
                  (nomenclature.to_html(r"$I_x$") + " [kg\u00b7m\u00b2]:",
                   self.ix_spin),
@@ -406,6 +448,11 @@ class StabilityWindow(QWidget):
         bar_box = QGroupBox("Bar chart — one output across variables")
         bar_layout = QHBoxLayout(bar_box)
         self.bar_output_combo = QComboBox()
+        self.bar_output_combo.setToolTip(
+            "Which output the bar chart ranks. One chart shows one "
+            "output's derivative against every perturbed variable, so "
+            "the tallest bar names the variable that output answers to "
+            "most strongly.")
         for name in _OUTPUT_NAMES:
             # Rendered text, engine key as the item's data: reading the
             # TEXT back would make the chart depend on how it is spelled.
@@ -431,12 +478,30 @@ class StabilityWindow(QWidget):
         return page
 
     @staticmethod
-    def _spin(lo, hi, value, decimals, tip_unit):
+    def _variable_tip(name: str, label: str) -> str:
+        """Tooltip of a state or control checkbox.
+
+        It opens with the variable name in quotes because that is what
+        `field_help.install_field_popups` reads to decide which field a
+        control belongs to. Without it the checkbox is invisible to the
+        help system, which is why none of these fifteen opened anything.
+        """
+        return (f'"{name}" — {label}. Ticking it adds one column of '
+                f"central differences to the study: every output is "
+                f"re-solved at plus and minus the step of this variable.")
+
+    @staticmethod
+    def _spin(lo, hi, value, decimals, tip_unit, field="", body=""):
         spin = QDoubleSpinBox()
         spin.setRange(lo, hi)
         spin.setDecimals(decimals)
         spin.setValue(value)
-        spin.setToolTip(f"In {tip_unit}.")
+        # The field name in quotes is what `install_field_popups` reads
+        # to find the field: a tooltip that gives only the unit is
+        # invisible to it, and the control gets no popup at all.
+        head = f'"{field}" \u2014 ' if field else ""
+        spin.setToolTip(f"{head}{body} In {tip_unit}." if body
+                         else f"{head}In {tip_unit}.")
         return spin
 
     # ------------------------------------------------------------------
@@ -598,9 +663,19 @@ class StabilityWindow(QWidget):
         for name in ("p", "q", "theta_1c", "theta_1s"):
             check = self.var_checks[name]
             check.setEnabled(not rigid)
-            tooltip = "" if not rigid else (
-                "Disabled: the blade has no flap freedom, so this "
-                "rate/control cannot act on it.")
+            # The field tooltip is REBUILT, not replaced. Overwriting it
+            # (and clearing it outright in the enabled branch) threw away
+            # the field name the help system reads, so these four lost
+            # both their hover text and their popup the first time the
+            # gating ran -- and the disabled ones lost the physics
+            # exactly where the reader most needs it.
+            label = dict(_VARIABLE_LABELS)[name]
+            tooltip = self._variable_tip(name, label)
+            if rigid:
+                tooltip += (" DISABLED: the blade has no flap freedom, so "
+                            "this rate or control cannot act on it. Give "
+                            "the blade a hinge offset or a root spring in "
+                            "the Geometry tab to enable it.")
             check.setToolTip(tooltip)
 
     # ------------------------------------------------------------------

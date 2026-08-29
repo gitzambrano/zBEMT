@@ -97,6 +97,12 @@ class OptimizerWindow(QWidget):
         self.state.project_changed.connect(self._refresh_from_project)
         self.state.geometry_changed.connect(lambda: self.state_notify())
         self._refresh_from_project()
+        # CLAUDE.md: every configurable field needs a popup. The call
+        # that installs them ran only for the main window's tabs, so no
+        # control in this window opened anything when clicked.
+        from ..field_help import install_field_popups
+
+        install_field_popups(self)
 
     # ------------------------------------------------------------------
     # Page 1: Study
@@ -147,9 +153,10 @@ class OptimizerWindow(QWidget):
                    "(for example FM, CT, CP). The box suggests the usual "
                    "ones; type any other summary key.")
             if i == 2:
-                tip = ("Second objective. An EMPTY box runs a "
-                       "single-objective study; a filled one switches to "
-                       "the Pareto front.")
+                tip = ('"objectives" — the second objective. An EMPTY '
+                       "box runs a single-objective study; a filled one "
+                       "switches to the Pareto front, where no design "
+                       "dominates another.")
             key_combo.setToolTip(tip)
             kind_combo.setToolTip('"kind" — maximize or minimize.')
             row = QHBoxLayout()

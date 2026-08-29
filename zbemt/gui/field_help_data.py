@@ -63,6 +63,12 @@ _NOT_THE_FIELDS_SECTION = frozenset({
     *{(name, "cap-transiente-2") for name in (
         "mu_x", "Vz", "collective_deg", "cyclic_c_deg", "cyclic_s_deg",
         "rpm")},
+    #: The interfaces chapter is an OVERVIEW. Its "Where the files go"
+    #: paragraph names the two keys a batch carries so the reader knows
+    #: they exist; the Run Batch chapter is where they are explained,
+    #: and that is where the control has to land.
+    ("outdir", "cap-interfaces-5-2"),
+    ("plots", "cap-interfaces-5-2"),
 })
 
 #: chapters whose subject is physics/math, not widget description

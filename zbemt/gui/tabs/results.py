@@ -815,8 +815,11 @@ class ResultsTab(QWidget):
         return self._MODES[max(self.mode_list.currentRow(), 0)]
 
     def _maybe_refresh(self, mode: str):
+        # Deferred, like every other option change: this is the path the
+        # 3D view's two field dropdowns take, and it was the last one
+        # still building a figure synchronously on each change (`PR-11`).
         if self._current_mode() == mode:
-            self._refresh_current()
+            self._schedule_redraw()
 
     def _on_project_changed(self):
         # New project: the stored figures describe the PREVIOUS project's

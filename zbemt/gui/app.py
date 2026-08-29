@@ -337,7 +337,12 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(RunCaseTab(self.state), "Run Case")
         self.tabs.addTab(RunBatchTab(self.state), "Run Batch")
         self.tabs.addTab(ResultsTab(self.state, geometry_tab, airfoil_tab), "Results")
-        adjust_focus_policy(self)
+        # `self.tabs` has NO PARENT yet at this line, so sweeping `self`
+        # here walked an empty tree and adjusted zero widgets. Sweep the
+        # tab widget itself, which is the tree that exists. `WheelGuard`
+        # also does this per widget at polish time, so this is now a
+        # belt-and-braces pass rather than the only line of defence.
+        adjust_focus_policy(self.tabs)
         # Bug 1: the FlowIndicatorBar already serves as navigation between
         # tabs; hiding the native tabBar() removes the visual duplication.
         self.tabs.tabBar().setVisible(False)
