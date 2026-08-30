@@ -253,6 +253,74 @@ class TestConditionControlsFollowBladeFreedom(unittest.TestCase):
             with self.subTest(control=control.toolTip()):
                 self.assertTrue(control.isVisibleTo(tab))
 
+    def _batch_tab(self, flap_model: str):
+        from zbemt.gui.common import AppState
+        from zbemt.gui.tabs.run_batch import RunBatchTab
+
+        state = AppState()
+        project = helpers.make_studies_project()
+        project.geometry.dynamics.flap_model = flap_model
+        state.project = project
+        tab = RunBatchTab(state)
+        self.addCleanup(tab.deleteLater)
+        tab.show()
+        self.app.processEvents()
+        return tab
+
+    def test_batch_gates_the_cyclic_pair_like_run_case(self):
+        """`SC-11`: the batch offers the same cyclic pair Run Case does, and
+        hides it for a rigid blade, which has no flap response for the
+        cyclic pitch to control (`PR-2`)."""
+        rigid = self._batch_tab("rigid")
+        for control in (rigid.fixed_cyclic_c, rigid.fixed_cyclic_s):
+            self.assertFalse(control.isVisibleTo(rigid))
+
+        flapping = self._batch_tab("offset")
+        for control in (flapping.fixed_cyclic_c, flapping.fixed_cyclic_s):
+            self.assertTrue(control.isVisibleTo(flapping))
+
+    def test_choosing_a_flapping_blade_reveals_the_cyclic_rows_at_once(self):
+        """The flap model is edited on the Geometry tab, and the run tabs
+        gate their cyclic rows on it.
+
+        `_apply_dynamics` wrote the new model straight into
+        `project.geometry.dynamics` and emitted nothing, so the write
+        stayed private to the Geometry tab: the cyclic fields stayed
+        hidden until the project was reopened. The earlier tests here all
+        set the flap model BEFORE building the tab, which is why none of
+        them saw it."""
+        from zbemt.gui.common import AppState
+        from zbemt.gui.tabs.geometry_tab import GeometryTab
+        from zbemt.gui.tabs.run_case import RunCaseTab
+        from zbemt.gui.tabs.run_batch import RunBatchTab
+
+        state = AppState()
+        project = helpers.make_studies_project()
+        project.geometry.dynamics.flap_model = "rigid"
+        state.project = project
+
+        geometry = GeometryTab(state)
+        case = RunCaseTab(state)
+        batch = RunBatchTab(state)
+        for tab in (geometry, case, batch):
+            self.addCleanup(tab.deleteLater)
+            tab.show()
+        self.app.processEvents()
+
+        self.assertFalse(case.cyclic_c_spin.isVisibleTo(case))
+        self.assertFalse(batch.fixed_cyclic_c.isVisibleTo(batch))
+
+        index = geometry.dyn_flap_model.findData("offset_spring")
+        geometry.dyn_flap_model.setCurrentIndex(index)
+        self.app.processEvents()
+
+        self.assertEqual(state.project.geometry.dynamics.flap_model,
+                          "offset_spring")
+        self.assertTrue(case.cyclic_c_spin.isVisibleTo(case),
+                        "Run Case did not learn that the blade can flap")
+        self.assertTrue(batch.fixed_cyclic_c.isVisibleTo(batch),
+                        "Run Batch did not learn that the blade can flap")
+
     def test_batch_collective_defaults_to_zero(self):
         from zbemt.gui.common import AppState
         from zbemt.gui.tabs.run_batch import RunBatchTab

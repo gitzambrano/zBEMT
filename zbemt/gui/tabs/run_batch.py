@@ -173,10 +173,14 @@ class RunBatchTab(QWidget):
         self._run_label = ""
 
         self.state.project_changed.connect(self._on_project_changed)
+        # The flap model is edited on the Geometry tab, and it decides
+        # whether the cyclic rows apply at all.
+        self.state.geometry_changed.connect(self._refresh_cyclic_availability)
         self.state.mode_changed.connect(self._refresh_mode_defaults)
         self._refresh_mode_defaults()
         self._on_axes_changed()
         self._update_queue_label()
+        self._refresh_cyclic_availability()
 
     # =====================================================================
     # Stage 1 -- generate cases (the two modes, side by side)
@@ -346,9 +350,25 @@ class RunBatchTab(QWidget):
             'in-plane free stream, applied to every generated case.')
         self.fixed_sideslip.setRange(-89, 89); self.fixed_sideslip.setValue(0.0)
         self.fixed_sideslip.setSingleStep(1.0)
+        # Cyclic pitch (SC-11), the same pair Run Case offers. A rigid
+        # blade has no flap response for the cyclic to control, so both
+        # rows hide unless the geometry gives the blade flap freedom.
+        self.fixed_cyclic_c = QDoubleSpinBox()
+        self.fixed_cyclic_c.setToolTip(
+            '"cyclic_c_deg"<br><br>Cyclic pitch, cosine harmonic, applied to '
+            'every generated case.')
+        self.fixed_cyclic_c.setRange(-30, 30); self.fixed_cyclic_c.setValue(0.0)
+        self.fixed_cyclic_c.setSingleStep(0.5)
+        self.fixed_cyclic_s = QDoubleSpinBox()
+        self.fixed_cyclic_s.setToolTip(
+            '"cyclic_s_deg"<br><br>Cyclic pitch, sine harmonic, applied to '
+            'every generated case.')
+        self.fixed_cyclic_s.setRange(-30, 30); self.fixed_cyclic_s.setValue(0.0)
+        self.fixed_cyclic_s.setSingleStep(0.5)
         for field in (self.fixed_advance, self.fixed_axial,
                       self.fixed_collective, self.fixed_rpm,
-                      self.fixed_sideslip):
+                      self.fixed_sideslip,
+                      self.fixed_cyclic_c, self.fixed_cyclic_s):
             self._size_field(field)
         # All four rows have their label in the LABEL COLUMN: previously
         # the two composite ones (advance/axial) went in as a spanning
@@ -361,6 +381,10 @@ class RunBatchTab(QWidget):
         fixed_form.addRow("Collective [deg]:",
                           self._with_unit_indent(self.fixed_collective))
         fixed_form.addRow("RPM [rev/min]:", self._with_unit_indent(self.fixed_rpm))
+        fixed_form.addRow(_sym(r"\theta_{1c}") + " — Cyclic [deg]:",
+                          self._with_unit_indent(self.fixed_cyclic_c))
+        fixed_form.addRow(_sym(r"\theta_{1s}") + " — Cyclic [deg]:",
+                          self._with_unit_indent(self.fixed_cyclic_s))
         fixed_form.addRow(_sym(r"\psi_w") + " — Sideslip [deg]:",
                           self._with_unit_indent(self.fixed_sideslip))
         # kept to hide the WHOLE ROW, label included: hiding only the
@@ -852,8 +876,12 @@ class RunBatchTab(QWidget):
             fixed["collective_deg"] = self.fixed_collective.value()
         if "rpm" not in axis_slots:
             fixed["rpm"] = self.fixed_rpm.value()
-        # Sideslip is never an axis, so it is always passed through.
+        # Never axes, so they are always passed through. The cyclic pair
+        # only reaches the cases when the blade can actually flap.
         fixed["sideslip_deg"] = self.fixed_sideslip.value()
+        if self.fixed_cyclic_c.isVisible() or self.fixed_cyclic_s.isVisible():
+            fixed["cyclic_c_deg"] = self.fixed_cyclic_c.value()
+            fixed["cyclic_s_deg"] = self.fixed_cyclic_s.value()
         return fixed
 
     # =====================================================================
@@ -1556,6 +1584,19 @@ class RunBatchTab(QWidget):
         if self.state.project is not None:
             self.outdir_edit.setText(str(Path(self.state.project.path) / "outputs"))
         self._refresh_saved_batches_combo()
+        self._refresh_cyclic_availability()
+
+    def _refresh_cyclic_availability(self):
+        """Show the cyclic rows only when the blade can flap (`SC-11`).
+
+        A rigid blade has no flap response for the cyclic pitch to
+        control, so the pair would be a control that cannot affect the
+        model (`PR-2`). Run Case gates the same pair on the same value."""
+        dynamics = getattr(self.state.project.geometry, "dynamics", None) \
+            if self.state.project else None
+        flapping = bool(dynamics and dynamics.flap_model != "rigid")
+        for control in (self.fixed_cyclic_c, self.fixed_cyclic_s):
+            set_row_visible(self._fixed_form, control, flapping)
 
     # =====================================================================
     # Batches saved in the project

@@ -906,11 +906,18 @@ def _time_one_evaluation(project, condition, variables) -> float | None:
 #: are still changing and the answer is not periodic (`EN-9`).
 PERIODIC_RESIDUAL_TOLERANCE = 1e-3
 
-#: The flap equation is linear in beta: it drops cos(beta) against one
-#: and sin(beta) against beta. Past about ten degrees that is no longer
-#: a small correction, and the harmonic balance is being read outside
-#: the range it was derived for.
-FLAP_SMALL_ANGLE_LIMIT_DEG = 10.0
+#: Flap amplitude past which the linear flap model is being read outside
+#: the range it was derived for. Ten degrees fired on ordinary cases, so
+#: the limit sits where the linearization is genuinely spent.
+FLAP_SMALL_ANGLE_LIMIT_DEG = 20.0
+
+#: Convergence below which the run is worth reporting (`EN-11`). A mesh
+#: almost never converges on every last element: one or two stations at the
+#: tip or in reverse flow can stop just short of the tolerance without
+#: moving any integrated quantity. Warning at anything under 100% fired on
+#: nearly every healthy run, and a warning that is always on is one nobody
+#: reads.
+CONVERGENCE_WARNING_PCT = 99.5
 
 
 def validate_results(summary: dict) -> list[Issue]:
@@ -927,7 +934,7 @@ def validate_results(summary: dict) -> list[Issue]:
         return issues
 
     convergence_pct = summary.get("convergence_pct")
-    if convergence_pct is not None and float(convergence_pct) < 100.0:
+    if convergence_pct is not None and float(convergence_pct) < CONVERGENCE_WARNING_PCT:
         issues.append(Issue(
             "warning",
             "the inflow solution converged on only "
@@ -949,11 +956,9 @@ def validate_results(summary: dict) -> list[Issue]:
     if peak is not None and peak > FLAP_SMALL_ANGLE_LIMIT_DEG:
         issues.append(Issue(
             "warning",
-            f"the blade flaps to {peak:.1f} deg, past the "
-            f"{FLAP_SMALL_ANGLE_LIMIT_DEG:g} deg where the small-angle flap "
-            "equation stops being a small correction: it drops cos(beta) "
-            "against one and sin(beta) against beta. Lower the collective, "
-            "raise the shaft speed, or read the flap angles as indicative."))
+            f"the blade flaps to {peak:.1f} deg. Past "
+            f"{FLAP_SMALL_ANGLE_LIMIT_DEG:g} deg the linear flap model no "
+            "longer holds, so read the flap angles as indicative."))
     return issues
 
 

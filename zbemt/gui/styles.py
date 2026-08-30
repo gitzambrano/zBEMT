@@ -296,6 +296,36 @@ QComboBox QAbstractItemView {{
     selection-color: {_INK};
 }}
 
+/* The Tools menu. A QMenu is a POPUP WINDOW, so it never inherited the
+   light colors this sheet gives the widgets, and it fell back to the
+   platform palette instead. Under Windows in dark mode that palette is
+   dark, so the menu opened as a black panel with near-black entries: the
+   four Tools windows were on screen and unreadable. The popup of a
+   QComboBox was styled here and the menu was not, which is why only one
+   of the two was affected. */
+QMenu {{
+    background: {_CARD};
+    color: {_INK};
+    border: 1px solid {_BORDER_STRONG};
+    padding: 4px;
+}}
+QMenu::item {{
+    background: transparent;
+    color: {_INK};
+    padding: 6px 24px 6px 12px;
+    border-radius: 4px;
+}}
+QMenu::item:selected {{
+    background: {_ACCENT_SOFT};
+    color: {_INK};
+}}
+QMenu::item:disabled {{ color: {_DISABLED_FG}; }}
+QMenu::separator {{
+    height: 1px;
+    background: {_BORDER};
+    margin: 4px 8px;
+}}
+
 /* Vertical `padding`, not only `spacing`. A QFormLayout row that holds
    only a QCheckBox is SHORTER than a field row, because the indicator
    measures less than a spinbox. Qt spaces the rows by their height.

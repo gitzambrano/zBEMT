@@ -896,6 +896,10 @@ def build_factorial_conditions(project: Project, axes: list[dict],
     # important of the perturbation inputs (SC-14) and sweeping it would
     # multiply the case count for a second-order effect.
     base_sideslip = float(fixed.get("sideslip_deg", 0.0))
+    # Cyclic pitch (SC-11) travels the same way: a fixed value, never an
+    # axis, applied to every combination.
+    base_cyclic_c = float(fixed.get("cyclic_c_deg", 0.0))
+    base_cyclic_s = float(fixed.get("cyclic_s_deg", 0.0))
 
     conditions: list[FlightCondition] = []
     for combo in itertools.product(*(ax["values"] for ax in axes)):
@@ -958,7 +962,9 @@ def build_factorial_conditions(project: Project, axes: list[dict],
 
         name = condition_name(overrides, is_propeller)
         conditions.append(FlightCondition(name=name, mu_x=mu_x, collective_deg=collective_deg,
-                                          Vz=Vz, rpm=rpm, sideslip_deg=base_sideslip))
+                                          Vz=Vz, rpm=rpm, sideslip_deg=base_sideslip,
+                                          cyclic_c_deg=base_cyclic_c,
+                                          cyclic_s_deg=base_cyclic_s))
 
     return conditions
 

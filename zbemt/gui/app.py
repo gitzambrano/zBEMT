@@ -185,8 +185,11 @@ class FlowIndicatorBar(QWidget):
         # under the dark strip it reads as an empty black rectangle above
         # the entries. The menu itself says what each entry does, so the
         # tooltip has nothing left to add once it is open.
+        # A lambda, not `connect(QToolTip.hideText)`: connecting a signal
+        # straight to a static C++ method leaves the connection with no
+        # receiver object to own it.
         from PyQt6.QtWidgets import QToolTip
-        tools_menu.aboutToShow.connect(QToolTip.hideText)
+        tools_menu.aboutToShow.connect(lambda: QToolTip.hideText())
         layout.addWidget(self.btn_tools)
 
         # Global access to the documentation: explicit text, without the

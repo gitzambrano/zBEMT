@@ -31,14 +31,34 @@ from PyQt6.QtCore import Qt
 _LEAK = re.compile(r"&[a-zA-Z]+;|&#\d+;|</?(?:sub|sup|b|i)>")
 
 
+#: What `Qt::mightBeRichText` looks for: a '<' that opens something. An
+#: ENTITY alone does not qualify, which is the whole trap.
+_LOOKS_LIKE_A_TAG = re.compile(r"<[a-zA-Z!/]")
+
+
 def _painted(widget) -> str:
-    """What the widget actually draws, not what was handed to it."""
+    """What the widget actually draws, not what was handed to it.
+
+    `AutoText` is the subtle case: Qt calls `mightBeRichText`, which
+    decides by looking for a TAG. A label carrying `<sub>` renders, and a
+    label whose only markup is `&#9888;` or `&gamma;` does not. Treating
+    all of AutoText as leaking would flag every `<b>Heading</b>` in the
+    app; treating none of it as leaking is how the real defect hid.
+    """
     doc = getattr(widget, "_doc", None)
     if doc is not None:                # `_RichToolButton` paints this
         return doc.toPlainText()
-    if isinstance(widget, QLabel) and widget.textFormat() == Qt.TextFormat.RichText:
-        # Rich text: Qt parses entities and tags, so nothing leaks.
-        return ""
+
+    if isinstance(widget, QLabel):
+        fmt = widget.textFormat()
+        if fmt == Qt.TextFormat.RichText:
+            return ""                  # Qt parses entities and tags alike
+        text = widget.text()
+        if fmt == Qt.TextFormat.AutoText and _LOOKS_LIKE_A_TAG.search(text):
+            return ""                  # detected as rich text, so it renders
+        return text
+
+    # A plain button never renders markup, and reads `&` as a mnemonic.
     return widget.text() if hasattr(widget, "text") else ""
 
 
@@ -53,16 +73,17 @@ class TestNoLabelShowsItsOwnMarkup(unittest.TestCase):
         cls.window.show()
 
     def _offenders(self, root):
+        """Every QLabel and every button, not only the form labels.
+
+        Scoping this to `QFormLayout` label rows is what let the Run Case
+        findings strip through: it is a loose `QLabel`, it joins its
+        findings with `<br>`, and with a SINGLE finding there was no tag
+        for `AutoText` to notice, so `&#9888;` was painted verbatim."""
         found = []
-        for form in root.findChildren(QFormLayout):
-            for row in range(form.rowCount()):
-                item = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
-                w = item.widget() if item is not None else None
-                if w is None:
-                    continue
-                text = _painted(w)
-                if _LEAK.search(text):
-                    found.append(text)
+        for label in root.findChildren(QLabel):
+            text = _painted(label)
+            if _LEAK.search(text):
+                found.append(text)
         for button in root.findChildren(QAbstractButton):
             text = _painted(button)
             if _LEAK.search(text):

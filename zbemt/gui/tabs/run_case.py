@@ -336,6 +336,11 @@ class RunCaseTab(QWidget):
         # so an ordinary run gains no furniture (`EN-9`, `PR-2`).
         self.findings_label = QLabel("")
         self.findings_label.setWordWrap(True)
+        # RichText, not AutoText. The strip joins its findings with `<br>`,
+        # so with TWO findings Qt saw a tag and rendered; with ONE there was
+        # no tag, the text was treated as plain, and the warning sign
+        # reached the screen as the literal "&#9888;".
+        self.findings_label.setTextFormat(Qt.TextFormat.RichText)
         self.findings_label.setStyleSheet(
             "color: #8a5000; background: #fff6e0; border: 1px solid #e0c080;"
             " padding: 6px; border-radius: 3px;")

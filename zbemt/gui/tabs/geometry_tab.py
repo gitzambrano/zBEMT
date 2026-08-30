@@ -421,6 +421,22 @@ class GeometryTab(QWidget):
             return
         self._mark_dirty()
         self.state.project.geometry.dynamics = self._collect_dynamics()
+        # Announce the write. The flap model decides which condition
+        # controls apply: cyclic pitch and the hub rates only mean
+        # something for a blade that can flap, and Run Case and Run Batch
+        # gate them on exactly this value. Without the signal the write
+        # stayed private to this tab, so choosing a non-rigid blade left
+        # the cyclic fields hidden until the project was reopened.
+        #
+        # `_applying_locally` for the same reason as `_apply_constants`:
+        # this tab listens to `geometry_changed` too, and rebuilding the
+        # form from the value just written would fight the edit in
+        # progress.
+        self._applying_locally = True
+        try:
+            self.state.notify_geometry()
+        finally:
+            self._applying_locally = False
 
     def _refresh_dynamics_visibility(self):
         """Progressive disclosure (PR-2): fields that cannot apply to the

@@ -7,8 +7,8 @@ things it catches both produce a perfectly converged field:
 
   * a time-marched separation state whose last revolutions are still
     moving, so the answer is a transient being read as a periodic one;
-  * a flap response past the angle where the small-angle flap equation
-    stops being a small correction.
+  * a flap response past the angle where the linear flap model stops
+    holding.
 
 Neither is an error. The numbers are real; what is wrong is reading them
 without knowing which assumption they left behind. So both are warnings,
@@ -40,6 +40,21 @@ class TestNothingToSay(unittest.TestCase):
 
     def test_a_fully_converged_solver_is_silent(self):
         self.assertEqual(validate_results({"convergence_pct": 100.0}), [])
+
+    def test_a_mesh_that_all_but_converged_is_silent(self):
+        """A mesh almost never converges on every last element: a couple of
+        stations at the tip or in reverse flow can stop just short without
+        moving any integrated quantity. Warning at anything under 100%
+        fired on nearly every healthy run, and a warning that is always on
+        is one nobody reads."""
+        from zbemt.validation import CONVERGENCE_WARNING_PCT
+
+        self.assertEqual(validate_results({"convergence_pct": 99.9}), [])
+        self.assertEqual(
+            validate_results({"convergence_pct": CONVERGENCE_WARNING_PCT}), [])
+        # Just below the threshold it speaks again.
+        self.assertEqual(
+            len(validate_results({"convergence_pct": CONVERGENCE_WARNING_PCT - 0.1})), 1)
 
 
 class TestSolverConvergenceMustBeReported(unittest.TestCase):
@@ -84,19 +99,19 @@ class TestTheFlapMustStaySmall(unittest.TestCase):
                                     "beta_1s_deg": -2.9})
         self.assertEqual(len(issues), 1)
         self.assertEqual(issues[0].level, "warning")
-        self.assertIn("small-angle", issues[0].message)
+        self.assertIn("linear flap model", issues[0].message)
 
     def test_the_bound_adds_the_harmonics_to_the_coning(self):
-        issues = validate_results({"beta_0_deg": 6.0, "beta_1c_deg": 8.0,
+        issues = validate_results({"beta_0_deg": 12.0, "beta_1c_deg": 14.0,
                                     "beta_1s_deg": 0.0})
-        self.assertTrue(issues, "6 + 8 = 14 deg is past the limit")
-        self.assertIn("14.0", issues[0].message)
+        self.assertTrue(issues, "12 + 14 = 26 deg is past the limit")
+        self.assertIn("26.0", issues[0].message)
 
     def test_coning_alone_below_the_limit_is_silent(self):
-        self.assertEqual(validate_results({"beta_0_deg": 9.0}), [])
+        self.assertEqual(validate_results({"beta_0_deg": 19.0}), [])
 
     def test_higher_harmonics_count_too(self):
-        base = {"beta_0_deg": 4.0, "beta_1c_deg": 4.0, "beta_1s_deg": 0.0}
+        base = {"beta_0_deg": 9.0, "beta_1c_deg": 9.0, "beta_1s_deg": 0.0}
         self.assertEqual(validate_results(dict(base)), [])
         with_second = dict(base, beta_2c_deg=3.0, beta_2s_deg=0.0)
         self.assertTrue(validate_results(with_second),
@@ -108,7 +123,7 @@ class TestTheFlapMustStaySmall(unittest.TestCase):
         self.assertEqual(validate_results({"CT": 0.01}), [])
 
     def test_the_limit_is_the_documented_one(self):
-        self.assertEqual(FLAP_SMALL_ANGLE_LIMIT_DEG, 10.0)
+        self.assertEqual(FLAP_SMALL_ANGLE_LIMIT_DEG, 20.0)
 
 
 class TestBothAtOnce(unittest.TestCase):

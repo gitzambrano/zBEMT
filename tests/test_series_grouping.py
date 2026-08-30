@@ -180,6 +180,19 @@ class TestConditionNameWithSymbol(unittest.TestCase):
             {"collective_deg": 8.0, "rpm": 600.0, "sideslip_deg": 12.5})
         self.assertEqual([c.sideslip_deg for c in conditions], [12.5, 12.5])
 
+    def test_fixed_cyclic_reaches_every_generated_condition(self):
+        """`SC-11`: the cyclic pair travels like sideslip -- a fixed value,
+        never an axis, applied to every combination."""
+        from tests.helpers import make_studies_project
+        project = make_studies_project()
+        conditions = studies.build_factorial_conditions(
+            project,
+            [{"variable": "mu_x", "values": [0.0, 0.2]}],
+            {"collective_deg": 8.0, "rpm": 600.0,
+             "cyclic_c_deg": -2.5, "cyclic_s_deg": 1.5})
+        self.assertEqual([c.cyclic_c_deg for c in conditions], [-2.5, -2.5])
+        self.assertEqual([c.cyclic_s_deg for c in conditions], [1.5, 1.5])
+
     def test_sideslip_defaults_to_zero_when_not_given(self):
         from tests.helpers import make_studies_project
         project = make_studies_project()
