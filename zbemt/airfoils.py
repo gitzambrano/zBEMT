@@ -424,12 +424,6 @@ def to_airfoil(airfoil_def: AirfoilDef, reynolds: Optional[float] = None,
         base = build_analytical(airfoil_def)
     elif airfoil_def.source == "table":
         base = build_table(airfoil_def, reynolds=reynolds, mach=mach, radial=radial)
-    elif airfoil_def.source == "external":
-        raise NotImplementedError(
-            "AirfoilDef.source='external' depends on external_solvers.run_polar(), "
-            "not yet implemented (future scope). Run external polar generation "
-            "first and import the result via table_slices."
-        )
     else:
         raise ValueError(f"Unknown AirfoilDef.source: {airfoil_def.source!r}")
 

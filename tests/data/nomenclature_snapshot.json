@@ -366,11 +366,6 @@
         "mathtext": "cfg_pitt_peters_relax",
         "text": "cfg_pitt_peters_relax"
       },
-      "cfg_pitt_peters_states": {
-        "html": "cfg_pitt_peters_states",
-        "mathtext": "cfg_pitt_peters_states",
-        "text": "cfg_pitt_peters_states"
-      },
       "cfg_pitt_peters_tol": {
         "html": "cfg_pitt_peters_tol",
         "mathtext": "cfg_pitt_peters_tol",
@@ -1037,11 +1032,6 @@
         "html": "cfg_pitt_peters_relax",
         "mathtext": "cfg_pitt_peters_relax",
         "text": "cfg_pitt_peters_relax"
-      },
-      "cfg_pitt_peters_states": {
-        "html": "cfg_pitt_peters_states",
-        "mathtext": "cfg_pitt_peters_states",
-        "text": "cfg_pitt_peters_states"
       },
       "cfg_pitt_peters_tol": {
         "html": "cfg_pitt_peters_tol",
@@ -1847,10 +1837,6 @@
         "relax<sub>PP</sub>",
         "Relaxation factor for the Pitt-Peters outer loop"
       ],
-      "cfg_pitt_peters_states": [
-        "N<sub>states</sub>",
-        "Number of Pitt-Peters dynamic inflow states (3 or 5)"
-      ],
       "cfg_pitt_peters_tol": [
         "tol<sub>PP</sub>",
         "Convergence tolerance for the Pitt-Peters outer loop"
@@ -2385,10 +2371,6 @@
         "relax<sub>PP</sub>",
         "Relaxation factor for the Pitt-Peters outer loop"
       ],
-      "cfg_pitt_peters_states": [
-        "N<sub>states</sub>",
-        "Number of Pitt-Peters dynamic inflow states (3 or 5)"
-      ],
       "cfg_pitt_peters_tol": [
         "tol<sub>PP</sub>",
         "Convergence tolerance for the Pitt-Peters outer loop"
@@ -2705,7 +2687,6 @@
     "cfg_nu_air": "<th class=\"un\">[m&sup2;/s]</th>",
     "cfg_pitt_peters_outer_iter": "<th class=\"un\">[-]</th>",
     "cfg_pitt_peters_relax": "<th class=\"un\">[-]</th>",
-    "cfg_pitt_peters_states": "<th class=\"un\">[-]</th>",
     "cfg_pitt_peters_tol": "<th class=\"un\">[-]</th>",
     "cfg_prandtl_loss_mode": "<th class=\"un\"></th>",
     "cfg_radial_flow_max_skew_deg": "<th class=\"un\">[deg]</th>",

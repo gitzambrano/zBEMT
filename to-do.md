@@ -133,16 +133,19 @@ control that picks a view rather than sets a value.
 
 ---
 
-## 6. Two engine options that are declared but not built
+## 6. Peters-He five-state inflow, if it is ever wanted
 
-- `AirfoilDef.source="external"` raises `NotImplementedError` and says what to
-  do instead: generate the polar first and import it through `table_slices`.
-  Coupled on-the-fly external polar calls during solver iterations are listed
-  under Limitations in chapter 18 as out of scope, so this is a deliberate
-  refusal rather than a gap -- but the enum still offers the value.
-- `pitt_peters_states = 5` (Peters-He) is offered in the Config tab and its
-  tooltip says "not yet implemented". Three states (the Pitt-Peters model) is
-  what runs.
+Both options that were declared and not built are now GONE, not offered:
+`AirfoilDef.source="external"` and `pitt_peters_states=5`. XFOIL and
+NeuralFoil polars reach the engine as `source="table"` through
+`table_slices`, and the inflow model solves its three states
+(nu0, nu_s, nu_c). `validation.py` still reports either old value as an
+error, so a project file written before the removal fails with a sentence
+instead of a traceback.
 
-Either build them or remove the option. An enum value that cannot be selected
-successfully is a promise the program does not keep.
+**What is left.** Building the Peters-He second harmonic (five states) is
+open work, not a defect. It needs the generalized gain matrix for the m=2
+states, which no source in this repository carries. The three-state matrices
+in `_pitt_peters_L_V` name their reference; the five-state extension must do
+the same before it is written, because a gain matrix guessed from memory
+produces plausible numbers that no test in this repository can catch.

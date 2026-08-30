@@ -243,7 +243,8 @@ class RunCaseTab(QWidget):
             'hub moment is the pitch damping.')
         for spin in (self.sideslip_spin, self.p_rate_spin, self.q_rate_spin):
             self._size_field(spin)
-        form.addRow("Sideslip ψ_w [deg]:", self._with_unit_indent(self.sideslip_spin))
+        form.addRow("ψ<sub>w</sub> — Sideslip [deg]:",
+                    self._with_unit_indent(self.sideslip_spin))
         form.addRow("Roll rate p [deg/s]:", self._with_unit_indent(self.p_rate_spin))
         form.addRow("Pitch rate q [deg/s]:", self._with_unit_indent(self.q_rate_spin))
         form.addRow("RPM [rev/min]:", self._with_unit_indent(self.rpm_spin))

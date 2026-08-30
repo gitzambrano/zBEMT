@@ -1211,9 +1211,8 @@ def _export_airfoil_polars(project, plots_dir: Path, results_list: list,
       and/or Mach axis. Overlays ONE CURVE PER SLICE (`unique_conditions`),
       which is the information the table carries and an averaged curve
       would hide.
-    - ``external``/neuralfoil: `to_airfoil` raises `NotImplementedError`
-      for `source="external"`, so the attempt is wrapped, because a polar
-      that cannot be evaluated must not bring down report generation.
+    - any polar that fails to build: the attempt is wrapped, because a
+      polar that cannot be evaluated must not bring down report generation.
     - multi-section (`project.airfoil_sections` with 2+): the engine
       IGNORES `project.airfoil` in that case (see
       `airfoils.to_blade_airfoil`), so drawing only it would show a
@@ -1257,8 +1256,8 @@ def _export_airfoil_polars(project, plots_dir: Path, results_list: list,
                     af, conditions=subset if subset != [None] else None,
                     use_compressibility=use_comp)
             except Exception:
-                # `source="external"` (NotImplementedError) and any polar
-                # that fails to evaluate: skip this group, continue with the rest.
+                # Any polar that fails to evaluate: skip this group and
+                # continue with the rest.
                 continue
             if not curves:
                 continue
@@ -1871,7 +1870,6 @@ _COLUMN_SYMBOL = {
     "cfg_use_radial_flow_correction": ("radial flow", "Whether the radial (spanwise) flow correction is applied"),
     "cfg_radial_flow_max_skew_deg": ("skew<sub>max</sub>", "Maximum skew angle for the radial flow correction [deg]"),
     "cfg_inflow_sideslip_deg": ("&psi;<sub>w,cfg</sub>", "In-plane free-stream sideslip angle configured [deg] (the per-condition value lives on the saved case)"),
-    "cfg_pitt_peters_states": ("N<sub>states</sub>", "Number of Pitt-Peters dynamic inflow states (3 or 5)"),
     "cfg_pitt_peters_outer_iter": ("iter<sub>PP</sub>", "Max outer iterations for the Pitt-Peters ODE coupling"),
     "cfg_pitt_peters_relax": ("relax<sub>PP</sub>", "Relaxation factor for the Pitt-Peters outer loop"),
     "cfg_pitt_peters_tol":  ("tol<sub>PP</sub>", "Convergence tolerance for the Pitt-Peters outer loop"),
@@ -1994,7 +1992,7 @@ _COLUMN_UNITS = {
     "cfg_thin_plate_blend_center_deg": "deg", "cfg_thin_plate_blend_width_deg": "deg",
     "cfg_mask_reverse_flow_plots": "", "cfg_use_rotational_augmentation": "",
     "cfg_use_radial_flow_correction": "", "cfg_radial_flow_max_skew_deg": "deg",
-    "cfg_pitt_peters_states": "-", "cfg_pitt_peters_outer_iter": "-",
+    "cfg_pitt_peters_outer_iter": "-",
     "cfg_pitt_peters_relax": "-", "cfg_pitt_peters_tol": "-",
     "cfg_use_dynamic_stall": "", "cfg_dynamic_stall_model": "", "cfg_dynamic_stall_method": "",
     "cfg_dynamic_stall_A": "-", "cfg_dynamic_stall_fade_start_deg": "deg",
@@ -2453,8 +2451,6 @@ def _report_metadata(project: Optional[Project], results_list: list) -> str:
                 reynolds = sorted({s.reynolds for s in slices if s.reynolds is not None})
                 if reynolds:
                     physics.append(("Reynolds", ", ".join(f"{r:.3g}" for r in reynolds)))
-            elif af.source in ("external", "neuralfoil"):
-                physics.append(("Polar source", str(af.source)))
             if models.uses_full_range_extension(af):
                 physics.append(("Viterna extension", "on"))
             if af.use_dynamic_stall:

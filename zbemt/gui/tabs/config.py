@@ -80,10 +80,14 @@ class ConfigMotorTab(QWidget):
 
         left.addWidget(self._build_mesh_box())
         left.addWidget(self._build_inflow_box())
-        left.addWidget(self._build_prandtl_box())
-        left.addWidget(self._build_augmentation_box())
+        # The Pitt-Peters box holds the parameters of ONE inflow family, so it
+        # sits immediately below the selector that reveals it. Placed further
+        # down, unrelated boxes (Prandtl, 3D effects) separated the option from
+        # its own settings.
         self.pitt_peters_box = self._build_pitt_peters_box()
         left.addWidget(self.pitt_peters_box)
+        left.addWidget(self._build_prandtl_box())
+        left.addWidget(self._build_augmentation_box())
         left.addWidget(self._build_solver_box())
         left.addWidget(self._build_advanced_box())
 
@@ -334,9 +338,10 @@ class ConfigMotorTab(QWidget):
     def _build_pitt_peters_box(self) -> QGroupBox:
         box = QGroupBox("Pitt-Peters (finite-state dynamic inflow)")
         form = QFormLayout(box)
-        self.cfg_pitt_peters_states = QComboBox(); self.cfg_pitt_peters_states.addItems(["3", "5"])
-        self.cfg_pitt_peters_states.setToolTip('"pitt_peters_states" — 3 = Peters model (implemented); 5 = Peters-He (not yet implemented)')
-        form.addRow("Number of states:", self.cfg_pitt_peters_states)
+        # No "Number of states" control: the model solves the three states
+        # (nu0, nu_s, nu_c). The 5-state Peters-He value was offered here and
+        # never implemented, and a combo with a single choice is a control
+        # that cannot affect the model (`PR-2`).
         self.cfg_pitt_peters_outer_iter = QSpinBox(); self.cfg_pitt_peters_outer_iter.setRange(1, 500)
         self.cfg_pitt_peters_outer_iter.setToolTip('"pitt_peters_outer_iter" — maximum number of iterations in the outer finite-state loop')
         self.cfg_pitt_peters_relax = QDoubleSpinBox(); self.cfg_pitt_peters_relax.setRange(0.01, 1.0); self.cfg_pitt_peters_relax.setDecimals(3)
@@ -488,7 +493,6 @@ class ConfigMotorTab(QWidget):
         self.cfg_radial_flow_max_skew_deg.setValue(float(g("radial_flow_max_skew_deg")))
         self._update_radial_flow_visibility(self.cfg_use_radial_flow_correction.isChecked())
 
-        self.cfg_pitt_peters_states.setCurrentText(str(int(g("pitt_peters_states"))))
         self.cfg_pitt_peters_outer_iter.setValue(int(g("pitt_peters_outer_iter")))
         self.cfg_pitt_peters_relax.setValue(float(g("pitt_peters_relax")))
         self.cfg_pitt_peters_tol.setValue(float(g("pitt_peters_tol")))
@@ -523,7 +527,6 @@ class ConfigMotorTab(QWidget):
             use_rotational_augmentation=self.cfg_use_rotational_augmentation.isChecked(),
             use_radial_flow_correction=self.cfg_use_radial_flow_correction.isChecked(),
             radial_flow_max_skew_deg=self.cfg_radial_flow_max_skew_deg.value(),
-            pitt_peters_states=int(self.cfg_pitt_peters_states.currentText()),
             pitt_peters_outer_iter=self.cfg_pitt_peters_outer_iter.value(),
             pitt_peters_relax=self.cfg_pitt_peters_relax.value(),
             pitt_peters_tol=self.cfg_pitt_peters_tol.value(),

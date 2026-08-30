@@ -183,7 +183,7 @@ def _migrate_airfoil_raw(raw: dict) -> dict:
     # change without also turning off extend_full_range, both from the GUI
     # and the CLI.
     src = migrated.get("source", "analytical")
-    if ("stall_model" not in raw and src in ("analytical", "external")
+    if ("stall_model" not in raw and src == "analytical"
             and migrated.get("extend_full_range")):
         migrated["stall_model"] = "viterna"
         changed = True
@@ -440,7 +440,9 @@ class AirfoilDef:
     r_norm: Optional[float] = None
 
     # --- A. source of the aerodynamic model ---
-    source: str = "analytical"     # "analytical" | "table" | "external" (future)
+    # XFOIL and NeuralFoil polars are imported through `table_slices`, so
+    # "table" covers every externally generated polar.
+    source: str = "analytical"     # "analytical" | "table"
 
     # --- B. analytical model (linear + static stall) ---
     cl_alpha: float = 2 * math.pi

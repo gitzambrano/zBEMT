@@ -97,7 +97,11 @@ class TestTheGridIsTriangulatedWithoutASearch(unittest.TestCase):
         def area(triangles):
             a, b, c = (np.column_stack([x, y])[triangles[:, i]]
                        for i in range(3))
-            return float(np.abs(np.cross(b - a, c - a)).sum() / 2.0)
+            # np.cross dropped support for 2-D vectors in NumPy 2.0+, so the
+            # cross product's z-component is computed directly here.
+            u, v = b - a, c - a
+            cross_z = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]
+            return float(np.abs(cross_z).sum() / 2.0)
 
         mine = area(_structured_triangles(rows, len(psi)))
         theirs = area(mtri.Triangulation(x, y).triangles)

@@ -181,6 +181,12 @@ class FlowIndicatorBar(QWidget):
             action.triggered.connect(
                 lambda _checked=False, k=key: self.tools_requested.emit(k))
         self.btn_tools.setMenu(tools_menu)
+        # The button's tooltip stays up while the menu opens over it, and
+        # under the dark strip it reads as an empty black rectangle above
+        # the entries. The menu itself says what each entry does, so the
+        # tooltip has nothing left to add once it is open.
+        from PyQt6.QtWidgets import QToolTip
+        tools_menu.aboutToShow.connect(QToolTip.hideText)
         layout.addWidget(self.btn_tools)
 
         # Global access to the documentation: explicit text, without the

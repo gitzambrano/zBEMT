@@ -487,12 +487,10 @@ class TestStep4Config(GuiE2ETestCase):
         tab = self.gui.ConfigMotorTab(state)
 
         tab.cfg_inflow_family.setCurrentText("pitt_peters")
-        tab.cfg_pitt_peters_states.setCurrentText("3")
         tab.cfg_pitt_peters_relax.setValue(0.25)
         tab._apply_config_to_project()
 
         self.assertEqual(state.project.config["inflow_field_model"], "pitt_peters_steady")
-        self.assertEqual(state.project.config["pitt_peters_states"], 3)
         self.assertAlmostEqual(state.project.config["pitt_peters_relax"], 0.25)
 
 

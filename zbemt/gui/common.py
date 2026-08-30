@@ -904,6 +904,13 @@ class _ClickableBlockTitle(QObject):
             QStyle.ComplexControl.CC_GroupBox, option,
             QStyle.SubControl.SC_GroupBoxLabel, self._gb)
 
+    #: Shown only while the cursor is over the TITLE. A tooltip set on the
+    #: groupbox itself covers the WHOLE block, so it popped up over every
+    #: field, label and empty gap inside the group -- the hint followed the
+    #: mouse around the window instead of naming one thing.
+    _TITLE_TOOLTIP = ("Click the section title for an overview and the full "
+                      "physics documentation of this block.")
+
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if event.type() == QEvent.Type.MouseButtonPress:
             try:
@@ -918,6 +925,26 @@ class _ClickableBlockTitle(QObject):
                 # not swallow the click in that case, just add the
                 # help.
                 return not self._gb.isCheckable()
+        elif event.type() == QEvent.Type.ToolTip:
+            try:
+                pos = event.pos()
+            except AttributeError:                      # pragma: no cover
+                return False
+            from PyQt6.QtWidgets import QToolTip
+            # A child with no tooltip of its own hands the event UP to the
+            # groupbox, so this filter also sees hovers over the table, the
+            # plot and every field inside the block. Without the `childAt`
+            # test the hint appeared far from the title, which is the same
+            # defect as before in a new disguise.
+            over_title = (self._gb.childAt(pos) is None
+                          and self.title_rect().contains(pos))
+            if over_title:
+                QToolTip.showText(event.globalPos(), self._TITLE_TOOLTIP, self._gb)
+                return True
+            QToolTip.hideText()
+            # Not handled here: let the event reach whatever else may want
+            # to answer it.
+            return False
         return False
 
 
@@ -939,9 +966,9 @@ def make_block_title_clickable(groupbox, block_id: str) -> bool:
         (groupbox.styleSheet() or "")
         + "\nQGroupBox::title { color: #3a6dbd; }"
     )
-    groupbox.setToolTip(
-        "Click the section title for an overview and the full physics "
-        "documentation of this block.")
+    # No `setToolTip` on the groupbox: that applies to the WHOLE block, so
+    # the hint appeared over every field and every empty gap inside it.
+    # `_ClickableBlockTitle` answers the ToolTip event only over the title.
     groupbox._block_help = _ClickableBlockTitle(groupbox, block_id)
     return True
 

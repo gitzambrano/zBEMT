@@ -369,7 +369,7 @@ BLOCK_HELP: dict[str, dict] = {
             "\n\n"
             r"$$\boldsymbol{\nu} = \mathbf{L}\mathbf{V}^{-1}\mathbf{C}(\boldsymbol{\nu})$$"
             "<br>A fixed point in 3 scalars, iterated with relaxation. <code>pitt_peters_outer_iter</code> caps the outer iterations, <code>pitt_peters_relax</code> damps the update, <code>pitt_peters_tol</code> tests ‖ν<sub>new</sub> − ν<sub>old</sub>‖<sub>∞</sub>.",
-            "<code>states = 3</code> is what the engine implements. The value 5 (Peters-He, second harmonic) is accepted by the schema but not implemented. N<sub>ψ</sub> must be large enough to resolve the first harmonic cleanly (at least 24; 72 or more preferred).",
+            "The model solves the three states ν<sub>0</sub>, ν<sub>s</sub>, ν<sub>c</sub>. N<sub>ψ</sub> must be large enough to resolve the first harmonic cleanly (at least 24; 72 or more preferred).",
         ],
         "anchor": "cap-4-2-5",
     },

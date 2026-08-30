@@ -68,6 +68,15 @@ from ..workers import BatchRunnerWorker, launch_worker
 from ..widgets import (LongitudinalInput, AxialInput, CONDITION_UNITS,
                         unit_label_variable,
                         configure_unit_combo)
+from ...nomenclature import to_html as _symbol_html
+
+
+def _sym(latex: str) -> str:
+    """Rendered HTML symbol for a label (`PR-4`: never a plain-text name).
+    The argument is LATEX and is wrapped in dollar signs so `nomenclature`
+    treats it as mathematics."""
+    body = latex if latex.startswith("$") else "$" + latex + "$"
+    return _symbol_html(body)
 
 
 class RunBatchTab(QWidget):
@@ -328,8 +337,18 @@ class RunBatchTab(QWidget):
             '"rpm"<br><br>Rotational speed for every generated case, in revolutions per minute.')
         self.fixed_rpm.setRange(1, 20000); self.fixed_rpm.setValue(600)
         self.fixed_rpm.setSingleStep(10)
+        # Sideslip (SC-14) is offered here as a fixed value only, and LAST:
+        # it is the least important of the batch inputs, and sweeping it
+        # would multiply the case count for a second-order effect.
+        self.fixed_sideslip = QDoubleSpinBox()
+        self.fixed_sideslip.setToolTip(
+            '"sideslip_deg"<br><br>&psi;<sub>w</sub>, the sideslip angle of the '
+            'in-plane free stream, applied to every generated case.')
+        self.fixed_sideslip.setRange(-89, 89); self.fixed_sideslip.setValue(0.0)
+        self.fixed_sideslip.setSingleStep(1.0)
         for field in (self.fixed_advance, self.fixed_axial,
-                      self.fixed_collective, self.fixed_rpm):
+                      self.fixed_collective, self.fixed_rpm,
+                      self.fixed_sideslip):
             self._size_field(field)
         # All four rows have their label in the LABEL COLUMN: previously
         # the two composite ones (advance/axial) went in as a spanning
@@ -342,6 +361,8 @@ class RunBatchTab(QWidget):
         fixed_form.addRow("Collective [deg]:",
                           self._with_unit_indent(self.fixed_collective))
         fixed_form.addRow("RPM [rev/min]:", self._with_unit_indent(self.fixed_rpm))
+        fixed_form.addRow(_sym(r"\psi_w") + " — Sideslip [deg]:",
+                          self._with_unit_indent(self.fixed_sideslip))
         # kept to hide the WHOLE ROW, label included: hiding only the
         # field left "Collective [deg]:" dangling, pointing at nothing
         self._fixed_form = fixed_form
@@ -600,8 +621,9 @@ class RunBatchTab(QWidget):
             "<code>alpha</code>/<code>Vz</code>; conversion happens when generating "
             "cases.")
         header = self.batch_table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        # ResizeToContents for every column: with Stretch, "collective
+        # [deg]" lost about ninety pixels of its own heading.
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.batch_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         # Qt's vertical header would already number the rows: with the
         # "#" column beside it, the number appeared twice
@@ -830,6 +852,8 @@ class RunBatchTab(QWidget):
             fixed["collective_deg"] = self.fixed_collective.value()
         if "rpm" not in axis_slots:
             fixed["rpm"] = self.fixed_rpm.value()
+        # Sideslip is never an axis, so it is always passed through.
+        fixed["sideslip_deg"] = self.fixed_sideslip.value()
         return fixed
 
     # =====================================================================

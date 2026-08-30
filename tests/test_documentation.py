@@ -814,7 +814,11 @@ class TestHelpOpensInTheTabChapter(unittest.TestCase):
     #: description rather than a second copy of it: the four condition
     #: fields, and the three trim controls.
     CONDITION = {"mu_x", "Vz", "collective_deg", "rpm",
-                 "trim_mode", "target_kind", "target_value"}
+                 "trim_mode", "target_kind", "target_value",
+                 # Sideslip is offered in the batch as a fixed value only.
+                 # It is the SAME quantity Run Case sets per condition, so
+                 # its help opens that one description.
+                 "sideslip_deg"}
 
     #: GUI tab -> the chapter title that documents it
     TAB_CHAPTER = {

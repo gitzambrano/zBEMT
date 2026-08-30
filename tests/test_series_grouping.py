@@ -169,6 +169,26 @@ class TestConditionNameWithSymbol(unittest.TestCase):
         self.assertEqual([c.name for c in conditions],
                          ["μ_x=0, α_rotor=-5°", "μ_x=0.2, α_rotor=-5°"])
 
+    def test_fixed_sideslip_reaches_every_generated_condition(self):
+        """The batch offers sideslip as a fixed value only (never an axis),
+        so every combination of the factorial carries the same psi_w."""
+        from tests.helpers import make_studies_project
+        project = make_studies_project()
+        conditions = studies.build_factorial_conditions(
+            project,
+            [{"variable": "mu_x", "values": [0.0, 0.2]}],
+            {"collective_deg": 8.0, "rpm": 600.0, "sideslip_deg": 12.5})
+        self.assertEqual([c.sideslip_deg for c in conditions], [12.5, 12.5])
+
+    def test_sideslip_defaults_to_zero_when_not_given(self):
+        from tests.helpers import make_studies_project
+        project = make_studies_project()
+        conditions = studies.build_factorial_conditions(
+            project,
+            [{"variable": "mu_x", "values": [0.1]}],
+            {"collective_deg": 8.0, "rpm": 600.0})
+        self.assertEqual(conditions[0].sideslip_deg, 0.0)
+
     def test_file_name_falls_back_to_ascii(self):
         """The name is Unicode on screen; the FILE derived from it is not --
         it travels in zip and foreign file systems."""

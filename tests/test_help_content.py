@@ -99,7 +99,7 @@ class TestFieldHelpCoverage(unittest.TestCase):
         block = self.html.split("<!-- INDICE-DE-CAMPOS:config -->", 1)[1]
         block = block.split("<!-- /INDICE-DE-CAMPOS:config -->", 1)[0]
         fields = re.findall(r"<code>([^<]+)</code>", block)
-        self.assertEqual(len(fields), 27)
+        self.assertEqual(len(fields), 26)
         for field in fields:
             with self.subTest(field=field):
                 entry = self.FIELD_HELP[field]
@@ -547,6 +547,90 @@ class TestInstallFieldPopups(unittest.TestCase):
         item = form.itemAt(0, QFormLayout.ItemRole.LabelRole)
         self.assertIsNotNone(item)
         self.assertIsInstance(item.widget(), QToolButton)
+
+    def test_every_help_equation_actually_renders(self):
+        """`PR-4`: the popup renders the equation with mathtext and, when
+        that FAILS, silently falls back to showing the raw LaTeX source.
+
+        So an unsupported macro does not raise -- it just puts
+        `\\tfrac{3}{2}` on screen as text. Eleven equations were in that
+        state (`\\tfrac`, `\\big`, `\\mathrel`, `\\le`, and two entries that
+        held prose rather than mathematics). This walks every entry so a
+        new one cannot join them unnoticed."""
+        from zbemt.gui.help_popup import render_equation
+        from zbemt.gui.help_content import FIELD_HELP
+        from zbemt.gui import help_blocks
+
+        broken = []
+
+        def check(where, equation):
+            equation = (equation or "").strip()
+            if not equation:
+                return
+            try:
+                rendered = render_equation(equation)
+            except Exception as exc:                       # pragma: no cover
+                broken.append(f"{where}: raised {exc!r}")
+                return
+            if rendered is None:
+                broken.append(f"{where}: {equation}")
+
+        def check_embedded(where, text):
+            """`_add_line` splits prose on `$$` and renders the odd parts,
+            so an equation buried in a paragraph reaches mathtext too."""
+            if not isinstance(text, str) or "$$" not in text:
+                return
+            for i, part in enumerate(text.split("$$")):
+                if i % 2 == 1:
+                    check(where, part)
+
+        for key, data in FIELD_HELP.items():
+            check(f"FIELD_HELP[{key}].equation", data.get("equation"))
+            for prose_key in ("definition", "effect", "range", "unit"):
+                check_embedded(f"FIELD_HELP[{key}].{prose_key}",
+                                data.get(prose_key))
+            options = data.get("options")
+            if isinstance(options, dict):
+                for name, text in options.items():
+                    check_embedded(f"FIELD_HELP[{key}].options[{name}]", text)
+
+        # The block popups render through the SAME path, and were not
+        # covered when this test only walked FIELD_HELP.
+        for key, data in help_blocks.BLOCK_HELP.items():
+            for i, paragraph in enumerate(data.get("body", [])):
+                check_embedded(f"BLOCK_HELP[{key}].body[{i}]", paragraph)
+
+        self.assertEqual(broken, [],
+                          "these equations fall back to raw LaTeX on screen")
+
+    def test_clickable_label_renders_the_symbol_instead_of_the_markup(self):
+        """`PR-4`: a documented field whose label carries a rendered symbol
+        must SHOW the symbol, not the markup.
+
+        `QToolButton.setText` does not render HTML, so swapping the
+        `QLabel` for a plain button put the literal string
+        `&psi;<sub>w</sub>` on screen -- exactly on the fields that carry
+        mathematics. The button paints its text through a QTextDocument,
+        so the markup must never reach the painted output."""
+        from PyQt6.QtWidgets import QWidget, QFormLayout, QLabel, QDoubleSpinBox
+        from zbemt.gui.field_help import install_field_popups
+
+        w = QWidget()
+        form = QFormLayout(w)
+        lbl = QLabel("&psi;<sub>w</sub> — Sideslip [deg]:")
+        spin = QDoubleSpinBox()
+        spin.setToolTip('"sideslip_deg" — sideslip angle of the free stream')
+        form.addRow(lbl, spin)
+
+        install_field_popups(w)
+
+        button = form.itemAt(0, QFormLayout.ItemRole.LabelRole).widget()
+        # What the button PAINTS comes from its document, not from text().
+        painted = button._doc.toPlainText()
+        self.assertNotIn("<sub>", painted)
+        self.assertNotIn("&psi;", painted)
+        self.assertIn("ψ", painted)
+        self.assertIn("Sideslip", painted)
 
     def test_campo_nao_documentado_sem_alteracao(self):
         """Field without an entry in FIELD_HELP does not get a clickable label."""

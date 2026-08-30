@@ -636,12 +636,12 @@ class TestGenerateReport(unittest.TestCase):
         self.assertNotIn("C<sub>l,&alpha;</sub>", html)
 
     def test_polar_that_cannot_evaluate_does_not_crash_the_report(self):
-        """`source="external"` raises `NotImplementedError` in
-        `to_airfoil`. A polar that cannot be evaluated has to skip the
-        section, not abort the whole generation."""
+        """An unbuildable source raises in `to_airfoil`. A polar that cannot
+        be evaluated has to skip the section, not abort the whole
+        generation."""
         from dataclasses import replace
         proj = replace(self.project,
-                        airfoil=replace(self.project.airfoil, source="external"))
+                        airfoil=replace(self.project.airfoil, source="bogus"))
         dest = os.path.join(self.tmp, "ext.html")
         api.generate_report(self.results, dest, project=proj)   # does not raise
         self.assertTrue(Path(dest).exists())

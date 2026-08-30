@@ -60,18 +60,11 @@ def validate_airfoil_def(a: AirfoilDef) -> list[Issue]:
             "back to linear model. Change 'Stall model' to "
             "'clip' or 'enhanced', or disable dynamic stall."))
 
-    # --- source='external' has no execution path -----------------------
-    # `airfoils.to_airfoil` raises NotImplementedError for 'external'.
-    # Without this check the user only finds out in the middle of the
-    # solve, with a raw traceback, and the previous validation treated
-    # 'external' as a perfectly valid option.
-    if a.source == "external":
-        issues.append(Issue("error",
-            "source='external' does not yet have an execution path in the engine "
-            "(airfoils.to_airfoil raises NotImplementedError). Generate the external "
-            "polar first (NeuralFoil) and import the result as "
-            "source='table' with table_slices."))
-    elif a.source not in ("analytical", "table"):
+    # --- source must name one of the two build paths -------------------
+    # 'external' was removed: XFOIL and NeuralFoil generate a polar that is
+    # imported as source='table' with table_slices, so the enum no longer
+    # offers a value the engine cannot build.
+    if a.source not in ("analytical", "table"):
         issues.append(Issue("error",
             f"unknown source: {a.source!r}. Use 'analytical' or 'table'."))
 
@@ -255,14 +248,15 @@ def validate_config(config: dict, airfoil_def: AirfoilDef,
             "mesh). A fine mesh or many revolutions make runs noticeably "
             "slower."))
 
-    # --- pitt_peters_states: only implemented option is 3 ------------------
+    # --- pitt_peters_states: the model solves three states ------------------
+    # The Peters-He 5-state extension was offered by the schema and never
+    # built, so the value was removed instead of being kept as a promise
+    # the engine does not keep.
     pp_states = config.get("pitt_peters_states", 3)
-    if pp_states not in (3, 5):
-        issues.append(Issue("error", "pitt_peters_states must be 3 or 5."))
-    elif pp_states == 5:
+    if pp_states != 3:
         issues.append(Issue("error",
-            "pitt_peters_states=5 (Peters-He, 2nd harmonic) is not yet "
-            "implemented in the engine. Use 3."))
+            "pitt_peters_states must be 3: the model solves the three "
+            "states (nu0, nu_s, nu_c)."))
 
     # --- double counting of compressibility (Finding #4, plan_v2 Section 2.1)
     # `use_compressibility` applies Prandtl-Glauert on top of the selected

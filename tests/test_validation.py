@@ -42,11 +42,13 @@ class TestValidateAirfoilDef(unittest.TestCase):
         issues = validation.validate_airfoil_def(a)
         self.assertNotIn("error", levels(issues))
 
-    def test_extend_full_range_on_external_is_info(self):
+    def test_retired_external_source_is_an_error(self):
+        """'external' never had an execution path. It was removed, so it is
+        now refused as an unknown source instead of being accepted."""
         a = AirfoilDef(source="external", extend_full_range=True,
                         geometry=ProfileGeometry(source="naca4", naca_code="0012"))
         issues = validation.validate_airfoil_def(a)
-        self.assertIn("info", levels(issues))
+        self.assertIn("error", levels(issues))
 
     def test_table_source_without_slices_is_error(self):
         a = AirfoilDef(source="table", table_slices=[])
@@ -207,8 +209,11 @@ class TestValidateManeuver(unittest.TestCase):
         issues = validation.validate_config(cfg, AirfoilDef(extend_full_range=True))
         self.assertNotIn("error", levels(issues))
 
-    def test_pitt_peters_states_5_is_error_not_implemented(self):
-        cfg = asdict(BEMTConfig(pitt_peters_states=5))
+    def test_pitt_peters_states_5_is_error(self):
+        """The Peters-He 5-state model was offered by the schema and never
+        built, so the value was removed: 3 is the only one accepted."""
+        cfg = asdict(BEMTConfig())
+        cfg["pitt_peters_states"] = 5
         issues = validation.validate_config(cfg, AirfoilDef())
         self.assertIn("error", levels(issues))
 
@@ -219,7 +224,7 @@ class TestValidateManeuver(unittest.TestCase):
         self.assertIn("error", levels(issues))
 
     def test_pitt_peters_states_3_is_clean(self):
-        cfg = asdict(BEMTConfig(pitt_peters_states=3))
+        cfg = asdict(BEMTConfig())
         issues = validation.validate_config(cfg, AirfoilDef())
         self.assertNotIn("error", levels(issues))
 
@@ -232,13 +237,15 @@ class TestValidateManeuver(unittest.TestCase):
 
 class TestValidateProject(unittest.TestCase):
     def test_combines_both_lists(self):
-        cfg = asdict(BEMTConfig(pitt_peters_states=5))
+        cfg = asdict(BEMTConfig())
+        cfg["pitt_peters_states"] = 5
         a = AirfoilDef(source="table", table_slices=[])
         issues = validation.validate_project(cfg, a)
-        # ao menos um erro de cada lado (airfoil: table sem slices; config: pp_states=5)
+        # at least one error from each side (airfoil: table with no slices;
+        # config: an unsupported pitt_peters_states)
         messages = " ".join(i.message for i in issues)
         self.assertIn("table_slices", messages)
-        self.assertIn("Peters-He", messages)
+        self.assertIn("pitt_peters_states", messages)
 
     def test_issue_str_has_level_tag(self):
         issue = validation.Issue("error", "algo deu errado")

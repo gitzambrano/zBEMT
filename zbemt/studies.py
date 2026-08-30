@@ -892,6 +892,10 @@ def build_factorial_conditions(project: Project, axes: list[dict],
             break
 
     base_collective = float(fixed.get("collective_deg", 8.0))
+    # Sideslip is a fixed value only, never an axis: it is the least
+    # important of the perturbation inputs (SC-14) and sweeping it would
+    # multiply the case count for a second-order effect.
+    base_sideslip = float(fixed.get("sideslip_deg", 0.0))
 
     conditions: list[FlightCondition] = []
     for combo in itertools.product(*(ax["values"] for ax in axes)):
@@ -953,7 +957,8 @@ def build_factorial_conditions(project: Project, axes: list[dict],
             Vz = _axial(mu_x * omega_R)
 
         name = condition_name(overrides, is_propeller)
-        conditions.append(FlightCondition(name=name, mu_x=mu_x, collective_deg=collective_deg, Vz=Vz, rpm=rpm))
+        conditions.append(FlightCondition(name=name, mu_x=mu_x, collective_deg=collective_deg,
+                                          Vz=Vz, rpm=rpm, sideslip_deg=base_sideslip))
 
     return conditions
 

@@ -3781,17 +3781,23 @@ formats and limitations of each polar source.</p>
       computed before this block existed.</p>
 
     <h4 id="sec-bd-flap-model">7.2.1 Flap model</h4>
-    <p><code>flap_model</code> chooses how much freedom the blade has: <b>Rigid</b> keeps the
-      plain rigid disk; <b>Hinge offset</b> pins the blade on an offset flap hinge;
-      <b>Root spring</b> restrains a flap hinge at the shaft with a spring;
-      <b>Offset and spring</b> combines both. The choice sets which other fields apply, and it
-      decides what the solver computes at all: a rigid disk reports only aerodynamic moments,
-      while a hinged or sprung blade also answers with motion. Use <i>Rigid</i> for propellers
-      and stiff eVTOL rotors whose first flap mode sits far above the rotation; use an offset
-      or a spring whenever the blades are articulated, or when the structural load that a
-      hinge carries into the hub is part of the question. The response is periodic in azimuth
-      and quasi-steady, so the model answers "where does the disk tilt" but not "how does it
-      get there".</p>
+    <p><b>The physics.</b> The flap model decides how much freedom the blade has to move out
+      of the disk plane. A rigid disk cannot move, so it reports aerodynamic moments only. A
+      hinged or sprung blade answers the load with motion, and that motion changes the load in
+      turn.</p>
+    <p>The four options are:</p>
+    <ul>
+      <li><b>Rigid</b>: no flap freedom at all.</li>
+      <li><b>Hinge offset</b>: the blade pivots on a flap hinge set out from the shaft.</li>
+      <li><b>Root spring</b>: a spring restrains a flap hinge at the shaft.</li>
+      <li><b>Offset and spring</b>: both restraints act together.</li>
+    </ul>
+    <p><b>What to set.</b> Use <i>Rigid</i> for a propeller, and for a stiff eVTOL rotor whose
+      first flap mode sits far above the rotation frequency. Use an offset or a spring when
+      the blades are articulated, or when the structural load that the hub carries is part of
+      the question. The choice also decides which other fields in this block apply.</p>
+    <p>Note: the response is periodic in azimuth and quasi-steady. Therefore the model answers
+      where the disk tilts, but not how it reaches that tilt.</p>
     <p><span class="gui">GUI</span>: the <i>Flap model</i> dropdown of the Blade Dynamics
       group on the Geometry tab.</p>
     <p><span class="bemt">.bemt</span>: key <code>flap_model</code> inside
@@ -3802,33 +3808,43 @@ formats and limitations of each polar source.</p>
       <code>--set geom.dynamics.flap_model=offset_spring</code>.</p>
 
     <h4 id="sec-bd-hinge-offset">7.2.2 Hinge offset</h4>
-    <p><code>hinge_offset_norm</code> is the flap (and lag) hinge distance from the shaft as a
-      fraction of the radius. It enters the frequency ratio through
-      $\tfrac{3}{2}e/(1-e)$, which grows quickly as the offset approaches unity, and it
-      shortens the moment arm of the inner stations because stations inboard of the hinge
-      carry no flap moment at all. The same offset opens the structural path that carries part
-      of the blade load into the hub as a moment proportional to $(\nu_\beta^2-1)\beta_1$:
-      on a hingeless-like rotor this path dominates the hub moments, which is why the offset
-      is the single most consequential value in the block. Zero together with no spring is the
-      articulated resonance named above, and the software refuses it rather than returning an
-      arbitrarily large response.</p>
-    <p><span class="gui">GUI</span>: <i>Hinge offset</i>, shown when the model uses an
-      offset.</p>
+    <p><b>The physics.</b> The hinge offset $e$ is the distance from the shaft to the flap
+      hinge, as a fraction of the radius. It is an EFFECTIVE offset, not necessarily a real
+      mechanical hinge. The blade is treated as rigid, and this one number carries the whole
+      root restraint.</p>
+    <p>The offset raises the flap frequency ratio through the term $\frac{3}{2}e/(1-e)$, which
+      grows quickly as the offset approaches unity. It also opens a structural path: an offset
+      hinge carries part of the blade load into the hub as a moment proportional to
+      $(\nu_\beta^2-1)\beta_1$. On a hingeless rotor that path dominates the hub moments.
+      Therefore the offset is the most consequential value in this block.</p>
+    <p><b>What to set.</b> For an articulated rotor, use the geometric distance to the
+      physical hinge, which is commonly between $0.03$ and $0.08$. For a hingeless or
+      bearingless rotor, there is no hinge to measure. Choose instead the offset that
+      reproduces the flap frequency ratio of the real flexure, which is commonly between
+      $0.10$ and $0.15$. An offset of zero together with no spring is the articulated
+      resonance. The software refuses that combination rather than returning an arbitrarily
+      large response.</p>
+    <p><span class="gui">GUI</span>: <i>Effective hinge offset</i>, shown when the model uses
+      an offset.</p>
     <p><span class="bemt">.bemt</span>: key <code>hinge_offset_norm</code> inside
       <code>dynamics</code> in <code>geom.bemt</code>, default $0.0$.</p>
     <p><span class="cli">CLI</span>: <code>--hinge-offset 0.05</code>, or
       <code>--set geom.dynamics.hinge_offset_norm=0.05</code>.</p>
 
     <h4 id="sec-bd-flap-spring">7.2.3 Flap spring</h4>
-    <p><code>flap_spring_nm_per_rad</code> is the stiffness $K_\beta$ of a spring restraining
-      the flap hinge, in newton metres per radian. It adds
-      $K_\beta/(I_\beta\Omega^2)$ to the square of the flap frequency ratio, so a soft spring
-      already moves the first flap mode away from resonance without changing the blades. The
-      term falls with the square of the rotation speed: a spring that matters at model scale
-      may vanish next to the centrifugal stiffness of a full-size rotor, which is why the
-      readout panel shows the resulting ratio rather than the raw value. Choose it together
-      with the inertia source, since the two decide the ratio jointly; the spring term uses
-      whatever inertia the chosen source resolves.</p>
+    <p><b>The physics.</b> The flap spring is a torsional stiffness $K_\beta$ at the root, in
+      newton metres per radian. It represents the elastic restraint of a hub that does not
+      hinge freely. The spring adds the term $K_\beta/(I_\beta\Omega^2)$ to the square of the
+      flap frequency ratio.</p>
+    <p>That term falls with the square of the rotation speed. Therefore a spring that
+      dominates at model scale can be negligible next to the centrifugal stiffness of a
+      full-size rotor. The same stiffness gives a different frequency ratio at a different
+      RPM.</p>
+    <p><b>What to set.</b> Use zero for a freely hinged rotor. Use a stiffness when the hub
+      restrains the blade elastically, or to move the first flap mode away from resonance
+      without changing the blade itself. Set this value together with the flap inertia,
+      because the two decide the frequency ratio jointly. The spring term uses whichever
+      inertia the chosen source resolves.</p>
     <p><span class="gui">GUI</span>: <i>Flap spring</i>, shown for the spring models.</p>
     <p><span class="bemt">.bemt</span>: key <code>flap_spring_nm_per_rad</code> inside
       <code>dynamics</code> in <code>geom.bemt</code>, default $0$.</p>
@@ -3836,20 +3852,33 @@ formats and limitations of each polar source.</p>
       <code>--set geom.dynamics.flap_spring_nm_per_rad=250</code>.</p>
 
     <h4 id="sec-bd-inertia">7.2.4 Flap inertia</h4>
-    <p><code>inertia_source</code> decides how $I_\beta$ is obtained. With <b>Lock number</b>,
-      <code>lock_number</code> ($\gamma$) converts back through
-      $I_\beta=\rho\,a\,c_{ref}R^{4}/\gamma$, using the lift-curve slope of the airfoil and the
-      chord at $r/R=0.75$. With <b>Flap inertia</b>, <code>flap_inertia_kg_m2</code> is used
-      directly. With <b>Blade mass</b>, <code>blade_mass_kg</code> spreads a uniform mass over
-      the flapping part: $I_\beta=m_b(R-eR)^{2}/3$. Whichever source runs, the resolved value
-      and the corresponding Lock number appear beside the inputs.</p>
-    <p>The three sources agree through one quantity, and they must: the Lock number fixes
-      how strongly air moves the blade, and it also sets the aerodynamic damping
-      $d_\beta=\gamma\left(\tfrac{1}{8}-\tfrac{e}{3}+\tfrac{e^2}{4}\right)$ that keeps the periodic response finite. A light blade
-      (large $\gamma$) responds more, damps more, and cones further under the same thrust;
-      a heavy blade barely answers. Whichever source is chosen, the panel beside the inputs
-      shows the resolved pair &mdash; the inertia and the Lock number &mdash; so a value typed
-      in one vocabulary can be read in the other before any solve runs.</p>
+    <p><b>The physics.</b> The flap inertia $I_\beta$ is the resistance of one blade to
+      angular acceleration about its hinge. It decides how fast the blade answers a change of
+      load. A heavy blade answers slowly. A light blade answers quickly.</p>
+    <p>The ratio between the air force and this inertia is the Lock number
+      $\gamma$. The Lock number also fixes the aerodynamic damping of the flap motion:</p>
+
+    <div class="eqn">$$d_\beta = \gamma\left(\frac{1}{8} - \frac{e}{3}
+      + \frac{e^{2}}{4}\right).$$</div>
+
+    <p>This damping is what keeps the periodic response finite. Therefore a light blade
+      (a large $\gamma$) flaps more, damps more, and cones further under the same thrust. A
+      heavy blade (a small $\gamma$) barely answers. Most rotors sit between $5$ and $12$.</p>
+    <p><b>What to set.</b> Three sources give the same quantity, so choose the one that
+      matches the data you hold:</p>
+    <ul>
+      <li><b>Lock number</b>: enter $\gamma$ directly. The inertia follows from
+        $I_\beta = \rho\,a\,c_{ref}R^{4}/\gamma$, where $a$ is the lift-curve slope of the
+        airfoil and $c_{ref}$ is the chord at $r/R=0.75$. Use this source when you have a
+        published $\gamma$ for a similar rotor, or when no mass data exists.</li>
+      <li><b>Flap inertia</b>: enter $I_\beta$ in kilogram metres squared. Use this source
+        when a structural model or a measurement gives the inertia itself.</li>
+      <li><b>Blade mass</b>: enter the mass of one blade. The software spreads that mass
+        uniformly over the flapping part, so $I_\beta = m_b(R-eR)^{2}/3$. Use this source for
+        a first estimate, and only when the blade is close to uniform.</li>
+    </ul>
+    <p>The three sources are equivalent. A value entered in one of them therefore fixes the
+      other two.</p>
     <p><span class="gui">GUI</span>: the <i>Inertia from</i> dropdown plus the field it
       reveals (<i>Lock number</i>, <i>Flap inertia</i> or <i>Blade mass</i>).</p>
     <p><span class="bemt">.bemt</span>: keys <code>inertia_source</code>,
@@ -3861,15 +3890,20 @@ formats and limitations of each polar source.</p>
       <code>--set geom.dynamics.flap_inertia_kg_m2=0.09</code>.</p>
 
     <h4 id="sec-bd-delta3">7.2.5 Pitch-flap coupling</h4>
-    <p><code>pitch_flap_coupling_deg</code> is the delta-three angle $\delta_3$: kinematic
-      coupling that reduces the local pitch by $\tan(\delta_3)\,\beta$ when the blade flaps
-      up. The lost pitch removes lift exactly where the blade flapped up, so the coupling acts
-      as an extra aerodynamic spring on top of any mechanical spring: positive values stabilize
-      the flap response and raise its effective frequency, while negative values soften it.
-      The price of stabilization is authority, because every degree of flapping now costs
-      $\tan(\delta_3)$ degrees of effective collective, and large angles push the tip sections
-      toward stall on the retreating side. Values within $\pm45^\circ$ cover the couplings
-      seen in practice.</p>
+    <p><b>The physics.</b> The pitch-flap coupling, or delta-three angle $\delta_3$, is a
+      kinematic link between the two motions. When the blade flaps up by an angle $\beta$, the
+      hinge geometry lowers the local pitch by $\tan(\delta_3)\,\beta$.</p>
+    <p>The lost pitch removes lift exactly where the blade flapped up. Therefore the coupling
+      acts as an extra aerodynamic spring, on top of any mechanical spring. A positive angle
+      stabilizes the flap response and raises its effective frequency. A negative angle
+      softens the response.</p>
+    <p><b>What to set.</b> Start at $0^\circ$, which is the plain hinge with no coupling.
+      Raise the angle to calm a flap response that overshoots, or to move the flap frequency
+      away from a resonance. The cost of that stability is control authority, because every
+      degree of flapping now spends $\tan(\delta_3)$ degrees of effective collective. A large
+      angle also pushes the tip sections toward stall on the retreating side. Values within
+      $\pm45^\circ$ cover the couplings seen in practice. A teetering rotor commonly uses a
+      value between $20^\circ$ and $45^\circ$.</p>
     <p><span class="gui">GUI</span>: <i>Pitch-flap coupling</i>, from $-60$ to $60$
       degrees.</p>
     <p><span class="bemt">.bemt</span>: key <code>pitch_flap_coupling_deg</code> inside
@@ -3884,12 +3918,15 @@ formats and limitations of each polar source.</p>
     <div class="eqn">$$\beta(\psi) = \beta_0
       + \sum_{n=1}^{N_h}\bigl[\beta_{nc}\cos n\psi + \beta_{ns}\sin n\psi\bigr].$$</div>
 
-    <p>The loading of a rotor varies mostly once per revolution, so $N_h=2$ already describes
-      the response of most designs. Each extra harmonic resolves sharper azimuthal features
-      &mdash; the kind a highly twisted blade or a strongly skewed wake produces &mdash; at the
-      cost of one solve per outer iteration. Each kept harmonic must also sit off its own
-      resonance: the balance divides by $\nu_\beta^2-n^2$ for the $n$-th term, and the guard
-      checks every one of them rather than the first alone.</p>
+    <p>The loading of a rotor varies mostly once per revolution. Therefore $N_h=2$ already
+      describes the response of most designs. Each extra harmonic resolves sharper azimuthal
+      detail, of the kind a highly twisted blade or a strongly skewed wake produces. Each one
+      also costs one more solve per outer iteration.</p>
+    <p><b>What to set.</b> Keep $2$ unless the azimuthal loading is unusually sharp. Raise it
+      to $3$ or $4$ for a strongly skewed wake at high advance ratio, and confirm that the
+      answer stops changing. Every kept harmonic must sit off its own resonance, because the
+      balance divides by $\nu_\beta^2-n^2$ for the $n$-th term. The software checks all of
+      them, not the first alone, and refuses a combination that resonates.</p>
 
     <p><span class="gui">GUI</span>: <i>Harmonics</i> in the Blade Dynamics group.</p>
 
@@ -3904,17 +3941,22 @@ formats and limitations of each polar source.</p>
       again. The engine solves the pair by alternating between them until they agree, and
       these three fields govern that exchange.</p>
 
-    <p><code>outer_max_iter</code> is the iteration limit. <code>outer_tol_deg</code> is the
-      convergence tolerance, measured as the largest change of any harmonic coefficient
-      between two iterations, in degrees &mdash; an angle rather than a residual, so the
-      number means something physical. <code>outer_relax</code> is the fraction of each
-      correction that is actually applied; below one it damps the exchange, which is what
-      makes the iteration converge when the raw step would overshoot.</p>
+    <p><b>What to set.</b> Three fields govern that exchange:</p>
+    <ul>
+      <li><b>Outer iterations</b>: the safety limit on the number of exchanges. Raise it when
+        a case reports that the loop stopped before the two agreed.</li>
+      <li><b>Outer tolerance</b>: the largest change of any harmonic coefficient between two
+        iterations, in degrees. The measure is an angle rather than a residual, so the number
+        has a physical meaning. Loosen it to accept a coarser answer sooner.</li>
+      <li><b>Outer relaxation</b>: the fraction of each correction that the loop actually
+        applies. A value below one damps the exchange. Lower it when the iteration
+        oscillates.</li>
+    </ul>
 
     <p><b>How to read a run.</b> The achieved iteration count and the final residual travel
       with the results, and the Results tab draws the trace. A residual that never settles
-      wants more iterations or a looser tolerance; a trace that OSCILLATES instead of falling
-      wants a lower relaxation, because oscillation is the signature of a step that is too
+      needs more iterations or a looser tolerance. A trace that OSCILLATES instead of falling
+      needs a lower relaxation, because oscillation is the signature of a step that is too
       large, not of a limit that is too low.</p>
 
     <p><span class="gui">GUI</span>: <i>Outer iterations</i>, <i>Outer tolerance</i> and
@@ -6174,8 +6216,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 </figure>
                 <!-- INDICE-DE-CAMPOS:config -->
 <div class="boxed">
-<b>Fields in this tab, in the order they appear on screen</b> (27). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>Ne</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>Npsi</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>rho</code> &rarr; <a href="#cap-4-1-2">9.1.2</a></li><li><code>a_sound</code> &rarr; <a href="#cap-4-1-3">9.1.3</a></li><li><code>integration_offset</code> &rarr; <a href="#cap-4-1-4">9.1.4</a></li><li><code>inflow_field_model</code> &rarr; <a href="#cap-4-2">9.2</a></li><li><code>prandtl_loss_mode</code> &rarr; <a href="#cap-4-3">9.3</a></li><li><code>use_rotational_augmentation</code> &rarr; <a href="#cap-4-4-1">9.4.1</a></li><li><code>use_radial_flow_correction</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>pitt_peters_states</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_outer_iter</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_relax</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_tol</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>solver</code> &rarr; <a href="#cap-4-5-1">9.5.1</a></li><li><code>max_iter</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>tol</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>relax</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_schedule</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>early_exit_fraction</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_patience</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_min_frac</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>radial_flow_max_skew_deg</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>relax_root_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_root_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_tip_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li></ol>
+<b>Fields in this tab, in the order they appear on screen</b> (26). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>Ne</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>Npsi</code> &rarr; <a href="#cap-4-1-1">9.1.1</a></li><li><code>rho</code> &rarr; <a href="#cap-4-1-2">9.1.2</a></li><li><code>a_sound</code> &rarr; <a href="#cap-4-1-3">9.1.3</a></li><li><code>integration_offset</code> &rarr; <a href="#cap-4-1-4">9.1.4</a></li><li><code>inflow_field_model</code> &rarr; <a href="#cap-4-2">9.2</a></li><li><code>pitt_peters_outer_iter</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_relax</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>pitt_peters_tol</code> &rarr; <a href="#cap-4-2-5">9.2.1</a></li><li><code>prandtl_loss_mode</code> &rarr; <a href="#cap-4-3">9.3</a></li><li><code>use_rotational_augmentation</code> &rarr; <a href="#cap-4-4-1">9.4.1</a></li><li><code>use_radial_flow_correction</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>solver</code> &rarr; <a href="#cap-4-5-1">9.5.1</a></li><li><code>max_iter</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>tol</code> &rarr; <a href="#cap-4-5-2">9.5.2</a></li><li><code>relax</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_schedule</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>early_exit_fraction</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_patience</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>stagnation_min_frac</code> &rarr; <a href="#cap-4-5-4">9.5.4</a></li><li><code>radial_flow_max_skew_deg</code> &rarr; <a href="#cap-4-4-2">9.4.2</a></li><li><code>relax_root_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_root_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_tip_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_factor</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li><li><code>relax_azimuth_threshold</code> &rarr; <a href="#cap-4-5-3">9.5.3</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:config -->
                 <p class="boxed"><b>Editorial scope.</b> Each field section below states the numerical quantity,
@@ -6517,24 +6559,24 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   inflow. The outer iteration count, the relaxation and the tolerance are the three controls on that
                   loop. The state count decides how many harmonics the disk field carries.</p>
 
-                <p><b>Configuration and convergence.</b> Leave all four at their defaults. Raise the outer iteration
+                <p><b>Configuration and convergence.</b> Leave all three at their defaults. Raise the outer iteration
                   count if a
                   case reports that the states did not settle, and lower the relaxation if they oscillate instead of
-                  converging. The state count should stay at three: five states, which would add the second harmonic,
-                  is accepted by the file and the command line but is not implemented, and the <span
-                    class="gui">GUI</span> says so beside the
-                  control.</p>
+                  converging. The model solves the three states $
+u_0$, $
+u_s$ and $
+u_c$.</p>
 
                 <p><span class="gui">GUI</span>: the <i>Pitt-Peters</i> fields, shown only when that family
                   is selected.</p>
 
                 <p><span class="bemt">.bemt</span>, in <code>config.bemt</code>:
-                  <code>pitt_peters_states</code>, default $3$; <code>pitt_peters_outer_iter</code>, default $40$;
+                  <code>pitt_peters_outer_iter</code>, default $40$;
                   <code>pitt_peters_relax</code>, default $0.5$; and <code>pitt_peters_tol</code>, default
                   $10^{-6}$.
                 </p>
 
-                <p><span class="cli">CLI</span>: <code>--pitt-peters-states {3,5}</code>,
+                <p><span class="cli">CLI</span>:
                   <code>--pitt-peters-outer-iter N</code>, <code>--pitt-peters-relax X</code> and
                   <code>--pitt-peters-tol X</code>.
                 </p>
@@ -7460,8 +7502,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                     <!-- INDICE-DE-CAMPOS:run_batch -->
 <div class="boxed">
-<b>Fields in this tab, in the order they appear on screen</b> (18). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>range_from</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_to</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_step</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_quantity</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_values</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>replace_queue</code> &rarr; <a href="#cap-6-3">11.4</a></li><li><code>batches</code> &rarr; <a href="#cap-6-4">11.5</a></li><li><code>outdir</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>plots</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>save_csv</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>axis_unit</code> &rarr; <a href="#cap-6-1">11.2</a></li></ol>
+<b>Fields in this tab, in the order they appear on screen</b> (19). The sections below are self-contained and use the same explanations as the field Help in the window.
+<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>range_from</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_to</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_step</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_quantity</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_values</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>sideslip_deg</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>replace_queue</code> &rarr; <a href="#cap-6-3">11.4</a></li><li><code>batches</code> &rarr; <a href="#cap-6-4">11.5</a></li><li><code>outdir</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>plots</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>save_csv</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>axis_unit</code> &rarr; <a href="#cap-6-1">11.2</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:run_batch -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below explains how the control changes
@@ -10090,7 +10132,7 @@ zbemt --project projects/MyProject \
                                   title="9. Config/Engine">Chapter 9</a>)</td>
                               <td><code>--inflow {&hellip;}</code> |
                                 <code>--prandtl-loss-mode {off,tip,root,both}</code> |
-                                <code>--pitt-peters-states {3,5}</code> | <code>--pitt-peters-outer-iter N</code> |
+                                <code>--pitt-peters-outer-iter N</code> |
                                 <code>--pitt-peters-relax X</code> | <code>--pitt-peters-tol X</code> |
                                 <code>--rotational-augmentation</code> / <code>--no-rotational-augmentation</code> |
                                 <code>--radial-flow-correction</code> / <code>--no-radial-flow-correction</code> |

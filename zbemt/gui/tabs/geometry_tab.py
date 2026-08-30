@@ -204,11 +204,13 @@ class GeometryTab(QWidget):
         self.dyn_hinge_offset.setDecimals(3)
         self.dyn_hinge_offset.setSingleStep(0.01)
         self.dyn_hinge_offset.setToolTip(_tip("hinge_offset_norm",
-            "Flap hinge offset as a fraction of the rotor radius. It "
-            "raises the flap frequency ratio by (3/2)·e/(1−e) above 1 and "
+            "EFFECTIVE (equivalent) flap hinge offset as a fraction of the "
+            "rotor radius. It need not be a real hinge: on a hingeless rotor "
+            "it is the offset that reproduces the flexure's flap frequency. "
+            "It raises the flap frequency ratio by (3/2)·e/(1−e) above 1 and "
             "lets part of the blade load reach the hub as a structural "
             "moment."))
-        form.addRow(_sym(r"\bar{e}") + " — Hinge offset [r/R]:",
+        form.addRow(_sym(r"\bar{e}") + " — Effective hinge offset [r/R]:",
                     self.dyn_hinge_offset)
 
         self.dyn_flap_spring = ScientificSpinBox()
@@ -353,40 +355,6 @@ class GeometryTab(QWidget):
 
         row.addLayout(form, 1)
 
-        # --- live readout panel --------------------------------------
-        readout_form = QFormLayout()
-        self.dyn_out_ratio = QLabel("—")
-        self.dyn_out_ratio.setToolTip(
-            "Flap frequency ratio and its square, from the current inputs.")
-        self.dyn_out_inertia = QLabel("—")
-        self.dyn_out_inertia.setToolTip(
-            "Resolved flap inertia and Lock number: whichever of the two "
-            "the user did not enter directly.")
-        self.dyn_out_lag = QLabel("—")
-        self.dyn_out_lag.setToolTip(
-            "Lead-lag frequency ratio, when lead-lag is enabled.")
-        self.dyn_out_freq = QLabel("—")
-        self.dyn_out_freq.setToolTip(
-            "First flap natural frequency in hertz: frequency ratio times "
-            "the rotation speed over 2π, using the RPM of the first saved "
-            "case of this project.")
-        readout_form.addRow(
-            "<b>" + _sym(r"\nu_\beta") + "</b> / "
-            + _sym(r"\nu_\beta^2") + ":", self.dyn_out_ratio)
-        readout_form.addRow(
-            "<b>" + _sym(r"I_\beta") + "</b> / "
-            + _sym(r"\gamma") + ":", self.dyn_out_inertia)
-        readout_form.addRow(
-            "<b>" + _sym(r"\nu_\zeta") + ":</b>", self.dyn_out_lag)
-        readout_form.addRow(
-            "<b>" + _sym(r"f_1") + " [Hz]:</b>", self.dyn_out_freq)
-        note = QLabel("<i>Readouts update as you edit.</i>")
-        note.setToolTip(
-            "The panel recomputes on every edit, with the same short delay "
-            "as the preview drawing.")
-        readout_form.addRow(note)
-        row.addLayout(readout_form, 0)
-
         # --- progressive disclosure + write-back ---------------------
         for combo in (self.dyn_flap_model, self.dyn_inertia_source):
             combo.currentIndexChanged.connect(self._apply_dynamics)
@@ -486,80 +454,6 @@ class GeometryTab(QWidget):
         set_row_visible(self._dynamics_form, self.dyn_outer_tol, flapping)
         set_row_visible(self._dynamics_form, self.dyn_outer_relax, flapping)
 
-    def _refresh_dynamics_readout(self):
-        """Recomputes the read-only panel beside the inputs (same debounce
-        as the preview drawing)."""
-        import math
-        dyn = self._collect_dynamics()
-        geom_now = self.state.project.geometry if self.state.project else None
-        radius = geom_now.radius_m if geom_now else self.radius_m.value()
-        rho = float(self.state.project.config.get("rho", 1.225)) \
-            if self.state.project else 1.225
-        cl_alpha = float(getattr(
-            getattr(self.state.project, "airfoil", None), "cl_alpha", 2 * math.pi)) \
-            if self.state.project else 2 * math.pi
-        try:
-            chord_ref = geometry.reference_chord_m(geom_now) if geom_now else \
-                self.radius_m.value() * 0.08
-            inertia = geometry.resolve_flap_inertia(
-                inertia_source=dyn.inertia_source,
-                lock_number=dyn.lock_number,
-                flap_inertia_kg_m2=dyn.flap_inertia_kg_m2,
-                blade_mass_kg=dyn.blade_mass_kg,
-                hinge_offset_norm=dyn.hinge_offset_norm,
-                radius_m=radius, chord_ref_m=chord_ref,
-                rho=rho, cl_alpha=cl_alpha)
-        except Exception:
-            inertia = float("nan")
-
-        red = '<span style="color:#c00;">%s</span>'
-        rpm = None
-        if self.state.project and self.state.project.saved_cases:
-            rpm = self.state.project.saved_cases[0].rpm
-
-        if dyn.flap_model == "rigid":
-            self.dyn_out_ratio.setText("— (rigid)")
-            self.dyn_out_inertia.setText("—")
-            self.dyn_out_lag.setText("—")
-            self.dyn_out_freq.setText("—")
-            return
-
-        gamma_resolved = (rho * cl_alpha * chord_ref * radius ** 4 / inertia
-                          if np.isfinite(inertia) and inertia > 0 else float("nan"))
-        if dyn.inertia_source == "lock":
-            self.dyn_out_inertia.setText(
-                f"{inertia:.4g} kg·m²" if np.isfinite(inertia) and inertia > 0
-                else red % "invalid γ or chord table")
-        else:
-            self.dyn_out_inertia.setText(
-                f"{inertia:.4g} kg·m² · γ {gamma_resolved:.3g}"
-                if np.isfinite(gamma_resolved) and gamma_resolved > 0
-                else red % "invalid I")
-
-        if not rpm:
-            self.dyn_out_ratio.setText("— (no saved case: no RPM)")
-            self.dyn_out_lag.setText("—")
-            self.dyn_out_freq.setText("— (save a case first)")
-            return
-        omega = 2.0 * math.pi * float(rpm) / 60.0
-        nu2 = geometry.flap_frequency_ratio_squared(
-            dyn.hinge_offset_norm, max(dyn.flap_spring_nm_per_rad, 0.0),
-            inertia, omega)
-        nu = math.sqrt(max(nu2, 0.0))
-        resonant = any(abs(nu2 - n * n) < 1e-3
-                       for n in range(1, dyn.harmonics + 1))
-        ratio_text = f"{nu:.4f} / {nu2:.4f}"
-        self.dyn_out_ratio.setText(red % ratio_text if resonant else ratio_text)
-        self.dyn_out_freq.setText(f"{nu * omega / (2.0 * math.pi):.2f}")
-        if dyn.lag_enabled:
-            nz2 = geometry.lag_frequency_ratio_squared(
-                dyn.hinge_offset_norm, max(dyn.lag_spring_nm_per_rad, 0.0),
-                dyn.lag_inertia_kg_m2, omega)
-            self.dyn_out_lag.setText(
-                f"{math.sqrt(max(nz2, 0.0)):.4f} / {nz2:.4f}")
-        else:
-            self.dyn_out_lag.setText("—")
-
     def _schedule_preview_refresh(self, *_args):
         if hasattr(self, "_preview_timer"):
             self._preview_timer.start()
@@ -596,7 +490,6 @@ class GeometryTab(QWidget):
     def _refresh_preview(self):
         if not hasattr(self, "preview_tabs"):
             return
-        self._refresh_dynamics_readout()
         try:
             geom = self._current_geometry()
         except Exception as exc:
@@ -709,7 +602,6 @@ class GeometryTab(QWidget):
             for cb in (self.dyn_lag_enabled, self.dyn_lag_feeds_back):
                 cb.blockSignals(False)
         self._refresh_dynamics_visibility()
-        self._refresh_dynamics_readout()
 
     def _apply_constants(self, _value=None):
         """Number of blades and radius are editable at any time,

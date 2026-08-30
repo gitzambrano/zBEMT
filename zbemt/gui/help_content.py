@@ -570,7 +570,7 @@ FIELD_HELP: dict[str, dict] = {
             "the structural part carried through a hinge offset or a "
             "root spring."),
         "unit": "N·m",
-        "equation": r"M_{hub}=\tfrac{N_b}{2}I_\beta\Omega^2(\nu_\beta^2-1)\beta_1",
+        "equation": r"M_{hub}=\frac{N_b}{2}I_\beta\Omega^2(\nu_\beta^2-1)\beta_1",
         "effect": "On an articulated blade with no offset the structural part vanishes and only the aerodynamic tilt remains. Offset and spring are what let the rotor transmit a moment to the aircraft at all.",
         "range": "—",
         "options": None,
@@ -668,7 +668,7 @@ FIELD_HELP: dict[str, dict] = {
             "PARETO FRONT: a set of designs where nothing can be "
             "improved on one objective without giving up the other."),
         "unit": "that of the chosen quantity",
-        "equation": r"\min_{x\in X} \;\big(f_1(x),\;f_2(x)\big)",
+        "equation": r"\min_{x\in X} \;\left(f_1(x),\;f_2(x)\right)",
         "effect": "Leaving the second objective empty runs a single-objective search. Filling it runs NSGA-II and produces a front instead of a winner.",
         "range": "any summary key (FM, CT, eta_prop, Torque, ...)",
         "options": None,
@@ -1264,7 +1264,7 @@ FIELD_HELP: dict[str, dict] = {
             "from file), or 'manual' (edited by user).\n\n"
             "Does not affect calculation."),
         "unit": "",
-        "equation": "origin ∈ {preset, import, manual} (metadata only)",
+        "equation": r"\mathrm{origin} \in \{\mathrm{preset},\ \mathrm{import},\ \mathrm{manual}\}",
         "effect": "Does not affect calculation; used for traceability and UI display.",
         "range": "preset, import, or manual",
         "options": None
@@ -2053,7 +2053,7 @@ FIELD_HELP: dict[str, dict] = {
             "the shaft and so adds no torque at all, but does push the rotor "
             "backward."),
         "unit": '',
-        "equation": (r"\vec{D} = \tfrac{1}{2}\rho c\,C_d\,|\vec{U}|\,\vec{U},"
+        "equation": (r"\vec{D} = \frac{1}{2}\rho c\,C_d\,|\vec{U}|\,\vec{U},"
                      r"\qquad |\vec{U}| = \sqrt{W^2 + U_R^2}"),
         "effect": (
             'It raises the H-force and the profile power and leaves thrust and '
@@ -2088,7 +2088,7 @@ FIELD_HELP: dict[str, dict] = {
             'drag vector.'),
         "unit": 'deg',
         "equation": (r"\lambda_y = \arctan\dfrac{U_R}{W},\qquad"
-                     r"|U_R| \le W \tan \lambda_{y,max}"),
+                     r"|U_R| \leq W \tan \lambda_{y,max}"),
         "effect": (
             'It matters where W collapses and the ratio would otherwise run '
             'away: near the blade root, and inside the reverse-flow region on '
@@ -2099,18 +2099,6 @@ FIELD_HELP: dict[str, dict] = {
             'C<sub>Hr</sub>); lowering it caps that share earlier. It changes '
             'nothing in hover, where there is no spanwise flow at all.'),
         "range": '30-90 deg',
-        "options": None
-    },
-    "pitt_peters_states": {
-        "title": "Pitt-Peters States",
-        "definition": (
-            "Number of dynamic inflow states in the Pitt-Peters model.\n\n"
-            "More states increase fidelity but computational cost; typical "
-            "values 1, 2, or 4."),
-        "unit": "—",
-        "equation": r"\nu = (\nu_0, \nu_s, \nu_c)",
-        "effect": "Increasing state count improves dynamic response accuracy, especially for transient maneuvers and control inputs.",
-        "range": "1–4",
         "options": None
     },
     "pitt_peters_outer_iter": {
@@ -2186,7 +2174,7 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Global Relaxation Factor",
         "definition": (
             "Global relaxation factor ω applied to the induced-inflow update: "
-            "λ<sub>i</sub>,new = λ<sub>i</sub>,old + ω·Δlambda_i.\n\n"
+            "λ<sub>i,new</sub> = λ<sub>i,old</sub> + ω·Δλ<sub>i</sub>.\n\n"
             "Typically 0–1; stabilizes oscillatory convergence."),
         "unit": "—",
         "equation": r"\lambda_{i,n+1} = \lambda_{i,n} + \omega\left[g(\lambda_{i,n})-\lambda_{i,n}\right]",
@@ -2255,7 +2243,7 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Azimuthal Relaxation Threshold",
         "definition": "Threshold (0–1) that activates the azimuthal relaxation factor when a criterion (for example, reverse-flow proximity) is met.",
         "unit": "—",
-        "equation": "Azimuth factor applied when criterion > threshold",
+        "equation": r"f_\psi \ \mathrm{applied\ when}\ c > c_{thr}",
         "effect": "Increasing the threshold restricts azimuthal relaxation to fewer azimuths, localizing the slowdown.",
         "range": "0.1–0.9",
         "options": None
@@ -2488,14 +2476,21 @@ FIELD_HELP: dict[str, dict] = {
         }
     },
     "hinge_offset_norm": {
-        "title": "Hinge Offset",
+        "title": "Effective Hinge Offset",
         "definition": (
-            "Distance of the flap (and lag) hinge from the shaft, as a "
-            "fraction of the radius.\n\n"
+            "EFFECTIVE (equivalent, or virtual) offset of the flap and lag "
+            "hinge from the shaft, as a fraction of the radius.\n\n"
+            "It is not required to be a real mechanical hinge. The blade is "
+            "treated as rigid, and this one number carries the whole root "
+            "restraint: on an articulated rotor it is the geometric distance "
+            "to the physical hinge, while on a hingeless or bearingless rotor "
+            "it is the offset a rigid blade would need for its flap frequency "
+            "to match that of the real flexure. Choose it to reproduce the "
+            "measured ν<sub>β</sub>, not by measuring the hub.\n\n"
             "It stiffens the flap mode and opens the structural path that "
             "carries part of the blade load into the hub as a moment."),
         "unit": "r/R",
-        "equation": r"\nu_\beta^{2} = 1 + \tfrac{3}{2}\,\dfrac{e}{1-e} + \dfrac{K_\beta}{I_\beta\Omega^{2}}",
+        "equation": r"\nu_\beta^{2} = 1 + \frac{3}{2}\,\dfrac{e}{1-e} + \dfrac{K_\beta}{I_\beta\Omega^{2}}",
         "effect": (
             "Increasing the offset raises the flap frequency ratio away from "
             "1, which moves the response off resonance and grows the hub "
@@ -2651,7 +2646,7 @@ FIELD_HELP: dict[str, dict] = {
             "with its own spring, damper and inertia. The lag moment comes "
             "from the tangential force distribution."),
         "unit": "—",
-        "equation": r"\nu_\zeta^{2} = \tfrac{3}{2}\,\dfrac{e}{1-e} + \dfrac{K_\zeta}{I_\zeta\Omega^{2}}",
+        "equation": r"\nu_\zeta^{2} = \frac{3}{2}\,\dfrac{e}{1-e} + \dfrac{K_\zeta}{I_\zeta\Omega^{2}}",
         "effect": (
             "Without thrust restoring, a lag freedom needs an offset or a "
             "spring: with neither, its frequency ratio is zero and the "
@@ -2705,7 +2700,7 @@ FIELD_HELP: dict[str, dict] = {
             "element, closing the loop between lag motion and "
             "aerodynamics."),
         "unit": "—",
-        "equation": r"U_T \mathrel{+}= (r-eR)\,\dot\zeta",
+        "equation": r"U_T \to U_T + (r-eR)\,\dot\zeta",
         "effect": (
             "Leaving it on is the consistent choice; turning it off turns "
             "the lag into a diagnostic that does not act back on the loads."),
@@ -2772,7 +2767,7 @@ FIELD_HELP: dict[str, dict] = {
             "receives −r·p·sinψ, and with flap freedom the flap balance "
             "receives a gyroscopic forcing of its own."),
         "unit": "deg/s",
-        "equation": r"U_P \mathrel{-}= r\,p\sin\psi,\qquad \bar{M}_{gyro} = \frac{2p\cos\psi}{\Omega}",
+        "equation": r"U_P \to U_P - r\,p\sin\psi,\qquad \bar{M}_{gyro} = \frac{2p\cos\psi}{\Omega}",
         "effect": (
             "The hub moment it produces is the roll damping, the derivative of "
             "the rolling moment M<sub>y</sub> with respect to p.\n\n"
@@ -2793,7 +2788,7 @@ FIELD_HELP: dict[str, dict] = {
             "nose of the disk, and with flap freedom the flap balance receives "
             "a gyroscopic forcing of its own."),
         "unit": "deg/s",
-        "equation": r"U_P \mathrel{-}= r\,q\cos\psi,\qquad \bar{M}_{gyro} = -\frac{2q\sin\psi}{\Omega}",
+        "equation": r"U_P \to U_P - r\,q\cos\psi,\qquad \bar{M}_{gyro} = -\frac{2q\sin\psi}{\Omega}",
         "effect": (
             "The hub moment it produces is the pitch damping, the derivative of "
             "the pitching moment M<sub>x</sub> with respect to q.\n\n"

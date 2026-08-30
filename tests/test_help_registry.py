@@ -79,6 +79,51 @@ class TestClickableLabelInGeometry(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestBlockHintBelongsToTheTitleAlone(unittest.TestCase):
+    """A block's "click the title" hint must belong to the TITLE.
+
+    It used to be a `setToolTip` on the QGroupBox, and a tooltip on a
+    container covers the container's WHOLE area: the same sentence popped
+    up over every field, every label and every empty gap inside the
+    block, so it read as a hint that followed the mouse around rather
+    than one that named a thing."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_the_groupbox_itself_carries_no_tooltip(self):
+        from PyQt6.QtWidgets import QGroupBox, QFormLayout, QLabel
+        from zbemt.gui.common import make_block_title_clickable
+        from zbemt.gui import help_blocks
+
+        block_id = next(iter(help_blocks.BLOCK_HELP))
+        box = QGroupBox("Some block")
+        form = QFormLayout(box)
+        form.addRow("A field:", QLabel("x"))
+
+        self.assertTrue(make_block_title_clickable(box, block_id))
+        self.assertEqual(box.toolTip(), "",
+                          "a tooltip on the groupbox covers the whole block")
+
+    def test_the_title_still_answers_with_the_hint(self):
+        from PyQt6.QtWidgets import QGroupBox, QFormLayout, QLabel
+        from zbemt.gui.common import make_block_title_clickable
+        from zbemt.gui import help_blocks
+
+        block_id = next(iter(help_blocks.BLOCK_HELP))
+        box = QGroupBox("Some block")
+        form = QFormLayout(box)
+        form.addRow("A field:", QLabel("x"))
+        make_block_title_clickable(box, block_id)
+
+        handler = box._block_help
+        # The title region is known, and the hint text still exists for it.
+        self.assertFalse(handler.title_rect().isEmpty())
+        self.assertIn("Click the section title", handler._TITLE_TOOLTIP)
+
+
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
 class TestPopupNeverOverflowsScreen(unittest.TestCase):
     """Regression: the field-help popup must never exceed the screen and
     nothing inside its body may be cut off at the right edge.

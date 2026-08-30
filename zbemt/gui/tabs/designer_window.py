@@ -315,26 +315,26 @@ class GeometryDesignerWindow(QWidget):
         table_column.addWidget(QLabel("Blade geometries to compare:"))
         self.variants_table = QTableWidget(0, len(self._VARIANT_COLUMNS))
         self.variants_table.setHorizontalHeaderLabels(self._VARIANT_COLUMNS)
+        # A SHORT tooltip. The long explanation moved to the group title's
+        # popup: a six-paragraph tooltip covered the whole table and
+        # followed the cursor across every cell, which made the table
+        # harder to read rather than easier.
         self.variants_table.setToolTip(
-            "One row per blade geometry.\n\n"
-            "Each cell states an override over the project's own planform. "
-            "An empty cell keeps the project value. The rectangular "
-            "generator takes a single chord parameter, so its two chord "
-            "cells state the same value and the root cell takes precedence "
-            "when they "
-            "differ. The elliptic generator has no tip-chord parameter, "
-            "which is why that cell stays disabled there. Blades accepts "
-            "a whole number. Root cutout and Radius are direct "
-            "parameters of every row: an empty cell keeps the session "
-            "base value, and the base row shows the base's own values."
-            "\n\n"
-            "Aspect ratio and Solidity are read-only derivations: "
-            "AR = 1/I and σ = n_blades·I/π, with I = ∫c d(r/R) over the "
-            "row's own stations.\n\n"
-            "Extra overrides summarizes, read-only, every override of "
-            "the row that has no column of its own.")
-        self.variants_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch)
+            "One row per blade geometry. Each cell states an override over "
+            "the project planform, and an empty cell keeps the project "
+            "value. Click the group title for the full rules.")
+        # ResizeToContents, not Stretch: Stretch divides the width EQUALLY
+        # over eleven columns and ignores what each header says, so every
+        # heading came out cut ("ot chord", "st root [d"). House rule: no
+        # text may ever be clipped. The table scrolls sideways instead, and
+        # the last column takes any slack that is left.
+        header = self.variants_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        # No `setStretchLastSection`: it overrides ResizeToContents on the
+        # last column, which put "Extra overrides" back under the knife.
+        header.setStretchLastSection(False)
+        self.variants_table.setHorizontalScrollMode(
+            QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.variants_table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows)
         self.variants_table.verticalHeader().setVisible(False)
@@ -1955,8 +1955,10 @@ class GeometryDesignerWindow(QWidget):
         self.damping_table.setHorizontalHeaderLabels(
             ["Variant", "dMₓ/dq [N·m/(rad/s)]",
              "dThrust/dw [N/(m/s)]"])
+        # ResizeToContents: the two derivative headings carry a unit each
+        # and Stretch cut both of them by about thirty pixels.
         self.damping_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch)
+            QHeaderView.ResizeMode.ResizeToContents)
         self.damping_table.setEditTriggers(
             QTableWidget.EditTrigger.NoEditTriggers)
         self.damping_table.setToolTip(
@@ -2505,9 +2507,15 @@ class GeometryDesignerWindow(QWidget):
         equalize_button_widths((self.btn_add_variant,
                                 self.btn_duplicate_variant,
                                 self.btn_remove_variant))
-        equalize_button_widths((self.btn_build_sweep,
-                                self.btn_add_generated,
-                                self.btn_import_project))
+        # The four that share ONE row read together, so they share a width.
+        # The previous grouping mixed `btn_build_sweep` (its own row, above)
+        # with two of the four, and left the other two ungrouped, so the row
+        # came out as four different widths spanning the whole panel.
+        equalize_button_widths((self.btn_add_generated,
+                                self.btn_import_project,
+                                self.btn_save_comparison,
+                                self.btn_load_comparison))
+        equalize_button_widths((self.btn_build_sweep,))
         equalize_button_widths((self.btn_export_report, self.btn_export_csv))
 
 

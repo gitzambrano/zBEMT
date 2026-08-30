@@ -62,9 +62,12 @@ class TestToAirfoilDispatch(unittest.TestCase):
         with self.assertRaises(ValueError):
             airfoils.to_airfoil(a)
 
-    def test_external_source_not_implemented(self):
+    def test_external_source_is_retired_and_now_rejected(self):
+        """'external' was an enum value the engine could never build. XFOIL
+        and NeuralFoil polars are imported as source='table', so the value
+        is gone and is now refused like any other unknown source."""
         a = AirfoilDef(source="external")
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaises(ValueError):
             airfoils.to_airfoil(a)
 
     def test_unknown_source_raises(self):

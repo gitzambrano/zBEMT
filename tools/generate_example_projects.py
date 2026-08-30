@@ -599,7 +599,6 @@ def test8():
         # flat_plate reverse flow model (no Viterna needed for clip stall).
         config=_config(Ne=60, Npsi=90,
                        inflow_field_model="pitt_peters_steady",
-                       pitt_peters_states=3,
                        pitt_peters_outer_iter=40,
                        pitt_peters_relax=0.5,
                        pitt_peters_tol=1e-6,

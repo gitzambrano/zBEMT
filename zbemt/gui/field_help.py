@@ -33,7 +33,8 @@ import re
 from functools import lru_cache
 from typing import NamedTuple
 
-from PyQt6.QtCore import QEvent, QObject, Qt
+from PyQt6.QtCore import QEvent, QObject, QSize, Qt
+from PyQt6.QtGui import QPainter, QTextDocument
 from PyQt6.QtWidgets import (
     QAbstractButton,
     QCheckBox,
@@ -92,9 +93,58 @@ def _open_popup(field: str, near: QWidget, root: QWidget) -> None:
         open_help(root, anchor=field_anchor(field))
 
 
+class _RichToolButton(QToolButton):
+    """A `QToolButton` whose text is HTML.
+
+    `QToolButton.setText` does NOT render markup: a label carrying a
+    rendered symbol reached the screen as the literal string
+    ``&psi;<sub>w</sub>``. Since every documented field has its `QLabel`
+    swapped for one of these buttons, that turned `PR-4` on its head
+    exactly on the fields that DO carry mathematics.
+
+    The text is kept on the button itself (so `text()`, size policy and
+    every existing caller still work) and drawn through a
+    `QTextDocument`, which is the same way the results table paints its
+    subscripts.
+    """
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._doc = QTextDocument(self)
+        self._doc.setDocumentMargin(0)
+        self._doc.setDefaultFont(self.font())
+
+    def setText(self, text: str) -> None:                    # noqa: N802
+        super().setText(text)
+        self._doc.setDefaultFont(self.font())
+        self._doc.setHtml(text)
+        self.updateGeometry()
+
+    def sizeHint(self) -> QSize:                             # noqa: N802
+        size = self._doc.size()
+        return QSize(int(size.width()) + 2,
+                     max(int(size.height()), self.minimumHeight()))
+
+    def minimumSizeHint(self) -> QSize:                      # noqa: N802
+        return self.sizeHint()
+
+    def paintEvent(self, event) -> None:                     # noqa: N802
+        painter = QPainter(self)
+        self._doc.setDefaultFont(self.font())
+        # The stylesheet colours the button (and recolours it on hover);
+        # the document inherits that colour instead of a hard-coded one.
+        painter.setPen(self.palette().color(self.foregroundRole()))
+        ctx = self._doc.documentLayout().PaintContext()
+        ctx.palette = self.palette()
+        y = max(0, (self.height() - int(self._doc.size().height())) // 2)
+        painter.translate(0, y)
+        self._doc.documentLayout().draw(painter, ctx)
+        painter.end()
+
+
 def _clickable_label(field: str, original_text: str, root: QWidget) -> QToolButton:
     """QToolButton that looks like a QLabel and opens the HelpPopup on click."""
-    btn = QToolButton()
+    btn = _RichToolButton()
     btn.setText(original_text)
     btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
     btn.setAutoRaise(True)
@@ -200,10 +250,48 @@ def _install_on_checkbox(widget: QWidget, field: str, root: QWidget) -> bool:
     return True
 
 
+#: Anything `nomenclature.to_html` can emit into a label: an entity such as
+#: ``&gamma;`` or ``&mdash;``, or a tag such as ``<sub>``.
+_MARKUP = re.compile(r"&[a-zA-Z]+;|&#\d+;|<[a-zA-Z/][^>]*>")
+
+
+def render_markup_in_labels(root: QWidget) -> int:
+    """Forces every form label under ``root`` that carries markup to be
+    drawn as rich text. Returns how many labels were corrected.
+
+    A `QLabel` left on `AutoText` decides by looking for a TAG, so a label
+    whose only markup is an ENTITY (``&gamma; -- Lock number:``) was
+    classified as plain text and showed the entity verbatim. Worse, a
+    label with a buddy treats ``&`` as a mnemonic, which ate the
+    ampersand and underlined the next letter: ``&gamma;`` reached the
+    screen as ``gamma;``. Both break `PR-4` on exactly the fields that
+    carry mathematics.
+    """
+    from PyQt6.QtWidgets import QLabel
+
+    fixed = 0
+    for form in root.findChildren(QFormLayout):
+        for row_idx in range(form.rowCount()):
+            item = form.itemAt(row_idx, QFormLayout.ItemRole.LabelRole)
+            label = item.widget() if item is not None else None
+            if not isinstance(label, QLabel):
+                continue
+            if not _MARKUP.search(label.text()):
+                continue
+            if label.textFormat() == Qt.TextFormat.RichText:
+                continue
+            label.setTextFormat(Qt.TextFormat.RichText)
+            fixed += 1
+    return fixed
+
+
 def install_field_popups(root: QWidget) -> int:
     """Makes the label (or checkbox text) of every documented field
     under ``root`` clickable. Returns how many fields were equipped.
     Idempotent: an already-equipped field does not get double treatment.
+
+    Also normalizes every remaining form label that carries markup, so an
+    UNdocumented field (which keeps its `QLabel`) renders its symbol too.
     """
     from . import help_content
 
@@ -273,5 +361,10 @@ def install_field_popups(root: QWidget) -> int:
         if _install_on_checkbox(cb, field, root):
             cb._has_field_popup = True
             count += 1
+
+    # Runs LAST: the loop above replaces documented labels with a
+    # `_RichToolButton` (which paints its own markup), so what is left as a
+    # QLabel is the undocumented rows, and those are the ones to normalize.
+    render_markup_in_labels(root)
 
     return count

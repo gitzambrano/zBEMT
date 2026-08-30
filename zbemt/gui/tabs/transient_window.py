@@ -189,8 +189,12 @@ class TransientWindow(QWidget):
         points_layout = QVBoxLayout(points_box)
         self.points_table = QTableWidget(0, len(self._POINT_FIELDS))
         self.points_table.setHorizontalHeaderLabels(self._point_columns())
+        # ResizeToContents, not Stretch: Stretch splits the width equally
+        # over seven columns and ignores the headings, which cut "RPM
+        # [rev/min]" by more than a hundred pixels. House rule: no text may
+        # ever be clipped.
         self.points_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch)
+            QHeaderView.ResizeMode.ResizeToContents)
         self.points_table.itemChanged.connect(self._on_point_edited)
         points_layout.addWidget(self.points_table)
         pts_btns = QHBoxLayout()

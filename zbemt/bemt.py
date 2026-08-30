@@ -325,7 +325,12 @@ class BEMTConfig:
     inflow_sideslip_deg: float = 0.0
 
     # --- 9) Pitt-Peters dynamic inflow (finite-state), see Section 4d/6b --------
-    pitt_peters_states: int = 3             # 3 (nu0,nu_s,nu_c) | 5 (+ nu_2s,nu_2c, Peters-He)
+    # No `pitt_peters_states`: the model solves the three states
+    # (nu0, nu_s, nu_c). The Peters-He 5-state extension (second harmonic)
+    # was offered by the schema and never built, so the option was removed
+    # rather than left as a promise the engine does not keep. Old project
+    # files carrying the key still load -- `studies` drops unknown keys --
+    # and `validation` still reports a value other than 3.
     pitt_peters_outer_iter: int = 40
     pitt_peters_relax: float = 0.5
     pitt_peters_tol: float = 1e-6
@@ -3260,11 +3265,6 @@ def _solve_pitt_peters_steady(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lamb
 
     ``motion`` (Section 4h, optional): forwarded into every
     `_pitt_peters_forcing` call."""
-    if cfg.pitt_peters_states != 3:
-        raise NotImplementedError(
-            "pitt_peters_states=5 (Peters-He with second harmonic) is not "
-            "implemented in this version . Only the classic 3-state model "
-            "(nu0,nu_s,nu_c) is available. Use pitt_peters_states=3.")
     nu = np.zeros(3) if nu0_guess is None else np.array(nu0_guess, dtype=float)
     if nu0_guess is None:
         # MOMENTUM-THEORY SEED, not nu=0.

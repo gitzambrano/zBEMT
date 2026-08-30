@@ -450,8 +450,6 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="Choose the inflow field model (BEMTConfig.inflow_field_model).")
     p.add_argument("--prandtl-loss-mode", choices=["off", "tip", "root", "both"], default=None,
                     help="Choose which Prandtl tip and root losses apply (BEMTConfig.prandtl_loss_mode).")
-    p.add_argument("--pitt-peters-states", type=int, choices=[3, 5], default=None,
-                    help="Set the number of Pitt-Peters inflow states (BEMTConfig.pitt_peters_states).")
     p.add_argument("--pitt-peters-outer-iter", type=int, default=None,
                     help="Set the outer iteration limit for Pitt-Peters (BEMTConfig.pitt_peters_outer_iter).")
     p.add_argument("--pitt-peters-relax", type=float, default=None,
@@ -714,7 +712,6 @@ def _apply_config_flags(project, args) -> None:
     simple_map = {
         "inflow": "inflow_field_model",
         "prandtl_loss_mode": "prandtl_loss_mode",
-        "pitt_peters_states": "pitt_peters_states",
         "pitt_peters_outer_iter": "pitt_peters_outer_iter",
         "pitt_peters_relax": "pitt_peters_relax",
         "pitt_peters_tol": "pitt_peters_tol",
@@ -1589,8 +1586,8 @@ def main(argv=None, options=None) -> int:
         batch = BatchDefinition(name="cli_adhoc", conditions=[condition])
 
     # Validation BEFORE running: without this, a configuration the solver
-    # rejects (unimplemented inflow, pitt_peters_states=5, source
-    # 'external') only failed deep inside, with a raw traceback, possibly
+    # rejects (an unimplemented inflow model, an unknown airfoil source)
+    # only failed deep inside, with a raw traceback, possibly
     # after hours of unsupervised batch. `api.validate_project` already
     # existed exactly for this and the CLI never called it.
     issues = api.validate_project(project, conditions=batch.conditions)
