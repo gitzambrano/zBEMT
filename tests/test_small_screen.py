@@ -29,7 +29,8 @@ if not _HAS_QT:                                  # pragma: no cover
     raise unittest.SkipTest("PyQt6 is not installed (the engine and CLI run "
                             "without it on purpose)")
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QPoint
+from PyQt6.QtWidgets import QApplication, QPushButton, QScrollArea, QVBoxLayout
 
 #: A 1366x768 laptop, less the window frame and the task bar.
 SMALL_W, SMALL_H = 1366, 700
@@ -156,6 +157,48 @@ class TestScrollingIsWhatMakesItFit(SmallScreenBase):
         self.assertIsNotNone(inner, "the scroll area holds no page")
         self.assertGreater(inner.sizeHint().width(), 200,
                             "the page collapsed instead of being scrolled")
+
+
+class TestResultsHistoryActionsFitTheViewport(SmallScreenBase):
+    """The history controls must not require horizontal scrolling to read."""
+
+    def test_each_history_action_is_fully_visible(self):
+        self.window.resize(SMALL_W, SMALL_H)
+        self.window.show()
+        self.window.tabs.setCurrentIndex(6)
+        self._app.processEvents()
+
+        results_tab = self.window.tabs.widget(6)
+        buttons = {
+            button.text(): button
+            for button in results_tab.findChildren(QPushButton)
+            if button.text() in {"Select all", "Clear selection", "Delete entries"}
+        }
+        self.assertEqual(set(buttons), {"Select all", "Clear selection", "Delete entries"})
+
+        history_group = buttons["Select all"].parentWidget()
+        self.assertIsInstance(
+            history_group.layout().itemAt(1).layout(), QVBoxLayout,
+            "history actions must stack so their labels do not depend on viewport width")
+        history_area = next(
+            area for area in results_tab.findChildren(QScrollArea)
+            if area.widget() is history_group)
+        # This is the history-panel viewport available in the 1366 px layout.
+        # Keep that boundary explicit because a layout-margin change otherwise
+        # can hide the regression by giving the test a few extra pixels.
+        history_area.setFixedWidth(334)
+        self._app.processEvents()
+        history_area.horizontalScrollBar().setValue(0)
+        self._app.processEvents()
+        self.assertEqual(
+            history_area.horizontalScrollBar().maximum(), 0,
+            "history actions must not need horizontal scrolling at 1366 px")
+        viewport = history_area.viewport()
+        for label, button in buttons.items():
+            with self.subTest(action=label):
+                top_left = button.mapTo(viewport, QPoint(0, 0))
+                self.assertGreaterEqual(top_left.x(), 0)
+                self.assertLessEqual(top_left.x() + button.width(), viewport.width())
 
 
 

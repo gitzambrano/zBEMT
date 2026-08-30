@@ -38,6 +38,20 @@ class TestNothingToSay(unittest.TestCase):
         self.assertEqual(validate_results({
             "beta_0_deg": 2.0, "beta_1c_deg": -1.5, "beta_1s_deg": 0.4}), [])
 
+    def test_a_fully_converged_solver_is_silent(self):
+        self.assertEqual(validate_results({"convergence_pct": 100.0}), [])
+
+
+class TestSolverConvergenceMustBeReported(unittest.TestCase):
+    """A partial inflow solution must not appear as an unqualified result."""
+
+    def test_a_partially_converged_mesh_is_reported(self):
+        issues = validate_results({"convergence_pct": 99.43287037037038})
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].level, "warning")
+        self.assertIn("99.43%", issues[0].message)
+        self.assertIn("EN-11", issues[0].message)
+
 
 class TestTheMarchMustHaveSettled(unittest.TestCase):
 

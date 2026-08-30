@@ -53,13 +53,13 @@ class ProjectTab(QWidget):
         # Field-level help (PR-3): the mode is a configurable field like any
         # other, and it decides what the flow letters mean in the run tabs,
         # so it needs its own tooltip and its own documentation section.
-        _ajuda_modo = (
+        _mode_help = (
             '"is_propeller"<br><br>How the shaft is mounted: vertical for a rotor, '
             'horizontal for a propeller.<br><br>It changes no equation. What it '
             'changes is which physical component of the free stream each letter '
             'names, and therefore which field the airspeed belongs in.')
-        self.radio_rotor.setToolTip(_ajuda_modo)
-        self.radio_propeller.setToolTip(_ajuda_modo)
+        self.radio_rotor.setToolTip(_mode_help)
+        self.radio_propeller.setToolTip(_mode_help)
         self.radio_rotor.setChecked(True)
         self.mode_group = QButtonGroup(self)
         self.mode_group.addButton(self.radio_rotor)
@@ -190,5 +190,4 @@ class ProjectTab(QWidget):
             "This changes the vocabulary of mu_x/J_x and alpha/Vz in the following tabs — "
             "numeric values are NOT automatically converted. Check Run Case/Run Batch "
             "before running.")
-
 

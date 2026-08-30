@@ -557,8 +557,8 @@ class AirfoilTab(QWidget):
         r_norm gap (docs/plano.md Section 4)."""
         if len(self._sections) < 2:
             base = self._collect_airfoil_def()
-            root = replace(base, name=base.name or "raiz", r_norm=0.15)
-            tip = replace(base, name=(base.name or "ponta") + " (ponta)", r_norm=1.0)
+            root = replace(base, name=base.name or "root", r_norm=0.15)
+            tip = replace(base, name=(base.name or "tip") + " (tip)", r_norm=1.0)
             self._sections = [root, tip]
             self._current_section_index = 0
         else:

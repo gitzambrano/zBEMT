@@ -165,7 +165,7 @@ class TestInflowModels(unittest.TestCase):
         """Regression: at EXACT ``mu_x=0``, `pitt_peters_steady` used to
         silently return ``CT=nan`` -- no exception and no warning.
 
-        Mechanism (see `DENOMINADOR_MINIMO_DE_PITT_PETERS` and the seed in
+        Mechanism (see `PITT_PETERS_DENOMINATOR_MIN` and the seed in
         `_solve_pitt_peters_steady`): starting from ``nu=0`` in hover,
         ``VT=sqrt(mu_x^2+lambda^2)`` is zero, the first ``forcing/V``
         blows up and ``nu0`` jumps to ~355 (against ~0.12 of the actual

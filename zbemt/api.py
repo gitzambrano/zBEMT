@@ -902,7 +902,7 @@ _MAX_NAME_LENGTH = 80
 #: name derived from it lives in a zip, an email, and someone else's
 #: filesystem, where "μ=0.1" has come back as "Î¼=0.1" more than once.
 #: Only these symbols are transcribed: an accent in a name typed by the
-#: user ("Caso Padrão") still passes through intact.
+#: user-provided non-ASCII letters still pass through intact.
 _ASCII_TRANSCRIPTION = {
     "μ": "mu", "α": "alpha", "β": "beta", "θ": "theta", "λ": "lambda",
     "ψ": "psi", "φ": "phi", "Ω": "Omega", "η": "eta", "π": "pi",
@@ -930,7 +930,7 @@ def sanitize_filename(name: str, used: Optional[set] = None) -> str:
     - prefixes Windows reserved names (``CON``, ``COM1``…), which fail
       even with an extension;
     - truncates names that are too long for the path limit;
-    - returns ``sem_nome`` for a name that is empty or has only spaces and dots.
+    - returns ``unnamed`` for a name that is empty or has only spaces and dots.
 
     ``used``: set of names already emitted. Two DIFFERENT names can
     sanitize to the same text (``a:b`` and ``a?b`` both become ``a-b``)
@@ -944,14 +944,14 @@ def sanitize_filename(name: str, used: Optional[set] = None) -> str:
     clean = clean.strip().rstrip(". ")
 
     if not clean:
-        clean = "sem_nome"
+        clean = "unnamed"
 
     root_name = clean.split(".")[0].upper()
     if root_name in _RESERVED_NAMES:
         clean = f"_{clean}"
 
     if len(clean) > _MAX_NAME_LENGTH:
-        clean = clean[:_MAX_NAME_LENGTH].rstrip(". ") or "sem_nome"
+        clean = clean[:_MAX_NAME_LENGTH].rstrip(". ") or "unnamed"
 
     if used is not None:
         base, n = clean, 2

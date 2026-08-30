@@ -485,7 +485,7 @@ def run_polar(engine: str, geometry: ProfileGeometry,
             )
         except Exception as exc:
             raise RuntimeError(
-                f"NeuralFoil falhou para Re={reynolds:.3g}: {exc}"
+                f"NeuralFoil failed for Re={reynolds:.3g}: {exc}"
             ) from exc
 
         cl_inc = np.asarray(aero["CL"], dtype=float)

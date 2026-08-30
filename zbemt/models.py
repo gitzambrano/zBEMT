@@ -932,7 +932,7 @@ class ResultEntry:
 
 @dataclass
 class Project:
-    name: str = "novo_projeto"
+    name: str = "new_project"
     path: str = ""   # project root folder on disk
 
     config: dict = field(default_factory=dict)          # BEMTConfig as dict (asdict)

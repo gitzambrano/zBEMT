@@ -283,6 +283,10 @@ different rule.
   coefficient — C_H,profile rising from σC_d0μ/4 to 3σC_d0μ/8, profile power
   from (1 + μ²) to (1 + 1.5μ²) — is the reference the implementation is
   checked against.
+- **EN-11** — A result with one or more non-converged inflow elements must
+  state that limitation. The result validator must issue a warning with the
+  converged mesh percentage. A partial field must never appear as a fully
+  converged solution.
 
 ### 3.3 GUI / CLI / `.bemt` parity
 

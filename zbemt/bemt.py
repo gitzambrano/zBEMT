@@ -473,9 +473,9 @@ RUN_PLAN = RunPlan()
 #: projects reach at most M = 0.75, and below 0.9 the expression is
 #: identical to the previous one. It only changes the range that was
 #: already physically empty.
-MACH_MAXIMO_DE_PRANDTL_GLAUERT = 0.9
-BETA_MINIMO_DE_PRANDTL_GLAUERT = float(
-    np.sqrt(1.0 - MACH_MAXIMO_DE_PRANDTL_GLAUERT ** 2))
+PRANDTL_GLAUERT_MACH_MAX = 0.9
+PRANDTL_GLAUERT_BETA_MIN = float(
+    np.sqrt(1.0 - PRANDTL_GLAUERT_MACH_MAX ** 2))
 
 #: Floor for (1 + sin alpha*) in the Pitt-Peters gain matrix L
 #: (`_pitt_peters_L_V`). Three entries of L divide by this same quantity,
@@ -495,7 +495,7 @@ BETA_MINIMO_DE_PRANDTL_GLAUERT = float(
 #: flight, moderate climb or descent (where alpha* stays well above that),
 #: so it does not change any already-valid result . It only prevents
 #: overflow in the range the model does not describe.
-DENOMINADOR_MINIMO_DE_PITT_PETERS = 1e-3
+PITT_PETERS_DENOMINATOR_MIN = 1e-3
 
 
 # =============================================================================
@@ -1821,11 +1821,11 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
 
     if cfg.use_compressibility:
         # Floor on beta, not a cutoff near zero. See
-        # `MACH_MAXIMO_DE_PRANDTL_GLAUERT`: the 1/beta factor is clamped
+        # `PRANDTL_GLAUERT_MACH_MAX`: the 1/beta factor is clamped
         # to the value at the documented Mach ceiling, instead of
         # diverging.
         beta = np.maximum(np.sqrt(np.maximum(0.0, 1.0 - Mach ** 2)),
-                          BETA_MINIMO_DE_PRANDTL_GLAUERT)
+                          PRANDTL_GLAUERT_BETA_MIN)
         Cl = Cl / beta
         Cd = Cd / beta
         if rfm == "simple_flip":
@@ -1875,11 +1875,11 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
     # Both factors are always computed. `cfg.prandtl_loss_mode` only selects
     # which of them is applied.
     abs_sin_phi = np.maximum(np.abs(np.sin(phi)), 1e-6)
-    espacamento = np.maximum(R_NORM, 1e-6) * abs_sin_phi
-    f_tip = np.maximum(-(Nb / 2.0) * (r_tip_norm_geom - R_NORM) / espacamento, -50.0)
+    helix_spacing = np.maximum(R_NORM, 1e-6) * abs_sin_phi
+    f_tip = np.maximum(-(Nb / 2.0) * (r_tip_norm_geom - R_NORM) / helix_spacing, -50.0)
     F_tip = np.clip((2.0 / np.pi) * np.arccos(np.clip(np.exp(f_tip), -1.0, 1.0)), 0.01, 1.0)
     F_tip = np.nan_to_num(F_tip, nan=0.01)
-    f_root = np.maximum(-(Nb / 2.0) * (R_NORM - r_root_norm_geom) / espacamento, -50.0)
+    f_root = np.maximum(-(Nb / 2.0) * (R_NORM - r_root_norm_geom) / helix_spacing, -50.0)
     F_root = np.clip((2.0 / np.pi) * np.arccos(np.clip(np.exp(f_root), -1.0, 1.0)), 0.01, 1.0)
     F_root = np.nan_to_num(F_root, nan=0.01)
     F_ones = np.ones_like(R_NORM, dtype=float) if isinstance(R_NORM, np.ndarray) else 1.0
@@ -2881,13 +2881,13 @@ class SolveCancelled(Exception):
     """
 
 
-def _abortar_se_cancelado(should_cancel, iteracao: int) -> None:
+def _raise_if_cancelled(should_cancel, iteration: int) -> None:
     """Checked once per solver iteration. The cost is one function call
     per pass over the whole mesh (5-30 per case), against tens of
     milliseconds per pass . Negligible."""
     if should_cancel is not None and should_cancel():
         raise SolveCancelled(
-            f"solve cancelled by user at iteration {iteracao + 1}")
+            f"solve cancelled by user at iteration {iteration + 1}")
 
 
 def solve_fixed_point(residual_fn, lambda0, cfg: BEMTConfig, R_NORM, PSI, mu_x,
@@ -2906,7 +2906,7 @@ def solve_fixed_point(residual_fn, lambda0, cfg: BEMTConfig, R_NORM, PSI, mu_x,
     _frac_track = []
     it = 0
     for it in range(cfg.max_iter):
-        _abortar_se_cancelado(should_cancel, it)
+        _raise_if_cancelled(should_cancel, it)
         state = residual_fn(lam)
         resid = state["lambda_i_next"] - lam
         if cfg.collect_history:
@@ -2940,7 +2940,7 @@ def solve_newton(residual_fn, lambda0, cfg: BEMTConfig, should_cancel=None, **_)
     _frac_track = []
     it = 0
     for it in range(cfg.max_iter):
-        _abortar_se_cancelado(should_cancel, it)
+        _raise_if_cancelled(should_cancel, it)
         state = residual_fn(lam)
         h = state["lambda_i_next"] - lam
         if cfg.collect_history:
@@ -2995,7 +2995,7 @@ def solve_bisection(residual_fn, lambda0, cfg: BEMTConfig, R_NORM=None, PSI=None
     _frac_track = []
     it = 0
     for it in range(cfg.max_iter):
-        _abortar_se_cancelado(should_cancel, it)
+        _raise_if_cancelled(should_cancel, it)
         mid = 0.5 * (a + b)
         state = residual_fn(mid)
         hmid = state["lambda_i_next"] - mid
@@ -3013,7 +3013,12 @@ def solve_bisection(residual_fn, lambda0, cfg: BEMTConfig, R_NORM=None, PSI=None
         a = np.where(active & same_sign_as_a, mid, a)
         ha = np.where(active & same_sign_as_a, hmid, ha)
         b = np.where(active & ~same_sign_as_a, mid, b)
-        lam = np.where(converged | bad_bracket, lam, mid)
+        # A point that just met the residual criterion converged at THIS
+        # midpoint.  Keep that midpoint in the returned state.  Preserving
+        # the old ``lam`` here returned the previous bracket midpoint and
+        # could label a residual above ``cfg.tol`` as converged (EN-1).
+        lam = np.where(newly, mid,
+                       np.where(converged | bad_bracket, lam, mid))
         if _check_early_stop(float(np.mean(converged | bad_bracket)), _frac_track, cfg):
             break
     lam = np.where(bad_bracket, 0.5 * (a + b), lam)
@@ -3035,7 +3040,7 @@ def solve_aitken(residual_fn, lambda0, cfg: BEMTConfig, R_NORM=None, PSI=None, m
     _frac_track = []
     it = 0
     while it < cfg.max_iter:
-        _abortar_se_cancelado(should_cancel, it)
+        _raise_if_cancelled(should_cancel, it)
         l0 = lam
         s0 = residual_fn(l0)
         h0 = s0["lambda_i_next"] - l0
@@ -3175,9 +3180,9 @@ def _pitt_peters_L_V(mu_x: float, nu0: float, lambda_z: float):
     # (with a local `+1e-9`) and left the two divisions of L completely
     # unguarded . A single iterate with lambda<0 near mu_x=0 was enough
     # to turn into inf and, at the next step, NaN. See
-    # `DENOMINADOR_MINIMO_DE_PITT_PETERS`: the same quantity, protected
+    # `PITT_PETERS_DENOMINATOR_MIN`: the same quantity, protected
     # once, across all three.
-    denom = max(1.0 + sin_a, DENOMINADOR_MINIMO_DE_PITT_PETERS)
+    denom = max(1.0 + sin_a, PITT_PETERS_DENOMINATOR_MIN)
     X = float(np.sqrt(np.clip((1.0 - sin_a) / denom, 0.0, None)))  # =tan(chi/2)
     L = np.array([
         [0.5, 0.0, -(15.0 * np.pi / 64.0) * X],
@@ -3271,7 +3276,7 @@ def _solve_pitt_peters_steady(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lamb
         # jumps to ~355 (against 0.12 for the solution). The relaxed
         # iteration comes back from that jump, but passes through
         # lambda<0 on the way, and there alpha* = -90deg, where the L
-        # matrix is singular (see `DENOMINADOR_MINIMO_DE_PITT_PETERS`).
+        # matrix is singular (see `PITT_PETERS_DENOMINATOR_MIN`).
         # The result was CT=nan in hover, with no exception or warning.
         #
         # In edgewise flight none of this shows up because mu_x already
@@ -4104,11 +4109,11 @@ def _angle_from_axis(alpha_geom_deg: float) -> float:
     ABSOLUTE VALUE is no longer the angle between the free stream and the
     axis . 170deg is. Normalized, |alpha_disk| is always that angle,
     which is what one reads in an angle column."""
-    bruto = 90.0 - float(alpha_geom_deg)
-    normalizado = (bruto + 180.0) % 360.0 - 180.0        # [-180, 180)
-    if normalizado == -180.0:
-        normalizado = 180.0        # pure axial descent reads 180, not -180
-    return normalizado + 0.0        # kills the -0.0
+    raw_angle = 90.0 - float(alpha_geom_deg)
+    normalized = (raw_angle + 180.0) % 360.0 - 180.0        # [-180, 180)
+    if normalized == -180.0:
+        normalized = 180.0        # pure axial descent reads 180, not -180
+    return normalized + 0.0        # kills the -0.0
 
 
 def solve_bemt_flight(rotor: Rotor, airfoil, cfg: BEMTConfig, **flight_kwargs):
@@ -4376,11 +4381,12 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
     if lambda_i_map is None:
         lambda_i_mean = 0.0
     else:
-        peso = _trapz_psi_periodic(_trapz(R_DIM, r_nodes, axis=0), psi_nodes)
-        integral = _trapz_psi_periodic(
+        area_weight = _trapz_psi_periodic(_trapz(R_DIM, r_nodes, axis=0), psi_nodes)
+        weighted_integral = _trapz_psi_periodic(
             _trapz(np.asarray(lambda_i_map, dtype=float) * R_DIM, r_nodes, axis=0),
             psi_nodes)
-        lambda_i_mean = float(integral / peso) if abs(peso) > 1e-300 else 0.0
+        lambda_i_mean = (float(weighted_integral / area_weight)
+                         if abs(area_weight) > 1e-300 else 0.0)
     lambda_c_val = Vz / OmegaR
     # lambda = lambda_z + lambda_i BY CONSTRUCTION (not the average of
     # `maps["lambda_total"]`, which would give the same number up to

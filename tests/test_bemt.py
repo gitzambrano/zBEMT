@@ -17,8 +17,8 @@ import numpy as np
 from zbemt.bemt import (
     Rotor, BEMTConfig, AnalyticalAirfoil, TableAirfoil, MultiSectionTableAirfoil,
     ViternaExtendedAirfoil, HeterogeneousMultiSectionAirfoil, solve_bemt, solve_bemt_flight,
-    aggregate_results, resolve_advance_velocity,
-    BETA_MINIMO_DE_PRANDTL_GLAUERT, MACH_MAXIMO_DE_PRANDTL_GLAUERT,
+    aggregate_results, resolve_advance_velocity, solve_bisection,
+    PRANDTL_GLAUERT_BETA_MIN, PRANDTL_GLAUERT_MACH_MAX,
 )
 
 
@@ -38,6 +38,34 @@ def _fast_cfg(**overrides) -> BEMTConfig:
     base = dict(Ne=10, Npsi=16, solver="newton", max_iter=100, collect_history=False)
     base.update(overrides)
     return BEMTConfig(**base)
+
+
+class TestBisectionSolverContract(unittest.TestCase):
+    """The returned state must satisfy the residual used for convergence."""
+
+    def test_a_converged_bisection_root_satisfies_the_true_residual(self):
+        """Regression for EN-1.
+
+        The exact root of ``g(lambda) = 0.5 * (lambda + target)`` is the
+        hand-specified target.  Returning the previous bisection midpoint
+        leaves a residual above the tolerance while incorrectly marking the
+        element as converged.
+        """
+        target = np.array([[0.123456789, -0.234567891]])
+        cfg = BEMTConfig(
+            solver="bisection", max_iter=100, tol=1e-10,
+            early_exit_fraction=1.0,
+        )
+
+        def residual_fn(lambda_i):
+            return {"lambda_i_next": 0.5 * (lambda_i + target)}
+
+        lambda_i, state, converged, *_ = solve_bisection(
+            residual_fn, np.zeros_like(target), cfg)
+
+        residual = np.abs(state["lambda_i_next"] - lambda_i)
+        self.assertTrue(np.all(converged))
+        self.assertLessEqual(float(np.max(residual)), cfg.tol)
 
 
 class TestSolveBemtHover(unittest.TestCase):
@@ -499,19 +527,19 @@ class TestCompressibilityCeiling(unittest.TestCase):
         cfg_on = _fast_cfg(Ne=Ne, Npsi=Npsi, use_compressibility=True)
         cfg_on.a_sound = cfg_off.a_sound = W / mach
 
-        original = bemt.BETA_MINIMO_DE_PRANDTL_GLAUERT
+        original = bemt.PRANDTL_GLAUERT_BETA_MIN
         if floor is not None:
-            bemt.BETA_MINIMO_DE_PRANDTL_GLAUERT = floor
+            bemt.PRANDTL_GLAUERT_BETA_MIN = floor
         try:
             corrected = solve_bemt(rotor, airfoil, cfg_on, mu_x=0.0, Vz=0.0)
         finally:
-            bemt.BETA_MINIMO_DE_PRANDTL_GLAUERT = original
+            bemt.PRANDTL_GLAUERT_BETA_MIN = original
         uncorrected = solve_bemt(rotor, airfoil, cfg_off, mu_x=0.0, Vz=0.0)
         return corrected, uncorrected
 
     #: Maximum Cl amplification that is still defensible as a
     #: linearized correction. Deliberately NOT derived from
-    #: `BETA_MINIMO_DE_PRANDTL_GLAUERT`: a limit computed from the
+    #: `PRANDTL_GLAUERT_BETA_MIN`: a limit computed from the
     #: very constant under test would pass for any value of it --
     #: including for the old guard, which amplified 191x.
     MAX_DEFENSIBLE_AMPLIFICATION = 3.0
@@ -533,11 +561,11 @@ class TestCompressibilityCeiling(unittest.TestCase):
         """Prandtl-Glauert is honest up to M ~ 0.7 and empty above M ~ 0.9.
         A ceiling outside that range either cuts nothing (the original
         defect) or cuts a valid result."""
-        self.assertTrue(0.85 <= MACH_MAXIMO_DE_PRANDTL_GLAUERT <= 0.9,
-                        f"ceiling at M={MACH_MAXIMO_DE_PRANDTL_GLAUERT}")
+        self.assertTrue(0.85 <= PRANDTL_GLAUERT_MACH_MAX <= 0.9,
+                        f"ceiling at M={PRANDTL_GLAUERT_MACH_MAX}")
         self.assertAlmostEqual(
-            BETA_MINIMO_DE_PRANDTL_GLAUERT,
-            float(np.sqrt(1.0 - MACH_MAXIMO_DE_PRANDTL_GLAUERT ** 2)),
+            PRANDTL_GLAUERT_BETA_MIN,
+            float(np.sqrt(1.0 - PRANDTL_GLAUERT_MACH_MAX ** 2)),
             places=12, msg="the beta floor must be the one from the Mach ceiling")
 
     def test_below_the_ceiling_nothing_changes(self):

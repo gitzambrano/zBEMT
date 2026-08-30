@@ -574,7 +574,9 @@ class ResultsTab(QWidget):
         self.history_list.customContextMenuRequested.connect(self._show_history_context_menu)
         self.history_list.installEventFilter(self)
         left.addWidget(self.history_list)
-        hist_btn_row = QHBoxLayout()
+        # Stack the actions. A horizontal row made the history panel wider
+        # than the viewport on a 1366 px screen, clipping the last label.
+        hist_btn_layout = QVBoxLayout()
         btn_sel_all = QPushButton("Select all")
         btn_sel_all.setToolTip("Selects every entry in the list — nothing is added or removed")
         btn_sel_all.clicked.connect(self._select_all_history)
@@ -590,11 +592,11 @@ class ResultsTab(QWidget):
             "Removes the selected entries from this session's history for good "
             "(the Delete key does the same)")
         btn_delete.clicked.connect(self._delete_selected_history_entries)
-        hist_btn_row.addWidget(btn_sel_all)
-        hist_btn_row.addWidget(btn_clear_sel)
-        hist_btn_row.addWidget(btn_delete)
-        hist_btn_row.addStretch(1)
-        left.addLayout(hist_btn_row)
+        hist_btn_layout.addWidget(btn_sel_all)
+        hist_btn_layout.addWidget(btn_clear_sel)
+        hist_btn_layout.addWidget(btn_delete)
+        hist_btn_layout.addStretch(1)
+        left.addLayout(hist_btn_layout)
         #: the three read as a set (they act on the same list): same
         #: width, applied in `showEvent`, see
         #: `common.equalize_button_widths`.
@@ -980,14 +982,14 @@ class ResultsTab(QWidget):
         become `Ignored`. Without this, the `QStackedWidget` would keep
         requesting the height of the tallest panel and stealing space from
         the plot."""
-        atual = self.options_stack.currentWidget()
+        current_widget = self.options_stack.currentWidget()
         for i in range(self.options_stack.count()):
             w = self.options_stack.widget(i)
             w.setSizePolicy(
                 QSizePolicy.Policy.Preferred,
-                QSizePolicy.Policy.Preferred if w is atual else QSizePolicy.Policy.Ignored)
-        if atual is not None:
-            atual.adjustSize()
+                QSizePolicy.Policy.Preferred if w is current_widget else QSizePolicy.Policy.Ignored)
+        if current_widget is not None:
+            current_widget.adjustSize()
         self.options_stack.adjustSize()
         self.options_stack.updateGeometry()
 

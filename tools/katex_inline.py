@@ -66,13 +66,13 @@ def main() -> None:
         html = block_pattern.sub(_LINK_ORIGINAL, html, count=1)
     elif _LINK_ORIGINAL not in html:
         raise SystemExit(
-            "Nem o link original nem o bloco inline foram encontrados em "
-            "documentation.html -- o <head> mudou de formato; atualize "
-            "este script antes de rodar de novo.")
+            "Neither the original link nor the inline block was found in "
+            "documentation.html -- the <head> format changed; update "
+            "this script before running it again.")
 
     html = html.replace(_LINK_ORIGINAL, _inline_block())
     DOC.write_text(html, encoding="utf-8")
-    print(f"KaTeX embutido em {DOC} ({len(html)} caracteres).")
+    print(f"KaTeX embedded in {DOC} ({len(html)} characters).")
 
 
 if __name__ == "__main__":

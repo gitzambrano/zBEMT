@@ -1453,9 +1453,9 @@ class RunBatchTab(QWidget):
                 item.setEnabled(not usado_alhures)
 
         for slot, widgets in self._fixed_widgets.items():
-            visivel = slot not in chosen_slots
+            visible = slot not in chosen_slots
             for w in widgets:
-                set_row_visible(self._fixed_form, w, visivel)
+                set_row_visible(self._fixed_form, w, visible)
         self._update_total_cases()
 
     def _update_total_cases(self, *_args):

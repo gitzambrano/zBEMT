@@ -932,6 +932,15 @@ def validate_results(summary: dict) -> list[Issue]:
     if not summary:
         return issues
 
+    convergence_pct = summary.get("convergence_pct")
+    if convergence_pct is not None and float(convergence_pct) < 100.0:
+        issues.append(Issue(
+            "warning",
+            "the inflow solution converged on only "
+            f"{float(convergence_pct):.2f}% of the mesh elements. "
+            "Inspect the convergence plot, change the solver settings, or "
+            "use a solver that converges for this condition (EN-11)."))
+
     residual = summary.get("dynamic_stall_periodic_residual")
     if residual is not None and float(residual) > PERIODIC_RESIDUAL_TOLERANCE:
         issues.append(Issue(

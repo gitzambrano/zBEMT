@@ -745,7 +745,7 @@ MU_STEP = 0.22
 #: VT=sqrt(mu_x^2+lambda^2) is zero at hover, and iteration passed through
 #: a lambda<0 that makes the L gain matrix singular. Fixed in the engine
 #: (momentum theory seed + guard in
-#: `DENOMINADOR_MINIMO_DE_PITT_PETERS`), with regression in
+#: `PITT_PETERS_DENOMINATOR_MIN`), with regression in
 #: `tests/test_physics_toggles.py`.
 MU_HOVER = 0.0
 

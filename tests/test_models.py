@@ -263,7 +263,7 @@ class TestDefaultProjectPaths(unittest.TestCase):
 class TestProjectDataclass(unittest.TestCase):
     def test_project_defaults(self):
         p = Project()
-        self.assertEqual(p.name, "novo_projeto")
+        self.assertEqual(p.name, "new_project")
         self.assertIsInstance(p.geometry, RotorGeometryDef)
         self.assertIsInstance(p.airfoil, AirfoilDef)
         self.assertEqual(p.batches, [])

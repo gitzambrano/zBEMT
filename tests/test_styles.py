@@ -21,24 +21,24 @@ if not HAS_QT:                                   # pragma: no cover
 from zbemt.gui import styles
 
 
-class TestIndicadorDeCheckboxEVisivel(unittest.TestCase):
-    def test_indicador_desmarcado_tem_borda_e_tamanho_explicitos(self):
+class TestCheckboxIndicatorIsVisible(unittest.TestCase):
+    def test_unchecked_indicator_has_an_explicit_border_and_size(self):
         css = styles.APP_QSS
-        bloco = re.search(
+        block = re.search(
             r"QCheckBox::indicator,\s*QRadioButton::indicator\s*\{([^}]*)\}", css)
-        self.assertIsNotNone(bloco, "sem regra QCheckBox::indicator no QSS")
-        corpo = bloco.group(1)
-        self.assertIn("border:", corpo)
-        self.assertIn("width:", corpo)
-        self.assertIn("height:", corpo)
+        self.assertIsNotNone(block, "QSS has no QCheckBox::indicator rule")
+        body = block.group(1)
+        self.assertIn("border:", body)
+        self.assertIn("width:", body)
+        self.assertIn("height:", body)
 
-    def test_indicador_marcado_tem_cor_de_preenchimento_distinta(self):
+    def test_checked_indicator_has_a_distinct_fill_colour(self):
         css = styles.APP_QSS
         self.assertIn("QCheckBox::indicator:checked", css)
         self.assertIn("QRadioButton::indicator:checked", css)
 
 
-class TestSetasDeControleExistem(unittest.TestCase):
+class TestControlArrowsExist(unittest.TestCase):
     """Same pitfall as the checkbox indicator above, in two other controls:
     any QSS rule on `QComboBox`/`QSpinBox` strips Fusion of the sub-part
     drawing. Seen on screen: NO dropdown in the GUI had an arrow (every
@@ -50,24 +50,24 @@ class TestSetasDeControleExistem(unittest.TestCase):
     disk is what this test guards: a `url()` pointing to a non-existent
     file fails in SILENCE (the arrow disappears, the QSS doesn't complain)."""
 
-    def test_combo_e_spinbox_declaram_imagem_de_seta(self):
+    def test_combo_and_spinbox_declare_an_arrow_image(self):
         css = styles.APP_QSS
-        for regra in ("QComboBox::down-arrow",
+        for rule in ("QComboBox::down-arrow",
                       "QSpinBox::up-arrow", "QSpinBox::down-arrow",
                       "QDoubleSpinBox::up-arrow", "QDoubleSpinBox::down-arrow"):
-            self.assertIn(regra, css, f"sem regra {regra} no QSS")
+            self.assertIn(rule, css, f"QSS has no {rule} rule")
         self.assertIn("image: url(", css)
 
-    def test_todo_svg_referenciado_pelo_qss_existe_em_disco(self):
+    def test_every_svg_referenced_by_qss_exists_on_disk(self):
         from pathlib import Path
 
-        referencias = re.findall(r"image:\s*url\(([^)]+)\)", styles.APP_QSS)
-        self.assertTrue(referencias, "nenhum `image: url(...)` no QSS")
-        faltando = [r for r in referencias if not Path(r).is_file()]
-        self.assertEqual(faltando, [], f"SVG(s) de seta ausentes: {faltando}")
+        references = re.findall(r"image:\s*url\(([^)]+)\)", styles.APP_QSS)
+        self.assertTrue(references, "QSS has no `image: url(...)` rule")
+        missing = [reference for reference in references if not Path(reference).is_file()]
+        self.assertEqual(missing, [], f"Missing arrow SVG(s): {missing}")
 
 
-class TestBotoesDeMessageBoxNaoCortam(unittest.TestCase):
+class TestMessageBoxButtonsAreNotClipped(unittest.TestCase):
     """Bug: `QMessageBox QPushButton { max-width: none; }` -- Qt doesn't
     handle "none" well for this property and instead of removing the limit,
     it collapsed ALL sibling buttons to a uniform width smaller than the
@@ -81,7 +81,7 @@ class TestBotoesDeMessageBoxNaoCortam(unittest.TestCase):
         cls.app.setStyle("Fusion")
         cls.app.setStyleSheet(styles.APP_QSS)
 
-    def test_todo_botao_de_confirmacao_cabe_seu_proprio_texto(self):
+    def test_every_confirmation_button_fits_its_text(self):
         from PyQt6.QtWidgets import QMessageBox, QPushButton
         from PyQt6.QtGui import QFontMetrics
 
@@ -96,18 +96,18 @@ class TestBotoesDeMessageBoxNaoCortam(unittest.TestCase):
         mb.show()
         self.app.processEvents()
         try:
-            botoes = mb.findChildren(QPushButton)
-            self.assertTrue(botoes)
-            for btn in botoes:
-                largura_texto = QFontMetrics(btn.font()).horizontalAdvance(btn.text())
+            buttons = mb.findChildren(QPushButton)
+            self.assertTrue(buttons)
+            for button in buttons:
+                text_width = QFontMetrics(button.font()).horizontalAdvance(button.text())
                 self.assertGreaterEqual(
-                    btn.width(), largura_texto,
-                    f"button {btn.text()!r} clipped: width={btn.width()}px, text needs {largura_texto}px")
+                    button.width(), text_width,
+                    f"button {button.text()!r} clipped: width={button.width()}px, text needs {text_width}px")
         finally:
             mb.close()
 
 
-class TestNenhumBotaoDaGuiCortaOProprioTexto(unittest.TestCase):
+class TestNoGuiButtonClipsItsOwnText(unittest.TestCase):
     """Bug: `QPushButton { max-width: 360px; }` -- Qt clamps the computed
     sizeHint to this limit (not just a layout ceiling), so any real button
     with longer text gets cut off. Found when instantiating the real tabs:
@@ -123,7 +123,7 @@ class TestNenhumBotaoDaGuiCortaOProprioTexto(unittest.TestCase):
         cls.app.setStyle("Fusion")
         cls.app.setStyleSheet(styles.APP_QSS)
 
-    def test_todo_pushbutton_visivel_cabe_seu_texto(self):
+    def test_every_visible_pushbutton_fits_its_text(self):
         from PyQt6.QtWidgets import QPushButton
         from PyQt6.QtGui import QFontMetrics
         from zbemt.gui.common import AppState
@@ -135,7 +135,7 @@ class TestNenhumBotaoDaGuiCortaOProprioTexto(unittest.TestCase):
         from zbemt.gui.tabs.project import ProjectTab
 
         state = AppState()
-        abas = {
+        tabs = {
             "Project": ProjectTab(state),
             "Geometry": GeometryTab(state),
             "Airfoil": AirfoilTab(state),
@@ -143,22 +143,22 @@ class TestNenhumBotaoDaGuiCortaOProprioTexto(unittest.TestCase):
             "Run Case": RunCaseTab(state),
             "Run Batch": RunBatchTab(state),
         }
-        cortados = []
-        for nome, aba in abas.items():
-            aba.resize(1400, 900)
-            aba.show()
+        clipped = []
+        for name, tab in tabs.items():
+            tab.resize(1400, 900)
+            tab.show()
             self.app.processEvents()
-            for btn in aba.findChildren(QPushButton):
-                texto = btn.text()
-                if not texto or len(texto) <= 1:
+            for button in tab.findChildren(QPushButton):
+                text = button.text()
+                if not text or len(text) <= 1:
                     continue  # help "?" buttons: 1 character, never cut
-                largura_texto = QFontMetrics(btn.font()).horizontalAdvance(texto)
-                if btn.sizeHint().width() < largura_texto:
-                    cortados.append((nome, texto, btn.sizeHint().width(), largura_texto))
-            aba.close()
+                text_width = QFontMetrics(button.font()).horizontalAdvance(text)
+                if button.sizeHint().width() < text_width:
+                    clipped.append((name, text, button.sizeHint().width(), text_width))
+            tab.close()
         self.assertEqual(
-            cortados, [],
-            f"Clipped button(s) (width < required text): {cortados}")
+            clipped, [],
+            f"Clipped button(s) (width < required text): {clipped}")
 
 
 if __name__ == "__main__":

@@ -45,15 +45,15 @@ class TestSnapshotIsPresent(unittest.TestCase):
         snapshot test cannot detect on its own."""
         from tools import nomenclature_snapshot
 
-        gravadas = set(_snapshot())
-        produzidas = set(nomenclature_snapshot.collect())
+        recorded = set(_snapshot())
+        generated = set(nomenclature_snapshot.collect())
         if not nomenclature_snapshot.has_qt():
             # No Qt on this machine (the engine and CLI run without it on
             # purpose): the GUI surfaces are not produced, so they are not
             # checked either. The file still records them, for the machines
             # that do have it.
-            gravadas -= set(nomenclature_snapshot.GUI_SURFACES)
-        self.assertEqual(sorted(gravadas), sorted(produzidas))
+            recorded -= set(nomenclature_snapshot.GUI_SURFACES)
+        self.assertEqual(sorted(recorded), sorted(generated))
 
 
 class TestSurfacesMatchSnapshot(unittest.TestCase):
@@ -63,47 +63,47 @@ class TestSurfacesMatchSnapshot(unittest.TestCase):
     def setUpClass(cls):
         from tools import nomenclature_snapshot
 
-        cls.esperado = _snapshot()
-        cls.atual = nomenclature_snapshot.collect()
+        cls.expected = _snapshot()
+        cls.current = nomenclature_snapshot.collect()
 
-    def _comparar(self, surface: str):
-        if surface not in self.atual:
+    def _compare(self, surface: str):
+        if surface not in self.current:
             self.skipTest(f"'{surface}' is a GUI surface and Qt is not available")
         self.assertEqual(
-            self.esperado[surface], self.atual[surface],
+            self.expected[surface], self.current[surface],
             f"'{surface}' changed. If deliberate, regenerate with "
             f"`python tools/nomenclature_snapshot.py` and review the diff.",
         )
 
     def test_summary_symbols(self):
-        self._comparar("summary_symbols")
+        self._compare("summary_symbols")
 
     def test_summary_units(self):
-        self._comparar("summary_units")
+        self._compare("summary_units")
 
     def test_primary_columns(self):
-        self._comparar("primary_columns")
+        self._compare("primary_columns")
 
     def test_suppressed_columns(self):
-        self._comparar("suppressed_columns")
+        self._compare("suppressed_columns")
 
     def test_axis_labels(self):
-        self._comparar("axis_labels")
+        self._compare("axis_labels")
 
     def test_condition_labels(self):
-        self._comparar("condition_labels")
+        self._compare("condition_labels")
 
     def test_factorial_slots(self):
-        self._comparar("factorial_slots")
+        self._compare("factorial_slots")
 
     def test_condition_units(self):
-        self._comparar("condition_units")
+        self._compare("condition_units")
 
     def test_default_unit(self):
-        self._comparar("default_unit")
+        self._compare("default_unit")
 
     def test_slot_labels(self):
-        self._comparar("slot_labels")
+        self._compare("slot_labels")
 
 
 if __name__ == "__main__":

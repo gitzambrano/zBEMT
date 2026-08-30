@@ -8168,6 +8168,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           against the limit, and a plausible thrust read beside an unconverged mesh
                           stops being a result and becomes a warning.</p>
 
+                        <p>When any mesh element does not converge, the <span class="gui">GUI</span>
+                          shows a warning above the summary. It gives the converged percentage and
+                          directs you to this view. Treat the case as incomplete: inspect the map,
+                          then change the solver or the operating condition before using its loads.</p>
+
                         <p>When the run recorded no per-iteration history, the view still opens: it
                           then shows the summary diagnostics of the final state instead of the
                           iteration curves. The strip above the figure carries the <i>Enable

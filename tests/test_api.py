@@ -330,7 +330,7 @@ class TestSanitizeFilename(unittest.TestCase):
     def test_empty_or_spaces_only(self):
         for name in ("", "   ", None, "...", " . "):
             with self.subTest(name=name):
-                self.assertEqual(api.sanitize_filename(name), "sem_nome")
+                self.assertEqual(api.sanitize_filename(name), "unnamed")
 
     def test_too_long_name_is_truncated(self):
         result = api.sanitize_filename("x" * 500)
