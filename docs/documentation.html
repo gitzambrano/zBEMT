@@ -4877,7 +4877,34 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       same time, which is a substantially larger problem. The consequence is that dynamic stall changes
       the reported loads but not the inflow that produced them.</p>
 
-    <h4 id="cap-3-3-1">8.3.3 Enable dynamic stall</h4>
+                            <p><b>Which branch of the inversion is the physical one.</b> The expression for
+                          $f_{st}$ is a parabola in the lift ratio $C_{l,st}/C_{l,att}$, and it is not
+                          monotonic: it reaches $1$ at a ratio of $1$, which is the lift line itself and
+                          means fully attached, and it climbs back to $1$ at a ratio of $0$, which is no
+                          lift at all and means the opposite. Its minimum, $f_{st}=0$, sits at a ratio of
+                          $1/4$. Only the branch above that minimum is physical, so the model takes
+                          $f_{st}=0$ for any ratio below it.</p>
+
+                        <p>That is not a corner case. In REVERSE FLOW the attached lift line is
+                          extrapolated far outside the range it was fitted over &mdash; at
+                          $\alpha=-148^\circ$ it reads about $-15.6$ &mdash; while the static polar,
+                          extended by Viterna, gives about $+0.96$. The ratio is negative there, and on a
+                          rotor at $\mu_x=0.3$ that is true over roughly forty per cent of the disk.</p>
+
+                        <p><b>The steady limit is exact.</b> When the angle of attack is not changing,
+                          the relaxation gives $f=f_{st}$ and the model must return the static polar
+                          untouched: there is no cycle, so there is no hysteresis and nothing to add.
+                          Writing the blend as a departure from the static polar,</p>
+
+                        <div class="eqn">$$C_l = C_{l,st} + (f - f_{st})\,(C_{l,att} - C_{l,sep}),$$</div>
+
+                        <p>makes that exact rather than approximate: the correction is proportional to
+                          how far the lagged separation state has fallen behind the static one, and in
+                          hover it is identically zero. The expression is the same as the blend above,
+                          rearranged; what it removes is a cancellation that had to be relied on for the
+                          static polar to come back.</p>
+
+<h4 id="cap-3-3-1">8.3.3 Enable dynamic stall</h4>
 
     <p><b>Definition and applicability.</b> This switch activates the correction for the selected airfoil. It requires a
       base polar that

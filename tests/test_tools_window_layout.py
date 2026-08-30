@@ -28,15 +28,22 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from tests.helpers import HAS_QT
 
-#: How much wider than its own text a button may be before it reads as a
-#: banner rather than a control. Generous, because padding, an icon and
-#: a group width are all legitimate.
-WIDTH_ALLOWANCE = 2.6
+#: How much wider than the width Qt considers NATURAL for it a button
+#: may be before it reads as a banner rather than a control.
+#:
+#: Measured against `sizeHint()`, not against the font metrics of its
+#: text: the CI runs on Ubuntu and the development machine on Windows,
+#: with different fonts and different button padding, and a threshold in
+#: pixels would mean two different things on the two. `sizeHint()` is
+#: what the same style would give the same button, so the ratio is the
+#: same everywhere.
+WIDTH_ALLOWANCE = 2.2
 
-#: How far a value may sit from the label that names it, in pixels.
-#: Wide enough for a long label column, narrow enough that the two
-#: pieces of one field cannot end up at opposite edges of the window.
-LABEL_GAP_LIMIT = 320
+#: How far a value may sit from the label that names it, as a FRACTION
+#: of the window width. Again a ratio rather than pixels, and generous:
+#: what it has to catch is a value at the opposite edge of the window
+#: from its own label, not a wide label column.
+LABEL_GAP_FRACTION = 0.22
 
 
 @unittest.skipUnless(HAS_QT, "PyQt6 is not installed")
@@ -81,13 +88,13 @@ class TestToolsWindowsFollowTheLayoutRules(unittest.TestCase):
             for button in window.findChildren(QPushButton):
                 if not button.isVisible() or not button.text().strip():
                     continue
-                text = button.fontMetrics().horizontalAdvance(button.text())
-                if text <= 0:
+                natural = button.sizeHint().width()
+                if natural <= 0:
                     continue
-                if button.width() > WIDTH_ALLOWANCE * text + 60:
+                if button.width() > WIDTH_ALLOWANCE * natural:
                     offenders.append(
                         f"{title}: {button.text()!r} is {button.width()}px "
-                        f"wide for {text}px of text")
+                        f"wide where {natural}px is its natural width")
         self.assertEqual(
             offenders, [],
             "a button as wide as its panel reads as a banner, not a "
@@ -121,7 +128,7 @@ class TestToolsWindowsFollowTheLayoutRules(unittest.TestCase):
                     if not label.isVisible() or not value.isVisible():
                         continue
                     gap = value.x() - (label.x() + label.width())
-                    if gap > LABEL_GAP_LIMIT:
+                    if gap > LABEL_GAP_FRACTION * window.width():
                         offenders.append(
                             f"{title}: {label.text()[:34]!r} is {gap}px from "
                             f"its value")
@@ -143,7 +150,11 @@ class TestToolsWindowsFollowTheLayoutRules(unittest.TestCase):
                         or label.wordWrap() or "<" in text):
                     continue
                 needed = label.fontMetrics().horizontalAdvance(text)
-                if needed > label.width() + 2:
+                # A few pixels of tolerance: the font the CI renders with
+                # is not the one this was written against, and a label
+                # one or two pixels short of its own text is a rounding
+                # difference, not the clipping the rule is about.
+                if needed > label.width() + 8:
                     offenders.append(
                         f"{title}: {text[:34]!r} needs {needed}px, has "
                         f"{label.width()}px")

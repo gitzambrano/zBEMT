@@ -2040,8 +2040,24 @@ def _oye_static_separation(alpha_eff: np.ndarray, Cl_st: np.ndarray,
     Cl_att = cl_alpha * (alpha_eff - alpha0)
     Cl_att_safe = np.where(np.abs(Cl_att) < 1e-6, np.sign(Cl_att) * 1e-6 + 1e-9, Cl_att)
     ratio = Cl_st / Cl_att_safe  # sign preserved, per the Øye/QBlade specification
-    ratio_clipped = np.maximum(ratio, 0.0)  # ratio<0 (Cl_st and Cl_att with opposite signs) => full separation
+    ratio_clipped = np.maximum(ratio, 0.0)
     f_st = (2.0 * np.sqrt(ratio_clipped) - 1.0) ** 2
+    # ONLY the branch above the parabola's minimum is physical.
+    #
+    # f(ratio) = (2*sqrt(ratio) - 1)^2 has its minimum f=0 at
+    # ratio=0.25 and climbs back to f=1 at ratio=0, so the formula
+    # reports FULL ATTACHMENT both for a section sitting on its own lift
+    # line and for one producing no lift at all. Clipping a negative
+    # ratio to zero and then applying the formula therefore said
+    # "attached" where the comment -- and the flow -- said "fully
+    # separated".
+    #
+    # This is not an edge case in reverse flow: `Cl_att` there is the
+    # linear lift line extrapolated to alpha = -148 deg, about -15.6,
+    # against a static (Viterna) Cl of +0.96. The ratio is negative over
+    # 41.7 % of the disk at mu_x=0.30, theta=14 deg, and the resulting
+    # f_st=1 drove `_oye_cl_sep` to 16603 and the disk's Cl to 113.
+    f_st = np.where(ratio_clipped < 0.25, 0.0, f_st)
     f_st = np.where(np.abs(Cl_att) < 1e-6, 1.0, f_st)  # Cl_att~0: f_st=1 (explicit QBlade rule)
     f_st = np.clip(f_st, 0.0, 1.0)
     return f_st, Cl_att
@@ -2052,8 +2068,15 @@ def _oye_cl_sep(Cl_st: np.ndarray, f_st: np.ndarray, Cl_att: np.ndarray, reg: fl
     f_st->1 (where 1-f_st->0) . In that region the flow is already
     attached and Cl_sep loses standalone physical meaning. We use Cl_att
     as the limit (f_st=1 implies Cl_dyn=Cl_att regardless of Cl_sep)."""
+    # The LIMIT, not a division by the floor. Dividing by `reg` turns a
+    # numerator of 16.6 into 16603, and the value is then weighted by
+    # (1 - f) downstream, which does not cancel it because the dynamic f
+    # lags behind the static one. Where the flow is attached, Cl_att IS
+    # the answer: f_st=1 makes Cl_dyn=Cl_att whatever Cl_sep holds, so
+    # returning Cl_att there is exact rather than merely safe.
+    attached = (1.0 - f_st) < reg
     denom = np.maximum(1.0 - f_st, reg)
-    return (Cl_st - f_st * Cl_att) / denom
+    return np.where(attached, Cl_att, (Cl_st - f_st * Cl_att) / denom)
 
 
 def _dynamic_stall_fade_weight(alpha_eff: np.ndarray, cfg: BEMTConfig):
@@ -2246,7 +2269,19 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
                     "dynamic Cl/Cd of this case.")
 
     Cl_sep = _oye_cl_sep(Cl_st, f_st, Cl_att, cfg.dynamic_stall_f_reg)
-    Cl_dyn = f * Cl_att + (1.0 - f) * Cl_sep
+    # Written as a DEPARTURE from the static polar, which is the same
+    # expression as `f*Cl_att + (1-f)*Cl_sep` rearranged with
+    # `Cl_st = f_st*Cl_att + (1-f_st)*Cl_sep`, and is exact where the
+    # other form is only nearly so.
+    #
+    # In steady flow the lag equation gives f = f_st, the factor below is
+    # exactly zero, and the static polar comes back untouched. The blend
+    # form got there by cancellation, and the cancellation failed
+    # wherever `f_st` had been CLIPPED to 1 -- there it read
+    # `Cl_dyn = Cl_att`, the straight lift line, instead of the polar.
+    # In hover, where every element sees a constant angle and the model
+    # has nothing to add, that cost 6.5 % of the thrust.
+    Cl_dyn = Cl_st + (f - f_st) * (Cl_att - Cl_sep)
 
     Cd0, _ = airfoil.cl_cd(np.zeros_like(alpha_eff), None, r_norm=R_NORM)
     Cd0 = np.asarray(Cd0, dtype=float)

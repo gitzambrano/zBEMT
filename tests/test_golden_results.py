@@ -182,18 +182,58 @@ class TestResultsArePhysicallyPlausible(_SingleRun):
                         delta=1e-6 * max(abs(v["Power"]), 1.0),
                         msg=f"{project}/{case}: P is not P_i + P_p")
 
+    #: The one case that autorotates, and why it is allowed to.
+    #:
+    #: `transition_evtol/cruise` is stated at mu_x = 0.35 with 8 deg of
+    #: collective. At that advance ratio and that pitch the local inflow
+    #: angle is negative over much of the advancing side, so
+    #: `Ft_i = L*sin(phi)` is negative there and those sections DRIVE the
+    #: shaft. The engine reports it correctly: the total shaft power of
+    #: the case is negative too. It is the CASE that is not a powered
+    #: cruise, not the solve that is wrong.
+    #:
+    #: This surfaced only when the Oye separation function was fixed.
+    #: Before that, `f_st` returned "fully attached" for the reverse-flow
+    #: region and `Cl_sep` reached 16603, which inflated this case's
+    #: thrust from 2996 N to 10260 N and its induced power from -18 kW to
+    #: +42 kW -- a defect that happened to hide the autorotation behind a
+    #: plausible-looking positive number.
+    AUTOROTATING = {("transition_evtol", "cruise", "Power_i")}
+
     def test_power_parts_are_not_negative(self):
         """Induced and profile power are both dissipative. Negative means
         either that the sign of a force was flipped somewhere, or that a
-        section is driving the shaft -- which a BEMT solve of a powered
-        rotor must not produce."""
+        section is driving the shaft -- which a POWERED rotor must not
+        produce. A case that autorotates is neither, and the ones that do
+        are named in `AUTOROTATING` with the reason."""
         bad = []
         for project, cases in sorted(self.current.items()):
             for case, v in sorted(cases.items()):
                 for key in ("Power_i", "Power_p"):
+                    if (project, case, key) in self.AUTOROTATING:
+                        continue
                     if v.get(key, 0.0) < 0.0:
                         bad.append(f"{project}/{case}/{key} = {v[key]}")
         self.assertEqual(bad, [], "negative power component: " + str(bad))
+
+    def test_every_named_autorotating_case_really_autorotates(self):
+        """The exception above is not a mute button.
+
+        A case may only sit on that list while its TOTAL shaft power is
+        negative, which is what "the rotor is being driven" means. If a
+        future change makes the case powered again, the entry has to go,
+        and this is what says so."""
+        for project, case, _key in sorted(self.AUTOROTATING):
+            v = self.current.get(project, {}).get(case)
+            with self.subTest(project=project, case=case):
+                self.assertIsNotNone(
+                    v, f"{project}/{case} is named as autorotating but no "
+                       f"longer exists")
+                self.assertLess(
+                    v.get("Power", 0.0), 0.0,
+                    f"{project}/{case} no longer autorotates (shaft power "
+                    f"{v.get('Power')}), so it must not be excused from the "
+                    f"negative-power check")
 
     def test_propulsive_efficiency_stays_below_one(self):
         """The propulsive efficiency is thrust power over shaft power. Above
