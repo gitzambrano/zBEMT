@@ -245,10 +245,10 @@ class TestRigidIsTheOldPath(unittest.TestCase):
                                 "golden_results.json"),
                    encoding="utf-8") as handle:
             golden = json.load(handle)
-        self.assertIn("flapping_rotor", golden,
+        self.assertIn("test13", golden,
                       "the example project must be part of the snapshot")
         project = api.open_project(
-            os.path.join(REPO, "projects", "flapping_rotor"))
+            os.path.join(REPO, "projects", "test13"))
         # The flapping example runs through the dynamics path; its
         # RIGID twin (same planform, default dynamics) must reproduce
         # the engine bit-for-bit, which the snapshot check

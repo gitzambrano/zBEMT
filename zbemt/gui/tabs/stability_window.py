@@ -661,29 +661,22 @@ class StabilityWindow(QWidget):
         project = self.state.project
         if project:
             rigid = project.geometry.dynamics.flap_model == "rigid"
-        # PR-2: real-but-inapplicable stays visible and disabled.
+        # A rigid blade has no flap response. Hide the related trim option
+        # and perturbation variables, as the Pitt-Peters controls are hidden
+        # when their inflow family is inactive.
         flapback_index = self.trim_combo.findData("cyclic_flapback")
-        self.trim_combo.model().item(flapback_index).setEnabled(not rigid)
-        if rigid and self.trim_combo.currentData() == "cyclic_flapback":
-            self.trim_combo.setCurrentIndex(
-                self.trim_combo.findData("none"))
+        if rigid and flapback_index >= 0:
+            self.trim_combo.blockSignals(True)
+            self.trim_combo.removeItem(flapback_index)
+            self.trim_combo.blockSignals(False)
+        elif not rigid and flapback_index < 0:
+            self.trim_combo.blockSignals(True)
+            self.trim_combo.insertItem(1, "Zero flapping (cyclic)",
+                                       "cyclic_flapback")
+            self.trim_combo.blockSignals(False)
         for name in ("p", "q", "theta_1c", "theta_1s"):
             check = self.var_checks[name]
-            check.setEnabled(not rigid)
-            # The field tooltip is REBUILT, not replaced. Overwriting it
-            # (and clearing it outright in the enabled branch) threw away
-            # the field name the help system reads, so these four lost
-            # both their hover text and their popup the first time the
-            # gating ran -- and the disabled ones lost the physics
-            # exactly where the reader most needs it.
-            label = dict(_VARIABLE_LABELS)[name]
-            tooltip = self._variable_tip(name, label)
-            if rigid:
-                tooltip += (" DISABLED: the blade has no flap freedom, so "
-                            "this rate or control cannot act on it. Give "
-                            "the blade a hinge offset or a root spring in "
-                            "the Geometry tab to enable it.")
-            check.setToolTip(tooltip)
+            check.setVisible(not rigid)
 
     # ------------------------------------------------------------------
     # Steps / cost / validation

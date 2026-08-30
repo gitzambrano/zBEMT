@@ -321,7 +321,7 @@ class RunBatchTab(QWidget):
         self.fixed_collective = QDoubleSpinBox()
         self.fixed_collective.setToolTip(
             '"collective_deg"<br><br>Collective pitch added to blade twist at each radial station.')
-        self.fixed_collective.setRange(-10, 30); self.fixed_collective.setValue(8.0)
+        self.fixed_collective.setRange(-10, 30); self.fixed_collective.setValue(0.0)
         self.fixed_collective.setSingleStep(0.5)
         self.fixed_rpm = QDoubleSpinBox()
         self.fixed_rpm.setToolTip(
@@ -341,7 +341,7 @@ class RunBatchTab(QWidget):
         fixed_form.addRow("Axial flow:", self.fixed_axial)
         fixed_form.addRow("Collective [deg]:",
                           self._with_unit_indent(self.fixed_collective))
-        fixed_form.addRow("RPM:", self._with_unit_indent(self.fixed_rpm))
+        fixed_form.addRow("RPM [rev/min]:", self._with_unit_indent(self.fixed_rpm))
         # kept to hide the WHOLE ROW, label included: hiding only the
         # field left "Collective [deg]:" dangling, pointing at nothing
         self._fixed_form = fixed_form
@@ -478,7 +478,7 @@ class RunBatchTab(QWidget):
         self.collective_spin = QDoubleSpinBox()
         self.collective_spin.setToolTip(
             '"collective_deg"<br><br>Collective pitch added to blade twist at each radial station.')
-        self.collective_spin.setRange(-10, 30); self.collective_spin.setValue(8.0)
+        self.collective_spin.setRange(-10, 30); self.collective_spin.setValue(0.0)
         self.collective_spin.setSingleStep(0.5)
         self.rpm_spin = QDoubleSpinBox()
         self.rpm_spin.setToolTip(
@@ -492,7 +492,7 @@ class RunBatchTab(QWidget):
         form.addRow("Axial flow:", self.add_row_axial)
         form.addRow("Collective [deg]:",
                     self._with_unit_indent(self.collective_spin))
-        form.addRow("RPM:", self._with_unit_indent(self.rpm_spin))
+        form.addRow("RPM [rev/min]:", self._with_unit_indent(self.rpm_spin))
         # Kept so `_reflect_trim_variable` can hide the whole row
         # (label included) of the quantity the trim loop solves.
         self._case_form = form

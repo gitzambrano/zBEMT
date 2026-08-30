@@ -651,7 +651,7 @@ class RotorGeometryDef:
 class FlightCondition:
     name: str = "Case 1"
     mu_x: float = 0.0                 # advance ratio
-    collective_deg: float = 8.0
+    collective_deg: float = 0.0
     Vz: float = 0.0                 # vertical velocity [m/s]
     rpm: Optional[float] = None     # if None, uses Omega from BEMTConfig/Rotor
     #: Cyclic pitch, the 1/rev harmonics theta_1c (cosine) and theta_1s
@@ -696,7 +696,7 @@ class ManeuverPoint:
     t_s: float = 0.0
     mu_x: float = 0.0
     Vz: float = 0.0
-    collective_deg: float = 8.0
+    collective_deg: float = 0.0
     cyclic_c_deg: float = 0.0
     cyclic_s_deg: float = 0.0
     rpm: Optional[float] = None

@@ -1426,9 +1426,9 @@ zbemt --help     # command line</pre>
     </p>
 
     <h4 id="cap-0-5">3.2.5 First use</h4>
-    <p>The repository ships <b>14</b> ready-to-run projects under <code>projects/</code>.
+    <p>The repository ships <b>16</b> ready-to-run projects under <code>projects/</code>.
       Two are the starting points: <code>starter_rotor</code> for a helicopter rotor and
-      <code>starter_propeller</code> for an aircraft propeller. The remaining twelve are the projects the
+      <code>starter_propeller</code> for an aircraft propeller. The remaining fourteen are the projects the
       worked examples, and they are worth opening for the same reason: between them they cover
       both modes, the range of machine sizes zBEMT is used on, and most of the models it implements.
       Opening one is the shortest way to understand the tool, because it already carries saved flight
@@ -1557,6 +1557,22 @@ zbemt --help     # command line</pre>
           <td>3.5</td>
           <td>0.061</td>
         </tr>
+        <tr>
+          <td><code>test13</code></td>
+          <td>Rotor with rigid-body flapping</td>
+          <td>Rotor</td>
+          <td>4</td>
+          <td>1.0</td>
+          <td>0.076</td>
+        </tr>
+        <tr>
+          <td><code>test14</code></td>
+          <td>eVTOL transition rotor</td>
+          <td>Rotor</td>
+          <td>4</td>
+          <td>0.75</td>
+          <td>0.097</td>
+        </tr>
       </table>
     </div>
     <p>The set falls into three groups, and knowing which group a project belongs to is the quickest
@@ -1574,6 +1590,9 @@ zbemt --help     # command line</pre>
       the Pitt-Peters inflow family, <code>test9</code> for the enhanced stall model, <code>test10</code>
       for a multi-section blade with different profiles at root, mid-span and tip, and <code>test4</code>
       and <code>test12</code> for a tabulated polar, the first resolved in Reynolds number.</p>
+
+    <p><b>Dynamic examples.</b> <code>test13</code> exercises the periodic rigid-body flapping response.
+      <code>test14</code> contains an eVTOL transition trajectory for the Transient Simulation tool.</p>
 
     <p><b>Propeller mode.</b> <code>starter_propeller</code> and <code>test11</code> are the two that
       exercise the propeller convention and the axial treatment of flight speed described in
@@ -3931,7 +3950,7 @@ formats and limitations of each polar source.</p>
       <code>--set geom.dynamics.lag_enabled=true</code>.</p>
 
     <p>An example project with an articulated blade lives at
-      <a href="#cap-projeto" title="6. Project"><code>projects/flapping_rotor</code></a>.</p>
+      <a href="#cap-projeto" title="6. Project"><code>projects/test13</code></a>.</p>
 
     <h3 id="cap-2-5">7.3 Root cutout</h3>
 
@@ -5025,10 +5044,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       not exceed the number run.</p>
 
     <p><span class="gui">GUI</span>: <i>Method</i> in the Dynamic stall block, with
-      <i>Frequency</i> and <i>Time march</i>. The two fields that belong to the march alone
-      &mdash; the number of revolutions and how many of the last ones are averaged &mdash; stay
-      visible under either method and are enabled only under the march, so the reader can see
-      that they exist before choosing it. A march reports how far the last revolution still
+      <i>Frequency</i> and <i>Time march</i>. The fields that belong only to the march
+      &mdash; the number of revolutions and how many of the last ones are averaged &mdash; appear
+      only when <i>Time march</i> is selected. A march reports how far the last revolution still
       differed from the one before it, and a value above one part in a thousand raises a
       finding: the cycle had not settled, so the averaged answer is not yet periodic.</p>
 
@@ -6478,6 +6496,12 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   so that the run stops with an explanation rather than with a bare usage error.
                 </p>
 
+                <p><b>Transient Pitt-Peters.</b> The Inflow model control configures a steady operating
+                  point. It does not start a time march. To march the Pitt-Peters states, open the
+                  Transient Simulation tool and define a maneuver. That tool carries the state from one
+                  time sample to the next and reports a time history. It does not convert a transient
+                  trajectory into a steady result by averaging it.</p>
+
                 <h4 id="cap-4-2-5">9.2.1 Pitt-Peters parameters</h4>
 
                 <p><b>The physics and the mathematics.</b> These four settings appear only when the Pitt-Peters
@@ -6981,7 +7005,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <!-- INDICE-DE-CAMPOS:run_case -->
 <div class="boxed">
 <b>Fields in this tab, in the order they appear on screen</b> (12). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>sideslip_deg</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>p_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>q_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li></ol>
+<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>sideslip_deg</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>p_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>q_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:run_case -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below follows the visible order and

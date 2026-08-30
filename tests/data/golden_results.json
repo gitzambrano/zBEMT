@@ -1,5 +1,5 @@
 {
-  "flapping_rotor": {
+  "test13": {
     "forward 0.25": {
       "CH": 0.001362,
       "CMx": 0.000705,
@@ -903,7 +903,7 @@
       "lambda_total": 0.040793
     }
   },
-  "transition_evtol": {
+  "test14": {
     "cruise": {
       "CH": -0.000717,
       "CMx": 0.002246,

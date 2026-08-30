@@ -771,9 +771,7 @@ class AirfoilTab(QWidget):
           transient and averages the rest. More expensive; reports whether
           the march settled (EN-9).
 
-        The revolution fields stay VISIBLE but disabled while the method
-        is 'frequency' (PR-2): a real-but-blocked control teaches that
-        the option exists."""
+        The revolution fields appear only for the time-march method."""
         box = QGroupBox("Dynamic Stall")
         form = QFormLayout(box)
         self.use_dynamic_stall = QCheckBox("Enable dynamic stall (Øye)")
@@ -813,22 +811,21 @@ class AirfoilTab(QWidget):
         form.addRow(self.dyn_fade_start_label, self.dyn_fade_start)
         form.addRow(self.dyn_fade_end_label, self.dyn_fade_end)
 
-        # Time-march fields (SC-12): visible whenever dynamic stall is on,
-        # ENABLED only when the method is 'time_march' (PR-2).
+        # Time-march fields (SC-12) appear only for the time-march method.
         self.dyn_revs = QSpinBox(); self.dyn_revs.setRange(1, 100); self.dyn_revs.setValue(8)
         self.dyn_revs.setToolTip(
             '"airfoil.dynamic_stall_time_march_revolutions" — revolutions '
             'marched by the time-march method. The first revolutions carry '
             'the start-up transient; more revolutions cost Npsi sequential '
             'steps each.')
-        self.dyn_revs_label = QLabel("Revolutions marched:")
+        self.dyn_revs_label = QLabel("Revolutions marched [-]:")
         form.addRow(self.dyn_revs_label, self.dyn_revs)
         self.dyn_avg_last = QSpinBox(); self.dyn_avg_last.setRange(1, 100); self.dyn_avg_last.setValue(3)
         self.dyn_avg_last.setToolTip(
             '"airfoil.dynamic_stall_time_march_avg_last" — how many of the '
             'last marched revolutions are averaged into the periodic answer. '
             'Must not exceed the revolutions marched.')
-        self.dyn_avg_last_label = QLabel("Revolutions averaged:")
+        self.dyn_avg_last_label = QLabel("Revolutions averaged [-]:")
         form.addRow(self.dyn_avg_last_label, self.dyn_avg_last)
 
         # Progressive disclosure (principle 1): with the box unchecked, the
@@ -841,16 +838,13 @@ class AirfoilTab(QWidget):
         return box
 
     def _update_dynamic_stall_visibility(self, *_args):
-        """Shows the Øye parameters only when the model is enabled, and
-        enables the revolution fields only when the method is
-        'time_march' (PR-2: visible and disabled otherwise)."""
+        """Show dynamic-stall controls only when their model is active."""
         ligado = self.use_dynamic_stall.isChecked() and self.use_dynamic_stall.isEnabled()
-        for w in (self.dyn_A, self.dyn_fade_start, self.dyn_fade_end,
-                  self.dyn_revs, self.dyn_avg_last):
+        for w in (self.dyn_A, self.dyn_fade_start, self.dyn_fade_end):
             set_row_visible(self._dynamic_stall_form, w, ligado)
         marching = ligado and self.dyn_method.currentData() == "time_march"
-        self.dyn_revs.setEnabled(marching)
-        self.dyn_avg_last.setEnabled(marching)
+        for w in (self.dyn_revs, self.dyn_avg_last):
+            set_row_visible(self._dynamic_stall_form, w, marching)
 
     def _update_dynamic_stall_enabled(self, *_args):
         blocked = self.source_combo.currentText() == "analytical" and self.stall_model_combo.currentText() == "linear"

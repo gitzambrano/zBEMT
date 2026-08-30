@@ -182,7 +182,7 @@ class RunCaseTab(QWidget):
         self._size_field(self.axial)
         form.addRow("Axial flow:", self.axial)
 
-        self.collective_spin = QDoubleSpinBox(); self.collective_spin.setRange(-10, 30); self.collective_spin.setValue(8.0)
+        self.collective_spin = QDoubleSpinBox(); self.collective_spin.setRange(-10, 30); self.collective_spin.setValue(0.0)
         self.collective_spin.setSingleStep(0.5)
         self.collective_spin.setToolTip(
             '"collective_deg"<br><br>'
@@ -196,9 +196,9 @@ class RunCaseTab(QWidget):
             'It defines Ω and the velocity scale ΩR used by the dimensionless ratios.')
 
         # --- cyclic pitch (SC-11): the 1/rev harmonics theta_1c/theta_1s ---
-        # Visible and DISABLED on a rigid blade (PR-2: a real-but-blocked
-        # control teaches that the option exists), enabled as soon as the
-        # Geometry tab gives the blade a flap freedom.
+        # A rigid blade cannot use cyclic pitch to control a flap response.
+        # Therefore, the Geometry tab's flap freedom controls whether these
+        # rows exist on screen.
         self.cyclic_c_spin = QDoubleSpinBox(); self.cyclic_c_spin.setRange(-30, 30); self.cyclic_c_spin.setValue(0.0)
         self.cyclic_c_spin.setSingleStep(0.5)
         self.cyclic_c_spin.setToolTip(
@@ -246,7 +246,7 @@ class RunCaseTab(QWidget):
         form.addRow("Sideslip ψ_w [deg]:", self._with_unit_indent(self.sideslip_spin))
         form.addRow("Roll rate p [deg/s]:", self._with_unit_indent(self.p_rate_spin))
         form.addRow("Pitch rate q [deg/s]:", self._with_unit_indent(self.q_rate_spin))
-        form.addRow("RPM:", self._with_unit_indent(self.rpm_spin))
+        form.addRow("RPM [rev/min]:", self._with_unit_indent(self.rpm_spin))
 
         self.trim_target_kind_combo = QComboBox()
         self.trim_target_kind_combo.addItems(["Thrust [N]", "CT [-]"])
@@ -398,8 +398,7 @@ class RunCaseTab(QWidget):
         # before writing the value, or the number lands on the wrong scale.
         self.state.project_changed.connect(self._refresh_mode_defaults)
         self.state.project_changed.connect(self._adopt_project_condition)
-        # Cyclic pitch availability follows the blade's flap freedom
-        # (SC-11): re-evaluated when the project or its geometry changes.
+        # Flap-only condition controls follow the blade's flap freedom.
         self.state.project_changed.connect(self._refresh_cyclic_availability)
         self.state.geometry_changed.connect(self._refresh_cyclic_availability)
         self._refresh_mode_defaults()
@@ -493,14 +492,13 @@ class RunCaseTab(QWidget):
         set_row_visible(self._run_form, self.trim_target_value, is_trim)
 
     def _refresh_cyclic_availability(self):
-        """Cyclic pitch needs flap freedom (SC-11): visible and DISABLED on
-        a rigid blade (PR-2), enabled as soon as the Geometry tab gives the
-        blade a hinge offset or a spring."""
+        """Show flap-only controls only when the blade has flap freedom."""
         dynamics = getattr(self.state.project.geometry, "dynamics", None) \
             if self.state.project else None
         flapping = bool(dynamics and dynamics.flap_model != "rigid")
-        self.cyclic_c_spin.setEnabled(flapping)
-        self.cyclic_s_spin.setEnabled(flapping)
+        for control in (self.cyclic_c_spin, self.cyclic_s_spin,
+                        self.p_rate_spin, self.q_rate_spin):
+            set_row_visible(self._run_form, control, flapping)
 
     def _refresh_mode_defaults(self):
         propeller = self.state.is_propeller()

@@ -156,9 +156,8 @@ different rule.
   file, and vice versa. A feature implemented in only one interface must
   not be considered complete.
 - **PR-2 — Progressive disclosure in the GUI.** Options that do not apply
-  to the current configuration must be hidden. Options that exist but are
-  incompatible with the current mode must be disabled, not hidden, so the
-  user can discover that the option exists without it applying.
+  to the current configuration must be hidden. A control that cannot affect
+  the active model must never remain on screen in a blocked state.
 - **PR-3 — Field-level help.** Every configurable field must expose its
   help through two paths: a hover tooltip with a short description, and a
   click on the field's name/label that opens a popup. The popup must
@@ -220,6 +219,9 @@ different rule.
   no such floor: it fills whatever area the window gives it, at any screen
   size. A figure's minimum never propagates out of the drawing area to
   enlarge the window itself.
+- **PR-13 — Units on editable values.** Every editable dimensional value in
+  the GUI states its unit in the label or an adjacent unit selector. A
+  dimensionless value states that it is dimensionless with `[-]`.
 
 ---
 

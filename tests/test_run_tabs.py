@@ -211,6 +211,80 @@ class TestUnitCombosFollowPr2(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestConditionControlsFollowBladeFreedom(unittest.TestCase):
+    """Run tabs expose only controls that the active geometry can use."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _case_tab(self, flap_model: str):
+        from zbemt.gui.common import AppState
+        from zbemt.gui.tabs.run_case import RunCaseTab
+
+        state = AppState()
+        project = helpers.make_studies_project()
+        project.geometry.dynamics.flap_model = flap_model
+        state.project = project
+        tab = RunCaseTab(state)
+        self.addCleanup(tab.deleteLater)
+        tab.show()
+        self.app.processEvents()
+        return tab
+
+    def test_collective_defaults_to_zero_for_every_geometry(self):
+        for flap_model in ("rigid", "offset"):
+            with self.subTest(flap_model=flap_model):
+                tab = self._case_tab(flap_model)
+                self.assertEqual(tab.collective_spin.value(), 0.0)
+                self.assertTrue(tab.collective_spin.isVisibleTo(tab))
+
+    def test_rigid_geometry_hides_flap_only_condition_controls(self):
+        tab = self._case_tab("rigid")
+        for control in (tab.cyclic_c_spin, tab.cyclic_s_spin,
+                        tab.p_rate_spin, tab.q_rate_spin):
+            with self.subTest(control=control.toolTip()):
+                self.assertFalse(control.isVisibleTo(tab))
+
+    def test_flapping_geometry_shows_flap_only_condition_controls(self):
+        tab = self._case_tab("offset")
+        for control in (tab.cyclic_c_spin, tab.cyclic_s_spin,
+                        tab.p_rate_spin, tab.q_rate_spin):
+            with self.subTest(control=control.toolTip()):
+                self.assertTrue(control.isVisibleTo(tab))
+
+    def test_batch_collective_defaults_to_zero(self):
+        from zbemt.gui.common import AppState
+        from zbemt.gui.tabs.run_batch import RunBatchTab
+
+        state = AppState()
+        state.project = helpers.make_studies_project()
+        tab = RunBatchTab(state)
+        self.addCleanup(tab.deleteLater)
+        self.assertEqual(tab.fixed_collective.value(), 0.0)
+        self.assertEqual(tab.collective_spin.value(), 0.0)
+
+    def test_condition_rpm_labels_state_their_unit(self):
+        case_tab = self._case_tab("rigid")
+        self.assertEqual(
+            case_tab._run_form.labelForField(case_tab.rpm_spin._help_container).text(),
+            "RPM [rev/min]:")
+
+        from zbemt.gui.common import AppState
+        from zbemt.gui.tabs.run_batch import RunBatchTab
+        state = AppState()
+        state.project = helpers.make_studies_project()
+        batch_tab = RunBatchTab(state)
+        self.addCleanup(batch_tab.deleteLater)
+        for form, spin in ((batch_tab._fixed_form, batch_tab.fixed_rpm),
+                           (batch_tab._case_form, batch_tab.rpm_spin)):
+            with self.subTest(field=spin.toolTip()):
+                container = spin._help_container
+                self.assertEqual(form.labelForField(container).text(),
+                                 "RPM [rev/min]:")
+
+
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
 class TestRunBatchFixedValuesBox(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

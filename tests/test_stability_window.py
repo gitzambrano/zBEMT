@@ -102,20 +102,14 @@ class TestConstruction(StabilityWindowBase):
 
 
 class TestGating(StabilityWindowBase):
-    def test_rigid_blade_disables_rates_and_cyclic_but_keeps_them_visible(
-            self):
-        """PR-2: a control that cannot act stays on screen, greyed out,
-        saying why in its tooltip."""
+    def test_rigid_blade_hides_rates_and_cyclic_controls(self):
+        """A rigid blade cannot use flap-only stability controls."""
         self._load_project(flap_model="rigid")
         for name in ("p", "q", "theta_1c", "theta_1s"):
             check = self.window.var_checks[name]
-            self.assertFalse(check.isEnabled(), name)
-            self.assertTrue(check.isVisibleTo(check.parentWidget()), name)
-            self.assertIn("no flap freedom", check.toolTip())
+            self.assertFalse(check.isVisibleTo(check.parentWidget()), name)
         # The zero-flapping trim has nothing to solve on a rigid blade.
-        idx = self.window.trim_combo.findData("cyclic_flapback")
-        model_item = self.window.trim_combo.model().item(idx)
-        self.assertFalse(model_item.isEnabled())
+        self.assertEqual(self.window.trim_combo.findData("cyclic_flapback"), -1)
 
     def test_flapping_blade_keeps_everything_enabled(self):
         self._load_project(flap_model="offset")

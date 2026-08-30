@@ -184,7 +184,7 @@ class TestResultsArePhysicallyPlausible(_SingleRun):
 
     #: The one case that autorotates, and why it is allowed to.
     #:
-    #: `transition_evtol/cruise` is stated at mu_x = 0.35 with 8 deg of
+    #: `test14/cruise` is stated at mu_x = 0.35 with 8 deg of
     #: collective. At that advance ratio and that pitch the local inflow
     #: angle is negative over much of the advancing side, so
     #: `Ft_i = L*sin(phi)` is negative there and those sections DRIVE the
@@ -198,7 +198,7 @@ class TestResultsArePhysicallyPlausible(_SingleRun):
     #: thrust from 2996 N to 10260 N and its induced power from -18 kW to
     #: +42 kW -- a defect that happened to hide the autorotation behind a
     #: plausible-looking positive number.
-    AUTOROTATING = {("transition_evtol", "cruise", "Power_i")}
+    AUTOROTATING = {("test14", "cruise", "Power_i")}
 
     def test_power_parts_are_not_negative(self):
         """Induced and profile power are both dissipative. Negative means

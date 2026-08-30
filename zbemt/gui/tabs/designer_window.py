@@ -1654,7 +1654,7 @@ class GeometryDesignerWindow(QWidget):
         self.collective_spin = QDoubleSpinBox()
         self.collective_spin.setRange(-10.0, 30.0)
         self.collective_spin.setSingleStep(0.5)
-        self.collective_spin.setValue(8.0)
+        self.collective_spin.setValue(0.0)
         self.collective_spin.setToolTip(
             '"collective_deg" — Collective pitch applied to every blade '
             'station of every variant.')

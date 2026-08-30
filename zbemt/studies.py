@@ -645,7 +645,7 @@ def _run_conditions(project: Project, conditions: Sequence[FlightCondition], *,
 # =============================================================================
 
 def run_mu_sweep(project: Project, mu_values: Sequence[float], *,
-                  name_prefix: str = "mu_x", collective_deg: float = 8.0,
+                  name_prefix: str = "mu_x", collective_deg: float = 0.0,
                   Vz: float = 0.0, rpm: Optional[float] = None,
                   on_case_done: Optional[Callable[[int, int, object], None]] = None,
                   should_cancel: Optional[Callable[[], bool]] = None) -> list[Results]:
@@ -660,7 +660,7 @@ def run_mu_sweep(project: Project, mu_values: Sequence[float], *,
 
 def run_alpha_sweep(project: Project, alpha_deg_values: Sequence[float], *,
                      mu_x: float, name_prefix: str = "alpha",
-                     collective_deg: float = 8.0, rpm: Optional[float] = None,
+                     collective_deg: float = 0.0, rpm: Optional[float] = None,
                      on_case_done: Optional[Callable[[int, int, object], None]] = None,
                      should_cancel: Optional[Callable[[], bool]] = None) -> list[Results]:
     """Sweeps the disk angle of attack (``alpha_rotor_deg``) at fixed
