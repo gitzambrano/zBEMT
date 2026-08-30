@@ -208,8 +208,8 @@ class ConfigMotorTab(QWidget):
         self.cfg_integration_offset.setToolTip(
             '"integration_offset"<br><br>Small radial offset applied to integration stations.<br><br>'
             'It keeps the calculation away from the mathematical singularities at the hub and tip.')
-        form.addRow("Radial stations Ne:", self.cfg_Ne)
-        form.addRow("Azimuthal stations Nψ:", self.cfg_Npsi)
+        form.addRow("Radial stations Ne [-]:", self.cfg_Ne)
+        form.addRow("Azimuthal stations Nψ [-]:", self.cfg_Npsi)
         form.addRow("Air density ρ [kg/m³]:", self.cfg_rho)
         form.addRow("Speed of sound a [m/s]:", self.cfg_a_sound)
         form.addRow("Radial integration offset [r/R]:", self.cfg_integration_offset)
@@ -344,9 +344,9 @@ class ConfigMotorTab(QWidget):
         self.cfg_pitt_peters_relax.setToolTip('"pitt_peters_relax" — relaxation factor for the outer Pitt-Peters loop')
         self.cfg_pitt_peters_tol = ScientificSpinBox(); self.cfg_pitt_peters_tol.setRange(1e-10, 1e-2)
         self.cfg_pitt_peters_tol.setToolTip('"pitt_peters_tol" — convergence tolerance for the outer Pitt-Peters loop')
-        form.addRow("Maximum outer iterations:", self.cfg_pitt_peters_outer_iter)
-        form.addRow("Relaxation factor:", self.cfg_pitt_peters_relax)
-        form.addRow("Convergence tolerance:", self.cfg_pitt_peters_tol)
+        form.addRow("Maximum outer iterations [-]:", self.cfg_pitt_peters_outer_iter)
+        form.addRow("Relaxation factor [-]:", self.cfg_pitt_peters_relax)
+        form.addRow("Convergence tolerance [-]:", self.cfg_pitt_peters_tol)
         return box
 
     # --- 11) solver ---------------------------------------------------
@@ -369,9 +369,9 @@ class ConfigMotorTab(QWidget):
         self.cfg_relax = QDoubleSpinBox(); self.cfg_relax.setRange(0.01, 1.0); self.cfg_relax.setDecimals(3)
         self.cfg_relax.setSingleStep(0.01)
         self.cfg_relax.setToolTip('"relax" — global relaxation factor for iteration (0 = no update; 1 = no relaxation)')
-        form.addRow("Maximum iterations:", self.cfg_max_iter)
-        form.addRow("Convergence tolerance:", self.cfg_tol)
-        form.addRow("Relaxation factor:", self.cfg_relax)
+        form.addRow("Maximum iterations [-]:", self.cfg_max_iter)
+        form.addRow("Convergence tolerance [-]:", self.cfg_tol)
+        form.addRow("Relaxation factor [-]:", self.cfg_relax)
         self.cfg_relax_schedule = QCheckBox("Adaptive relaxation (root/tip/azimuth)")
         self.cfg_relax_schedule.setToolTip('"relax_schedule" — reduces the relaxation factor near root and tip to improve convergence')
         form.addRow(self.cfg_relax_schedule)
@@ -393,11 +393,11 @@ class ConfigMotorTab(QWidget):
         self.cfg_relax_azimuth_threshold = QDoubleSpinBox(); self.cfg_relax_azimuth_threshold.setRange(0.0, 1.0); self.cfg_relax_azimuth_threshold.setDecimals(3)
         self.cfg_relax_azimuth_threshold.setSingleStep(0.01)
         self.cfg_relax_azimuth_threshold.setToolTip('"relax_azimuth_threshold" — azimuthal convergence threshold before applying extra relaxation')
-        rform.addRow("Root factor:", self.cfg_relax_root_factor)
-        rform.addRow("Root radial threshold:", self.cfg_relax_root_threshold)
-        rform.addRow("Tip radial threshold:", self.cfg_relax_tip_threshold)
-        rform.addRow("Azimuthal factor:", self.cfg_relax_azimuth_factor)
-        rform.addRow("Azimuthal convergence threshold:", self.cfg_relax_azimuth_threshold)
+        rform.addRow("Root factor [-]:", self.cfg_relax_root_factor)
+        rform.addRow("Root radial threshold [r/R]:", self.cfg_relax_root_threshold)
+        rform.addRow("Tip radial threshold [r/R]:", self.cfg_relax_tip_threshold)
+        rform.addRow("Azimuthal factor [-]:", self.cfg_relax_azimuth_factor)
+        rform.addRow("Azimuthal convergence threshold [-]:", self.cfg_relax_azimuth_threshold)
         form.addRow(self.relax_schedule_box)
         self.cfg_relax_schedule.toggled.connect(self.relax_schedule_box.setVisible)
         self.relax_schedule_box.setVisible(self.cfg_relax_schedule.isChecked())
@@ -414,9 +414,9 @@ class ConfigMotorTab(QWidget):
         self.cfg_stagnation_min_frac = QDoubleSpinBox(); self.cfg_stagnation_min_frac.setRange(0.0, 1.0); self.cfg_stagnation_min_frac.setDecimals(4)
         self.cfg_stagnation_min_frac.setSingleStep(0.01)
         self.cfg_stagnation_min_frac.setToolTip('"stagnation_min_frac" — minimum improvement in element fraction per iteration to not count as stagnation')
-        form.addRow("Early exit fraction:", self.cfg_early_exit_fraction)
+        form.addRow("Early exit fraction [-]:", self.cfg_early_exit_fraction)
         form.addRow("Stagnation patience [iter]:", self.cfg_stagnation_patience)
-        form.addRow("Minimum improvement per iteration:", self.cfg_stagnation_min_frac)
+        form.addRow("Minimum improvement per iteration [-]:", self.cfg_stagnation_min_frac)
         return box
 
     # --- bridge with the `project.config` dict (asdict of BEMTConfig) ------
@@ -580,4 +580,3 @@ class ConfigMotorTab(QWidget):
         # project would leave the warnings panel EMPTY until the first
         # edit, and empty, there, reads as "no problems".
         self._validate_config_display()
-

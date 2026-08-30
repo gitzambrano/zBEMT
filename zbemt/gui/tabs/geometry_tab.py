@@ -102,7 +102,7 @@ class GeometryTab(QWidget):
         self.radius_m = QDoubleSpinBox(); self.radius_m.setRange(0.01, 100); self.radius_m.setValue(1.0)
         self.radius_m.setSingleStep(0.1)
         self.radius_m.setToolTip('"radius_m"<br><br>Rotor or propeller radius in metres.<br><br>Chord values in the table are normalized by this radius.')
-        const_form.addRow("Number of Blades:", self.n_blades)
+        const_form.addRow("Number of Blades [-]:", self.n_blades)
         const_form.addRow("Rotor Radius [m]:", self.radius_m)
         self.n_blades.valueChanged.connect(self._apply_constants)
         self.radius_m.valueChanged.connect(self._apply_constants)
@@ -329,7 +329,7 @@ class GeometryTab(QWidget):
         self.dyn_outer_iter.setToolTip(_tip("outer_max_iter",
             "Maximum number of outer iterations that exchange the inflow "
             "solution with the flap/lag response until both agree."))
-        form.addRow("Outer iterations:", self.dyn_outer_iter)
+        form.addRow("Outer iterations [-]:", self.dyn_outer_iter)
 
         self.dyn_outer_tol = ScientificSpinBox()
         self.dyn_outer_tol.setRange(1e-8, 1e-1)
@@ -349,7 +349,7 @@ class GeometryTab(QWidget):
             "Relaxation factor of the outer loop: fraction of each solved "
             "correction applied per iteration. Lower it if the iteration "
             "oscillates."))
-        form.addRow("Outer relaxation:", self.dyn_outer_relax)
+        form.addRow("Outer relaxation [-]:", self.dyn_outer_relax)
 
         row.addLayout(form, 1)
 

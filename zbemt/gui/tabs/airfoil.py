@@ -636,8 +636,8 @@ class AirfoilTab(QWidget):
         self.k_coef.setToolTip('"airfoil.k" — induced drag coefficient; Cd = Cd0 + k·Cl²; 0 = parabolic polar disabled')
         form.addRow("Cl polar slope [1/rad]:", self.cl_alpha)
         form.addRow("Zero-lift angle [deg]:", self.alpha0_deg)
-        form.addRow("Parasitic drag Cd0:", self.cd0)
-        form.addRow("Induced drag coef. k:", self.k_coef)
+        form.addRow("Parasitic drag Cd0 [-]:", self.cd0)
+        form.addRow("Induced drag coef. k [-]:", self.k_coef)
 
         # --- static stall + Viterna, a single contiguous block ---------
         self.stall_model_combo = QComboBox()
@@ -798,7 +798,7 @@ class AirfoilTab(QWidget):
         self.dyn_A = QDoubleSpinBox(); self.dyn_A.setRange(0.1, 30); self.dyn_A.setValue(8.0)
         self.dyn_A.setSingleStep(0.5)
         self.dyn_A.setToolTip('"airfoil.dynamic_stall_A" — lag constant of the Øye model; controls the dynamic response speed')
-        self.dyn_A_label = QLabel("Lag constant A:")
+        self.dyn_A_label = QLabel("Lag constant A [-]:")
         form.addRow(self.dyn_A_label, self.dyn_A)
         self.dyn_fade_start = QDoubleSpinBox(); self.dyn_fade_start.setRange(0, 90); self.dyn_fade_start.setValue(40.0)
         self.dyn_fade_start.setSingleStep(0.5)
@@ -1326,7 +1326,7 @@ class AirfoilTab(QWidget):
             'e<sup>N</sup>. A lower N predicts earlier transition and higher '
             'drag, and 9 approximates a clean flow (typical range: 1 to 15). This '
             'input reaches only the XFOIL binary. NeuralFoil ignores it.')
-        form.addRow("Ncrit:", self.ext_ncrit)
+        form.addRow("Ncrit [-]:", self.ext_ncrit)
 
         self.ext_xtr_top = QDoubleSpinBox()
         self.ext_xtr_top.setRange(0.01, 1.0)
@@ -1339,7 +1339,7 @@ class AirfoilTab(QWidget):
             'station instead of predicting it, and 1 leaves free transition on the '
             'whole surface. This input reaches only the XFOIL binary. NeuralFoil '
             'ignores it.')
-        form.addRow("Xtr top:", self.ext_xtr_top)
+        form.addRow("Xtr top [-]:", self.ext_xtr_top)
 
         self.ext_xtr_bot = QDoubleSpinBox()
         self.ext_xtr_bot.setRange(0.01, 1.0)
@@ -1352,7 +1352,7 @@ class AirfoilTab(QWidget):
             'station instead of predicting it, and 1 leaves free transition on the '
             'whole surface. This input reaches only the XFOIL binary. NeuralFoil '
             'ignores it.')
-        form.addRow("Xtr bot:", self.ext_xtr_bot)
+        form.addRow("Xtr bot [-]:", self.ext_xtr_bot)
         #: stored to hide the three rows above as a unit
         #: (see `_update_xfoil_visibility`)
         self._external_form = form
@@ -1551,7 +1551,7 @@ class AirfoilTab(QWidget):
         self.cfg_reverse_flow_blend_factor = QDoubleSpinBox(); self.cfg_reverse_flow_blend_factor.setRange(0.1, 50.0)
         self.cfg_reverse_flow_blend_factor.setSingleStep(0.5)
         self.cfg_reverse_flow_blend_factor.setToolTip('"reverse_flow_blend_factor" — controls smoothness of transition between forward and reverse flow regimes')
-        form.addRow("Reverse flow blend factor:", self.cfg_reverse_flow_blend_factor)
+        form.addRow("Reverse flow blend factor [-]:", self.cfg_reverse_flow_blend_factor)
         self.cfg_thin_plate_center = QDoubleSpinBox(); self.cfg_thin_plate_center.setRange(0, 90)
         self.cfg_thin_plate_center.setSingleStep(0.5)
         self.cfg_thin_plate_center.setToolTip('"thin_plate_blend_center_deg" — center angle of blend zone for thin_plate_blend model')
