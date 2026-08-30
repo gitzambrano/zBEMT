@@ -14,7 +14,10 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication
+from tests.helpers import HAS_QT
+
+if HAS_QT:                                        # pragma: no branch
+    from PyQt6.QtWidgets import QApplication
 
 from zbemt.models import DerivativeRequest, FlightCondition
 from tests.helpers import make_studies_project
@@ -52,6 +55,7 @@ def _stub_summary(project, condition, should_cancel=None):
     return r
 
 
+@unittest.skipUnless(HAS_QT, "PyQt6 is not installed")
 class StabilityWindowBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

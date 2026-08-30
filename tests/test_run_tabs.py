@@ -864,6 +864,7 @@ class TestRunCaseSavedCaseButtons(unittest.TestCase):
         self.assertNotIn("- Remove", texts)
 
 
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
 class TestPerturbationFields(unittest.TestCase):
     """SC-14 on the Run Case tab: sideslip and hub rates are settable
     fields of a saved case, not .bemt-only keys."""

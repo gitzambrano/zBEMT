@@ -10,11 +10,15 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication
+from tests.helpers import HAS_QT
+
+if HAS_QT:                                        # pragma: no branch
+    from PyQt6.QtWidgets import QApplication
 
 from tests.helpers import make_studies_project
 
 
+@unittest.skipUnless(HAS_QT, "PyQt6 is not installed")
 class TestChordCellGating(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

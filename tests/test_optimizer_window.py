@@ -13,7 +13,10 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication
+from tests.helpers import HAS_QT
+
+if HAS_QT:                                        # pragma: no branch
+    from PyQt6.QtWidgets import QApplication
 
 from zbemt.models import (ConstraintDef, DesignVariable, FlightCondition,
                            ObjectiveDef, OptimizationDefinition)
@@ -29,6 +32,7 @@ def _stub_evaluate(project, condition, params, should_cancel=None):
     return Results(summary={"CT": ct, "FM": fm})
 
 
+@unittest.skipUnless(HAS_QT, "PyQt6 is not installed")
 class OptimizerWindowBase(unittest.TestCase):
     """One QApplication for the whole file, one fresh window per test."""
 
