@@ -108,6 +108,23 @@ class TestFlappingExecutor(unittest.TestCase):
             1e-6,
         )
 
+    def test_forward_damping_separates_aerodynamic_and_hub_moments(self):
+        claim = next(claim for claim in CLAIMS if claim.claim_id == "DERIV-A3")
+        executor = FlappingExecutor()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            result = executor(claim, self._context(Path(temporary_directory)))
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertLess(
+            abs(result.measured_data["flap_aerodynamic_pitch_damping"]),
+            abs(result.measured_data["rigid_aerodynamic_pitch_damping"]),
+        )
+        self.assertAlmostEqual(
+            result.measured_data["flap_total_pitch_damping"],
+            result.measured_data["flap_aerodynamic_pitch_damping"]
+            + result.measured_data["flap_hub_pitch_damping"],
+            places=8,
+        )
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

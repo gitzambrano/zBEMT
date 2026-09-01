@@ -72,8 +72,8 @@ _REFERENCE_AND_RULE = {
         "Accept when hover values agree within 0.1% and every non-converged forward case is reported as inconclusive.",
     ),
     "DERIV-A3": (
-        "Forward flight makes articulated pitch and roll damping anisotropic while a rigid rotor remains nearly symmetric at low advance ratio.",
-        "Accept when rigid damping terms differ by at most 1% and flap pitch damping is smaller in magnitude at advance ratio 0.10.",
+        "Forward flight makes articulated aerodynamic damping anisotropic while a rigid rotor remains nearly symmetric at low advance ratio. An offset hinge adds a separate structural hub moment.",
+        "Accept when rigid total damping terms differ by at most 1%, flap aerodynamic pitch damping is smaller in magnitude at advance ratio 0.10, and the flap total equals the aerodynamic and hub terms.",
     ),
     "DERIV-A4": (
         "Thrust and torque increase with shaft speed at fixed collective in hover.",
@@ -1050,8 +1050,8 @@ _register_routes(
 )
 _register_routes(
     ("DERIV-A3",),
-    "Prepare outputs/physics_checks/manual/deriv-a3 with inputs/derivatives.bemt study fwd010-rates, states p and q, and hub-moment outputs. Run python -m zbemt.cli --project outputs/physics_checks/manual/deriv-a3 --derivatives fwd010-rates --flap-model rigid. Repeat with --flap-model offset. Compare roll and pitch damping.",
-    "Open the prepared project and the Stability Derivatives window. Run fwd010-rates with Rigid and Offset hinge models. Inspect roll and pitch damping in the derivative matrix.",
+    "Prepare outputs/physics_checks/manual/deriv-a3 with inputs/derivatives.bemt study fwd010-rates, states p and q, and Mx, Mx_hub, Mx_total, and My_total outputs. Run python -m zbemt.cli --project outputs/physics_checks/manual/deriv-a3 --derivatives fwd010-rates --flap-model rigid. Repeat with --flap-model offset. Compare aerodynamic pitch damping and the hub-moment balance.",
+    "Open the prepared project and the Stability Derivatives window. Run fwd010-rates with Rigid and Offset hinge models. Inspect Mx, Mx_hub, and Mx_total. Compare aerodynamic pitch damping and the hub-moment balance.",
 )
 _register_routes(
     ("DERIV-A4",),

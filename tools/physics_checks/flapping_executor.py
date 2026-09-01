@@ -166,7 +166,7 @@ class _RealProbeRunner:
                 trim="none",
                 states=["w", "p", "q", "Omega"],
                 controls=["theta_0", "theta_1c", "theta_1s"],
-                outputs=["Thrust", "Torque", "Mx_total", "My_total"],
+                outputs=["Thrust", "Torque", "Mx", "Mx_hub", "Mx_total", "My_total"],
                 steps={"w": 0.5, "p": 0.02, "q": 0.02},
                 richardson_check=False,
             )
@@ -643,18 +643,32 @@ class _RealProbeRunner:
     def _probe_deriv_a3(self) -> ProbeEvidence:
         rigid = self._rate_matrix("rigid", 0.10)
         flap = self._rate_matrix("offset", 0.10)
+        rigid_matrix = self._derivatives("rigid", 0.10).matrix
+        flap_matrix = self._derivatives("offset", 0.10).matrix
+        rigid_aerodynamic = rigid_matrix[("Mx", "q")]
+        flap_aerodynamic = flap_matrix[("Mx", "q")]
+        flap_hub = flap_matrix[("Mx_hub", "q")]
+        flap_total = flap_matrix[("Mx_total", "q")]
         flap_converged = bool(self._reference_case("offset", mu_x=0.10).summary["flap_outer_converged"])
         rigid_error = _relative_error(rigid["Mx_q"], rigid["My_p"])
-        anisotropic = abs(flap["Mx_q"]) < abs(rigid["Mx_q"])
+        aerodynamic_relief = abs(flap_aerodynamic) < abs(rigid_aerodynamic)
+        moment_balance_error = abs(flap_total - flap_aerodynamic - flap_hub)
         return self._evidence(
-            rigid_error <= 0.01 and anisotropic,
+            rigid_error <= 0.01 and aerodynamic_relief and moment_balance_error <= 1e-8,
             {"rigid_rate_matrix": rigid, "flap_rate_matrix": flap,
              "rigid_direct_relative_error": rigid_error,
-             "flap_outer_converged": flap_converged},
-            {"rigid_direct_relative_error_max": 0.01, "flap_pitch_magnitude": "less than rigid pitch damping"},
-            "Rigid direct damping must agree within 1%. Flap pitch damping magnitude must be lower than the rigid value.",
+             "flap_outer_converged": flap_converged,
+             "rigid_aerodynamic_pitch_damping": rigid_aerodynamic,
+             "flap_aerodynamic_pitch_damping": flap_aerodynamic,
+             "flap_hub_pitch_damping": flap_hub,
+             "flap_total_pitch_damping": flap_total,
+             "moment_balance_error": moment_balance_error},
+            {"rigid_direct_relative_error_max": 0.01,
+             "flap_aerodynamic_pitch_magnitude": "less than rigid aerodynamic damping",
+             "moment_balance_error_max": 1e-8},
+            "Rigid direct damping must agree within 1%. Flap aerodynamic damping must be lower than rigid aerodynamic damping. The total must equal the aerodynamic and hub terms.",
             "python -c \"from zbemt import api; api.compute_derivatives(...mu_x=0.10...)\"",
-            "Both models use the same finite-difference request.",
+            "The offset hinge adds a structural hub moment. Compare the aerodynamic moment before comparing damping relief.",
             status=None if flap_converged else FinalStatus.INCONCLUSIVE,
         )
 
