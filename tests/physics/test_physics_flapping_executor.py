@@ -125,6 +125,14 @@ class TestFlappingExecutor(unittest.TestCase):
             places=8,
         )
 
+    def test_rigid_dynamics_matches_the_plain_bemt_map(self):
+        claim = next(claim for claim in CLAIMS if claim.claim_id == "FLAP-E9")
+        executor = FlappingExecutor()
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            result = executor(claim, self._context(Path(temporary_directory)))
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertEqual(result.measured_data["maximum_array_difference"], 0.0)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

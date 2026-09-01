@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import json
 import math
+import numpy as np
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from zbemt import api, geometry, studies
+from zbemt import airfoils, api, geometry, studies
+from zbemt.bemt import solve_bemt
 from zbemt.models import AirfoilDef, BladeDynamicsDef, DerivativeRequest, FlightCondition, Project
 from zbemt.validation import validate_blade_dynamics
 
@@ -394,16 +396,36 @@ class _RealProbeRunner:
         )
 
     def _probe_flap_e9(self) -> ProbeEvidence:
-        result = self._case("rigid")
-        zero_keys = {name: result.maps.get(name) for name in ("beta_0_rad", "beta_1c_rad", "beta_1s_rad")}
+        project = self._project("rigid")
+        condition = FlightCondition(name="rigid probe", rpm=600.0)
+        cfg = studies._build_config(project.config, airfoil_def=project.airfoil)
+        rotor = studies._to_rotor(project.geometry, collective_deg=condition.collective_deg,
+                                  rpm=condition.rpm)
+        radial = airfoils.radial_reynolds_mach(rotor, cfg, mu_x=condition.mu_x)
+        airfoil = airfoils.to_blade_airfoil([project.airfoil], radial=radial)
+        plain = solve_bemt(rotor, airfoil, cfg, mu_x=condition.mu_x, Vz=condition.Vz)
+        routed = studies.run_single_case(project, condition).maps
+        differences = []
+        for name, plain_value in plain.items():
+            routed_value = routed[name]
+            plain_array = np.asarray(plain_value)
+            routed_array = np.asarray(routed_value)
+            if plain_array.dtype.kind in "bOUS" or routed_array.dtype.kind in "bOUS":
+                difference = 0.0 if np.array_equal(routed_array, plain_array) else 1.0
+            elif plain_array.size == 0 and routed_array.size == 0:
+                difference = 0.0
+            else:
+                difference = float(np.max(np.abs(routed_array - plain_array)))
+            differences.append(difference)
+        maximum_difference = max(differences, default=0.0)
         return self._evidence(
-            False,
-            {"rigid_motion_keys": zero_keys, "second_independent_plain_route": False},
-            {"comparison": "bit-identical scalar and array results from two independent routes"},
+            maximum_difference == 0.0,
+            {"maximum_array_difference": maximum_difference,
+             "plain_map_keys": len(plain), "routed_map_keys": len(routed)},
+            {"maximum_array_difference": 0.0},
             "Every scalar and array must be bit-identical between two independent routes.",
-            "python -c \"from zbemt import studies; studies.run_single_case(...flap_model='rigid'...)\"",
-            "The public API exposes one rigid route. A second independent plain-BEMT route is not public.",
-            status=FinalStatus.INCONCLUSIVE,
+            "python -c \"from zbemt.bemt import solve_bemt; from zbemt import studies; compare solve_bemt(...) with studies.run_single_case(...)\"",
+            "The rigid public route is compared with the direct plain solver before the zero-valued dynamics keys are added.",
         )
 
     def _probe_flap_e10(self) -> ProbeEvidence:
