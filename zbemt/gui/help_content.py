@@ -2142,7 +2142,7 @@ FIELD_HELP: dict[str, dict] = {
         "options": {
             "newton": "Newton-Raphson with numerical Jacobian. Fastest for smooth, convergent cases.",
             "fixed_point": "Fixed-point iteration (Picard). Slow but robust and useful for stalled or difficult cases.",
-            "bisection": "Bracketing method. Guaranteed convergence but slowest, so it is used for safety.",
+            "bisection": "Bracketing method. It expands from the physical initial estimate and converges to the nearest bracketed root. It is the slowest method.",
             "aitken": "Aitken acceleration of fixed-point. It attempts to speed up slow fixed-point convergence."
         }
     },

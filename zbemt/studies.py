@@ -199,6 +199,15 @@ def run_single_case(project: Project, condition: FlightCondition,
     else:
         maps = solve_bemt(rotor, airfoil_obj, cfg, mu_x=condition.mu_x,
                            Vz=condition.Vz, should_cancel=should_cancel)
+        # Keep the original rigid aerodynamic path bit-for-bit while honoring
+        # the blade-motion map contract. An empty coefficient dictionary keeps
+        # rigid-only fields out of the aggregate summary.
+        maps.update({
+            "beta_coeffs": {},
+            "beta_0_rad": 0.0,
+            "beta_1c_rad": 0.0,
+            "beta_1s_rad": 0.0,
+        })
     summary = aggregate_results(rotor, cfg, maps)
 
     # Convenience aliases for the 2 factorial variables (Part 4.2) that
@@ -402,7 +411,7 @@ def run_case_trimmed(project: Project, condition: FlightCondition, *,
                                   residual=_scaled, tol=tol, max_iter=max_iter,
                                   should_cancel=should_cancel)
             _record_trim(res.summary, ["collective_deg", "cyclic_c_deg", "cyclic_s_deg"],
-                         target_value, target_key)
+                         target_value, target_kind)
             return res
 
         # solve_cyclic_flapback: beta_1c and beta_1s -> 0.
@@ -429,16 +438,22 @@ def run_case_trimmed(project: Project, condition: FlightCondition, *,
 
     lo, hi = bracket if bracket is not None else _DEFAULT_TRIM_BRACKET[trim_mode]
     lo, hi = float(lo), float(hi)
+    dof = "collective_deg" if trim_mode == "solve_collective" else "rpm"
+
+    def _finish(res: Results, residual: float, converged: bool) -> Results:
+        _record_trim(res.summary, [dof], target_value, target_kind)
+        res.summary["trim_residual"] = abs(float(residual))
+        res.summary["trim_converged"] = bool(converged)
+        return res
 
     res_lo, res_hi = _eval(lo), _eval(hi)
     f_lo = res_lo.summary[summary_key] - target_value
     f_hi = res_hi.summary[summary_key] - target_value
     if f_lo == 0.0:
-        return res_lo
+        return _finish(res_lo, f_lo, True)
     if f_hi == 0.0:
-        return res_hi
+        return _finish(res_hi, f_hi, True)
     if f_lo * f_hi > 0.0:
-        dof = "collective_deg" if trim_mode == "solve_collective" else "rpm"
         raise ValueError(
             f"run_case_trimmed: target {summary_key}={target_value!r} is not bracketed between "
             f"{dof}={lo!r} ({summary_key}={res_lo.summary[summary_key]!r}) and "
@@ -451,12 +466,13 @@ def run_case_trimmed(project: Project, condition: FlightCondition, *,
         f_mid = res_mid.summary[summary_key] - target_value
         best = res_mid
         if abs(f_mid) <= tol * max(abs(target_value), 1e-9) or (hi - lo) < 1e-6:
-            return res_mid
+            return _finish(res_mid, f_mid, True)
         if (f_lo < 0.0) == (f_mid < 0.0):
             lo, f_lo = mid, f_mid
         else:
             hi, f_hi = mid, f_mid
-    return best
+    best_residual = best.summary[summary_key] - target_value
+    return _finish(best, best_residual, False)
 
 
 # =============================================================================

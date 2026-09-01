@@ -1,4 +1,4 @@
-"""Regenerates the nomenclature snapshot used by ``tests/test_nomenclature_parity.py``.
+"""Regenerates the nomenclature snapshot used by ``tests/architecture/test_nomenclature_parity.py``.
 
 Why a snapshot: the rotor/propeller axis nomenclature is produced today by
 several independent tables (``api._COLUMN_SYMBOL``,

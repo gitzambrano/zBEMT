@@ -130,7 +130,7 @@ def generate_elliptic(root_cutout_norm: float = 0.15, radius_m: float = 1.0,
     with the ellipse of a WHOLE WING (peak at the center or mid-span, two
     symmetric sides). That is not the convention adopted here. Changing
     this would change the blade shape for existing users of the generator,
-    so it stays as is. See ``tests/test_geometry.py::
+    so it stays as is. See ``tests/regression/test_geometry.py::
     test_generate_elliptic_chord_never_zero_at_tip``, which locks in this
     behavior.
     """

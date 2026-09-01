@@ -456,7 +456,7 @@ def damping_summary(project, variants: dict, condition,
     and with the default steps h_w/h_q is 25, so the pitch number was
     carrying twenty-five times the cross term it should not have had at
     all. A separable test function cannot see this -- both cross terms
-    are zero there -- which is why the toy in `tests/test_derivatives.py`
+    are zero there -- which is why the toy in `tests/regression/test_derivatives.py`
     now carries one.
 
     The moment is M_x, not M_y: the pitch rate q and the moment

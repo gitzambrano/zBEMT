@@ -1738,7 +1738,7 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
         # used to carry the opposite sign, which made a nose-up rate cut
         # the lift at the TAIL instead of at the nose and so reported a
         # nose-up rate as producing a further nose-up moment. See
-        # `tests/test_derivatives.py::TestHoverDampingIsRotationInvariant`.
+        # `tests/regression/test_derivatives.py::TestHoverDampingIsRotationInvariant`.
         p_rate = float(motion.get("p_rate", 0.0))
         q_rate = float(motion.get("q_rate", 0.0))
         if p_rate != 0.0 or q_rate != 0.0:
@@ -2012,7 +2012,7 @@ def resolve_drag_with_radial_flow(Cd, W, UR, rho, CHORD, cfg):
     the classical (1 + 4.65*mu^2) of the helicopter literature -- the
     remaining difference being the root and reverse-flow region that the
     closed form ignores and this engine integrates directly.
-    `tests/test_radial_flow.py` checks all three (`EN-10`).
+    `tests/regression/test_radial_flow.py` checks all three (`EN-10`).
 
     ``radial_flow_max_skew_deg`` caps the local yaw angle
     ``lambda_y = arctan(U_R/W)``, and with it the share of the drag that
@@ -2768,7 +2768,7 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
         # false, so the consistency pass never ran: every flapping
         # result reported a blade sweeping through tens of degrees while
         # the aerodynamics saw beta_dot = 0, and `lag_feeds_back` was
-        # inert. `tests/test_flapping.py` now checks the rate itself
+        # inert. `tests/regression/test_flapping.py` now checks the rate itself
         # (`SC-11`).
         coeffs_flap, _new_angle, _new_rate = solve_blade_motion(
             m_beta, psi_nodes, nu_beta_sq, inertia, omega,
@@ -2813,6 +2813,8 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
 
     maps["flap_outer_iterations"] = iterations
     maps["flap_outer_residual_deg"] = residual_deg
+    maps["flap_outer_tolerance_deg"] = tol_deg
+    maps["flap_outer_converged"] = bool(rigid or residual_deg < tol_deg)
     maps["flap_outer_history"] = outer_history
     maps["nu_beta"] = float(np.sqrt(max(nu_beta_sq, 0.0)))
     maps["nu_beta_squared"] = float(nu_beta_sq)
@@ -2971,17 +2973,39 @@ def solve_newton(residual_fn, lambda0, cfg: BEMTConfig, should_cancel=None, **_)
 def solve_bisection(residual_fn, lambda0, cfg: BEMTConfig, R_NORM=None, PSI=None, mu_x=None,
                      lo=-0.5, hi=0.5, should_cancel=None, **_):
     """Vectorized bisection (no derivatives). Assumes h(lambda)=g(lambda)-lambda
-    is monotonically decreasing (valid over most of the envelope. Near
-    stall this can fail locally . Elements with an invalid bracket get
-    the best candidate found and are marked not-converged).
-    `lambda0` is not used as a guess (bisection does not need one), but is
-    kept in the signature for uniformity with the other solvers."""
+    is continuous inside the selected bracket. Nonlinear blade-element
+    residuals can have several mathematical roots, so the bracket expands
+    from `lambda0` and selects the nearest sign change. Elements with no
+    valid bracket return the best candidate and are marked not-converged."""
     shape = lambda0.shape
-    a = np.full(shape, lo, dtype=float)
-    b = np.full(shape, hi, dtype=float)
-    ha = residual_fn(a)["lambda_i_next"] - a
-    hb = residual_fn(b)["lambda_i_next"] - b
-    bad_bracket = (ha * hb) > 0.0
+    center = np.clip(np.asarray(lambda0, dtype=float), lo, hi)
+    h_center = residual_fn(center)["lambda_i_next"] - center
+    a = center.copy()
+    b = center.copy()
+    ha = h_center.copy()
+    hb = h_center.copy()
+    bracketed = np.abs(h_center) < cfg.tol
+
+    radius = max((hi - lo) / 256.0, cfg.tol)
+    while radius <= (hi - lo) and not np.all(bracketed):
+        left = np.maximum(center - radius, lo)
+        right = np.minimum(center + radius, hi)
+        h_left = residual_fn(left)["lambda_i_next"] - left
+        h_right = residual_fn(right)["lambda_i_next"] - right
+        unresolved = ~bracketed
+        crosses_left = unresolved & (h_left * h_center <= 0.0)
+        crosses_right = unresolved & (h_center * h_right <= 0.0)
+        choose_left = crosses_left & (
+            ~crosses_right | (np.abs(h_left) <= np.abs(h_right))
+        )
+        choose_right = crosses_right & ~choose_left
+        a = np.where(choose_left, left, np.where(choose_right, center, a))
+        ha = np.where(choose_left, h_left, np.where(choose_right, h_center, ha))
+        b = np.where(choose_left, center, np.where(choose_right, right, b))
+        hb = np.where(choose_left, h_center, np.where(choose_right, h_right, hb))
+        bracketed |= choose_left | choose_right
+        radius *= 2.0
+    bad_bracket = ~bracketed
 
     converged = np.zeros(shape, dtype=bool)
     n_iter = np.zeros(shape, dtype=int)
@@ -4451,6 +4475,8 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         out["flap_inertia_kg_m2"] = maps["flap_inertia_kg_m2"]
         out["flap_outer_iterations"] = maps["flap_outer_iterations"]
         out["flap_outer_residual_deg"] = maps["flap_outer_residual_deg"]
+        out["flap_outer_tolerance_deg"] = maps["flap_outer_tolerance_deg"]
+        out["flap_outer_converged"] = maps["flap_outer_converged"]
 
         # Hub moment carried through the offset hinge/root spring: the
         # structural path that a hinged (or spring-restrained) blade adds
@@ -4465,7 +4491,7 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         # (`tpp_tilt_long_deg = -beta_1c_deg`). Built from `+beta_1c`,
         # the hub moment came out nose-DOWN for a rotor flapping back,
         # reversing the speed stability that this term exists to
-        # represent (`tests/test_flapping.py`, SC-11).
+        # represent (`tests/regression/test_flapping.py`, SC-11).
         mx_hub = -gain * first[0]
         my_hub = -gain * first[1]
         out["Mx_hub"] = float(mx_hub)

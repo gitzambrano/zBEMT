@@ -16,10 +16,13 @@ what keeps the run viable on a CI runner with a small memory allowance.
 Usage:
     python run_all_tests.py             # run everything
     python run_all_tests.py -k airfoil  # only files matching "airfoil"
+    python run_all_tests.py --suite physics  # physical-check unit tests
     python run_all_tests.py --list      # list the files and exit
 """
 from __future__ import annotations
 
+import argparse
+import json
 import os
 import re
 import subprocess
@@ -30,6 +33,7 @@ from pathlib import Path
 TESTS_DIR = Path(__file__).resolve().parent
 ROOT = TESTS_DIR.parent
 REPORT_PATH = TESTS_DIR / "test_results.txt"
+MANIFEST_PATH = TESTS_DIR / "suite_manifest.json"
 
 #: Run these first. They are the files that solve every example project or
 #: mount the full window repeatedly, so they dominate the wall clock and are
@@ -150,13 +154,66 @@ def _order(files: list[Path]) -> list[Path]:
     return sorted(slow) + sorted(rest)
 
 
-def main() -> int:
-    args = sys.argv[1:]
-    pattern = None
-    if args and args[0] == "-k" and len(args) > 1:
-        pattern = args[1]
+def _load_manifest() -> dict[str, list[str]]:
+    """Load and validate the test-suite classification manifest."""
+    try:
+        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot read suite manifest: {exc}") from exc
 
-    files = _order(sorted(TESTS_DIR.glob("test_*.py")))
+    required_suites = {"architecture", "regression", "physics"}
+    if set(manifest) != required_suites:
+        raise ValueError(
+            "The suite manifest must define architecture, regression, and physics."
+        )
+    if not all(isinstance(files, list) and all(isinstance(name, str) for name in files)
+               for files in manifest.values()):
+        raise ValueError("Each suite manifest entry must be a list of relative file paths.")
+
+    listed = [name for files in manifest.values() for name in files]
+    discovered = {
+        path.relative_to(ROOT).as_posix()
+        for path in TESTS_DIR.rglob("test_*.py")
+    }
+    if len(listed) != len(set(listed)):
+        raise ValueError("The suite manifest lists one or more test files more than once.")
+    if set(listed) != discovered:
+        missing = sorted(discovered - set(listed))
+        extra = sorted(set(listed) - discovered)
+        raise ValueError(f"The suite manifest does not match test files. Missing: {missing}. Extra: {extra}.")
+    return manifest
+
+
+def select_test_files(suite: str) -> list[Path]:
+    """Return the test files that belong to the requested suite."""
+    manifest = _load_manifest()
+    if suite == "fast":
+        names = [name for files in manifest.values() for name in files]
+    elif suite in manifest:
+        names = manifest[suite]
+    else:
+        raise ValueError(f"Unknown test suite: {suite}")
+    return _order([ROOT / name for name in names])
+
+
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run isolated zBEMT pytest suites.")
+    parser.add_argument("--suite", choices=("architecture", "regression", "physics", "fast"),
+                        default="fast", help="Select the test suite. Default: fast.")
+    parser.add_argument("-k", dest="pattern", metavar="PATTERN",
+                        help="Run files whose names contain PATTERN.")
+    parser.add_argument("--list", action="store_true", help="List selected test files.")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    try:
+        files = select_test_files(args.suite)
+    except ValueError as exc:
+        print(f"Test-suite configuration error: {exc}")
+        return 1
+    pattern = args.pattern
     if pattern:
         files = [f for f in files if pattern in f.name]
 
@@ -164,7 +221,7 @@ def main() -> int:
         print(f"No test files found in {TESTS_DIR}")
         return 1
 
-    if "--list" in args:
+    if args.list:
         for file in files:
             print(file.relative_to(ROOT))
         return 0

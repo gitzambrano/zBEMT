@@ -618,7 +618,7 @@ def equalize_button_widths(buttons, extra_labels=()) -> int:
     size on the switch.
 
     Each button gets marked with ``_group_width``: the sweep in
-    `tests/test_gui_layout.py` forbids a button much wider than its
+    `tests/regression/test_gui_layout.py` forbids a button much wider than its
     own text -- a sign of a missing `addStretch` -- and a short button
     in a group is exactly that, on purpose."""
     buttons = [b for b in buttons if b is not None]

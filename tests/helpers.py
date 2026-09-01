@@ -15,7 +15,7 @@ from zbemt.models import Project, AirfoilDef
 
 
 def make_studies_project(**cfg_overrides) -> Project:
-    """Project used by `tests/test_studies.py` (8x12 mesh, `config` as a raw dict)."""
+    """Project used by `tests/regression/test_studies.py` (8x12 mesh, `config` as a raw dict)."""
     geom = geometry.generate_tapered(root_chord_norm=0.10, tip_chord_norm=0.04,
                                       twist_root_deg=14.0, twist_tip_deg=2.0,
                                       root_cutout_norm=0.15, radius_m=1.0, n_stations=12)
@@ -27,7 +27,7 @@ def make_studies_project(**cfg_overrides) -> Project:
 
 
 def make_api_fast_project(path: str) -> Project:
-    """Project used by `tests/test_api.py` (8x10 mesh, `config` via `asdict(BEMTConfig(...))`,
+    """Project used by `tests/regression/test_api.py` (8x10 mesh, `config` via `asdict(BEMTConfig(...))`,
     requires `path` because the API tests persist the project to disk)."""
     geom = geometry.generate_tapered(root_chord_norm=0.10, tip_chord_norm=0.04,
                                       radius_m=1.0, n_stations=10)

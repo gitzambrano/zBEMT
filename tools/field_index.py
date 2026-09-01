@@ -13,7 +13,7 @@ list, which would drift out of sync the first time a field moved.
     python tools/field_index.py            # shows what would change
     python tools/field_index.py --write    # injects into the documentation
 
-`tests/test_documentation.py` checks that the published index still
+`tests/architecture/test_documentation.py` checks that the published index still
 matches the on-screen order.
 """
 from __future__ import annotations

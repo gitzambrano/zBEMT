@@ -11,7 +11,7 @@ because no test knew what those coefficients were supposed to be.
 
 This script solves every saved case of every project under `projects/` with
 the project's own configuration and writes the results to
-`tests/data/golden_results.json`. `tests/test_golden_results.py` compares the
+`tests/data/golden_results.json`. `tests/regression/test_golden_results.py` compares the
 live run against that file.
 
 The point is NOT that the recorded numbers are right in an absolute sense --

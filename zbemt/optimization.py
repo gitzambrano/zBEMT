@@ -427,7 +427,7 @@ def nsga2(evaluate, lower, upper, *, objective_keys: list[str],
     # NO cancel check here, deliberately, and that is the behaviour this
     # replaced: the initial stratified sweep runs to completion so that
     # even an immediate stop reports its designs instead of an empty
-    # front (`tests/test_optimization.py::TestCancellation`). The
+    # front (`tests/regression/test_optimization.py::TestCancellation`). The
     # offspring loop below checks per design, where a cancel can save
     # real time.
     xs, F, viol = evaluator.batch(xs)

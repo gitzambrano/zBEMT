@@ -10,7 +10,7 @@ command instead of manually editing four folders.
 
 The numbers are not invented: each rotor reproduces the solidity, tip speed,
 and blade loading (CT/sigma) of a real aircraft in its category, with the
-source cited in each function's header. `tests/test_example_projects.py`
+source cited in each function's header. `tests/regression/test_example_projects.py`
 confirms they continue to fall within the expected physical range.
 """
 from __future__ import annotations

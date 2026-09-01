@@ -1,0 +1,1111 @@
+"""
+test_cli_parity.py
+===================
+
+Behavior tests (not just --help) for the main_batch.py flags introduced
+in Part 3 (docs/plano_v3.md) -- confirm that each flag actually sets the
+corresponding field on Project/BEMTConfig, and that the result matches
+what setting the field via api.py directly produces
+(CLI<->GUI<->.bemt parity, principle 9).
+"""
+
+import os
+import sys
+
+import io
+import json
+import tempfile
+import unittest
+import contextlib
+import shutil
+from pathlib import Path
+from unittest import mock
+
+from zbemt import api
+from zbemt import cli as main_batch
+from zbemt.models import (BatchDefinition, ConstraintDef, DesignVariable,
+                          FlightCondition, ObjectiveDef,
+                          OptimizationDefinition)
+from tests.helpers import make_api_fast_project
+
+
+class TestGeometryFlags(unittest.TestCase):
+    def test_geom_preset_tapered(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path, "--rpm", "600",
+                                  "--geom-preset", "tapered", "--geom-radius", "0.9",
+                                  "--geom-chord", "0.1", "--geom-taper-ratio", "0.5",
+                                  "--save-as", path])
+            project = api.open_project(path)
+            self.assertAlmostEqual(project.geometry.radius_m, 0.9)
+            self.assertAlmostEqual(project.geometry.chord_norm[0], 0.1)
+            self.assertAlmostEqual(project.geometry.chord_norm[-1], 0.05, places=6)
+
+    def test_geom_preset_custom_points(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path, "--rpm", "600",
+                                  "--geom-preset", "custom",
+                                  "--geom-custom-points", "0.15:0.09:12,1.0:0.03:2",
+                                  "--save-as", path])
+            project = api.open_project(path)
+            self.assertEqual(project.geometry.r_norm, [0.15, 1.0])
+            self.assertEqual(project.geometry.chord_norm, [0.09, 0.03])
+
+
+class TestConfigFlags(unittest.TestCase):
+    def test_inflow_solver_prandtl_flags(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path, "--rpm", "600",
+                                  "--inflow", "pitt_peters_steady",
+                                  "--prandtl-loss-mode", "tip",
+                                  "--solver", "newton",
+                                  "--rotational-augmentation",
+                                  "--dynamic-stall",
+                                  "--save-as", path])
+            project = api.open_project(path)
+            self.assertEqual(project.config["inflow_field_model"], "pitt_peters_steady")
+            self.assertEqual(project.config["prandtl_loss_mode"], "tip")
+            self.assertEqual(project.config["solver"], "newton")
+            self.assertTrue(project.config["use_rotational_augmentation"])
+            self.assertTrue(project.airfoil.use_dynamic_stall)
+
+    def test_no_flags_variant(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path, "--rpm", "600",
+                                  "--no-rotational-augmentation", "--no-dynamic-stall",
+                                  "--save-as", path])
+            project = api.open_project(path)
+            self.assertFalse(project.config["use_rotational_augmentation"])
+            self.assertFalse(project.airfoil.use_dynamic_stall)
+
+
+class TestNestedSetWalksDataclasses(unittest.TestCase):
+    """PA-1/PA-3: --set must reach fields of NESTED dataclasses (the
+    blade-dynamics block of SC-11), not only top-level ones."""
+
+    def test_set_descends_into_geometry_dynamics(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path, "--rpm", "600",
+                                  "--set", "geom.dynamics.flap_model=offset",
+                                  "--set", "geom.dynamics.hinge_offset_norm=0.07",
+                                  "--save-as", path])
+            project = api.open_project(path)
+            self.assertEqual(project.geometry.dynamics.flap_model, "offset")
+            self.assertAlmostEqual(
+                project.geometry.dynamics.hinge_offset_norm, 0.07)
+
+    def test_set_rejects_an_unknown_nested_field_by_name(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()), \
+                 contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    main_batch.main(["--new", path, "--rpm", "600",
+                                      "--set", "geom.dynamics.not_a_field=1"])
+
+    def test_flap_flags_and_cyclic_flag(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path, "--rpm", "600",
+                                  "--flap-model", "spring",
+                                  "--hinge-offset", "0.0",
+                                  "--lock-number", "9.5",
+                                  "--save-as", path])
+            project = api.open_project(path)
+            dynamics = project.geometry.dynamics
+            self.assertEqual(dynamics.flap_model, "spring")
+            self.assertEqual(dynamics.lock_number, 9.5)
+
+
+class TestStallModelFlagsAreDistinct(unittest.TestCase):
+    """AirfoilDef.stall_model (STATIC polar shape past stall) and
+    BEMTConfig.dynamic_stall_model (DYNAMIC stall model) are distinct
+    fields on distinct objects. Only the first has a CLI flag: since
+    dynamic_stall_model has only one possible option ("oye"), what
+    switches dynamic stall on/off is the boolean
+    --dynamic-stall/--no-dynamic-stall -- `--stall-model`/
+    `--dynamic-stall-model` were removed (no alias)."""
+
+    def _run(self, extra_args):
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, "proj")
+        with contextlib.redirect_stdout(io.StringIO()):
+            main_batch.main(["--new", path, "--rpm", "600"] + extra_args + ["--save-as", path])
+        return api.open_project(path)
+
+    def test_airfoil_stall_model_flag_reaches_airfoil_def(self):
+        project = self._run(["--airfoil-stall-model", "clip"])
+        self.assertEqual(project.airfoil.stall_model, "clip")
+
+    def test_dynamic_stall_model_flag_no_longer_exists(self):
+        with self.assertRaises(SystemExit):
+            with contextlib.redirect_stderr(io.StringIO()):
+                self._run(["--dynamic-stall-model", "oye"])
+
+    def test_legacy_stall_model_alias_no_longer_exists(self):
+        with self.assertRaises(SystemExit):
+            with contextlib.redirect_stderr(io.StringIO()):
+                self._run(["--stall-model", "oye"])
+
+
+class TestGeometrySourceConflict(unittest.TestCase):
+    def test_geom_preset_with_geom_file_is_rejected(self):
+        """`--geom-file` used to sit in an `elif` after the presets, so
+        `--geom-preset X --geom-file Y` silently discarded the file."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            with self.assertRaises(SystemExit) as ctx:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    main_batch.main(["--new", path, "--rpm", "600",
+                                      "--geom-preset", "rectangular",
+                                      "--geom-file", os.path.join(d, "g.bemt"),
+                                      "--save-as", path])
+            self.assertIn("mutually exclusive", str(ctx.exception))
+
+
+class TestCliValidatesBeforeRunning(unittest.TestCase):
+    """main_batch.py never called api.validate_project, so configurations
+    that the engine rejects only failed deep inside, with a raw traceback."""
+
+    def _new_project(self, d):
+        """Creates the project WITHOUT running anything (`--new` alone
+        already runs a case and exports results.csv, which would spoil
+        the 'did not run' check)."""
+        path = os.path.join(d, "proj")
+        with contextlib.redirect_stdout(io.StringIO()):
+            main_batch.main(["--new", path, "--rpm", "600", "--save-as", path,
+                              "--validate-only"])
+        return path
+
+    def test_unsteady_inflow_aborts_with_validation_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._new_project(d)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", path, "--rpm", "600",
+                                         "--inflow", "pitt_peters_unsteady"])
+            self.assertEqual(code, 2)
+            self.assertIn("validation error", err.getvalue())
+
+    def test_validate_only_does_not_run_the_engine(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._new_project(d)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = main_batch.main(["--project", path, "--rpm", "600", "--validate-only"])
+            self.assertEqual(code, 0)
+            self.assertIn("nothing was run", out.getvalue())
+            # no result was written (the outputs/ folder itself is
+            # already created by --new, so what matters is results.csv)
+            self.assertFalse(os.path.exists(os.path.join(path, "outputs", "results.csv")))
+
+    def test_missing_rpm_is_a_validation_error(self):
+        """RPM became mandatory: without it, validation blocks before
+        running instead of silently inventing 1000 RPM."""
+        with tempfile.TemporaryDirectory() as d:
+            path = self._new_project(d)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", path])
+            self.assertEqual(code, 2)
+            self.assertIn("validation error", err.getvalue())
+
+
+class TestTrimFlags(unittest.TestCase):
+    """--trim-mode/--trim-target-thrust/--trim-target-ct (Step 8): the
+    same `api.run_case_trimmed` as the GUI's trimmed "Run mode" (RunCaseTab)."""
+
+    def _project(self, d):
+        path = os.path.join(d, "proj")
+        with contextlib.redirect_stdout(io.StringIO()):
+            main_batch.main([
+                "--new", path, "--rpm", "600", "--mu-inplane", "0.0",
+                "--geom-preset", "tapered", "--geom-radius", "1.0",
+                "--geom-root-cutout", "0.15", "--geom-chord", "0.10",
+                "--geom-taper-ratio", "0.4", "--geom-twist-root", "14", "--geom-twist-tip", "2",
+                "--airfoil-source", "analytical", "--airfoil-stall-model", "clip",
+                "--set", "config.Ne=8", "--set", "config.Npsi=12",
+                "--set", "config.reverse_flow_model=simple_flip",
+                "--save-as", path, "--validate-only",
+            ])
+        return path
+
+    def test_solve_collective_hits_target_thrust(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._project(d)
+            project = api.open_project(path)
+            baseline = api.run_case(project, FlightCondition(name="c", mu_x=0.0, collective_deg=8.0, rpm=600.0))
+            target = baseline.summary["Thrust"]
+
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = main_batch.main(["--project", path, "--rpm", "600", "--mu-inplane", "0.0",
+                                         "--collective", "2.0",
+                                         "--trim-mode", "solve_collective",
+                                         "--trim-target-thrust", str(float(target)),
+                                         "--no-csv"])
+            self.assertEqual(code, 0)
+
+    def test_trim_without_target_is_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._project(d)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", path, "--rpm", "600", "--trim-mode", "solve_rpm"])
+            self.assertEqual(code, 2)
+            self.assertIn("--trim-target-thrust", err.getvalue())
+
+    def test_unbracketed_trim_target_is_an_error_not_a_crash(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._project(d)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", path, "--rpm", "600",
+                                         "--trim-mode", "solve_collective",
+                                         "--trim-target-thrust", "1e9"])
+            self.assertEqual(code, 2)
+            self.assertIn("not bracketed", err.getvalue())
+
+    def test_trim_applies_independently_to_multiple_conditions(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._project(d)
+            project = api.open_project(path)
+            project.batches = [BatchDefinition(name="b", conditions=[
+                FlightCondition(name="a", rpm=600.0), FlightCondition(name="b", rpm=700.0)])]
+            api.save_project(project)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                code = main_batch.main(["--project", path, "--from-bemt-batch", "b",
+                                         "--trim-mode", "solve_rpm",
+                                         "--trim-target-thrust", "100.0"])
+            self.assertEqual(code, 0)
+
+
+class TestBatchesAndCasesCLI(unittest.TestCase):
+    def _project_with_batches(self, path):
+        project = api.new_project(path)
+        project.batches = [BatchDefinition(
+            name="hover_sweep",
+            conditions=[FlightCondition(name="c1", mu_x=0.0, rpm=600.0),
+                        FlightCondition(name="c2", mu_x=0.1, rpm=600.0)])]
+        project.saved_cases = [FlightCondition(name="takeoff_hover", mu_x=0.0,
+                                                collective_deg=10.0, rpm=600.0)]
+        api.save_project(project)
+
+    def test_list_batches_and_cases(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._project_with_batches(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                main_batch.main(["--project", path, "--list-batches"])
+            self.assertIn("hover_sweep", buf.getvalue())
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                main_batch.main(["--project", path, "--list-cases"])
+            self.assertIn("takeoff_hover", buf.getvalue())
+
+    def test_run_from_bemt_batch(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._project_with_batches(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                main_batch.main(["--project", path, "--from-bemt-batch", "hover_sweep", "--no-csv"])
+            out = buf.getvalue()
+            self.assertIn("[c1]", out)
+            self.assertIn("[c2]", out)
+
+    def test_run_from_bemt_case(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._project_with_batches(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                main_batch.main(["--project", path, "--from-bemt-case", "takeoff_hover", "--no-csv"])
+            self.assertIn("[takeoff_hover]", buf.getvalue())
+
+    def test_unknown_batch_name_raises(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._project_with_batches(path)
+            with self.assertRaises(KeyError):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    main_batch.main(["--project", path, "--from-bemt-batch", "nao_existe", "--no-csv"])
+
+
+class TestGenNeuralfoilFlag(unittest.TestCase):
+    """Phase 7 (Part 7.4): --gen-neuralfoil runs headless, without
+    touching the BEMT, and fails with a clear message (not a raw
+    traceback) if the 'neuralfoil' package is not installed."""
+
+    def _new_project(self, path):
+        with contextlib.redirect_stdout(io.StringIO()):
+            main_batch.main(["--new", path, "--rpm", "600", "--save-as", path])
+
+    def test_missing_required_flags_returns_error_code(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._new_project(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                code = main_batch.main(["--project", path, "--gen-neuralfoil"])
+            self.assertNotEqual(code, 0)
+            self.assertIn("--airfoil-geometry", buf.getvalue())
+
+    def test_gen_neuralfoil_export_table_headless(self):
+        from zbemt import external_solvers
+        if not external_solvers.is_available("neuralfoil"):
+            self.skipTest("'neuralfoil' package not installed in this environment")
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._new_project(path)
+            out_csv = os.path.join(d, "naca2412_neuralfoil.csv")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main_batch.main([
+                    "--project", path, "--gen-neuralfoil",
+                    "--airfoil-geometry", "naca2412",
+                    "--reynolds", "1e5,1e6", "--mach", "0.1",
+                    "--alpha-range", "-6:6:2.0",
+                    "--export-table", out_csv,
+                ])
+            self.assertEqual(code, 0)
+            self.assertTrue(os.path.exists(out_csv))
+            self.assertIn(out_csv, buf.getvalue())
+
+    def test_gen_neuralfoil_without_package_fails_with_clear_message_not_traceback(self):
+        from zbemt import external_solvers
+        if external_solvers.is_available("neuralfoil"):
+            self.skipTest("'neuralfoil' package is installed -- nothing to test here")
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._new_project(path)
+            out_csv = os.path.join(d, "out.csv")
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                code = main_batch.main([
+                    "--project", path, "--gen-neuralfoil",
+                    "--airfoil-geometry", "naca0012",
+                    "--reynolds", "1e6", "--mach", "0.1",
+                    "--export-table", out_csv,
+                ])
+            self.assertEqual(code, 1)
+            self.assertIn("neuralfoil", buf.getvalue())
+            self.assertFalse(os.path.exists(out_csv))
+
+
+class TestSetGenericFlag(unittest.TestCase):
+    """--set (S3, docs/production-plan.md): generic setter for any
+    BEMTConfig/AirfoilDef/RotorGeometryDef field, without needing a
+    dedicated flag. Covers: valid field reaches Project, invalid field
+    errors, type conversion (int/float/bool), precedence over a
+    dedicated flag, and parity via RunOptions."""
+
+    def _run(self, extra_args, expect_systemexit=False):
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, "proj")
+        if expect_systemexit:
+            with self.assertRaises(SystemExit) as ctx:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    main_batch.main(["--new", path, "--rpm", "600"] + extra_args + ["--save-as", path])
+            return ctx.exception
+        with contextlib.redirect_stdout(io.StringIO()):
+            main_batch.main(["--new", path, "--rpm", "600"] + extra_args + ["--save-as", path])
+        return api.open_project(path)
+
+    def test_set_config_int_field_reaches_project(self):
+        project = self._run(["--set", "config.Ne=12", "--set", "config.Npsi=16"])
+        self.assertEqual(project.config["Ne"], 12)
+        self.assertEqual(project.config["Npsi"], 16)
+        self.assertIsInstance(project.config["Ne"], int)
+
+    def test_set_config_float_field_reaches_project(self):
+        project = self._run(["--set", "config.rho=1.1"])
+        self.assertAlmostEqual(project.config["rho"], 1.1)
+        self.assertIsInstance(project.config["rho"], float)
+
+    def test_set_config_bool_field_variants(self):
+        for raw, expected in [("true", True), ("false", False), ("1", True),
+                               ("0", False), ("yes", True), ("no", False)]:
+            with self.subTest(raw=raw):
+                project = self._run(["--set", f"config.is_propeller={raw}"])
+                self.assertEqual(project.config["is_propeller"], expected)
+
+    def test_set_airfoil_float_field_reaches_project(self):
+        project = self._run(["--set", "airfoil.cd0=0.012"])
+        self.assertAlmostEqual(project.airfoil.cd0, 0.012)
+
+    def test_set_geom_int_field_reaches_project(self):
+        project = self._run(["--set", "geom.n_blades=5"])
+        self.assertEqual(project.geometry.n_blades, 5)
+
+    def test_set_unknown_field_raises_with_helpful_message(self):
+        exc = self._run(["--set", "config.CampoQueNaoExiste=1"], expect_systemexit=True)
+        msg = str(exc)
+        self.assertIn("CampoQueNaoExiste", msg)
+        self.assertIn("Ne", msg)   # the list of valid fields appears in the message
+
+    def test_set_unknown_namespace_raises(self):
+        exc = self._run(["--set", "bogus.field=1"], expect_systemexit=True)
+        self.assertIn("namespace", str(exc))
+
+    def test_set_bad_type_conversion_raises(self):
+        exc = self._run(["--set", "config.Ne=not_an_int"], expect_systemexit=True)
+        self.assertIn("Ne", str(exc))
+
+    def test_set_missing_dot_raises(self):
+        exc = self._run(["--set", "Ne=12"], expect_systemexit=True)
+        self.assertIn("namespace", str(exc))
+
+    def test_set_takes_precedence_over_dedicated_flag(self):
+        project = self._run(["--inflow", "coleman_local", "--set",
+                              "config.inflow_field_model=drees_global"])
+        self.assertEqual(project.config["inflow_field_model"], "drees_global")
+
+    def test_set_takes_precedence_over_dedicated_bool_flag(self):
+        project = self._run(["--no-rotational-augmentation", "--set",
+                              "config.use_rotational_augmentation=true"])
+        self.assertTrue(project.config["use_rotational_augmentation"])
+
+    def test_set_via_runoptions_matches_argv(self):
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            path_argv = os.path.join(d1, "proj")
+            path_opts = os.path.join(d2, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path_argv, "--rpm", "300",
+                                  "--set", "config.Ne=20", "--set", "airfoil.cd0=0.02",
+                                  "--save-as", path_argv])
+            opts = main_batch.RunOptions(new=path_opts, rpm=300.0,
+                                          set=["config.Ne=20", "airfoil.cd0=0.02"],
+                                          save_as=path_opts)
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(options=opts)
+
+            project_argv = api.open_project(path_argv)
+            project_opts = api.open_project(path_opts)
+            self.assertEqual(project_argv.config["Ne"], project_opts.config["Ne"])
+            self.assertEqual(project_argv.airfoil.cd0, project_opts.airfoil.cd0)
+            self.assertEqual(project_argv.config["Ne"], 20)
+
+
+class TestRunOptionsParity(unittest.TestCase):
+    """`RunOptions` (Python) and the command line must be the two ways of
+    setting any flag on this script, with no possible divergence between
+    them (RunOptions is derived from the parser itself -- see
+    cli._build_run_options_dataclass)."""
+
+    def test_every_runoptions_field_has_a_matching_flag_dest(self):
+        import dataclasses
+        parser = main_batch._build_parser()
+        parser_dests = {a.dest for a in parser._actions if a.dest != "help"}
+        runoptions_fields = {f.name for f in dataclasses.fields(main_batch.RunOptions)}
+        self.assertEqual(runoptions_fields, parser_dests)
+
+    def test_runoptions_defaults_match_parser_defaults(self):
+        import dataclasses
+        parser = main_batch._build_parser()
+        defaults_by_dest = {}
+        for a in parser._actions:
+            if a.dest in defaults_by_dest:
+                continue
+            defaults_by_dest[a.dest] = a.default
+        opts = main_batch.RunOptions()
+        for f in dataclasses.fields(main_batch.RunOptions):
+            self.assertEqual(getattr(opts, f.name), defaults_by_dest[f.name], f.name)
+
+    def test_argv_and_runoptions_produce_the_same_project(self):
+        with tempfile.TemporaryDirectory() as d1, tempfile.TemporaryDirectory() as d2:
+            path_argv = os.path.join(d1, "proj")
+            path_opts = os.path.join(d2, "proj")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(["--new", path_argv, "--rpm", "300", "--mu-inplane", "0.2",
+                                  "--collective", "9.0", "--save-as", path_argv])
+            opts = main_batch.RunOptions(new=path_opts, rpm=300.0, mu_inplane=0.2,
+                                          collective=9.0, save_as=path_opts)
+            with contextlib.redirect_stdout(io.StringIO()):
+                main_batch.main(options=opts)
+
+            project_argv = api.open_project(path_argv)
+            project_opts = api.open_project(path_opts)
+            self.assertEqual(project_argv.config, project_opts.config)
+            self.assertEqual(project_argv.geometry.radius_m, project_opts.geometry.radius_m)
+
+    def test_runoptions_from_argv_matches_argparse_namespace(self):
+        argv = ["--new", "projects/X", "--rpm", "300", "--mu-inplane", "0.2"]
+        opts = main_batch.RunOptions.from_argv(argv)
+        ns = main_batch._parse_args(argv)
+        for f in ns.__dict__:
+            if f == "help":
+                continue
+            self.assertEqual(getattr(opts, f), getattr(ns, f), f)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class TestReportFlag(unittest.TestCase):
+    """`--report`: the same report as the GUI button, reachable from an
+    unsupervised batch."""
+
+    def _rodar(self, extra):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        path = os.path.join(d, "proj")
+        outdir = os.path.join(d, "out")
+        with contextlib.redirect_stdout(io.StringIO()):
+            main_batch.main([
+                "--new", path, "--mu-inplane", "0.0", "--rpm", "600",
+                "--collective", "8", "--set", "config.Ne=6", "--set", "config.Npsi=8",
+                "--outdir", outdir, *extra])
+        return outdir
+
+    def test_report_without_value_writes_to_the_outdir(self):
+        outdir = self._rodar(["--report"])
+        self.assertTrue(os.path.exists(os.path.join(outdir, "report.html")))
+
+    def test_report_with_value_respects_the_path(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        target = os.path.join(d, "sub", "my_report.html")
+        self._rodar(["--report", target])
+        self.assertTrue(os.path.exists(target))
+
+    def test_without_the_flag_no_report_is_generated(self):
+        outdir = self._rodar([])
+        self.assertFalse(os.path.exists(os.path.join(outdir, "report.html")))
+
+    def test_plots_vazio_nao_esvazia_o_relatorio(self):
+        """`--plots` controls loose PNG files on disk; `--report` controls
+        what gets embedded in the HTML. Saving files must not cost plots
+        in the report."""
+        outdir = self._rodar(["--plots", "--report"])
+        html = Path(os.path.join(outdir, "report.html")).read_text(encoding="utf-8")
+        self.assertIn("data:image/png;base64,", html)
+        self.assertFalse(os.path.exists(os.path.join(outdir, "plots")))
+
+
+class TestListBatches(unittest.TestCase):
+    """`--list-batches` used to count `len(conditions)`, which is 0 for
+    every SWEEP batch (those hold `sweep_params`, not a list): all of
+    them showed up as '0 condition(s)', which reads as an empty batch."""
+
+    def _list(self, project: str) -> str:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            main_batch.main(["--project", f"projects/{project}", "--list-batches"])
+        return buf.getvalue()
+
+    def test_sweep_shows_how_many_cases_it_will_generate(self):
+        output = self._list("test1")
+        self.assertIn("8 sweep case(s)", output)   # 8 values of mu_x
+        self.assertIn("5 sweep case(s)", output)   # 5 collectives
+        self.assertNotIn("0 condition", output)
+
+    def test_factorial_counts_the_product_of_the_axes_not_the_number_of_axes(self):
+        output = self._list("test3")
+        self.assertIn("9 sweep case(s)", output)   # 3 rotations x 3 collectives
+        self.assertNotIn("2 case(s)", output)
+
+    def test_explicit_list_still_counts_conditions(self):
+        output = self._list("test11")
+        self.assertIn("8 explicit condition(s)", output)
+
+
+class TestPrintedSummaryFollowsTheProjectMode(unittest.TestCase):
+    """The CLI printed CT/CQ/CP/FM for any project, including propeller.
+
+    FM is the figure of merit for HOVER and an airplane propeller never hovers: the
+    number came out low and seemed like a bad project, when the metric is that it doesn't
+    apply. On the propeller side, `eta_prop` fills this role. Both
+    families always exist in `summary`; what changes is which one is printed."""
+
+    def _run(self, project: str) -> str:
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, ignore_errors=True)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            main_batch.main(["--project", f"projects/{project}",
+                             "--from-bemt-case", self._first_case(project),
+                             "--outdir", d, "--no-csv"])
+        return buf.getvalue()
+
+    @staticmethod
+    def _first_case(project: str) -> str:
+        return api.open_project(f"projects/{project}").saved_cases[0].name
+
+    def test_propeller_prints_the_propeller_family(self):
+        output = self._run("test11")
+        self.assertIn("eta_prop=", output)
+        self.assertIn("CT_prop=", output)
+        self.assertNotIn("FM=", output)
+
+    def test_rotor_keeps_printing_the_rotor_family(self):
+        output = self._run("test1")
+        self.assertIn("FM=", output)
+        self.assertIn("CT=", output)
+        self.assertNotIn("eta_prop=", output)
+
+
+class TestDesignToolsFlags(unittest.TestCase):
+    """--compare / --optimize / --gen-xfoil: the Design tools group.
+    Each mode runs headless through the same api.py calls as the GUI and
+    exits right after writing its artifacts."""
+
+    def _fast_project(self, path, name):
+        """Tiny persisted project: small mesh so every solve costs
+        milliseconds, meta name set explicitly (the name is what labels
+        the variant after save/reopen), and one saved case WITH rpm
+        (RPM is mandatory for every solve)."""
+        project = make_api_fast_project(str(path))
+        project.name = name
+        project.config["Ne"] = 6
+        project.config["Npsi"] = 8
+        project.saved_cases = [FlightCondition(name="hover", mu_x=0.0,
+                                                collective_deg=8.0, rpm=600.0)]
+        api.save_project(project)
+        return project
+
+    def _with_optimization(self, path):
+        """Persists the fast project plus one small optimization study."""
+        project = self._fast_project(path, "proj")
+        project.optimizations = [OptimizationDefinition(
+            name="fm_study",
+            objective_kind="maximize",
+            objective_key="FM",
+            variables=[DesignVariable(param="tip_chord_norm",
+                                       lower=0.02, upper=0.08)],
+            method="powell",
+            max_evals=6,
+            condition=FlightCondition(name="opt_hover", mu_x=0.0,
+                                       collective_deg=8.0, rpm=600.0),
+        )]
+        api.save_project(project)
+        return project
+
+    def _with_pareto_optimization(self, path):
+        """Persists the fast project plus one small TWO-objective study
+        (SC-13) with a tiny population/generation count."""
+        project = self._fast_project(path, "proj")
+        project.optimizations = [OptimizationDefinition(
+            name="pareto_study",
+            objectives=[ObjectiveDef(key="FM", kind="maximize"),
+                         ObjectiveDef(key="CT", kind="maximize")],
+            constraints=[ConstraintDef(key="CT", operator=">=", value=0.0)],
+            variables=[DesignVariable(param="tip_chord_norm",
+                                       lower=0.02, upper=0.08)],
+            algorithm="nsga2", population=8, generations=2, seed=1,
+            condition=FlightCondition(name="opt_hover", mu_x=0.0,
+                                       collective_deg=8.0, rpm=600.0),
+        )]
+        api.save_project(project)
+        return project
+
+    def test_optimize_runs_a_two_objective_study_on_the_pareto_path(self):
+        """SC-13 through the SAME --optimize entry point: a study with
+        two objectives goes to the Pareto search without any extra flag,
+        and the front lands as report + front CSV + evaluations CSV."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_pareto_optimization(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", path, "--optimize"])
+            self.assertEqual(code, 0)
+            out = buf.getvalue()
+            outputs = os.path.join(path, "outputs")
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "pareto_study_pareto.html")))
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "pareto_study_pareto_front.csv")))
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "pareto_study_pareto_evaluations.csv")))
+            self.assertIn("Objectives: FM, CT", out)
+            self.assertIn("Front members: ", out)
+
+    def test_algorithm_flag_forces_the_pareto_path(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            project = self._with_optimization(path)
+            # The stored study is single-objective legacy (method powell);
+            # the flag alone switches it to NSGA-II for this run.
+            captured = {}
+            original = api.optimize_design_multi
+
+            def spy(proj, definition, **kwargs):
+                captured["algorithm"] = definition.algorithm
+                return original(proj, definition, **kwargs)
+
+            with mock.patch.object(api, "optimize_design_multi", side_effect=spy):
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = main_batch.main(
+                        ["--project", path, "--optimize", "fm_study",
+                          "--algorithm", "nsga2",
+                          "--population", "8", "--generations", "2",
+                          "--seed", "5"])
+            self.assertEqual(code, 0)
+            self.assertEqual(captured.get("algorithm"), "nsga2")
+            self.assertEqual(project.optimizations[0].name, "fm_study")
+
+    def test_search_overrides_do_not_touch_the_stored_study(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            project = self._with_pareto_optimization(path)
+            before = (project.optimizations[0].population,
+                       project.optimizations[0].generations,
+                       project.optimizations[0].seed)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = main_batch.main(
+                    ["--project", path, "--optimize", "pareto_study",
+                      "--population", "8", "--generations", "2",
+                      "--seed", "9"])
+            self.assertEqual(code, 0)
+            after = (project.optimizations[0].population,
+                      project.optimizations[0].generations,
+                      project.optimizations[0].seed)
+            self.assertEqual(before, after)
+
+    def test_pareto_csv_destination_is_honored(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            custom = os.path.join(d, "custom_front.csv")
+            self._with_pareto_optimization(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()):
+                code = main_batch.main(
+                    ["--project", path, "--optimize", "pareto_study",
+                      "--pareto-csv", custom])
+            self.assertEqual(code, 0)
+            self.assertTrue(os.path.exists(custom))
+
+    def test_workers_flag_runs_and_says_nothing(self):
+        """`--workers` used to print "this build evaluates serially",
+        because the pool did not exist. It exists now, so the correct
+        behaviour is a clean run with NO note: a flag that works has
+        nothing to apologise for, and a leftover apology is how a user
+        learns to distrust a flag."""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_pareto_optimization(path)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main(
+                    ["--project", path, "--optimize", "pareto_study",
+                      "--workers", "2"])
+            self.assertEqual(code, 0)
+            self.assertNotIn("serially", err.getvalue())
+            self.assertNotIn("no effect", err.getvalue())
+
+    def test_workers_does_not_change_the_front(self):
+        """The property that makes the flag safe to use: a search is
+        reproducible from its seed, and spreading its designs over
+        processes must not move a single number.
+        `tests/regression/test_optimizer_parallel.py` pins the mechanism; this pins
+        it through the real CLI path, front CSV against front CSV."""
+        fronts = []
+        for workers in ("1", "2"):
+            with tempfile.TemporaryDirectory() as d:
+                path = os.path.join(d, "proj")
+                self._with_pareto_optimization(path)
+                csv_path = os.path.join(d, "front.csv")
+                with contextlib.redirect_stdout(io.StringIO()), \
+                        contextlib.redirect_stderr(io.StringIO()):
+                    code = main_batch.main(
+                        ["--project", path, "--optimize", "pareto_study",
+                          "--workers", workers, "--pareto-csv", csv_path])
+                self.assertEqual(code, 0)
+                with open(csv_path, encoding="utf-8") as handle:
+                    fronts.append(handle.read())
+        self.assertEqual(fronts[0], fronts[1],
+                          "the front moved when the work was spread over "
+                          "processes, so the search is no longer "
+                          "reproducible from its seed")
+
+    def test_compare_writes_csv_html_and_prints_labels(self):
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            other_path = os.path.join(d, "other_rotor")
+            self._fast_project(base_path, "base_rotor")
+            other = self._fast_project(other_path, "other_rotor")
+            other.geometry.radius_m = 0.8   # visibly different planform
+            api.save_project(other)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", base_path,
+                                         "--compare", other_path])
+            self.assertEqual(code, 0)
+            out = buf.getvalue()
+            # One line per variant at the first condition: the listed
+            # projects keep their project NAME as label, and the geometry
+            # of --project joins them under the fixed label 'base'.
+            self.assertIn("[hover] other_rotor: CT=", out)
+            self.assertIn("FM=", out)
+            self.assertIn("[hover] base: CT=", out)
+            outputs = os.path.join(base_path, "outputs")
+            self.assertTrue(os.path.exists(os.path.join(outputs,
+                                                         "comparison.csv")))
+            self.assertTrue(os.path.exists(os.path.join(outputs,
+                                                         "comparison.html")))
+
+    def test_compare_with_nonexistent_path_fails_mentioning_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            self._fast_project(base_path, "base_rotor")
+            ghost = os.path.join(d, "ghost_proj")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", base_path,
+                                         "--compare", ghost])
+            self.assertEqual(code, 2)
+            self.assertIn(ghost, err.getvalue())
+            self.assertNotIn("Traceback", err.getvalue())
+
+    def _compare_capturing_trim(self, extra_args):
+        """Runs --compare over two fast projects with
+        api.compare_geometries wrapped in a spy that forwards to the real
+        function and records the ``trim`` kwarg the CLI passed."""
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            other_path = os.path.join(d, "other_rotor")
+            self._fast_project(base_path, "base_rotor")
+            self._fast_project(other_path, "other_rotor")
+            captured = {}
+            real = main_batch.api.compare_geometries
+
+            def spy(project, variants, conditions=None, **kwargs):
+                captured["trim"] = kwargs.get("trim")
+                return real(project, variants, conditions, **kwargs)
+
+            buf = io.StringIO()
+            with mock.patch.object(main_batch.api, "compare_geometries",
+                                    side_effect=spy), \
+                    contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", base_path,
+                                         "--compare", other_path]
+                                        + list(extra_args))
+            self.assertEqual(code, 0)
+            return captured["trim"]
+
+    def test_compare_trim_thrust_is_forwarded_to_the_engine(self):
+        trim = self._compare_capturing_trim(["--trim", "thrust"])
+        self.assertEqual(trim, "thrust")
+
+    def test_compare_trim_ct_is_forwarded_to_the_engine(self):
+        trim = self._compare_capturing_trim(["--trim", "CT"])
+        self.assertEqual(trim, "CT")
+
+    def test_compare_without_the_flag_sends_none(self):
+        trim = self._compare_capturing_trim([])
+        self.assertEqual(trim, "none")
+
+    def test_compare_rejects_an_unknown_trim_value(self):
+        with tempfile.TemporaryDirectory() as d:
+            base_path = os.path.join(d, "base_rotor")
+            other_path = os.path.join(d, "other_rotor")
+            self._fast_project(base_path, "base_rotor")
+            self._fast_project(other_path, "other_rotor")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err), \
+                    self.assertRaises(SystemExit) as ctx:
+                main_batch.main(["--project", base_path,
+                                  "--compare", other_path,
+                                  "--trim", "lift"])
+            self.assertEqual(ctx.exception.code, 2)
+            self.assertIn("invalid choice", err.getvalue())
+            self.assertIn("lift", err.getvalue())
+
+    def test_optimize_runs_saved_definition_and_writes_report(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_optimization(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", path, "--optimize"])
+            self.assertEqual(code, 0)
+            out = buf.getvalue()
+            # Without NAME the FIRST study runs, but the report slug still
+            # comes from that STUDY's own name, never from a constant.
+            outputs = os.path.join(path, "outputs")
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "fm_study_optimization.html")))
+            self.assertTrue(os.path.exists(os.path.join(
+                outputs, "fm_study_optimization_history.csv")))
+            self.assertIn("Best parameters: tip_chord_norm=", out)
+            self.assertIn("Best FM (maximize): ", out)
+
+    def test_optimize_with_unknown_name_fails_with_the_lookup_message(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_optimization(path)
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", path,
+                                         "--optimize", "nao_existe"])
+            self.assertEqual(code, 1)
+            self.assertIn("nao_existe", err.getvalue())
+            self.assertIn("not found", err.getvalue())
+            self.assertNotIn("Traceback", err.getvalue())
+
+    def test_max_evals_override_runs_and_writes_report(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._with_optimization(path)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main_batch.main(["--project", path,
+                                         "--optimize", "fm_study",
+                                         "--max-evals", "7"])
+            self.assertEqual(code, 0)
+            self.assertTrue(os.path.exists(os.path.join(
+                path, "outputs", "fm_study_optimization.html")))
+
+    def test_gen_xfoil_missing_required_flags_returns_error_code(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            buf = io.StringIO()
+            with contextlib.redirect_stderr(buf):
+                code = main_batch.main(["--project", path, "--gen-xfoil"])
+            self.assertEqual(code, 2)
+            self.assertIn("--airfoil-geometry", buf.getvalue())
+
+    def test_gen_xfoil_without_binary_fails_with_clear_message(self):
+        """Patched BEFORE invoking main: ALL resolution sources are
+        covered (ZBEMT_XFOIL_BIN emptied, remembered choice pointed at an
+        empty settings home, PATH lookup mocked to None, standard folders
+        mocked away), so the failure happens no matter what is installed
+        here."""
+        from zbemt import external_solvers
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            out_csv = os.path.join(d, "out.csv")
+            err = io.StringIO()
+            with mock.patch.dict(os.environ, {"ZBEMT_XFOIL_BIN": "",
+                                              "ZBEMT_HOME": d}):
+                with mock.patch.object(external_solvers.shutil, "which",
+                                       return_value=None):
+                    with mock.patch.object(external_solvers,
+                                           "_known_xfoil_candidates",
+                                           return_value=[]):
+                        with contextlib.redirect_stderr(err):
+                            code = main_batch.main([
+                                "--project", path, "--gen-xfoil",
+                                "--airfoil-geometry", "naca0012",
+                                "--reynolds", "1e6", "--mach", "0.1",
+                                "--alpha-range", "-6:6:2.0",
+                                "--export-table", out_csv,
+                            ])
+            self.assertEqual(code, 1)
+            self.assertIn("'xfoil' executable", err.getvalue())
+            self.assertNotIn("Traceback", err.getvalue())
+            self.assertFalse(os.path.exists(out_csv))
+
+    def test_gen_xfoil_forwards_given_adjustments_to_run_polar(self):
+        """--ncrit/--xtr-top/--xtr-bot reach external_solvers.run_polar as
+        keyword arguments; an option omitted on the command line falls
+        back to the library default instead of being invented here."""
+        from zbemt import external_solvers
+        from zbemt.models import PolarSlice
+        fake = PolarSlice(alpha_deg=[0.0], cl=[0.5], cd=[0.01],
+                          reynolds=1e6, mach=0.1, label="x")
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            out_csv = os.path.join(d, "out.csv")
+            with mock.patch.object(external_solvers, "run_polar",
+                                   return_value=[fake]) as run_mock:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = main_batch.main([
+                        "--project", path, "--gen-xfoil",
+                        "--airfoil-geometry", "naca0012",
+                        "--reynolds", "1e6", "--mach", "0.1",
+                        "--alpha-range", "-4:4:2.0",
+                        "--export-table", out_csv,
+                        "--ncrit", "12", "--xtr-top", "0.7",
+                    ])
+            self.assertEqual(code, 0)
+            self.assertEqual(run_mock.call_count, 1)
+            kwargs = run_mock.call_args.kwargs
+            self.assertEqual(kwargs["engine"], "xfoil")
+            self.assertEqual(kwargs["ncrit"], 12.0)
+            self.assertEqual(kwargs["xtr_top"], 0.7)
+            # Not given: the library's own default flows through.
+            self.assertEqual(kwargs["xtr_bot"], 1.0)
+            self.assertTrue(os.path.exists(out_csv))
+
+    def test_gen_xfoil_without_adjustment_flags_uses_library_defaults(self):
+        from zbemt import external_solvers
+        from zbemt.models import PolarSlice
+        fake = PolarSlice(alpha_deg=[0.0], cl=[0.5], cd=[0.01],
+                          reynolds=1e6, mach=0.1, label="x")
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            out_csv = os.path.join(d, "out.csv")
+            with mock.patch.object(external_solvers, "run_polar",
+                                   return_value=[fake]) as run_mock:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    code = main_batch.main([
+                        "--project", path, "--gen-xfoil",
+                        "--airfoil-geometry", "naca0012",
+                        "--reynolds", "1e6", "--mach", "0.1",
+                        "--alpha-range", "-4:4:2.0",
+                        "--export-table", out_csv,
+                    ])
+            self.assertEqual(code, 0)
+            kwargs = run_mock.call_args.kwargs
+            self.assertEqual(kwargs["ncrit"], 9.0)
+            self.assertEqual(kwargs["xtr_top"], 1.0)
+            self.assertEqual(kwargs["xtr_bot"], 1.0)
+
+    def test_xfoil_adjustment_flags_are_rejected_with_gen_neuralfoil(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main([
+                    "--project", path, "--gen-neuralfoil",
+                    "--airfoil-geometry", "naca0012",
+                    "--reynolds", "1e6", "--mach", "0.1",
+                    "--export-table", os.path.join(d, "out.csv"),
+                    "--ncrit", "12",
+                ])
+            self.assertEqual(code, 2)
+            self.assertIn("--ncrit/--xtr-top/--xtr-bot apply to --gen-xfoil",
+                          err.getvalue())
+            self.assertFalse(os.path.exists(os.path.join(d, "out.csv")))
+
+    def test_design_tool_modes_are_mutually_exclusive(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "proj")
+            self._fast_project(path, "proj")
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(err):
+                code = main_batch.main(["--project", path,
+                                         "--gen-neuralfoil", "--gen-xfoil"])
+            self.assertEqual(code, 2)
+            self.assertIn("mutually exclusive", err.getvalue())

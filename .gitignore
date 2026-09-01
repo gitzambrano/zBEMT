@@ -49,6 +49,7 @@ coverage.xml
 *.py,cover
 .cwd
 .pytest_cache/
+.superpowers/
 .mypy_cache/
 .pyre_cache/
 .pytype_cache/

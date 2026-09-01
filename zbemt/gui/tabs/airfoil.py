@@ -458,7 +458,7 @@ class AirfoilTab(QWidget):
         btn_remove.clicked.connect(self._remove_section)
         btn_row.addWidget(btn_remove)
         # The slack goes to the end of the row, not to the buttons (see
-        # `tests/test_gui_layout.py`: without this they stretch to the
+        # `tests/regression/test_gui_layout.py`: without this they stretch to the
         # QSS width ceiling, and `setSizePolicy(Fixed)` doesn't hold).
         btn_row.addStretch(1)
         layout.addLayout(btn_row)

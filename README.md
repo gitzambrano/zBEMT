@@ -94,7 +94,7 @@ tools/                 Repository maintenance scripts
 
 ## Main Features
 
-**Solvers:** Newton-Raphson (default, vectorized with numerical Jacobian), fixed-point iteration (Picard with relaxation), Aitken acceleration, and bisection (for post-stall nonmonotic regions).
+**Solvers:** Newton-Raphson (default, vectorized with numerical Jacobian), fixed-point iteration (Picard with relaxation), Aitken acceleration, and bisection with a bracket expanded from the physical initial estimate.
 
 **Inflow models:** Glauert local, Glauert global, Coleman local, Coleman global, Drees local, Drees global, and Pitt-Peters steady. (Note: Pitt-Peters unsteady is not implemented; dynamic time-marching is out of scope for this BEMT solver by design.)
 
@@ -168,14 +168,14 @@ api.generate_report([result], "report.html", project=project,
 python tests/run_all_tests.py            # full suite
 
 python tests/run_all_tests.py -k airfoil # only files matching "airfoil"
-python -m pytest tests/test_bemt.py      # a single file
+python -m pytest tests/regression/test_bemt.py      # a single file
 ```
 
 1000+ tests in ~7 minutes, including all GUI tests (headless via `QT_QPA_PLATFORM=offscreen`, already configured in `tests/conftest.py`). A summary is printed and a full report, with a traceback per failure, is written to `tests/test_results.txt`.
 
 Run the full suite through `run_all_tests.py`, which gives each test file its own process. A single `pytest tests/` over everything accumulates Qt/matplotlib canvases across dozens of files and eventually dies with a native access violation during teardown — not a test failure, but it aborts the run and hides every result after it. Individual files and classes run fine under plain `pytest`.
 
-The reference project `projects/starter_rotor/` and its end-to-end test suite (`tests/test_example_project.py`) exercise the full stack at production mesh resolution (Ne=90 / Npsi=144). `tools/check_project_configs.py` loads, validates, and smoke-solves every folder under `projects/` — run it after touching a project file or `models.py`'s dataclass defaults.
+The reference project `projects/starter_rotor/` and its end-to-end test suite (`tests/regression/test_example_project.py`) exercise the full stack at production mesh resolution (Ne=90 / Npsi=144). `tools/check_project_configs.py` loads, validates, and smoke-solves every folder under `projects/`. Run it after you change a project file or a dataclass default in `models.py`.
 
 ---
 

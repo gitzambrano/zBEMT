@@ -138,7 +138,7 @@ class GeometryTab(QWidget):
         btn_restore.clicked.connect(self._restore_project)
         save_row.addWidget(btn_restore)
         # The slack goes to the end of the row, not to the buttons (see
-        # `tests/test_gui_layout.py`: without this they stretch to the
+        # `tests/regression/test_gui_layout.py`: without this they stretch to the
         # QSS width ceiling, and `setSizePolicy(Fixed)` doesn't hold).
         save_row.addStretch(1)
         layout.addLayout(save_row)

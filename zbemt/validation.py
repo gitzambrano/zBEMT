@@ -176,6 +176,41 @@ def validate_config(config: dict, airfoil_def: AirfoilDef,
     marches."""
     issues: list[Issue] = []
 
+    # These values define the physical scale and the numerical mesh. An
+    # invalid value can otherwise produce finite, plausible-looking
+    # coefficients because the same bad factor appears in both the
+    # dimensional load and its normalization (PR-6, QR-1).
+    physical_defaults = {"rho": 1.225, "a_sound": 340.294, "nu_air": 1.46e-5}
+    for field, description in (
+        ("rho", "air density"),
+        ("a_sound", "speed of sound"),
+        ("nu_air", "kinematic viscosity"),
+    ):
+        value = config.get(field, physical_defaults[field])
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            numeric = float("nan")
+        if not math.isfinite(numeric) or numeric <= 0.0:
+            issues.append(Issue(
+                "error",
+                f"{field} ({description}) must be a finite number greater "
+                f"than zero; got {value!r}.",
+            ))
+
+    for field in ("Ne", "Npsi"):
+        value = config.get(field, 120 if field == "Ne" else 180)
+        try:
+            numeric = float(value)
+            valid = math.isfinite(numeric) and numeric >= 1.0 and numeric.is_integer()
+        except (TypeError, ValueError):
+            valid = False
+        if not valid:
+            issues.append(Issue(
+                "error",
+                f"{field} must be a positive integer; got {value!r}.",
+            ))
+
     inflow_field_model = config.get("inflow_field_model", "glauert_local")
 
     # --- reverse_flow_model='viterna_full_range' requires extended airfoil
@@ -466,6 +501,12 @@ def validate_blade_dynamics(dynamics: BladeDynamicsDef, geom: RotorGeometryDef,
     uses_offset = dynamics.flap_model in ("offset", "offset_spring")
     uses_spring = dynamics.flap_model in ("spring", "offset_spring")
     e = float(dynamics.hinge_offset_norm)
+
+    if rigid and dynamics.lag_enabled:
+        issues.append(Issue("error", prefix + (
+            "lead-lag cannot be enabled with the rigid flap model. The "
+            "rigid path has no blade hinge freedom and would otherwise "
+            "discard the requested lead-lag motion silently.")))
 
     if not rigid and not (0.0 <= e <= _HINGE_OFFSET_MAX):
         issues.append(Issue("error", prefix + (
@@ -951,6 +992,16 @@ def validate_results(summary: dict) -> list[Issue]:
             f"between the last revolutions, above {PERIODIC_RESIDUAL_TOLERANCE:g}. "
             "March more revolutions, or read the result as a transient "
             "rather than as a periodic one (EN-9)."))
+
+    if summary.get("flap_outer_converged") is False:
+        residual_deg = float(summary.get("flap_outer_residual_deg", float("nan")))
+        tolerance_deg = float(summary.get("flap_outer_tolerance_deg", float("nan")))
+        issues.append(Issue(
+            "warning",
+            "the coupled flap solution did not reach its declared outer "
+            f"tolerance: residual {residual_deg:.3g} deg, tolerance "
+            f"{tolerance_deg:.3g} deg. Do not use this case for stability "
+            "derivatives or trim (SC-11)."))
 
     peak = _peak_flap_deg(summary)
     if peak is not None and peak > FLAP_SMALL_ANGLE_LIMIT_DEG:

@@ -31,7 +31,7 @@ ASD-STE100 (Simplified Technical English) rules for this project's
 documentation, docstrings, comments, and GUI strings. Claude Code loads it
 from `.claude/skills/writing-rules/SKILL.md`. A mirror at
 `.agents/skills/writing-rules/SKILL.md` carries the same content for any
-other agent. `tests/test_agent_instructions.py` keeps the two identical.
+other agent. `tests/architecture/test_agent_instructions.py` keeps the two identical.
 
 ## Core workflow
 
@@ -64,8 +64,8 @@ python tests/run_all_tests.py           # the full suite -- one process per file
 python tests/run_all_tests.py -k airfoil          # only files matching
 python tests/run_all_tests.py --list             # list the files, run nothing
 
-python -m pytest tests/test_bemt.py                           # one file
-python -m pytest tests/test_bemt.py::TestSolveBemtHover -v     # one class
+python -m pytest tests/regression/test_bemt.py                           # one file
+python -m pytest tests/regression/test_bemt.py::TestSolveBemtHover -v     # one class
 
 zbemt-gui                               # GUI
 zbemt --project projects/starter_rotor  # CLI
@@ -259,7 +259,7 @@ Rules:
 11. Every reference to another section is a link, underlined, carrying the
     target's title as its `title`. A number written as plain text is a defect:
     it cannot be followed, and it drifts silently when sections are renumbered.
-    `tests/test_documentation.py` enforces both the link and the fact that its
+    `tests/architecture/test_documentation.py` enforces both the link and the fact that its
     number and its target agree.
 12. Chapters 6-13 are self-contained. A reference out of one of them is allowed
     only as a statement of scope — "that setting lives in another tab" — never
@@ -284,7 +284,7 @@ python tools/field_inventory.py           # field -> tab/default/.bemt/CLI
 
 Set `QT_QPA_FONTDIR` for `gui_screenshots.py` where Qt has no font backend.
 
-`tests/test_documentation.py` and `tests/test_help_content.py` enforce that
+`tests/architecture/test_documentation.py` and `tests/architecture/test_help_content.py` enforce that
 every field has a section naming GUI, `.bemt` and CLI; that every `--set` path,
 flag, project and batch cited exists; that heading numbers match their chapter
 and depth; that chapters are sequential; that prose section references resolve;
@@ -298,7 +298,7 @@ popups, tables, reports and `docs/documentation.html`. Use LaTeX where the
 surface renders it, and HTML entities with `<sub>`/`<sup>` where it does not.
 
 Never use a plain-text approximation such as `lambda_i`, `mu_x` or
-`rho*A*(Omega*R)^2`. `tests/test_notation.py` enforces this (`PR-4`).
+`rho*A*(Omega*R)^2`. `tests/architecture/test_notation.py` enforces this (`PR-4`).
 
 ## GUI layout
 
@@ -331,7 +331,7 @@ Never use a plain-text approximation such as `lambda_i`, `mu_x` or
 - `tests/data/golden_results.json` records what the engine produces for every
   example project. A deliberate change to the physics means regenerating it
   with `python tools/golden_snapshot.py` and reading the diff; an accidental
-  one fails `tests/test_golden_results.py`.
+  one fails `tests/regression/test_golden_results.py`.
 - `tests/data/nomenclature_snapshot.json` does the same for every axis symbol
   the user sees. Regenerate with `python tools/nomenclature_snapshot.py`.
 - Run `python tools/check_project_configs.py` after touching a project file or

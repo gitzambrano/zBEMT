@@ -6896,8 +6896,9 @@ u_c$.</p>
                   fling the estimate across the disk. Near the root it roughly doubles the number of correct digits
                   each iteration, which is why it is the default even at three times the cost per step. Aitken
                   accelerates the fixed-point sequence using its own recent history, without needing a slope.
-                  Bisection halves an interval known to contain the root, which converges whenever the root is
-                  bracketed and never faster than that.</p>
+                  Bisection expands an interval from the physical initial estimate until it finds a sign change.
+                  It then halves that interval. This selects the nearest bracketed root when the nonlinear
+                  equation has more than one mathematical solution.</p>
 
                 <p><b>Configuration and solver selection.</b> Keep <code>newton</code>. Switch to
                   <code>fixed_point</code> or

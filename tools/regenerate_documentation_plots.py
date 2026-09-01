@@ -746,7 +746,7 @@ MU_STEP = 0.22
 #: a lambda<0 that makes the L gain matrix singular. Fixed in the engine
 #: (momentum theory seed + guard in
 #: `PITT_PETERS_DENOMINATOR_MIN`), with regression in
-#: `tests/test_physics_toggles.py`.
+#: `tests/regression/test_physics_toggles.py`.
 MU_HOVER = 0.0
 
 def fig_transiente_pitt_peters():

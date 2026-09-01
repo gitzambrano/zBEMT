@@ -398,7 +398,7 @@ class LongitudinalInput(QWidget):
         # used to be tested for as "V" here, so no branch matched, the
         # helper returned None, and `mu_x` fell back to handing the raw
         # number to the engine: a rotor asked for 5 m/s was solved at
-        # mu_x = 5. `tests/test_condition_units.py` guards every unit
+        # mu_x = 5. `tests/regression/test_condition_units.py` guards every unit
         # the table offers against exactly that.
         var = unit_label_variable(self._SLOT, label)
         if var == "mu_x":

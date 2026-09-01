@@ -806,7 +806,7 @@ def import_polar_csv(path: str, column_map: Optional[dict] = None) -> list[Polar
         # has NaN. Without this, re-importing a CSV exported by this
         # very platform silently returned 0 slices whenever
         # reynolds/mach were not used (bug caught by the export->import
-        # roundtrip test in tests/test_airfoils.py).
+        # roundtrip test in tests/regression/test_airfoils.py).
         for key_values, group in df.groupby(group_keys, dropna=False):
             if not isinstance(key_values, tuple):
                 key_values = (key_values,)

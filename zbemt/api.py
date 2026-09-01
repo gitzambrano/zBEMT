@@ -1783,7 +1783,7 @@ _MAIN_COLUMNS = (
 #: raw `snake_case` in the middle of Greek symbols, and one with no description
 #: would have no tooltip, which is precisely the only way to know what the column
 #: means when the header is a symbol of one or two letters.
-#: `tests/test_api.py` checks that coverage stays complete.
+#: `tests/regression/test_api.py` checks that coverage stays complete.
 _COLUMN_SYMBOL = {
     # --- flight condition (input, in the resolved convention) ---
     # NOT LISTED HERE. Every column whose SYMBOL depends on the axis
@@ -2317,7 +2317,7 @@ def _sorted_keys(results_list: list, is_propeller: Optional[bool] = None) -> tup
 # `_sorted_keys` above are the ONLY source of truth about what each
 # `Results.summary` key means (symbol, description, unit,
 # formatting, reading order), with coverage guaranteed by
-# `tests/test_api.py`. Exposed here under a public name so that the GUI (Run
+# `tests/regression/test_api.py`. Exposed here under a public name so that the GUI (Run
 # Case, Results) uses the SAME symbols, units, and tooltips as the HTML
 # report, instead of keeping a second, manually maintained copy that drifts (that was
 # exactly what `run_case.py`'s `_GROUPS_ROTOR`/`_GROUPS_PROPELLER`

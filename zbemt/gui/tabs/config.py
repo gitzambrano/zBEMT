@@ -125,7 +125,7 @@ class ConfigMotorTab(QWidget):
         # the opposite of what happens. Same decision already made for
         # "Check airfoil" in the Airfoil tab.
         # The slack goes to the end of the row, not to the buttons (see
-        # `tests/test_gui_layout.py`: without this they stretch to the
+        # `tests/regression/test_gui_layout.py`: without this they stretch to the
         # QSS width ceiling, and `setSizePolicy(Fixed)` doesn't hold).
         btn_row.addStretch(1)
         cform.addLayout(btn_row)

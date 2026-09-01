@@ -36,7 +36,7 @@ result that belongs to the table's spacing, not to the rotor.
 edges held rather than extrapolated. Keep the nearest-neighbour path for a
 table with a single slice on an axis.
 
-**Tests.** `tests/test_model_effects.py::TestTabulatedPolarsUseReynoldsAndMach`
+**Tests.** `tests/regression/test_model_effects.py::TestTabulatedPolarsUseReynoldsAndMach`
 pins the current behaviour, including
 `test_the_choice_snaps_rather_than_interpolating`. That test states the
 limitation deliberately: changing it is part of this work, not a casualty of
@@ -63,7 +63,7 @@ depend on the worker count. Apply the same shape to the perturbation sweep.
 
 **Tests.** The optimization's guarantee is checked by a front CSV that is
 byte-identical between one and two workers
-(`tests/test_optimizer_parallel.py`). The derivative sweep needs the
+(`tests/regression/test_optimizer_parallel.py`). The derivative sweep needs the
 equivalent: the same matrix, to the last digit, at any worker count.
 
 ---
@@ -89,7 +89,7 @@ the disk map now does.
 
 **Reference.** The disk map went from 9919 ms to 53 ms by not drawing until
 asked, and the 3D preview from 1861 ms to 305 ms by drawing at preview
-resolution. Both are in `tests/test_disk_map_is_lazy.py` with their numbers.
+resolution. Both are in `tests/regression/test_disk_map_is_lazy.py` with their numbers.
 
 ---
 
@@ -109,7 +109,7 @@ and it stays, or the example is under-pitched for its advance ratio and the
 collective should rise (16 degrees makes the induced power positive). This is
 a product decision about what the example teaches, not an engine question.
 
-**What is in place meanwhile.** `tests/test_golden_results.py` names the case
+**What is in place meanwhile.** `tests/regression/test_golden_results.py` names the case
 in `AUTOROTATING` with the physics stated, and
 `test_every_named_autorotating_case_really_autorotates` revokes the exemption
 automatically if the case ever stops autorotating.
@@ -121,7 +121,7 @@ automatically if the case ever stops autorotating.
 **What happens now.** 223 of 250 input controls open a popup on click. The 27
 that do not are view selectors: they choose what is drawn from results that
 already exist, not a field of the project. They are named one by one in
-`tests/test_every_field_has_a_popup.py::VIEW_ONLY`, so a genuinely new field
+`tests/architecture/test_every_field_has_a_popup.py::VIEW_ONLY`, so a genuinely new field
 cannot join them by accident, and every one of them has a written tooltip.
 
 **What would improve it.** `help_blocks.BLOCK_HELP` and
