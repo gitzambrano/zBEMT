@@ -2587,6 +2587,12 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
     `SolveCancelled` and never returns a partial result."""
     from . import geometry as geometry_gen
 
+    # The outer flap tolerance is measured in degrees. The inner inflow
+    # residual must therefore remain below the coefficient noise floor.
+    # A looser inner tolerance produces a periodic numerical cycle in the
+    # second flap harmonic before the outer tolerance is reached.
+    cfg = replace(cfg, tol=min(float(cfg.tol), 1e-8))
+
     _check_rotor_rotation(rotor)
     rho = cfg.rho
     cl_alpha, _alpha0 = _airfoil_cl_alpha_alpha0(airfoil)
@@ -2886,8 +2892,6 @@ class SolveCancelled(Exception):
     single case on a production mesh did not respond to the button until
     it finished on its own, which is exactly when you want to cancel.
     """
-
-
 def _raise_if_cancelled(should_cancel, iteration: int) -> None:
     """Checked once per solver iteration. The cost is one function call
     per pass over the whole mesh (5-30 per case), against tens of

@@ -245,17 +245,18 @@ class TestForwardFlapConvergence(unittest.TestCase):
         )
         project.geometry.dynamics = dynamics
         project.config.update(Ne=32, Npsi=48, solver="newton", max_iter=300)
-        result = studies.run_single_case(
-            project,
-            FlightCondition(name="moderate-forward", mu_x=0.20,
-                            collective_deg=10.0, rpm=600.0),
-        )
-        self.assertFalse(result.summary["flap_outer_converged"])
-        self.assertEqual(result.summary["flap_outer_tolerance_deg"],
-                         dynamics.outer_tol_deg)
-        findings = api.validate_results(result.summary)
-        self.assertTrue(any("coupled flap solution" in finding.message
-                            for finding in findings))
+        for advance_ratio in (0.20, 0.25):
+            with self.subTest(advance_ratio=advance_ratio):
+                result = studies.run_single_case(
+                    project,
+                    FlightCondition(name="moderate-forward", mu_x=advance_ratio,
+                                    collective_deg=10.0, rpm=600.0),
+                )
+                self.assertTrue(result.summary["flap_outer_converged"])
+                self.assertLess(
+                    result.summary["flap_outer_residual_deg"],
+                    dynamics.outer_tol_deg,
+                )
 
 
 class TestRigidIsTheOldPath(unittest.TestCase):
