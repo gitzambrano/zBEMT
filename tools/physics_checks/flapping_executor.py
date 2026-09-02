@@ -397,7 +397,8 @@ class _RealProbeRunner:
 
     def _probe_flap_e9(self) -> ProbeEvidence:
         project = self._project("rigid")
-        condition = FlightCondition(name="rigid probe", rpm=600.0)
+        condition = FlightCondition(name="rigid probe", collective_deg=6.0,
+                                    rpm=600.0)
         cfg = studies._build_config(project.config, airfoil_def=project.airfoil)
         rotor = studies._to_rotor(project.geometry, collective_deg=condition.collective_deg,
                                   rpm=condition.rpm)
@@ -407,6 +408,8 @@ class _RealProbeRunner:
         routed = studies.run_single_case(project, condition).maps
         differences = []
         for name, plain_value in plain.items():
+            if name == "elapsed":
+                continue
             routed_value = routed[name]
             plain_array = np.asarray(plain_value)
             routed_array = np.asarray(routed_value)
