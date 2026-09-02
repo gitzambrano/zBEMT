@@ -577,3 +577,52 @@ class TestDampingSummary(unittest.TestCase):
         for label in ("a", "b"):
             for key in ("heave_damping", "pitch_damping"):
                 self.assertTrue(math.isfinite(out[label][key]))
+
+
+class TestFlapConvergenceGate(unittest.TestCase):
+    """SC-11: a derivative matrix must carry the flap convergence behind it.
+
+    A finite difference built on a flap solve that missed its declared outer
+    tolerance is not a derivative. The study therefore counts those solves
+    and clears its usable flag (`DERIV-A5`).
+    """
+
+    def _request(self, project):
+        from zbemt.models import DerivativeRequest
+        return DerivativeRequest(
+            name="flap gate", condition=_condition(project), trim="none",
+            states=["w"], outputs=["Thrust"], steps={"w": 0.5},
+            richardson_check=False)
+
+    def test_a_converged_study_is_marked_usable(self):
+        project = _project()
+        outcome = api.compute_derivatives(project, self._request(project))
+        self.assertTrue(outcome.flap_converged)
+        self.assertEqual(outcome.unconverged_solves, 0)
+        self.assertNotIn("not usable", outcome.message)
+
+    def test_one_unconverged_flap_solve_clears_the_usable_flag(self):
+        project = _project()
+
+        def run_case(_project, _condition):
+            return {"Thrust": 1.0, "flap_outer_converged": False}
+
+        outcome = api.compute_derivatives(
+            project, self._request(project), run_case=run_case)
+        self.assertFalse(outcome.flap_converged)
+        self.assertEqual(outcome.unconverged_solves, outcome.n_solves)
+        self.assertIn("not usable", outcome.message)
+
+    def test_a_mixed_study_counts_only_the_unconverged_solves(self):
+        project = _project()
+        calls = {"n": 0}
+
+        def run_case(_project, _condition):
+            calls["n"] += 1
+            return {"Thrust": float(calls["n"]),
+                    "flap_outer_converged": calls["n"] != 2}
+
+        outcome = api.compute_derivatives(
+            project, self._request(project), run_case=run_case)
+        self.assertFalse(outcome.flap_converged)
+        self.assertEqual(outcome.unconverged_solves, 1)

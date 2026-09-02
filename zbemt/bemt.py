@@ -3377,10 +3377,12 @@ def _solve_pitt_peters_steady(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lamb
     pp_warning = None
     if frac_reversed > 0.02:
         pp_warning = (
-            f"Pitt-Peters: {frac_reversed:.1%} do disco com lambda_total<0 "
-            f"(local induced flow reversed) . The linear model is probably "
-            f"outside its validity range for this condition (mu_x, no flapping). "
-            f"CQ/CMx/CMy results may be physically unreliable.")
+            f"Pitt-Peters: the total inflow ratio is negative on "
+            f"{frac_reversed:.1%} of the disk. The local induced flow is "
+            f"reversed there. Therefore, the linear model is probably outside "
+            f"its validity range at this in-plane advance ratio, because the "
+            f"solver has no flapping relief. The torque coefficient and the "
+            f"hub-moment coefficients may be physically unreliable.")
     state["pitt_peters_warning"] = pp_warning
     state["pitt_peters_frac_reversed"] = frac_reversed
     return nu, lambda_i, state, n_it
@@ -4521,6 +4523,17 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
             "dynamic_stall_revolutions", 0))
         if maps.get("dynamic_stall_warning"):
             out["dynamic_stall_warning"] = maps["dynamic_stall_warning"]
+
+    # --- Pitt-Peters validity diagnostics --------------------------------
+    # The linear finite-state inflow theory can drive the total inflow
+    # negative over part of the disk. `_pitt_peters_solve` measures that
+    # fraction and writes its warning. Both belong to the exported row, so
+    # the CLI, the report and the Results tab can show the same limit
+    # (QR-5, EN-11).
+    if maps.get("pitt_peters_frac_reversed") is not None:
+        out["pitt_peters_frac_reversed"] =             float(maps["pitt_peters_frac_reversed"])
+        if maps.get("pitt_peters_warning"):
+            out["pitt_peters_warning"] = maps["pitt_peters_warning"]
 
     if export_settings:
         # --- run's full "data sheet" -----------------------------------------

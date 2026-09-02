@@ -882,10 +882,15 @@ class _RealProbeRunner:
             self._reference_case("offset", mu_x=mu_x).summary["flap_outer_converged"]
             for mu_x in (0.0, 0.20)
         )
+        # The acceptance rule requires the ordering in HOVER only. Forward
+        # flight has a coupled damping matrix, so an individual direct term
+        # there carries no monotonic requirement. The forward record stays in
+        # the evidence without entering the decision.
+        hover = records["0.0"]
         passed = all(
-            abs(record["rigid_aerodynamic"][key])
-            > abs(record["flap_aerodynamic"][key])
-            for record in records.values() for key in ("Mx_q", "My_p")
+            abs(hover["rigid_aerodynamic"][key])
+            > abs(hover["flap_aerodynamic"][key])
+            for key in ("Mx_q", "My_p")
         )
         return self._evidence(
             passed, {"cases": records, "flap_outer_converged": flap_converged},

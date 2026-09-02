@@ -33,8 +33,13 @@ def build_executor_registry() -> ExecutorRegistry:
     from .core_bemt_executor import execute_core_bemt_claim
     from .dynamic_stall_executor import DynamicStallExecutor
     from .flapping_executor import FlappingExecutor
+    from .input_validation_executor import execute_input_validation_claim
+    from .model_limitation_executor import ModelLimitationExecutor
     from .pitt_corrections_executor import execute_pitt_corrections_claim
     from .propeller_executor import PropellerExecutor
+    from .reporting_executor import ReportingExecutor
+    from .repository_quality_executor import execute_repository_quality_claim
+    from .stall_delay_executor import execute_stall_delay_claim
 
     registry = ExecutorRegistry()
     registry.register("core_bemt_executor", execute_core_bemt_claim)
@@ -47,4 +52,9 @@ def build_executor_registry() -> ExecutorRegistry:
     registry.register("pitt_peters_executor", execute_pitt_corrections_claim)
     registry.register("model_effects_executor", execute_pitt_corrections_claim)
     registry.register("extremes_executor", execute_pitt_corrections_claim)
+    registry.register("model_limitation_executor", ModelLimitationExecutor())
+    registry.register("reporting_executor", ReportingExecutor())
+    registry.register("input_validation_executor", execute_input_validation_claim)
+    registry.register("repository_quality_executor", execute_repository_quality_claim)
+    registry.register("stall_delay_executor", execute_stall_delay_claim)
     return registry

@@ -993,6 +993,10 @@ def validate_results(summary: dict) -> list[Issue]:
             "March more revolutions, or read the result as a transient "
             "rather than as a periodic one (EN-9)."))
 
+    pitt_warning = summary.get("pitt_peters_warning")
+    if pitt_warning:
+        issues.append(Issue("warning", str(pitt_warning)))
+
     if summary.get("flap_outer_converged") is False:
         residual_deg = float(summary.get("flap_outer_residual_deg", float("nan")))
         tolerance_deg = float(summary.get("flap_outer_tolerance_deg", float("nan")))

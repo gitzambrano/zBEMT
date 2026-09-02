@@ -66,6 +66,12 @@ class DerivativeOutcome:
         self.trim_state = {}      # controls + loads at the trim point
         self.n_solves = 0
         self.message = ""
+        # SC-11: a derivative is only usable when EVERY solve behind it
+        # reached its declared flap outer tolerance. A single unconverged
+        # flap solve makes the whole finite difference unreliable, so the
+        # study reports the count and clears the usable flag.
+        self.flap_converged = True
+        self.unconverged_solves = 0
 
 
 def _validate_request(request: DerivativeRequest, trim_rpm: float) -> None:
@@ -281,7 +287,7 @@ def compute_derivatives(project: Project, request: DerivativeRequest, *,
     ``SolveCancelled`` between solves."""
     from . import studies   # lazy: keeps module import side-effect free
 
-    solve = run_case or (lambda proj, cond: studies.run_single_case(
+    base_solve = run_case or (lambda proj, cond: studies.run_single_case(
         proj, cond, should_cancel=should_cancel).summary)
     condition = request.condition or (
         project.saved_cases[0] if project.saved_cases else None)
@@ -297,6 +303,15 @@ def compute_derivatives(project: Project, request: DerivativeRequest, *,
     outputs = list(request.outputs) or ["Thrust", "H", "Y",
                                          "Mx_total", "My_total", "Torque"]
     outcome = DerivativeOutcome()
+
+    def solve(proj, cond):
+        """Solve one case and record whether its flap loop converged."""
+        summary = base_solve(proj, cond)
+        if summary.get("flap_outer_converged") is False:
+            outcome.flap_converged = False
+            outcome.unconverged_solves += 1
+        return summary
+
     rpm = float(condition.rpm)
     omega_r = rpm * 2.0 * math.pi / 60.0 * project.geometry.radius_m
 
@@ -431,6 +446,11 @@ def compute_derivatives(project: Project, request: DerivativeRequest, *,
     outcome.message = (f"{len(variables)} variable(s), "
                         f"{outcome.n_solves} solves, trim "
                         f"{request.trim!r}")
+    if not outcome.flap_converged:
+        outcome.message += (
+            f"; {outcome.unconverged_solves} solve(s) did not reach the "
+            "declared flap outer tolerance, so this matrix is not usable "
+            "for stability or trim work (SC-11)")
     return outcome
 
 

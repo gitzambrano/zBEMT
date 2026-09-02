@@ -1142,8 +1142,8 @@ _register_routes(
 )
 _register_routes(
     ("REPO-PITT-WARNING",),
-    "Run python -m zbemt.cli --project projects/starter_rotor --rpm 400 --mu-inplane 0.15 --collective 16 --inflow pitt_peters_steady --outdir outputs/physics_checks/manual/pitt-warning. Inspect the Pitt-Peters warning text in console output and results.csv.",
-    "Open the starter rotor project. Run Pitt-Peters steady at 400 RPM, in-plane advance ratio 0.15, and collective 16 degrees. In Results, inspect the Pitt-Peters warning and confirm that it is complete English text.",
+    "Run python -m zbemt.cli --project projects/starter_rotor --rpm 400 --mu-inplane 0.15 --collective 12 --inflow pitt_peters_steady --outdir outputs/physics_checks/manual/pitt-warning. Inspect the Pitt-Peters warning text in results.csv.",
+    "Open the starter rotor project. Run Pitt-Peters steady at 400 RPM, in-plane advance ratio 0.15, and collective 12 degrees. In Results, inspect the Pitt-Peters warning and confirm that it is complete English text.",
 )
 
 # Extreme-condition checks.
