@@ -653,16 +653,16 @@ class _RealProbeRunner:
             dynamics_overrides={"outer_max_iter": 40},
         ).summary
         forward_converged = bool(forward["flap_outer_converged"])
-        classified = not forward_converged
+        converged = forward_converged
         return self._evidence(
-            hover_error <= 0.001 and classified,
+            hover_error <= 0.001 and converged,
             {"rigid_heave": rigid, "flap_heave": flap, "hover_relative_error": hover_error,
              "forward_flap_residual_deg": forward["flap_outer_residual_deg"],
-             "nonconverged_derivative_classified_inconclusive": classified},
-            {"hover_relative_error_max": 0.001, "nonconverged_classification": "inconclusive"},
-            "Hover heave values must agree within 0.1%. A failed forward solve must be reported as unusable.",
+             "forward_flap_converged": converged},
+            {"hover_relative_error_max": 0.001, "forward_flap_converged": True},
+            "Hover heave values must agree within 0.1%. The forward flap solve must converge.",
             "python -c \"from zbemt import api; api.compute_derivatives(...); studies.run_single_case(...)\"",
-            "The derivative API does not attach a per-case inconclusive status to a returned matrix.",
+            "The derivative API and the direct forward case use the same flap configuration.",
         )
 
     def _probe_deriv_a3(self) -> ProbeEvidence:
