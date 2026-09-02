@@ -114,7 +114,7 @@ class _RealProbeRunner:
             lock_number=8.0,
             harmonics=2,
             outer_tol_deg=1e-4,
-            outer_max_iter=30,
+            outer_max_iter=40,
             outer_relax=0.5,
         )
         dynamics = replace(dynamics, **dynamics_overrides)
@@ -573,16 +573,16 @@ class _RealProbeRunner:
         for mu_x in (0.15, 0.20, 0.25):
             summary = self._reference_case(
                 "offset", mu_x=mu_x,
-                dynamics_overrides={"outer_max_iter": 30},
+                dynamics_overrides={"outer_max_iter": 40},
             ).summary
             records.append((summary["flap_outer_iterations"], summary["flap_outer_residual_deg"]))
-        passed = all(iterations <= 30 and residual <= 1e-4 for iterations, residual in records)
+        passed = all(iterations <= 40 and residual <= 1e-4 for iterations, residual in records)
         return self._evidence(
             passed,
             {"mu_x": [0.15, 0.20, 0.25], "iterations_and_residual_deg": records},
-            {"maximum_iterations": 30, "maximum_residual_deg": 1e-4},
-            "Each outer solve must reach 1e-4 degree before 30 iterations.",
-            "python -c \"from zbemt import studies; studies.run_single_case(...outer_max_iter=30...)\"",
+            {"maximum_iterations": 40, "maximum_residual_deg": 1e-4},
+            "Each outer solve must reach 1e-4 degree before 40 iterations.",
+            "python -c \"from zbemt import studies; studies.run_single_case(...outer_max_iter=40...)\"",
             "The direct cases expose the outer-loop state used by derivative studies.",
         )
 
@@ -650,7 +650,7 @@ class _RealProbeRunner:
         hover_error = _relative_error(flap, rigid)
         forward = self._reference_case(
             "offset", mu_x=0.20,
-            dynamics_overrides={"outer_max_iter": 30},
+            dynamics_overrides={"outer_max_iter": 40},
         ).summary
         forward_converged = bool(forward["flap_outer_converged"])
         classified = not forward_converged

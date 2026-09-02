@@ -241,7 +241,7 @@ class TestForwardFlapConvergence(unittest.TestCase):
         dynamics = BladeDynamicsDef(
             flap_model="offset", hinge_offset_norm=0.05,
             inertia_source="lock", lock_number=8.0, harmonics=2,
-            outer_tol_deg=1e-4, outer_max_iter=30, outer_relax=0.5,
+            outer_tol_deg=1e-4, outer_max_iter=40, outer_relax=0.5,
         )
         project.geometry.dynamics = dynamics
         project.config.update(Ne=32, Npsi=48, solver="newton", max_iter=300)

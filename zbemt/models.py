@@ -600,7 +600,7 @@ class BladeDynamicsDef:
     blade_mass_kg: float = 0.0       # used when inertia_source == "blade_mass"
     pitch_flap_coupling_deg: float = 0.0    # delta_3, the delta-three hinge
     harmonics: int = 2               # N_h in the harmonic balance
-    outer_max_iter: int = 30
+    outer_max_iter: int = 40
     outer_tol_deg: float = 1e-4
     outer_relax: float = 0.5
     # --- lead-lag ---
