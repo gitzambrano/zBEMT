@@ -66,13 +66,55 @@ class TestDynamicStallExecutor(unittest.TestCase):
                            result.measured_data["residual_4_revolutions"])
         self.assertTrue(result.measured_data["warning_at_4_revolutions"])
 
-    def test_missing_source_fixture_is_inconclusive_instead_of_guessed(self):
+    def test_the_frequency_method_reproduces_the_analytical_first_order_lag(self):
         claim = next(claim for claim in CLAIMS if claim.claim_id == "DS-A2")
         with tempfile.TemporaryDirectory() as temporary_directory:
             result = DynamicStallExecutor()(claim, self._context(Path(temporary_directory)))
 
-        self.assertEqual(result.final_status, FinalStatus.INCONCLUSIVE)
-        self.assertIn("source fixture", result.notes.lower())
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        record = result.measured_data["frequency_method"]
+        self.assertLessEqual(record["frequency_amplitude_error"], 1e-4)
+        self.assertLessEqual(record["frequency_phase_error"], 1e-4)
+        self.assertTrue(
+            result.measured_data["march_phase_lag_is_one_half_azimuth_step"])
+
+    def test_the_step_response_is_the_exact_exponential(self):
+        claim = next(claim for claim in CLAIMS if claim.claim_id == "DS-A4")
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            result = DynamicStallExecutor()(claim, self._context(Path(temporary_directory)))
+
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertLessEqual(result.measured_data["maximum_absolute_error"], 1e-12)
+
+    def test_a_maneuver_threads_the_separation_state_without_a_reset(self):
+        claim = next(claim for claim in CLAIMS if claim.claim_id == "DS-A6")
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            result = DynamicStallExecutor()(claim, self._context(Path(temporary_directory)))
+
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertLessEqual(result.measured_data["threaded_initial_residual"], 1e-12)
+        self.assertGreater(result.measured_data["reset_initial_residual"],
+                           result.measured_data["threaded_initial_residual"])
+
+    def test_the_hysteresis_loop_turns_in_the_expected_direction(self):
+        claim = next(claim for claim in CLAIMS if claim.claim_id == "DS-A9")
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            result = DynamicStallExecutor()(claim, self._context(Path(temporary_directory)))
+
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertGreater(result.measured_data["rising_lift"],
+                           result.measured_data["falling_lift"])
+
+    def test_a_disabled_airfoil_section_keeps_the_static_polar(self):
+        claim = next(claim for claim in CLAIMS if claim.claim_id == "DS-A18")
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            result = DynamicStallExecutor()(claim, self._context(Path(temporary_directory)))
+
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        stations = result.measured_data["stations"]
+        self.assertEqual(stations["0.95"]["maximum_lift_correction"], 0.0)
+        self.assertAlmostEqual(stations["0.81"]["maximum_enabled_weight"], 0.12,
+                               places=2)
 
 
 if __name__ == "__main__":  # pragma: no cover

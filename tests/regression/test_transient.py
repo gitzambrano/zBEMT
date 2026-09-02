@@ -200,3 +200,57 @@ class TestCancellation(unittest.TestCase):
 
 if __name__ == "__main__":   # pragma: no cover
     unittest.main()
+
+
+class TestMarchedFlapResponse(unittest.TestCase):
+    """SC-12: `march_flapping` must run and must report its blade state.
+
+    The maneuver solved the flap response and published its coefficients, but
+    not the blade properties behind them. `aggregate_results` read those
+    properties unconditionally, so every marched flapping run raised
+    KeyError before it could return a single sample (`DS-H4`).
+    """
+
+    def _project(self):
+        from zbemt.models import BladeDynamicsDef
+        project = _fast_project()
+        dynamics = BladeDynamicsDef(
+            flap_model="offset", hinge_offset_norm=0.05,
+            inertia_source="lock", lock_number=8.0, harmonics=2)
+        return replace(project, geometry=replace(project.geometry,
+                                                 dynamics=dynamics))
+
+    def test_a_marched_flapping_maneuver_completes(self):
+        maneuver = replace(_constant_maneuver(mu=0.15), march_flapping=True)
+        history, maps_list = api.run_maneuver(self._project(), maneuver)
+        self.assertEqual(len(history), len(maps_list))
+        self.assertTrue(np.all(np.isfinite(history["CT"].to_numpy())))
+
+    def test_the_history_reports_the_blade_state_it_solved(self):
+        maneuver = replace(_constant_maneuver(mu=0.15), march_flapping=True)
+        history, _maps = api.run_maneuver(self._project(), maneuver)
+        for column in ("beta_0_deg", "beta_1c_deg", "beta_1s_deg",
+                       "nu_beta", "lock_number", "flap_inertia_kg_m2",
+                       "Mx_total", "My_total"):
+            with self.subTest(column=column):
+                self.assertIn(column, history.columns)
+                self.assertTrue(np.all(np.isfinite(history[column].to_numpy())))
+
+    def test_a_marched_sample_claims_no_outer_flap_convergence(self):
+        """The maneuver solves the flap response once per sample.
+
+        There is no outer loop there, so the row must not carry an outer
+        residual, a tolerance, or a convergence verdict.
+        """
+        maneuver = replace(_constant_maneuver(mu=0.15), march_flapping=True)
+        history, _maps = api.run_maneuver(self._project(), maneuver)
+        for column in ("flap_outer_converged", "flap_outer_residual_deg",
+                       "flap_outer_tolerance_deg", "flap_outer_iterations"):
+            with self.subTest(column=column):
+                self.assertNotIn(column, history.columns)
+
+    def test_a_rigid_blade_marches_without_flap_columns(self):
+        maneuver = replace(_constant_maneuver(mu=0.15), march_flapping=True)
+        history, _maps = api.run_maneuver(_fast_project(), maneuver)
+        self.assertNotIn("beta_0_deg", history.columns)
+        self.assertTrue(np.all(np.isfinite(history["CT"].to_numpy())))

@@ -3493,7 +3493,13 @@ def run_maneuver(rotor_builder, airfoil, cfg: BEMTConfig, samples: list, *,
       sample to sample -- each sample's march starts at the previous
       sample's final values -- so separation stays continuous along the
       trajectory. Requires dynamic stall enabled on the airfoil; the
-      'time_march' method is used for the march itself.
+      'time_march' method is used for the march itself. The march inside
+      one sample still covers
+      ``dynamic_stall_time_march_revolutions`` revolutions of ITS OWN
+      condition, and the separation time constant is a small fraction of
+      one revolution. The inherited state therefore sets the start of the
+      sample and not its periodic regime: this is separation continuity,
+      not a separation transient driven by the control rate.
     - ``march_flapping`` solves the periodic flap response at every
       sample from that sample's field and feeds the motion back into the
       loads. The response stays quasi-steady INSIDE each sample: this is
@@ -3640,6 +3646,15 @@ def run_maneuver(rotor_builder, airfoil, cfg: BEMTConfig, samples: list, *,
                 first = coeffs.get(1, (0.0, 0.0))
                 maps["beta_1c_rad"] = float(first[0])
                 maps["beta_1s_rad"] = float(first[1])
+                # The blade properties the flap response was solved with.
+                # `aggregate_results` needs them to report the flap
+                # frequency ratio and the hub moment carried through the
+                # offset hinge.
+                maps["nu_beta"] = float(np.sqrt(max(nu_beta_sq, 0.0)))
+                maps["nu_beta_squared"] = float(nu_beta_sq)
+                maps["lock_number"] = float(gamma_resolved)
+                maps["flap_inertia_kg_m2"] = float(inertia)
+                maps["hinge_offset_norm"] = float(e_norm)
 
         row = aggregate_results(rotor, cfg, maps)
         row["t"] = float(point.t_s)
@@ -4479,10 +4494,16 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         out["nu_beta"] = maps["nu_beta"]
         out["lock_number"] = maps["lock_number"]
         out["flap_inertia_kg_m2"] = maps["flap_inertia_kg_m2"]
-        out["flap_outer_iterations"] = maps["flap_outer_iterations"]
-        out["flap_outer_residual_deg"] = maps["flap_outer_residual_deg"]
-        out["flap_outer_tolerance_deg"] = maps["flap_outer_tolerance_deg"]
-        out["flap_outer_converged"] = maps["flap_outer_converged"]
+        # The outer-loop record exists only where an outer loop ran. The
+        # maneuver path (SC-12) solves the flap response once per sample
+        # from that sample's field, so it has no outer residual to report
+        # and must not claim one. Reading these keys unconditionally made
+        # `run_maneuver(march_flapping=True)` raise KeyError.
+        if "flap_outer_converged" in maps:
+            out["flap_outer_iterations"] = maps["flap_outer_iterations"]
+            out["flap_outer_residual_deg"] = maps["flap_outer_residual_deg"]
+            out["flap_outer_tolerance_deg"] = maps["flap_outer_tolerance_deg"]
+            out["flap_outer_converged"] = maps["flap_outer_converged"]
 
         # Hub moment carried through the offset hinge/root spring: the
         # structural path that a hinged (or spring-restrained) blade adds

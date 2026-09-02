@@ -177,11 +177,11 @@ _REFERENCE_AND_RULE = {
     ),
     "DS-A12": (
         "The Oye model produces a bounded lift overshoot during delayed separation.",
-        "Accept when peak dynamic lift exceeds static lift by 5% to 25% and remains finite.",
+        "Accept when the peak dynamic lift exceeds the peak static lift at the most affected station and the separation state stays inside 0 to 1, which bounds the overshoot by the attached-flow line.",
     ),
     "DS-A13": (
-        "Dynamic post-stall drag remains non-negative and rises relative to the static polar during delayed separation.",
-        "Accept when drag is non-negative everywhere and mean dynamic-to-static post-stall drag is at least 1.0.",
+        "Dynamic post-stall drag remains non-negative. It rises above the static polar while separation is delayed and falls below it while the flow reattaches.",
+        "Accept when drag is non-negative everywhere, the mean dynamic-to-static drag ratio during delayed separation is at least 1.0, and the reattaching ratio is lower.",
     ),
     "DS-A14": (
         "The documented fade window restores the static polar at angles beyond 55 degrees.",
@@ -197,19 +197,19 @@ _REFERENCE_AND_RULE = {
     ),
     "DS-A17": (
         "The discrete exponential recursion and the continuous frequency transfer function are distinct approximations.",
-        "Accept when the documented synthetic case differs by approximately 0.0024 and each method matches its own analytical form.",
+        "Accept when the frequency method matches the continuous transfer function within 1e-4, the march trails it by one half azimuth step, and the difference between the two falls at every mesh refinement from 36 to 720 azimuth steps.",
     ),
     "DS-A18": (
         "A disabled airfoil section uses the static polar, while radial interpolation blends the enabled weight between sections.",
         "Accept when the disabled station has zero correction and the interpolation station retains approximately 12% of the enabled correction.",
     ),
     "DS-H4": (
-        "A collective ramp with dynamic stall retains state continuity and produces more lift on the rising branch at equal collective.",
+        "A collective ramp with dynamic stall and a marched flap response retains state continuity and produces more thrust on the rising branch at equal collective.",
         "Accept when all 41 samples remain continuous and rising-branch thrust exceeds falling-branch thrust at 13 degrees.",
     ),
     "DS-D3-HYSTERESIS-DIRECTION": (
         "Delayed separation keeps element lift above the static value through the stalled portion of the azimuth cycle.",
-        "Accept when at least 70% of stalled elements gain lift and their mean lift increment is at least 0.10.",
+        "Accept when at least 70% of the stalled elements in delayed separation gain lift, their mean lift increment is at least 0.10, and the reattaching elements lose lift.",
     ),
     "DS-D3B-FADE-50": (
         "The focused fade check expects the static polar outside plus or minus 50 degrees.",
@@ -653,14 +653,19 @@ _register_routes(
     "Open the prepared project. In Airfoil, select Dynamic stall Frequency and run hover at 400 RPM and collective 16 degrees. Select Time march and repeat, then disable dynamic stall and repeat. Inspect separation state and CT in Results.",
 )
 _register_routes(
-    ("DS-A2", "DS-A3", "DS-A4", "DS-A10", "DS-A11", "DS-A12", "DS-A13", "DS-A17"),
-    "Copy projects/starter_rotor to outputs/physics_checks/manual/ds-harmonic. Add inputs/maneuvers.bemt with a maneuver named oye-harmonic that drives the source sinusoidal stalled-angle cycle for 16 revolutions at 400 RPM. Run python -m zbemt.cli --project outputs/physics_checks/manual/ds-harmonic --maneuver oye-harmonic --set airfoil.dynamic_stall_method=time_march. Repeat with --set airfoil.dynamic_stall_method=frequency and with airfoil.dynamic_stall_A values 8 and 40. Inspect the time-history CSV for separation state, lift, drag, angle, amplitude, phase, and peak azimuth.",
-    "Open the prepared project and the Transient window. Select the saved Oye harmonic maneuver at 400 RPM and 16 revolutions. Run Time march and Frequency with A equal to 8, then run A equal to 40. Inspect separation state, lift, drag, angle, amplitude, phase, and peak timing in the transient plots and Results.",
+    ("DS-A2", "DS-A3", "DS-A4", "DS-A17"),
+    "Run python -m zbemt.cli --project projects/starter_rotor --rpm 400 --mu-inplane 0 --collective 16 --dynamic-stall --set airfoil.dynamic_stall_method=frequency to confirm that the separation model is active. The transfer function itself is measured on a uniform relative-speed field, where the lag time constant is one number: drive the separation input with one sine over the azimuth, run the frequency method and the time march at azimuth resolutions 36, 72, 180, 360, and 720, and compare the first-harmonic amplitude and phase with 1/sqrt(1+k^2) and -atan(k). Repeat with airfoil.dynamic_stall_A equal to 8 and 40.",
+    "Open the starter rotor project. In Airfoil, select Dynamic stall Frequency and then Time march, with A equal to 8 and then 40. Run hover at 400 RPM and collective 16 degrees for each setting, and inspect the separation state, its amplitude, and its phase in the Results disk maps.",
+)
+_register_routes(
+    ("DS-A9", "DS-A10", "DS-A11", "DS-A12", "DS-A13", "DS-D3-HYSTERESIS-DIRECTION"),
+    "Run python -m zbemt.cli --project projects/starter_rotor --rpm 400 --mu-inplane 0.35 --collective 14 --dynamic-stall --set airfoil.dynamic_stall_method=time_march --set airfoil.dynamic_stall_time_march_revolutions=12 --set config.Npsi=180 --plots disk_map. The azimuth cycle of this stalled disk is the hysteresis loop: at each station compare the separation state with its static value, and compare the dynamic lift and drag with the static polar on the rising and the falling side of the angle cycle.",
+    "Open the starter rotor project. In Airfoil, select Dynamic stall Time march with 12 revolutions. In Config, set the azimuth resolution to 180. Run 400 RPM, in-plane advance ratio 0.35, and collective 14 degrees. In Results, inspect the separation state, lift, and drag disk maps around the azimuth cycle.",
 )
 _register_routes(
     ("DS-A5",),
-    "Copy projects/starter_rotor to outputs/physics_checks/manual/ds-a5. Add inputs/maneuvers.bemt with a saved constant-condition maneuver named periodic-residual at 400 RPM and collective 16 degrees. Run python -m zbemt.cli --project outputs/physics_checks/manual/ds-a5 --maneuver periodic-residual --set airfoil.dynamic_stall_method=time_march --set airfoil.dynamic_stall_time_march_revolutions=2. Repeat with airfoil.dynamic_stall_time_march_revolutions=4. Compare the periodic residual and warning in both histories.",
-    "Open the prepared project and the Transient window. Select periodic-residual. Set Dynamic stall revolutions to 2 and run, then set 4 and run. Inspect the periodic residual and warning in the transient Results.",
+    "Run python -m zbemt.cli --project projects/starter_rotor --rpm 400 --mu-inplane 0.35 --collective 14 --dynamic-stall --set airfoil.dynamic_stall_method=time_march --set airfoil.dynamic_stall_A=40 --set airfoil.dynamic_stall_time_march_revolutions=2. Repeat with airfoil.dynamic_stall_time_march_revolutions=4. Compare the periodic residual and the warning in both result rows.",
+    "Open the starter rotor project. In Airfoil, select Dynamic stall Time march with A equal to 40 and 2 revolutions. Run 400 RPM, in-plane advance ratio 0.35, and collective 14 degrees, then repeat with 4 revolutions. Inspect the periodic residual and the warning in Results.",
 )
 _register_routes(
     ("DS-A6",),
@@ -673,9 +678,9 @@ _register_routes(
     "Open the starter rotor project. In Run Batch, add in-plane advance ratios 0.05, 0.10, and 0.20 at 400 RPM and collective 16 degrees. Run Dynamic stall Frequency, Time march with 16 revolutions, and Off. Compare CT and CP in Results.",
 )
 _register_routes(
-    ("DS-A9", "DS-D3-HYSTERESIS-DIRECTION", "DS-H4"),
-    "Copy projects/starter_rotor to outputs/physics_checks/manual/ds-ramp. Add inputs/maneuvers.bemt with a 41-sample maneuver named collective-ramp that changes collective 6 to 16 to 6 degrees at 400 RPM and advance ratio 0.20. Run python -m zbemt.cli --project outputs/physics_checks/manual/ds-ramp --maneuver collective-ramp --set airfoil.dynamic_stall_method=time_march. Compare lift and CT on rising and falling branches at equal collective.",
-    "Open the prepared project and the Transient window. Run the 41-sample collective-ramp maneuver from 6 to 16 to 6 degrees. Inspect stalled-element lift and CT at equal collective on the rising and falling branches.",
+    ("DS-H4",),
+    "Copy projects/starter_rotor to outputs/physics_checks/manual/ds-ramp. Add inputs/maneuvers.bemt with a 41-sample maneuver named collective-ramp that changes collective 6 to 18 to 6 degrees at 400 RPM and advance ratio 0.20, with march dynamic stall and march flapping both enabled. Run python -m zbemt.cli --project outputs/physics_checks/manual/ds-ramp --maneuver collective-ramp --set airfoil.dynamic_stall_method=time_march. Compare CT on the rising and the falling branch at collective 13 degrees.",
+    "Open the prepared project and the Transient window. Run the 41-sample collective-ramp maneuver from 6 to 18 to 6 degrees with March dynamic stall and March flapping enabled. Inspect CT at collective 13 degrees on the rising and the falling branch.",
 )
 _register_routes(
     ("DS-A14", "DS-D3B-FADE-50"),

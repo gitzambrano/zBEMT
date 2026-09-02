@@ -297,8 +297,9 @@ class TestSourceLedger(unittest.TestCase):
                 "Power", "Thrust", "Vi", "Run Batch",
             ),
             "DS-A5": (
-                "inputs/maneuvers.bemt", "--maneuver periodic-residual",
-                "2", "4", "periodic residual", "Transient",
+                "airfoil.dynamic_stall_time_march_revolutions=2",
+                "airfoil.dynamic_stall_time_march_revolutions=4",
+                "periodic residual", "Airfoil", "Results",
             ),
             "PROP-K8": (
                 "--validate-only", "config.rho=-1", "Config", "validation",

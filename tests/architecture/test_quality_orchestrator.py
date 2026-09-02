@@ -75,14 +75,14 @@ class TestSuiteRunnerSelection(unittest.TestCase):
             path.relative_to(ROOT).as_posix()
             for path in self.runner.select_test_files("physics")
         }
-        self.assertEqual(selected, {
-            "tests/physics/test_physics_check_harness.py",
-            "tests/physics/test_physics_core_bemt_executor.py",
-            "tests/physics/test_physics_dynamic_stall_executor.py",
-            "tests/physics/test_physics_flapping_executor.py",
-            "tests/physics/test_physics_pitt_corrections_executor.py",
-            "tests/physics/test_physics_propeller_executor.py",
-        })
+        # The manifest is the single assignment of a file to a suite, so
+        # the selection is compared with it. A hardcoded list here broke
+        # every time the physics evidence gained a module.
+        manifest = json.loads(
+            (TESTS_DIR / "suite_manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(selected, set(manifest["physics"]))
+        self.assertTrue(all(name.startswith("tests/physics/")
+                            for name in selected))
 
 
 class TestQualityCommandOrchestrator(unittest.TestCase):
