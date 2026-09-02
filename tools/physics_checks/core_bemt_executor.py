@@ -10,9 +10,15 @@ from __future__ import annotations
 import csv
 import hashlib
 import math
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
+
+import numpy as np
+
+from zbemt import api, geometry, studies
+from zbemt.models import FlightCondition
 
 from .cli_helper import run_cli_in_project_copy
 from .models import CheckResult, Claim, ExecutionContext, FinalStatus
@@ -48,6 +54,77 @@ _CLEAN_PHYSICS = (
 )
 _FAST_MESH = ("--set", "config.Ne=30", "--set", "config.Npsi=48")
 _RUN_CACHE: dict[tuple[str, tuple[str, ...]], tuple[dict[str, Any], str, str]] = {}
+
+
+def _reference_maps(*, prandtl_loss_mode: str, mu_x: float = 0.0,
+                    reverse_flow_model: str = "simple_flip",
+                    stall_model: str = "linear", npsi: int = 32) -> Mapping[str, Any]:
+    """Run the same isolated rotor through the public studies API.
+
+    The CLI remains the black-box route for integrated coefficients. The API
+    route is required only when an acceptance rule specifies a local disk
+    quantity that the CLI summary cannot serialize.
+    """
+    project = api.open_project(PROJECT)
+    config = dict(project.config)
+    config.update({
+        "Ne": 60,
+        "Npsi": npsi,
+        "prandtl_loss_mode": prandtl_loss_mode,
+        "use_rotational_augmentation": False,
+        "use_radial_flow_correction": False,
+        "use_compressibility": False,
+        "reverse_flow_model": reverse_flow_model,
+    })
+    airfoil = replace(
+        project.airfoil, stall_model=stall_model, alpha0_deg=0.0,
+        cd0=0.01, k=0.0,
+    )
+    reference_geometry = geometry.generate_rectangular(
+        root_cutout_norm=0.15, radius_m=1.0, chord_norm=0.08,
+        twist_root_deg=0.0, twist_tip_deg=0.0, n_blades=4,
+    )
+    reference = replace(
+        project, geometry=reference_geometry, airfoil=airfoil, config=config,
+    )
+    result = studies.run_single_case(
+        reference,
+        FlightCondition(
+            name="physics map probe", rpm=400.0, collective_deg=8.0,
+            mu_x=mu_x,
+        ),
+    )
+    return result.maps
+
+
+def _prandtl_factor_error(maps: Mapping[str, Any], *, mode: str) -> float:
+    """Compare a reported loss map with Prandtl's independent closed form."""
+    radius = np.asarray(maps["R_NORM"], dtype=float)
+    phi = np.asarray(maps["phi"], dtype=float)
+    spacing = np.maximum(radius, 1e-6) * np.maximum(np.abs(np.sin(phi)), 1e-6)
+
+    def factor(distance: np.ndarray) -> np.ndarray:
+        exponent = np.maximum(-2.0 * distance / spacing, -50.0)
+        return np.clip(2.0 / math.pi * np.arccos(np.clip(np.exp(exponent), -1.0, 1.0)), 0.01, 1.0)
+
+    tip = factor(1.0 - radius)
+    root = factor(radius - 0.15)
+    expected = {"off": np.ones_like(radius), "tip": tip, "root": root, "both": tip * root}[mode]
+    return float(np.max(np.abs(np.asarray(maps["F"], dtype=float) - expected)))
+
+
+def _reverse_flow_local_jump(maps: Mapping[str, Any]) -> float:
+    """Return the largest normal-load jump across a local ``Ut=0`` crossing."""
+    tangential_velocity = np.asarray(maps["Ut"], dtype=float)
+    normal_load = np.asarray(maps["Fn"], dtype=float)
+    peak_load = max(float(np.max(np.abs(normal_load))), 1e-15)
+    jumps: list[float] = []
+    for velocity_row, load_row in zip(tangential_velocity, normal_load):
+        sign_change = np.flatnonzero(np.signbit(velocity_row) != np.signbit(np.roll(velocity_row, -1)))
+        for index in sign_change:
+            next_index = (int(index) + 1) % load_row.size
+            jumps.append(abs(float(load_row[next_index] - load_row[index])) / peak_load)
+    return max(jumps, default=0.0)
 
 
 def _utc_now() -> str:
@@ -220,25 +297,22 @@ def _c4(claim: Claim, context: ExecutionContext, started: str) -> CheckResult:
             "--set", "config.Ne=60", "--set", "config.Npsi=32",
         ))
     ct = {mode: float(record[0]["CT"]) for mode, record in records.items()}
-    # Evaluate the published arccosine factor at two representative stations
-    # from the CLI's converged mean inflow.  The factor must lie in (0, 1).
-    lambda_i = float(records["off"][0]["lambda_i"])
-    factors = {}
-    for radius in (0.20, 0.90):
-        phi = math.atan2(lambda_i, radius)
-        tip_f = 4.0 * (1.0 - radius) / (2.0 * radius * abs(math.sin(phi)))
-        root_f = 4.0 * (radius - 0.15) / (2.0 * 0.15 * abs(math.sin(phi)))
-        factors[f"F_tip_r{radius}"] = 2.0 / math.pi * math.acos(math.exp(-tip_f))
-        factors[f"F_root_r{radius}"] = 2.0 / math.pi * math.acos(math.exp(-root_f))
-    passed = ct["tip"] < ct["off"] and ct["root"] < ct["off"] and ct["both"] <= min(ct["tip"], ct["root"])
+    local_factor_max_error = _prandtl_factor_error(
+        _reference_maps(prandtl_loss_mode="both"), mode="both",
+    )
+    passed = (
+        ct["tip"] < ct["off"] and ct["root"] < ct["off"]
+        and ct["both"] <= min(ct["tip"], ct["root"])
+        and local_factor_max_error <= 1e-12
+    )
     return _result(
         claim, context, started, passed,
-        {f"CT_{key}": value for key, value in ct.items()},
-        {**factors, "Prandtl_factor_interval": [0.0, 1.0], "loss_order": "CT_both <= CT_tip, CT_root < CT_off"},
-        "Published F=(2/pi) acos(exp(-f)); both integrated losses must reduce CT",
+        {**{f"CT_{key}": value for key, value in ct.items()}, "local_factor_max_error": local_factor_max_error},
+        {"Prandtl_factor_closed_form": "F=(2/pi) acos(exp(-f))", "local_factor_max_error": 1e-12,
+         "loss_order": "CT_both <= CT_tip, CT_root < CT_off"},
+        "local Prandtl-factor error <= 1e-12 and both integrated losses reduce CT",
         (record[1] for record in records.values()), (record[2] for record in records.values()),
-        "The CLI exposes integrated loads but not the local Prandtl-factor field required by the acceptance rule. A GUI disk-map check remains necessary.",
-        final_status=FinalStatus.INCONCLUSIVE,
+        "The public studies API exposes the disk map; the black-box CLI independently confirms the integrated thrust ordering.",
     )
 
 
@@ -271,7 +345,6 @@ def _c5_or_c12(claim: Claim, context: ExecutionContext, started: str) -> CheckRe
         claim, context, started, passed,
         {"CT_off": off, "CT_on": on, "CT_ratio": ratio, "tip_mach": tip_mach}, expected, tolerance,
         (record[1] for record in records.values()), (record[2] for record in records.values()), notes,
-        final_status=(FinalStatus.INCONCLUSIVE if claim.claim_id == "BEMT-C12" else None),
     )
 
 
@@ -399,14 +472,22 @@ def _c10(claim: Claim, context: ExecutionContext, started: str) -> CheckResult:
         jump = abs(values[1] - values[0]) / max(abs(value) for value in values)
         measured[f"{model}_CT"] = values
         measured[f"{model}_relative_jump"] = jump
-        passed = passed and jump <= 0.005
+        local_jump = _reverse_flow_local_jump(_reference_maps(
+            prandtl_loss_mode="off", mu_x=0.35, reverse_flow_model=model,
+            stall_model="viterna", npsi=720,
+        ))
+        measured[f"{model}_local_relative_jump"] = local_jump
+        passed = passed and jump <= 0.005 and local_jump <= 0.005
+    measured["max_local_relative_jump"] = max(
+        measured[f"{model}_local_relative_jump"]
+        for model in ("flat_plate", "thin_plate_blend", "viterna_full_range")
+    )
     return _result(
         claim, context, started, passed, measured,
         {"continuity_limit": 0.005, "boundary": "tangential-flow sign reversal"},
-        "global CT jump across a 0.0002 advance-ratio bracket <= 0.5% for each model",
+        "each local Fn jump across Ut=0 and the global CT bracket jump are <= 0.5%",
         commands, artifacts,
-        "The CLI summary provides only an integrated continuity check. The local normal-load jump required by the acceptance rule needs the GUI disk map.",
-        final_status=FinalStatus.INCONCLUSIVE,
+        "The public studies API samples the local disk map at 720 azimuth points; the CLI independently checks the integrated-load bracket.",
     )
 
 

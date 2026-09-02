@@ -88,6 +88,21 @@ class TestCoreBemtExecutorRealCli(unittest.TestCase):
         self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
         self.assertLessEqual(result.measured_data["relative_span"], 0.0005)
 
+    def test_analytical_polar_stays_mach_independent(self):
+        result = self._execute("BEMT-C12")
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertGreater(result.measured_data["CT_ratio"], 1.0)
+
+    def test_prandtl_factors_match_the_local_closed_form(self):
+        result = self._execute("BEMT-C4")
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertLessEqual(result.measured_data["local_factor_max_error"], 1e-12)
+
+    def test_reverse_flow_models_keep_local_normal_load_continuous(self):
+        result = self._execute("BEMT-C10")
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertLessEqual(result.measured_data["max_local_relative_jump"], 0.005)
+
     def test_attached_hover_rotational_augmentation_is_inactive(self):
         result = self._execute("BEMT-C11")
         self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
