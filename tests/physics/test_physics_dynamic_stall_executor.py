@@ -56,6 +56,16 @@ class TestDynamicStallExecutor(unittest.TestCase):
         self.assertLess(max(differences[:2]), 0.01)
         self.assertGreater(differences[-1], differences[1])
 
+    def test_periodic_residual_decreases_and_warns_when_unsettled(self):
+        claim = next(claim for claim in CLAIMS if claim.claim_id == "DS-A5")
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            result = DynamicStallExecutor()(claim, self._context(Path(temporary_directory)))
+
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertGreater(result.measured_data["residual_2_revolutions"],
+                           result.measured_data["residual_4_revolutions"])
+        self.assertTrue(result.measured_data["warning_at_4_revolutions"])
+
     def test_missing_source_fixture_is_inconclusive_instead_of_guessed(self):
         claim = next(claim for claim in CLAIMS if claim.claim_id == "DS-A2")
         with tempfile.TemporaryDirectory() as temporary_directory:
