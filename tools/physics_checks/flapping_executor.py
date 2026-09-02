@@ -168,7 +168,7 @@ class _RealProbeRunner:
                 trim="none",
                 states=["w", "p", "q", "Omega"],
                 controls=["theta_0", "theta_1c", "theta_1s"],
-                outputs=["Thrust", "Torque", "Mx", "Mx_hub", "Mx_total", "My_total"],
+                outputs=["Thrust", "Torque", "Mx", "My", "Mx_hub", "Mx_total", "My_total"],
                 steps={"w": 0.5, "p": 0.02, "q": 0.02},
                 richardson_check=False,
             )
@@ -864,22 +864,38 @@ class _RealProbeRunner:
         for mu_x in (0.0, 0.20):
             rigid = self._rate_matrix("rigid", mu_x)
             flap = self._rate_matrix("offset", mu_x)
-            records[str(mu_x)] = {"rigid": rigid, "flap": flap}
+            rigid_matrix = self._derivatives("rigid", mu_x).matrix
+            flap_matrix = self._derivatives("offset", mu_x).matrix
+            records[str(mu_x)] = {
+                "rigid_total": rigid,
+                "flap_total": flap,
+                "rigid_aerodynamic": {
+                    "Mx_q": rigid_matrix[("Mx", "q")],
+                    "My_p": rigid_matrix[("My", "p")],
+                },
+                "flap_aerodynamic": {
+                    "Mx_q": flap_matrix[("Mx", "q")],
+                    "My_p": flap_matrix[("My", "p")],
+                },
+            }
         flap_converged = all(
             self._reference_case("offset", mu_x=mu_x).summary["flap_outer_converged"]
             for mu_x in (0.0, 0.20)
         )
         passed = all(
-            abs(record["rigid"][key]) > abs(record["flap"][key])
+            abs(record["rigid_aerodynamic"][key])
+            > abs(record["flap_aerodynamic"][key])
             for record in records.values() for key in ("Mx_q", "My_p")
         )
         return self._evidence(
             passed, {"cases": records, "flap_outer_converged": flap_converged},
-            {"ordering": "rigid direct damping magnitude exceeds flapping magnitude"},
-            "Both direct damping magnitudes must be lower with flap freedom at both conditions.",
+            {"hover_ordering": "rigid aerodynamic damping magnitude exceeds flapping aerodynamic damping",
+             "forward_flight": "coupled damping matrix without an individual monotonic ordering"},
+            "Both aerodynamic damping magnitudes must be lower in hover. Forward flight must report the coupled matrix without claiming an individual monotonic ordering.",
             "python -c \"from zbemt import api; api.compute_derivatives(...rigid and offset...)\"",
-            "The public derivative API evaluates hover and advance ratio 0.20.",
-            status=None if flap_converged else FinalStatus.INCONCLUSIVE,
+            "The public derivative API evaluates hover and advance ratio 0.20. The offset-hinge structural moment remains separate.",
+            status=(FinalStatus.CONFIRMED_CORRECT if passed else FinalStatus.NOT_REPRODUCED)
+            if flap_converged else FinalStatus.INCONCLUSIVE,
         )
 
     def _probe_lag_coriolis_limitation(self) -> ProbeEvidence:

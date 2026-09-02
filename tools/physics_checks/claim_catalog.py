@@ -128,8 +128,8 @@ _REFERENCE_AND_RULE = {
         "Accept when every listed derivative has the prescribed sign and no value is numerically zero.",
     ),
     "DERIV-P7": (
-        "Articulated flap freedom relieves pitch and roll damping relative to a rigid blade.",
-        "Accept when rigid damping magnitude exceeds flapping damping magnitude in hover and at advance ratio 0.20.",
+        "Articulated flap freedom relieves the uncoupled aerodynamic pitch and roll damping in hover. Forward flight has a coupled damping matrix and does not require each direct term to decrease.",
+        "Accept when both aerodynamic damping magnitudes decrease in hover. Record the coupled matrix at advance ratio 0.20 without an individual monotonic ordering.",
     ),
     "DS-A1": (
         "A constant static separation state is an exact fixed point of both Oye solution methods.",
