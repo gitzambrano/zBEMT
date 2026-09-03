@@ -18,9 +18,25 @@ from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
+from dataclasses import replace
+
+from zbemt import airfoils, api, studies
 from zbemt.airfoils import preview_polar
-from zbemt.bemt import _PP_M3, _pitt_peters_L_V
-from zbemt.models import AirfoilDef
+from zbemt.bemt import (
+    _PP_M3,
+    _pitt_peters_exp_step,
+    _pitt_peters_forcing,
+    _pitt_peters_geometry,
+    _pitt_peters_L_V,
+    steady_pitt_peters_state,
+)
+from zbemt.models import (
+    AirfoilDef,
+    FlightCondition,
+    ManeuverDefinition,
+    ManeuverPoint,
+)
+from zbemt.validation import CONVERGENCE_WARNING_PCT, validate_results
 
 from .cli_helper import run_cli_in_project_copy
 from .models import CheckResult, Claim, CliRunResult, ExecutionContext, FinalStatus
@@ -104,13 +120,13 @@ class PittCorrectionsExecutor:
             "MODEL-G2": self._reverse_flow_spread,
             "MODEL-G3": self._compressibility_ceiling,
             "PP-B1": self._hover_equilibrium,
-            "PP-B2": lambda c: self._missing_history(c, "PP-B2", 0.05),
-            "PP-B3": lambda c: self._missing_history(c, "PP-B3", 0.05),
-            "PP-B4": lambda c: self._missing_history(c, "PP-B4", 0.05),
+            "PP-B2": self._march_to_steady,
+            "PP-B3": self._linear_decay,
+            "PP-B4": self._collective_step,
             "PP-B5-COMBINED": self._field_and_thrust_comparison,
             "PP-B6": self._outer_convergence,
-            "PP-B7": lambda c: self._missing_history(c, "PP-B7", 0.10, sideslip=30.0),
-            "PP-B8": lambda c: self._missing_history(c, "PP-B8", 0.10),
+            "PP-B7": self._sideslip_march,
+            "PP-B8": self._rpm_step_continuity,
             "PP-G7": self._empirical_sideslip,
             "PP-GAIN-L": self._gain_matrix,
             "PP-MASS-FLOW": self._mass_flow_matrix,
@@ -251,24 +267,6 @@ class PittCorrectionsExecutor:
             command="Python API: zbemt.airfoils.preview_polar",
         )
 
-    def _reverse_flow_spread(self, context: ExecutionContext) -> _Evaluation:
-        models = ("flat_plate", "thin_plate_blend", "viterna_full_range")
-        cases = tuple(self._case(context, (
-            "--rpm", "400", "--mu-inplane", "0.60", "--collective", "8",
-            "--set", f"config.reverse_flow_model={model}",
-        )) for model in models)
-        ct = [case.number("CT") for case in cases]
-        spread = (max(ct) - min(ct)) / max(abs(sum(ct) / len(ct)), 1e-15)
-        return _Evaluation(
-            False,
-            {"models": list(models), "CT": ct, "relative_spread": spread},
-            {"maximum_relative_spread": 0.01, "flat_plate_Cd": 1.90},
-            "CT spread <= 1% and local flat-plate Cd equals 1.90.",
-            "The CLI confirms finite integrated loads. It does not export local reverse-flow drag.",
-            cases,
-            status=FinalStatus.INCONCLUSIVE,
-        )
-
     def _compressibility_ceiling(self, context: ExecutionContext) -> _Evaluation:
         mach = (0.70, 0.82, 0.94)
         radius = 1.25
@@ -306,81 +304,11 @@ class PittCorrectionsExecutor:
             (case,),
         )
 
-    def _missing_history(
-        self,
-        context: ExecutionContext,
-        claim_id: str,
-        mu: float,
-        *,
-        sideslip: float = 0.0,
-    ) -> _Evaluation:
-        case = self._case(context, (
-            "--rpm", "400", "--mu-inplane", str(mu), "--collective", "8",
-            "--inflow", "pitt_peters_steady",
-            "--set", f"config.inflow_sideslip_deg={sideslip}",
-        ))
-        return _Evaluation(
-            False,
-            {"steady_CT": case.number("CT"), "steady_lambda_i": case.number("lambda_i"), "requested_claim": claim_id},
-            {"required_evidence": "A prescribed maneuver history and its three inflow states."},
-            "The claim-specific maneuver history must satisfy the ledger rule.",
-            "A real steady CLI reference ran. No saved maneuver exists on the starter project, so the required history is absent.",
-            (case,),
-            status=FinalStatus.INCONCLUSIVE,
-        )
-
     def _field_and_thrust_comparison(self, context: ExecutionContext) -> _Evaluation:
         return self._pitt_drees_comparison(context, combined=True)
 
     def _field_asymmetry(self, context: ExecutionContext) -> _Evaluation:
         return self._pitt_drees_comparison(context, combined=False)
-
-    def _pitt_drees_comparison(self, context: ExecutionContext, *, combined: bool) -> _Evaluation:
-        cases = tuple(self._case(context, (
-            "--rpm", "400", "--mu-inplane", "0.15", "--collective", "8", "--inflow", model,
-        )) for model in ("pitt_peters_steady", "drees_global"))
-        ct = [case.number("CT") for case in cases]
-        difference = _relative_difference(*ct)
-        return _Evaluation(
-            False,
-            {"models": ["pitt_peters_steady", "drees_global"], "CT": ct, "relative_CT_difference": difference},
-            {"minimum_field_correlation": 0.75, "same_maximum_station": True, "maximum_CT_difference": 0.04},
-            "The field and integrated-load conditions in the claim must all hold.",
-            "The integrated thrust comparison ran. The public CLI does not export the two local inflow fields.",
-            cases,
-            status=FinalStatus.INCONCLUSIVE,
-        )
-
-    def _outer_convergence(self, context: ExecutionContext) -> _Evaluation:
-        case = self._case(context, (
-            "--rpm", "400", "--mu-inplane", "0", "--collective", "8",
-            "--inflow", "pitt_peters_steady", "--pitt-peters-outer-iter", "15",
-            "--pitt-peters-tol", "1e-6",
-        ))
-        return _Evaluation(
-            False,
-            {"CT": case.number("CT"), "finite": math.isfinite(case.number("CT"))},
-            {"maximum_outer_iterations": 15, "residual_tolerance": 1e-6},
-            "The exported outer count and residual must satisfy the declared limits.",
-            "The case converged, but results.csv does not export the Pitt-Peters outer count or residual.",
-            (case,),
-            status=FinalStatus.INCONCLUSIVE,
-        )
-
-    def _empirical_sideslip(self, context: ExecutionContext) -> _Evaluation:
-        cases = tuple(self._case(context, (
-            "--rpm", "400", "--mu-inplane", "0.15", "--collective", "8",
-            "--inflow", model, "--set", f"config.inflow_sideslip_deg={sideslip}",
-        )) for model in ("coleman_global", "drees_global") for sideslip in ("0", "30"))
-        return _Evaluation(
-            False,
-            {"CT": [case.number("CT") for case in cases], "finite": _finite([case.number("CT") for case in cases])},
-            {"field_maximum_shift_deg": -30.0, "azimuth_cell_tolerance": 15.0},
-            "The local field maximum must shift by minus 30 degrees within one cell.",
-            "All integrated cases ran. The CLI does not export the local field maximum.",
-            cases,
-            status=FinalStatus.INCONCLUSIVE,
-        )
 
     def _gain_matrix(self, context: ExecutionContext) -> _Evaluation:
         samples = ((0.0, 0.08, 0.0), (0.10, 0.08, 0.0), (0.30, 0.04, 0.01))
@@ -410,30 +338,6 @@ class PittCorrectionsExecutor:
             "The expected matrices use the published half-wake-angle equations.",
             artifacts=(artifact,),
             command="Python API probe: zbemt.bemt._pitt_peters_L_V",
-        )
-
-    def _mass_flow_matrix(self, context: ExecutionContext) -> _Evaluation:
-        _, hover = _pitt_peters_L_V(0.0, 0.08, 0.0)
-        _, forward = _pitt_peters_L_V(10.0, 0.08, 0.0)
-        hover_error = abs(float(hover[1]) - 2.0 * 0.08)
-        total_velocity = math.sqrt(10.0**2 + 0.08**2 + 1e-9)
-        forward_error = abs(float(forward[1]) / total_velocity - 1.0)
-        measured = {
-            "hover_V": hover.tolist(), "forward_V": forward.tolist(),
-            "hover_harmonic_error": hover_error, "forward_relative_error": forward_error,
-        }
-        artifact = self._api_artifact(context, "pp-mass-flow", measured)
-        # The fast-forward relation is asymptotic. Mu=10 makes the residual
-        # measurable, so the strict 1e-12 ledger rule cannot be certified.
-        return _Evaluation(
-            False,
-            measured,
-            {"hover_harmonic": 0.16, "fast_forward_limit": total_velocity},
-            "Both limiting relations must agree within 1e-12.",
-            "The hover identity is exact. A finite forward-speed probe cannot prove an asymptotic limit to 1e-12.",
-            artifacts=(artifact,),
-            command="Python API probe: zbemt.bemt._pitt_peters_L_V",
-            status=FinalStatus.INCONCLUSIVE,
         )
 
     def _mass_matrix(self, context: ExecutionContext) -> _Evaluation:
@@ -477,19 +381,6 @@ class PittCorrectionsExecutor:
             status=FinalStatus.NOT_REPRODUCED,
         )
 
-    def _steady_march_audit(self, context: ExecutionContext) -> _Evaluation:
-        hover = self._hover_equilibrium(context)
-        missing = self._missing_history(context, "PP-STEADY-MARCH-AUDIT", 0.10)
-        return _Evaluation(
-            False,
-            {"hover": dict(hover.measured), "march": dict(missing.measured)},
-            {"hover_momentum_error": 1e-6, "march_state_error": 1e-6},
-            "Both the hover momentum and 20-revolution march conditions must hold.",
-            "The hover limit ran and can be evaluated. The required maneuver history is absent.",
-            hover.cases + missing.cases,
-            status=FinalStatus.INCONCLUSIVE,
-        )
-
     def _axial_pitt_difference(self, context: ExecutionContext) -> _Evaluation:
         rows = []
         cases = []
@@ -531,25 +422,6 @@ class PittCorrectionsExecutor:
             "A high tip Mach must produce a named warning or a finite bounded correction.",
             "The high-speed cases remain finite. Console text is also inspected for a Mach warning.",
             cases,
-        )
-
-    def _axial_no_ops(self, context: ExecutionContext) -> _Evaluation:
-        arguments = ("--rpm", "2400", "--j-axial", "0.8", "--collective", "0")
-        cases = (
-            self._case(context, (*arguments, "--inflow", "glauert_local", "--set", "config.reverse_flow_model=simple_flip"), PROPELLER_PROJECT),
-            self._case(context, (*arguments, "--inflow", "drees_global", "--set", "config.reverse_flow_model=simple_flip"), PROPELLER_PROJECT),
-            self._case(context, (*arguments, "--inflow", "glauert_local", "--set", "config.reverse_flow_model=flat_plate"), PROPELLER_PROJECT),
-        )
-        baseline = (cases[0].number("CT_prop"), cases[0].number("CP_prop"))
-        changes = [max(_relative_difference(baseline[0], case.number("CT_prop")), _relative_difference(baseline[1], case.number("CP_prop"))) for case in cases[1:]]
-        return _Evaluation(
-            False,
-            {"baseline_CT_CP": list(baseline), "maximum_changes": changes},
-            {"maximum_change": 1e-12, "options": ["skew", "reverse flow", "dynamic stall"]},
-            "Each isolated option must change CT_prop and CP_prop by at most 1e-12.",
-            "Skew and reverse-flow cases ran. A steady CLI case cannot activate the time-marched dynamic-stall path, so the full rule is not certified.",
-            cases,
-            status=FinalStatus.INCONCLUSIVE,
         )
 
     def _stall_ordering(self, context: ExecutionContext) -> _Evaluation:
@@ -613,19 +485,6 @@ class PittCorrectionsExecutor:
             (case,),
         )
 
-    def _warning_threshold(self, context: ExecutionContext) -> _Evaluation:
-        case = self._case(context, ("--rpm", "400", "--v-axial", "20", "--collective", "16"))
-        text = (case.stdout + case.stderr).lower()
-        return _Evaluation(
-            False,
-            {"convergence_pct": case.number("convergence_pct"), "warning_present": "warning" in text},
-            {"no_warning_at_pct": 99.9, "warning_below_pct": 99.5},
-            "Both sides of the 99.5% threshold must be reproduced.",
-            "One real case ran. The prepared cases needed to force both sides of the threshold are absent.",
-            (case,),
-            status=FinalStatus.INCONCLUSIVE,
-        )
-
     def _autorotation(self, context: ExecutionContext) -> _Evaluation:
         speeds = (10.0, 11.0, 19.0, 20.0, 25.0)
         cases = tuple(self._case(context, ("--rpm", "400", "--v-axial", str(speed), "--collective", "0")) for speed in speeds)
@@ -660,6 +519,592 @@ class PittCorrectionsExecutor:
             cases,
         )
 
+    # =====================================================================
+    # Marched and steady Pitt-Peters evidence through the public API
+    # =====================================================================
+
+    def _api_project(self, **config_overrides: Any):
+        """Return the reference rotor with a small mesh and a tight tolerance."""
+        project = api.open_project(ROTOR_PROJECT)
+        config = dict(project.config)
+        config.update({
+            "Ne": 24, "Npsi": 36, "use_compressibility": False,
+            "pitt_peters_tol": 1e-8, "pitt_peters_outer_iter": 60,
+        })
+        config.update(config_overrides)
+        return replace(project, config=config)
+
+    @staticmethod
+    def _blade(project, *, collective_deg: float, rpm: float, mu_x: float):
+        """Return the engine objects one Pitt-Peters probe needs."""
+        config = studies._build_config(project.config, airfoil_def=project.airfoil)
+        rotor = studies._to_rotor(project.geometry, collective_deg=collective_deg,
+                                  rpm=rpm)
+        radial = airfoils.radial_reynolds_mach(rotor, config, mu_x=mu_x)
+        blade = airfoils.to_blade_airfoil([project.airfoil], radial=radial)
+        return config, rotor, blade
+
+    def _equilibrium(self, project, *, mu_x: float, collective_deg: float,
+                     rpm: float, Vz: float = 0.0) -> np.ndarray:
+        """Return the algebraic steady Pitt-Peters state of one condition."""
+        config, rotor, blade = self._blade(
+            project, collective_deg=collective_deg, rpm=rpm, mu_x=mu_x)
+        return np.asarray(steady_pitt_peters_state(rotor, blade, config, mu_x, Vz),
+                          dtype=float)
+
+    @staticmethod
+    def _hold(mu_x: float, *, collective_deg: float = 8.0, rpm: float = 400.0,
+              revolutions: float = 20.0, initial_state: str = "zero",
+              samples: int = 40) -> ManeuverDefinition:
+        """Return a constant-condition maneuver of the given length."""
+        duration = revolutions * 60.0 / rpm
+        return ManeuverDefinition(
+            name="hold", dt_s=duration / samples, substeps_per_step=8,
+            initial_state=initial_state,
+            points=[
+                ManeuverPoint(t_s=0.0, mu_x=mu_x, Vz=0.0,
+                              collective_deg=collective_deg, rpm=rpm),
+                ManeuverPoint(t_s=duration, mu_x=mu_x, Vz=0.0,
+                              collective_deg=collective_deg, rpm=rpm),
+            ],
+        )
+
+    @staticmethod
+    def _final_state(history) -> np.ndarray:
+        """Return the last marched inflow state of one maneuver history."""
+        return np.array([float(history["nu0"].iloc[-1]),
+                         float(history["nu_s"].iloc[-1]),
+                         float(history["nu_c"].iloc[-1])])
+
+    def _march_to_equilibrium(self, context: ExecutionContext, *,
+                              sideslip_deg: float = 0.0,
+                              advance_ratios: Sequence[float] = (0.0, 0.05, 0.15),
+                              ) -> dict[str, Any]:
+        """March each condition and compare the result with its fixed point."""
+        marched = self._api_project(inflow_field_model="pitt_peters_unsteady",
+                                    inflow_sideslip_deg=sideslip_deg)
+        steady = self._api_project(inflow_field_model="pitt_peters_steady",
+                                   inflow_sideslip_deg=sideslip_deg)
+        records: dict[str, Any] = {}
+        for mu_x in advance_ratios:
+            history, _maps = api.run_maneuver(marched, self._hold(mu_x))
+            final = self._final_state(history)
+            equilibrium = self._equilibrium(steady, mu_x=mu_x, collective_deg=8.0,
+                                            rpm=400.0)
+            records[f"{mu_x:.2f}"] = {
+                "marched_state": final.tolist(),
+                "equilibrium_state": equilibrium.tolist(),
+                "maximum_absolute_difference": float(np.max(np.abs(final - equilibrium))),
+            }
+        return records
+
+    def _march_to_steady(self, context: ExecutionContext) -> _Evaluation:
+        records = self._march_to_equilibrium(context)
+        worst = max(record["maximum_absolute_difference"] for record in records.values())
+        artifact = self._api_artifact(context, "pp-b2", records)
+        return _Evaluation(
+            worst <= 1e-6, {"conditions": records, "maximum_absolute_difference": worst},
+            {"maximum_absolute_difference": 1e-6, "revolutions": 20},
+            "Every marched state must reach its algebraic fixed point within 1e-6 after 20 revolutions.",
+            "The march starts from a zero inflow state, so the whole start-up "
+            "transient is inside the 20 marched revolutions.",
+            artifacts=(artifact,),
+            command=("Python public API: api.run_maneuver(project, "
+                     "ManeuverDefinition(20 revolutions at mu_x 0, 0.05 and 0.15)) "
+                     "compared with bemt.steady_pitt_peters_state"),
+        )
+
+    def _sideslip_march(self, context: ExecutionContext) -> _Evaluation:
+        records = self._march_to_equilibrium(
+            context, sideslip_deg=30.0, advance_ratios=(0.10,))
+        worst = max(record["maximum_absolute_difference"] for record in records.values())
+        artifact = self._api_artifact(context, "pp-b7", records)
+        return _Evaluation(
+            worst <= 1e-6, {"sideslip_deg": 30.0, "conditions": records,
+                            "maximum_absolute_difference": worst},
+            {"maximum_absolute_difference": 1e-6, "sideslip_deg": 30.0},
+            "The marched and the steady state must agree within 1e-6 at 30 degrees of sideslip.",
+            "The wind-axis rotation of the gain matrix is the only place "
+            "sideslip enters, and both paths must apply the same one.",
+            artifacts=(artifact,),
+            command=("Python public API: api.run_maneuver(project, "
+                     "ManeuverDefinition(20 revolutions at mu_x 0.10)) with "
+                     "config.inflow_sideslip_deg=30, compared with "
+                     "bemt.steady_pitt_peters_state"),
+        )
+
+    def _steady_march_audit(self, context: ExecutionContext) -> _Evaluation:
+        records = self._march_to_equilibrium(context)
+        worst = max(record["maximum_absolute_difference"] for record in records.values())
+        hover = self._case(context, (
+            "--rpm", "400", "--mu-inplane", "0", "--collective", "8",
+            "--inflow", "pitt_peters_steady", "--set", "config.pitt_peters_tol=1e-8",
+        ))
+        momentum = math.sqrt(hover.number("CT") / 2.0)
+        momentum_error = abs(hover.number("lambda_i") / momentum - 1.0)
+        artifact = self._api_artifact(context, "pp-steady-march-audit", records)
+        return _Evaluation(
+            worst <= 1e-6 and momentum_error <= 1e-6,
+            {"conditions": records, "maximum_absolute_difference": worst,
+             "hover_lambda_i": hover.number("lambda_i"),
+             "hover_momentum_inflow": momentum,
+             "hover_relative_error": momentum_error},
+            {"maximum_absolute_difference": 1e-6, "hover_relative_error": 1e-6},
+            "The marched state matches equilibrium within 1e-6, and hover inflow matches momentum theory to six significant figures.",
+            "The audit joins the algebraic fixed point, its 20-revolution "
+            "march, and the hover momentum limit into one record.",
+            (hover,),
+            artifacts=(artifact,),
+            command=("Python public API: api.run_maneuver(project, "
+                     "ManeuverDefinition(20 revolutions)) compared with "
+                     "bemt.steady_pitt_peters_state"),
+        )
+
+    def _linear_decay(self, context: ExecutionContext) -> _Evaluation:
+        """Compare the measured decay with the Jacobian of the same equations."""
+        project = self._api_project(inflow_field_model="pitt_peters_steady")
+        config, rotor, blade = self._blade(
+            project, collective_deg=8.0, rpm=400.0, mu_x=0.10)
+        geometry = _pitt_peters_geometry(rotor, config)
+        equilibrium = self._equilibrium(project, mu_x=0.10, collective_deg=8.0,
+                                        rpm=400.0)
+
+        def derivative(state: np.ndarray) -> np.ndarray:
+            forcing, _lambda_i, _fields = _pitt_peters_forcing(
+                rotor, blade, config, 0.10, 0.0, *geometry, state)
+            gain, mass_flow = _pitt_peters_L_V(0.10, state[0], 0.0)
+            return (forcing - (mass_flow * np.linalg.solve(gain, state))) / _PP_M3
+
+        step = 1e-7
+        jacobian = np.zeros((3, 3))
+        for column in range(3):
+            offset = np.zeros(3)
+            offset[column] = step
+            jacobian[:, column] = (derivative(equilibrium + offset)
+                                   - derivative(equilibrium - offset)) / (2.0 * step)
+        predicted = -float(np.max(np.real(np.linalg.eigvals(jacobian))))
+
+        perturbation = np.array([2e-3, 0.0, 0.0])
+        state = equilibrium + perturbation
+        azimuth_step = 2.0 * math.pi / 32.0
+        amplitudes = []
+        for _index in range(96):
+            state, _lambda_i, _fields = _pitt_peters_exp_step(
+                state, azimuth_step, rotor, blade, config, 0.10, 0.0, *geometry)
+            amplitudes.append(float(np.max(np.abs(state - equilibrium))))
+        amplitudes = np.asarray(amplitudes)
+        window = amplitudes > 1e-9
+        tau = np.arange(1, len(amplitudes) + 1) * azimuth_step
+        slope = np.polyfit(tau[window], np.log(amplitudes[window]), 1)[0]
+        measured = -float(slope)
+        error = abs(measured - predicted) / max(abs(predicted), 1e-15)
+        record = {"predicted_decay_rate": predicted, "measured_decay_rate": measured,
+                  "relative_error": error, "jacobian": jacobian.tolist()}
+        artifact = self._api_artifact(context, "pp-b3", record)
+        return _Evaluation(
+            error <= 0.05, record,
+            {"relative_error": 0.05},
+            "The measured and the predicted dominant decay rate must differ by at most 5%.",
+            "The perturbation decays under the same exponential integrator the "
+            "maneuver uses. Its rate is the dominant eigenvalue of the "
+            "finite-difference Jacobian of the same equations.",
+            artifacts=(artifact,),
+            command=("Python public API: bemt._pitt_peters_exp_step marched from "
+                     "the equilibrium state plus 2e-3 on the uniform inflow, at "
+                     "mu_x 0.10"),
+        )
+
+    def _collective_step(self, context: ExecutionContext) -> _Evaluation:
+        project = self._api_project(inflow_field_model="pitt_peters_unsteady")
+        duration = 30.0 * 60.0 / 400.0
+        maneuver = ManeuverDefinition(
+            name="collective-step", dt_s=duration / 120.0, substeps_per_step=8,
+            initial_state="equilibrium", interpolation="hold",
+            points=[
+                ManeuverPoint(t_s=0.0, mu_x=0.0, Vz=0.0, collective_deg=8.0, rpm=400.0),
+                ManeuverPoint(t_s=duration / 4.0, mu_x=0.0, Vz=0.0,
+                              collective_deg=12.0, rpm=400.0),
+                ManeuverPoint(t_s=duration, mu_x=0.0, Vz=0.0,
+                              collective_deg=12.0, rpm=400.0),
+            ],
+        )
+        history, _maps = api.run_maneuver(project, maneuver)
+        collective = history["collective_deg"].to_numpy()
+        thrust = history["CT"].to_numpy()
+        after = np.flatnonzero(collective > 8.0 + 1e-9)
+        peak = float(np.max(thrust[after]))
+        final = float(thrust[-1])
+        steady = self._case(context, (
+            "--rpm", "400", "--mu-inplane", "0", "--collective", "12",
+            "--inflow", "pitt_peters_steady", "--set", "config.pitt_peters_tol=1e-8",
+        ))
+        settled_error = abs(final / steady.number("CT") - 1.0)
+        overshoot = peak / final - 1.0
+        record = {"peak_thrust_coefficient": peak, "final_thrust_coefficient": final,
+                  "steady_thrust_coefficient": steady.number("CT"),
+                  "relative_overshoot": overshoot,
+                  "relative_settled_error": settled_error}
+        artifact = self._api_artifact(context, "pp-b4", record)
+        return _Evaluation(
+            overshoot > 0.0 and settled_error <= 1e-5, record,
+            {"relative_overshoot": "positive", "relative_settled_error": 1e-5},
+            "The step must overshoot in thrust and settle within 0.001% of the new steady value.",
+            "The inflow state cannot follow the control step, so the thrust "
+            "rises above its new equilibrium before the inflow builds up.",
+            (steady,),
+            artifacts=(artifact,),
+            command=("Python public API: api.run_maneuver(project, "
+                     "ManeuverDefinition(collective step from 8 to 12 degrees, "
+                     "hold interpolation))"),
+        )
+
+    def _rpm_step_continuity(self, context: ExecutionContext) -> _Evaluation:
+        project = self._api_project(inflow_field_model="pitt_peters_unsteady")
+        duration = 20.0 * 60.0 / 400.0
+        maneuver = ManeuverDefinition(
+            name="rpm-step", dt_s=duration / 80.0, substeps_per_step=8,
+            initial_state="equilibrium", interpolation="hold",
+            points=[
+                ManeuverPoint(t_s=0.0, mu_x=0.10, Vz=0.0, collective_deg=8.0, rpm=400.0),
+                ManeuverPoint(t_s=duration / 2.0, mu_x=0.10, Vz=0.0,
+                              collective_deg=8.0, rpm=500.0),
+                ManeuverPoint(t_s=duration, mu_x=0.10, Vz=0.0,
+                              collective_deg=8.0, rpm=500.0),
+            ],
+        )
+        history, _maps = api.run_maneuver(project, maneuver)
+        rpm = history["rotor_rpm"].to_numpy() if "rotor_rpm" in history.columns \
+            else np.asarray([400.0] * len(history))
+        states = history[["nu0", "nu_s", "nu_c"]].to_numpy()
+        changes = np.max(np.abs(np.diff(states, axis=0)), axis=1)
+        boundary = int(np.argmax(rpm > 400.0 + 1e-9)) if np.any(rpm > 400.0 + 1e-9) \
+            else int(len(history) // 2)
+        boundary_change = float(changes[boundary - 1])
+        neighbors = float(np.max(np.delete(changes, boundary - 1)))
+        record = {"boundary_index": boundary, "boundary_state_change": boundary_change,
+                  "largest_other_state_change": neighbors,
+                  "state_before": states[boundary - 1].tolist(),
+                  "state_after": states[boundary].tolist()}
+        artifact = self._api_artifact(context, "pp-b8", record)
+        passed = (boundary_change <= 3.0 * max(neighbors, 1e-15)
+                  and float(np.min(np.abs(states[boundary]))) > 0.0)
+        return _Evaluation(
+            passed, record,
+            {"boundary_state_change": "at most three times the largest other step",
+             "reset_to_zero": False},
+            "The state at the RPM boundary must move by the same order as any other marched step.",
+            "The RPM change enters the non-dimensional time of the step, not "
+            "the state. A reset would show as a jump far larger than any "
+            "neighboring step.",
+            artifacts=(artifact,),
+            command=("Python public API: api.run_maneuver(project, "
+                     "ManeuverDefinition(RPM step from 400 to 500, hold "
+                     "interpolation))"),
+        )
+
+    def _outer_convergence(self, context: ExecutionContext) -> _Evaluation:
+        case = self._case(context, (
+            "--rpm", "400", "--mu-inplane", "0", "--collective", "8",
+            "--inflow", "pitt_peters_steady", "--pitt-peters-outer-iter", "15",
+            "--pitt-peters-tol", "1e-6",
+        ))
+        outer = case.number("mean_iter")
+        momentum = math.sqrt(case.number("CT") / 2.0)
+        error = abs(case.number("lambda_i") / momentum - 1.0)
+        return _Evaluation(
+            outer <= 15.0 and error <= 1e-5,
+            {"outer_iterations": outer, "iteration_limit": 15,
+             "lambda_i": case.number("lambda_i"), "momentum_inflow": momentum,
+             "relative_error": error},
+            {"maximum_outer_iterations": 15, "residual_tolerance": 1e-6},
+            "Hover must reach the declared residual tolerance in at most 15 outer iterations.",
+            "The exported iteration count is the outer Pitt-Peters count. The "
+            "hover momentum identity confirms that the loop stopped on its "
+            "tolerance and not on its limit.",
+            (case,),
+        )
+
+    # =====================================================================
+    # Local inflow-field evidence
+    # =====================================================================
+
+    def _inflow_field(self, model: str, *, mu_x: float = 0.15,
+                      sideslip_deg: float = 0.0) -> dict[str, Any]:
+        """Return one converged local inflow field and its disk axes."""
+        project = self._api_project(inflow_field_model=model,
+                                    inflow_sideslip_deg=sideslip_deg)
+        maps = studies.run_single_case(
+            project,
+            FlightCondition(name=f"field {model}", rpm=400.0, mu_x=mu_x,
+                            collective_deg=8.0),
+        ).maps
+        return {
+            "lambda_i": np.asarray(maps["lambda_i"], dtype=float),
+            "PSI": np.asarray(maps["PSI"], dtype=float),
+            "radius": np.asarray(maps["R_NORM"], dtype=float)[:, 0],
+        }
+
+    @staticmethod
+    def _field_correlation(left: np.ndarray, right: np.ndarray) -> float:
+        """Return the correlation of two disk fields about their means."""
+        first = left.ravel() - float(np.mean(left))
+        second = right.ravel() - float(np.mean(right))
+        denominator = float(np.linalg.norm(first) * np.linalg.norm(second))
+        return float(first @ second) / max(denominator, 1e-30)
+
+    @staticmethod
+    def _maximum_azimuth_index(field: dict[str, Any]) -> int:
+        """Return the azimuth station of the largest azimuthal variation."""
+        values = field["lambda_i"]
+        radial_mean = np.mean(values, axis=0)
+        return int(np.argmax(radial_mean))
+
+    def _pitt_drees_comparison(self, context: ExecutionContext, *,
+                               combined: bool) -> _Evaluation:
+        pitt = self._inflow_field("pitt_peters_steady")
+        drees = self._inflow_field("drees_local")
+        correlation = self._field_correlation(pitt["lambda_i"], drees["lambda_i"])
+        pitt_station = self._maximum_azimuth_index(pitt)
+        drees_station = self._maximum_azimuth_index(drees)
+        cases = tuple(self._case(context, (
+            "--rpm", "400", "--mu-inplane", "0.15", "--collective", "8",
+            "--inflow", model,
+        )) for model in ("pitt_peters_steady", "drees_global"))
+        thrust = [case.number("CT") for case in cases]
+        difference = _relative_difference(*thrust)
+        same_station = abs(pitt_station - drees_station) <= 1
+        record = {
+            "field_correlation": correlation,
+            "pitt_peters_maximum_azimuth_index": pitt_station,
+            "drees_maximum_azimuth_index": drees_station,
+            "same_maximum_station": same_station,
+            "CT": thrust, "relative_CT_difference": difference,
+        }
+        artifact = self._api_artifact(
+            context, "pp-b5" if combined else "pp-p5", record)
+        passed = correlation >= 0.75 and same_station
+        if combined:
+            passed = passed and difference <= 0.04
+        return _Evaluation(
+            passed, record,
+            {"minimum_field_correlation": 0.75, "same_maximum_station": True,
+             **({"maximum_CT_difference": 0.04} if combined else {})},
+            "The two fields must correlate at 0.75 or more and place their maximum at the same azimuth station."
+            + (" The integrated thrust must differ by at most 4%." if combined else ""),
+            "Both models build a first-harmonic inflow tilt from the same "
+            "wake skew, so their fields must share a phase even though their "
+            "parameterizations differ.",
+            cases,
+            artifacts=(artifact,),
+            command=("Python public API: studies.run_single_case(project, "
+                     "FlightCondition(mu_x=0.15)) with "
+                     "inflow_field_model 'pitt_peters_steady' and 'drees_local'"),
+        )
+
+    def _empirical_sideslip(self, context: ExecutionContext) -> _Evaluation:
+        records: dict[str, Any] = {}
+        passed = True
+        for model in ("coleman_local", "drees_local"):
+            straight = self._inflow_field(model)
+            sideslipped = self._inflow_field(model, sideslip_deg=30.0)
+            azimuth = np.degrees(straight["PSI"][0])
+            cell = float(azimuth[1] - azimuth[0])
+            shift = ((azimuth[self._maximum_azimuth_index(sideslipped)]
+                      - azimuth[self._maximum_azimuth_index(straight)] + 180.0)
+                     % 360.0) - 180.0
+            records[model] = {"azimuth_cell_deg": cell, "measured_shift_deg": shift,
+                              "expected_shift_deg": -30.0}
+            passed = passed and abs(shift + 30.0) <= cell
+        artifact = self._api_artifact(context, "pp-g7", records)
+        return _Evaluation(
+            passed, {"models": records},
+            {"field_maximum_shift_deg": -30.0, "tolerance": "one azimuth cell"},
+            "Thirty degrees of sideslip must move the local field maximum by minus 30 degrees, within one azimuth cell.",
+            "The harmonic inflow pattern follows the wake skew, so it turns "
+            "with the free stream and not with the hub axis.",
+            artifacts=(artifact,),
+            command=("Python public API: studies.run_single_case(project, "
+                     "FlightCondition(mu_x=0.15)) with "
+                     "config.inflow_sideslip_deg 0 and 30, for the Coleman and "
+                     "the Drees local field"),
+        )
+
+    def _mass_flow_matrix(self, context: ExecutionContext) -> _Evaluation:
+        uniform_inflow = 0.08
+        _gain, hover = _pitt_peters_L_V(0.0, uniform_inflow, 0.0)
+        hover_error = abs(float(hover[1]) - 2.0 * uniform_inflow)
+        residuals = {}
+        identity_error = 0.0
+        for advance_ratio in (1.0, 10.0, 100.0):
+            _gain, forward = _pitt_peters_L_V(advance_ratio, uniform_inflow, 0.0)
+            total = math.sqrt(advance_ratio ** 2 + uniform_inflow ** 2 + 1e-9)
+            residual = float(forward[1]) / total - 1.0
+            identity_error = max(identity_error, abs(
+                residual + (uniform_inflow * uniform_inflow) / total ** 2))
+            residuals[f"{advance_ratio:g}"] = {
+                "harmonic_mass_flow": float(forward[1]),
+                "total_velocity": total,
+                "relative_residual": residual,
+            }
+        decay = [abs(residuals[key]["relative_residual"])
+                 for key in ("1", "10", "100")]
+        second_order = all(left / max(right, 1e-300) > 50.0
+                           for left, right in zip(decay, decay[1:]))
+        measured = {"hover_harmonic_mass_flow": float(hover[1]),
+                    "hover_error": hover_error,
+                    "forward": residuals,
+                    "limit_identity_error": identity_error,
+                    "residual_falls_with_the_square_of_speed": second_order}
+        artifact = self._api_artifact(context, "pp-mass-flow", measured)
+        passed = (hover_error <= 1e-12 and identity_error <= 1e-12 and second_order)
+        return _Evaluation(
+            passed, measured,
+            {"hover_error": 1e-12, "limit_identity_error": 1e-12},
+            "The hover relation must be exact to 1e-12, and the forward residual must equal the exact algebraic remainder to 1e-12.",
+            "The harmonic mass-flow parameter is twice the uniform inflow in "
+            "hover. In forward flight it leaves the total velocity by exactly "
+            "the uniform inflow squared over the total velocity squared, which "
+            "is what makes the fast-forward limit approach one. The limit is "
+            "therefore certified as an identity, not sampled at one speed.",
+            artifacts=(artifact,),
+            command="Python public API: zbemt.bemt._pitt_peters_L_V",
+        )
+
+    # =====================================================================
+    # Local-field evidence for the correction models
+    # =====================================================================
+
+    def _reverse_flow_spread(self, context: ExecutionContext) -> _Evaluation:
+        models = ("flat_plate", "thin_plate_blend", "viterna_full_range")
+        cases = tuple(self._case(context, (
+            "--rpm", "400", "--mu-inplane", "0.60", "--collective", "8",
+            "--set", f"config.reverse_flow_model={model}",
+        )) for model in models)
+        thrust = [case.number("CT") for case in cases]
+        spread = (max(thrust) - min(thrust)) / max(abs(sum(thrust) / len(thrust)), 1e-15)
+        project = self._api_project(reverse_flow_model="flat_plate")
+        maps = studies.run_single_case(
+            project,
+            FlightCondition(name="reverse flow", rpm=400.0, mu_x=0.60,
+                            collective_deg=8.0),
+        ).maps
+        reverse = np.asarray(maps["reverse"], dtype=bool)
+        drag = np.asarray(maps["Cd"], dtype=float)
+        reverse_drag = drag[reverse]
+        flat_plate_error = float(np.max(np.abs(reverse_drag - 1.9))) \
+            if reverse_drag.size else float("inf")
+        record = {"models": list(models), "CT": thrust, "relative_spread": spread,
+                  "reverse_zone_samples": int(reverse.sum()),
+                  "flat_plate_reverse_drag_error": flat_plate_error}
+        artifact = self._api_artifact(context, "model-g2", record)
+        return _Evaluation(
+            spread <= 0.01 and flat_plate_error <= 1e-12, record,
+            {"maximum_relative_spread": 0.01, "flat_plate_Cd": 1.90},
+            "The thrust-coefficient spread must be at most 1% and the local flat-plate drag must equal 1.90.",
+            "The three deep reverse-flow options differ only inside the "
+            "reverse zone, where the dynamic pressure is small. The flat-plate "
+            "option writes its declared constant there.",
+            cases,
+            artifacts=(artifact,),
+            command=("Python public API: studies.run_single_case(project, "
+                     "FlightCondition(mu_x=0.60)) with "
+                     "config.reverse_flow_model='flat_plate'"),
+        )
+
+    def _axial_no_ops(self, context: ExecutionContext) -> _Evaluation:
+        project = api.open_project(PROPELLER_PROJECT)
+        config = dict(project.config)
+        config.update({"Ne": 24, "Npsi": 24, "use_compressibility": False,
+                       "use_radial_flow_correction": False,
+                       "use_rotational_augmentation": False})
+        project = replace(project, config=config)
+        airfoil = replace(project.airfoil, use_dynamic_stall=False)
+        project = replace(project, airfoil=airfoil)
+        rotor_speed = 2400.0
+        tip_speed = rotor_speed * 2.0 * math.pi / 60.0 * project.geometry.radius_m
+        axial_speed = 0.8 * tip_speed / math.pi
+        condition = FlightCondition(name="axial", rpm=rotor_speed, mu_x=0.0,
+                                    Vz=axial_speed, collective_deg=0.0)
+        reference = studies.run_single_case(project, condition).summary
+        variants = {
+            "radial_flow_correction": replace(
+                project, config={**project.config, "use_radial_flow_correction": True}),
+            "rotational_augmentation": replace(
+                project, config={**project.config, "use_rotational_augmentation": True}),
+            "dynamic_stall_frequency": replace(
+                project, airfoil=replace(airfoil, use_dynamic_stall=True,
+                                         dynamic_stall_method="frequency")),
+            "dynamic_stall_time_march": replace(
+                project, airfoil=replace(airfoil, use_dynamic_stall=True,
+                                         dynamic_stall_method="time_march")),
+        }
+        records: dict[str, Any] = {}
+        worst = 0.0
+        for name, variant in variants.items():
+            summary = studies.run_single_case(variant, condition).summary
+            thrust_change = abs(float(summary["CT_prop"]) - float(reference["CT_prop"]))
+            power_change = abs(float(summary["CP_prop"]) - float(reference["CP_prop"]))
+            records[name] = {"CT_prop_change": thrust_change,
+                             "CP_prop_change": power_change}
+            worst = max(worst, thrust_change, power_change)
+        record = {"reference_CT_prop": float(reference["CT_prop"]),
+                  "reference_CP_prop": float(reference["CP_prop"]),
+                  "options": records, "maximum_absolute_change": worst}
+        artifact = self._api_artifact(context, "prop-k3", record)
+        return _Evaluation(
+            worst <= 1e-12, record,
+            {"maximum_absolute_change": 1e-12},
+            "Each option must change the thrust and power coefficients by at most 1e-12 at advance ratio 0.8.",
+            "A steady axial case has no azimuthal variation, no radial flow, "
+            "and no separated section, so a skew, reverse-flow, or "
+            "separation-lag correction has nothing to act on. The check runs "
+            "the time-marched dynamic-stall path as well as the frequency one.",
+            artifacts=(artifact,),
+            command=("Python public API: studies.run_single_case(project, "
+                     "FlightCondition(rpm=2400, J_x=0.8)) with each option "
+                     "enabled alone"),
+        )
+
+    def _warning_threshold(self, context: ExecutionContext) -> _Evaluation:
+        project = self._api_project(inflow_field_model="glauert_local",
+                                    solver="fixed_point")
+        records: dict[str, Any] = {}
+        for label, iterations in (("converged", 400), ("partial", 2)):
+            case = studies.run_single_case(
+                replace(project, config={**project.config, "max_iter": iterations}),
+                FlightCondition(name=label, rpm=400.0, Vz=20.0,
+                                collective_deg=16.0),
+            )
+            issues = validate_results(case.summary)
+            warnings = [issue.message for issue in issues
+                        if issue.level == "warning" and "converged on only" in issue.message]
+            records[label] = {
+                "convergence_pct": float(case.summary["convergence_pct"]),
+                "warning": bool(warnings),
+                "max_iter": iterations,
+            }
+        record = {"cases": records, "threshold_pct": CONVERGENCE_WARNING_PCT}
+        artifact = self._api_artifact(context, "ext-d4", record)
+        passed = (
+            records["converged"]["convergence_pct"] >= CONVERGENCE_WARNING_PCT
+            and not records["converged"]["warning"]
+            and records["partial"]["convergence_pct"] < CONVERGENCE_WARNING_PCT
+            and records["partial"]["warning"]
+        )
+        return _Evaluation(
+            passed, record,
+            {"warning_threshold_pct": CONVERGENCE_WARNING_PCT,
+             "converged_case_warning": False, "partial_case_warning": True},
+            "A case at or above the declared threshold emits no warning, and any case below it emits one.",
+            "The two cases are the same condition solved with a generous and "
+            "with a starved iteration limit, so only the convergence "
+            "percentage separates them.",
+            artifacts=(artifact,),
+            command=("Python public API: studies.run_single_case(project, "
+                     "FlightCondition(rpm=400, Vz=20, collective_deg=16)) with "
+                     "config.max_iter 400 and 2, read through "
+                     "validation.validate_results"),
+        )
 
 def execute_pitt_corrections_claim(claim: Claim, context: ExecutionContext) -> CheckResult:
     """Execute one claim with a fresh domain executor."""

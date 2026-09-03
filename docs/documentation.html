@@ -8502,9 +8502,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           airframe and is added outside it.</p>
 
                         <p><b>Induced power</b>, $P_i=T v_i$, is the power spent accelerating air through the disk. It
-                          <em>falls</em> with speed, because forward motion renews the mass flow through the disk and
-                          less
-                          induced velocity is then needed to sustain the same thrust. It dominates in the hover and at
+                          <em>falls</em> with speed, because forward motion renews the mass flow through the disk, and
+                          the
+                          disk then needs less induced velocity for the same thrust. It dominates in the hover and at
                           low
                           speed.
                         </p>
@@ -8538,8 +8538,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <figure>
                           <img src="img/externas/power_curve.png"
                             alt="Total helicopter power curve versus advance speed">
-                          <figcaption>Decomposition of total power into induced, profile, parasite, plus tail
-                            rotor/accessories/transmission components, as a function of advance speed. Source: <a
+                          <figcaption>Decomposition of total power into the induced, profile and parasite components,
+                            plus the tail rotor, the accessories and the transmission, as a function of advance
+                            speed. Source: <a
                               href="https://kumar-sumeet.github.io/HeliAeroNotes/Lectures/4_ForwardFlight/ForwardFlight.html"
                               target="_blank">S. Kumar, <i>Fundamentals of Helicopter Aerodynamics</i></a>.</figcaption>
                         </figure>
@@ -8558,20 +8559,20 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <h3 id="sec-123-flight-condition-sweeps">12.3 Flight Condition Sweeps</h3>
 
                         <p><b>What a sweep is.</b> A sweep repeats the solution over a sequence of flight conditions and
-                          assembles one result row per condition, so that a trend can be read where a single case gives
+                          assembles one result row per condition, so that the reader sees a trend where a single case
+                          gives
                           only
                           a point. Every condition is solved as an independent steady problem: no state is carried from
                           one to
                           the next, so the order in which a sweep runs cannot change what it produces.</p>
 
                         <p><b>Choosing the independent variable.</b> The abscissa may be either component of the free
-                          stream, the collective, or the rotational speed. Whichever is chosen, the other three are
-                          held, and
+                          stream, the collective, or the rotational speed. The sweep holds the other three, and
                           the held values are part of the answer: a curve from a sweep is a slice through a
                           four-dimensional
                           space of conditions, comparable with another curve only when the three unswept values agree.
                           The
-                          exported table records both the swept quantity and the fixed settings, which is what makes
+                          exported table records both the swept quantity and the fixed settings, which makes
                           that
                           check possible after the fact.</p>
 
@@ -8582,7 +8583,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                             geometric
                             pitch and with no collective trim, so $C_T$ varies freely along the sweep instead of being
                             held.
-                            Left, $C_T$ and $C_P$ against $\mu_x$; right, the resulting figure of merit. All three
+                            The left panel shows $C_T$ and $C_P$ against $\mu_x$, and the right panel shows the
+                            resulting figure of merit. All three
                             ordinates are
                             dimensionless.</figcaption>
                         </figure>
@@ -8598,7 +8600,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>A performance polar (the usual way helicopter performance is reported) asks the
                           opposite question: "how much power does it take to sustain the same weight at each speed".
                           That
-                          requires thrust to be <em>held</em>, which means solving for the collective that produces it
+                          requires the thrust to stay fixed, which means solving for the collective that produces it
                           at
                           every condition. Each of those is a search, with one complete solution of the disk inside each
                           trial.</p>
@@ -8617,8 +8619,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           mode
                           direct, and read thrust as a result. A trimmed sweep is the same batch with a trim mode
                           selected,
-                          described in 10.5, and every condition of the queue is then trimmed independently against the
-                          same
+                          described in <a class="xref" href="#cap-6-trim"
+                            title="11.1 Run mode and trim target">Section 11.1</a>, and the trim loop then trims
+                          every condition of the queue independently against the same
                           target.</p>
 
                         <h4 id="cap-29-2">12.3.2 Reading the figure of merit along a sweep</h4>
@@ -8655,8 +8658,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           planforms. The window runs the same solver as an ordinary case, so its numbers
                           carry the same meaning as every other result in this document. Everything
                           except the blade geometry stays fixed across a comparison. Every variant runs
-                          with the airfoil polar, the mesh, the inflow model and the corrections of the
-                          open project, so a difference between two results has a geometric cause.</p>
+                          using the airfoil polar, the mesh, the inflow model and the corrections of the
+                          open project. A difference between two results therefore has a geometric
+                          cause.</p>
 
                         <p>Open the Geometry Designer like this:</p>
                         <ol>
@@ -8691,7 +8695,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>Integrity and reuse.</b> Every row is validated before a run starts: a chord
                           table that is not finite and positive, a cutout at or beyond the tip, or any
                           project-level error stops the comparison naming the offending label. A base whose
-                          planform reads ONE chord quantity keeps the table honest too &mdash; a rectangular
+                          planform reads ONE chord quantity keeps the table honest too. A rectangular
                           base renames the first column to <i>Chord c/R</i> and an elliptic one to <i>Max chord
                           c/R</i>, disabling the tip cell in both cases instead of accepting a value that would
                           be ignored. Two rows resolving to the same radial table warn
@@ -8712,8 +8716,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           a blade built by the Generate block and a blade imported from
                           another project. Such a row is compared exactly as it stands. The
                           first column holds the label that names the variant in the verdict
-                          strip, in the figures and in every export. Choose labels that state
-                          the difference the row carries.</p>
+                          strip, in the figures and in every export.</p>
 
                         <p><b>The table columns.</b> The table has eleven columns. The first
                           seven are editable and state overrides over the session base
@@ -8735,7 +8738,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           projections of the row's resolved planform, recomputed after every
                           edit. With $c$ the chord distribution over $r/R$ and $N_b$ the
                           blade count, they show the blade aspect ratio,
-                          $AR = 1/\int c\,\mathrm{d}(r/R)$, to two decimal places, and the
+                          $AR = 1/\int c\,\mathrm{d}(r/R)$, to two decimal places. They show the
                           rotor solidity, $\sigma = N_b\,\int c\,\mathrm{d}(r/R)/\pi$, to
                           three. Both integrals run over the row's own stations. Rows that
                           carry a complete geometry (a generated or an imported blade) show
@@ -8745,7 +8748,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><b>The <i>Extra overrides</i> column.</b> The last column is
                           read-only. It lists every override of its row that has no dedicated
-                          column, written as a <code>param=value</code> fragment; an em dash
+                          column, written as a <code>param=value</code> fragment. An em dash
                           means the row carries none of them. Only the two chord parameters
                           can appear there, <code>max_chord_norm</code> and
                           <code>chord_norm</code>, because every other parameter owns a
@@ -8775,9 +8778,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           the blade count, receives rounded values with duplicates removed. The
                           bounds span from -10 to 10 with four decimals, and the count runs from 1
                           to 50. <i>Build variants</i> validates every value against the
-                           session base planform before it appends the row, so the
-                           builder rejects an unacceptable value with a message instead
-                           of leaving rows that fail only at run time.
+                          session base planform before it appends the row. The
+                            builder rejects an unacceptable value with a message instead
+                            of leaving rows that fail only at run time.
                             Each appended row starts as a copy of the base row, carries its value in
                             the matching cell, and takes a label that names the parameter and the
                             value, such as <code>tip_chord_norm=0.040</code>.</p>
@@ -8787,7 +8790,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           value regenerates the planform from its parameters, as everywhere
                           else in this chapter. When it has none (an imported blade, or a
                           table edited by hand), the window applies the planform parameters in table
-                          space instead of failing. Every geometry is a radial table, so it reads
+                          space instead of failing. Every geometry is a radial table, so the window reads
                           each parameter as a target on that table. The root chord and the
                           tip chord fix the two ends of the chord table, and a scale
                           factor interpolated between root and tip rescales the
@@ -8846,9 +8849,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           it isolates the planform.</p>
 
                         <p>In the <span class="gui">GUI</span>: pick the family in the
-                          <i>Generate variant</i> panel and fill the fields it reveals.
-                          Adjust the shared radius, blade count, root cutout, twist and station
-                          count if the defaults do not match the study. Then press <i>Add as
+                          <i>Generate variant</i> panel. Fill the fields it reveals.
+                          If the defaults do not match the study, adjust the shared radius, blade
+                          count, root cutout, twist and station count. Then press <i>Add as
                             variant</i>.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: none. A generated
@@ -8877,7 +8880,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           substitution.</p>
 
                         <p>In the <span class="gui">GUI</span>: press <i>Import from
-                          project&hellip;</i>, pick the project folder, then choose <i>Add as
+                          project&hellip;</i>. Pick the project folder. Then choose <i>Add as
                             variant</i> or <i>Replace base</i> in the dialog. The base row's
                           last column names the imported origin while the substitution
                           lasts.</p>
@@ -8899,7 +8902,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           explicit numbers in <i>Values</i>. Then press <i>Build variants</i>.
                           Edit any cell
                           of any row afterwards. Manage rows with <i>Add</i>, <i>Duplicate</i>
-                          and <i>Remove</i>, and watch the preview to confirm what each variant looks
+                          and <i>Remove</i>. Watch the preview to confirm what each variant looks
                           like.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: comparison variants are not
@@ -8926,7 +8929,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>vsweep_start</code> to <code>vsweep_end</code>, both included, in
                           <code>vsweep_count</code> evenly spaced steps. <code>vsweep_values</code> overrides
                           all three when it is not empty: an even sweep spends the same effort
-                          everywhere, and a real study usually wants points clustered where the answer
+                          everywhere, and points are usually clustered where the answer
                           changes fastest.</p>
 
                         <p><code>gen_family</code> sets the planform of the generated blade. Rectangular
@@ -8951,7 +8954,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           mode, all variants run the same ordered conditions, so their results stay
                           directly comparable. A gray estimate line at the bottom states the
                           resulting count, for example <code>single condition: 4 variants &times; 1
-                            case = 4 solves</code>, or names the reason a run cannot start.</p>
+                            case = 4 solves</code>. It also names the reason a run cannot start.</p>
 
                         <p><b>Saved cases.</b> The panel shows how many cases the project stores.
                           The run refuses to start when none are stored. It also refuses to
@@ -8980,7 +8983,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><b>The sweep fields.</b> The axis dropdown sweeps either the in-plane
                           advance ratio or the collective pitch. Start and Stop bound the sweep,
-                          both included, anywhere from -1000 to 1000, and Count sets how many
+                          both included, anywhere from -1000 to 1000. Count sets how many
                           evenly spaced values fall between them, from 1 to 200 with a default of
                           5. The remaining quantities keep the values of the Single condition
                           panel, rotational speed included. Each generated condition receives a name
@@ -8989,7 +8992,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           identify the conditions downstream.</p>
 
                                                 <p><b>The swept condition.</b> <span class="gui">GUI</span>: <code>sweep_axis</code> chooses the flight
-                          quantity carried through evenly spaced values, and it becomes the horizontal
+                          quantity carried through evenly spaced values. That quantity becomes the horizontal
                           axis of every curve the comparison draws. The sweep runs from
                           <code>sweep_start</code> to <code>sweep_stop</code>, both included, in
                           <code>sweep_count</code> points.</p>
@@ -9006,7 +9009,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 <h4 id="designer-trim">13.2.1 Thrust matching</h4>
 
                         <p><b>The physics.</b> A comparison at equal controls does not, by itself,
-                          hold the loading constant: a planform that happens to make more thrust
+                          hold the loading constant. A planform that happens to make more thrust
                           also draws more power, so an ordinary ranking favors whichever variant
                           loads its blade most heavily. Holding the loading constant removes that
                           advantage. With <i>Thrust matching</i> set to <i>Thrust</i> or to
@@ -9034,7 +9037,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>Options, cost, and failure.</b> The dropdown offers <i>(off)</i>,
                           <i>Thrust</i> and <i>CT</i>, and starts at <i>(off)</i>, which runs every
                           variant with the same entered controls. A trimmed case bisects its control
-                          instead of solving once, so each case outside the base row costs roughly
+                          instead of solving once. Each case outside the base row costs roughly
                           ten direct solves, about 10 to 20 engine solves in practice. The estimate
                           line extends with that factor when trimming is on. A target
                           outside the plausible bracket stops the run with an error naming the
@@ -9058,10 +9061,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>none</code> as the default.</p>
 
                         <p>In the <span class="gui">GUI</span>: check one of the three radio
-                          buttons at the top of the page and fill the panel that appears below
-                          it. Choose
-                          the <i>Thrust matching</i> option if the variants must be compared at equal
-                          loading. Read the estimate line to confirm the number of solves before
+                          buttons at the top of the page. Fill the panel that appears below
+                          it. If the variants must be compared at equal
+                          loading, choose the <i>Thrust matching</i> option. Read the estimate line to confirm the number of solves before
                           moving on.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: the saved cases are real
@@ -9131,10 +9133,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>The delta figure.</b> The panel beside the ranking is titled
                           <i>Delta vs base (%)</i>. For the same metric and the same condition as the
                           ranking figure, each variant is drawn as its percent change against the
-                          base planform,
+                          base planform.
                           $$100\,\frac{v - v_{base}}{|v_{base}|},$$
-                          with an emphasized line at zero marking "equal to base". It states directly
-                          how many per cent a variant gains or loses against the project's own geometry.
+                          The emphasized line at zero marks "equal to base". It states directly
+                          how many percent a variant gains or loses against the project's own geometry.
                           The figure redraws by itself after every run and whenever either dropdown
                           changes. When the base value at that condition is approximately zero, a
                           percentage would divide by zero. The figure then falls back to the plain
@@ -9155,18 +9157,18 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           report into the outputs folder of the project, with the metadata of the
                           run, the full summary table and the overlay figure embedded inside the
                           file itself. <i>Export CSV</i> writes one row per geometry and condition
-                          beside it, and every row carries the aspect ratio and the solidity of
+                          beside it. Every row carries the aspect ratio and the solidity of
                           its geometry next to the performance columns, so shape and results can be
                           compared in one place. Both names start with <code>geometry_comparison_</code> and
                           carry a timestamp, so a new export never silently replaces an older one.
                           Until one of the buttons is pressed, nothing reaches disk: the results
                           and the figures live in memory only.</p>
 
-                        <p>In the <span class="gui">GUI</span>: press <i>Run comparison</i> and wait
+                        <p>In the <span class="gui">GUI</span>: press <i>Run comparison</i>. Wait
                           for the finished message on the status line. Read the verdict chips at
                           the reference condition. Choose a quantity in <i>Rank by</i> and a case in
                           <i>Condition</i>. Read how far each variant departs from the base in the
-                          delta panel, and compare
+                          delta panel. Compare
                           the curves of the overlay figure across the conditions. Press <i>Export
                             report</i> or <i>Export CSV</i> to keep the run.</p>
 
@@ -9192,8 +9194,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           variant was already solved at every condition, so re-ordering runs nothing.</p>
 
                         <p>The ordering is on ONE quantity at ONE condition. A variant that wins on the
-                          figure of merit may lose on torque, and a blade that is best in hover is
-                          frequently not the one that is best in cruise; that reversal is usually the
+                          figure of merit may lose on torque. A blade that is best in hover is
+                          frequently not the one that is best in cruise. That reversal is usually the
                           finding, which is why the full table stays beside the ranking.</p>
 
 <h3 id="designer-damping">13.4 Damping comparison</h3>
@@ -9211,22 +9213,22 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           \frac{\partial M_y}{\partial u},\quad
                           \frac{\partial T}{\partial w}.$$</div>
 
-                        <p>The first two are the rate dampings: a rotor pitching nose-up meets a larger
-                          incidence at the front of the disk, the extra lift there opposes the motion, and
+                        <p>The first two are the rate dampings. A rotor pitching nose-up meets a larger
+                          incidence at the front of the disk. The extra lift there opposes the motion, and
                           the resulting moment is negative. Negative is therefore the healthy sign, and a
                           LARGER magnitude means a rotor that resists the disturbance harder. The third is
                           speed stability, the moment produced by flying faster, whose positive sign is
-                          what makes a helicopter want to pitch up as it accelerates. The fourth is heave
+                          what makes a helicopter pitch up as it accelerates. The fourth is heave
                           damping: climbing lowers the incidence everywhere, so the thrust falls and the
                           derivative is negative.</p>
 
                         <p><b>How it is computed.</b> Each variant is trimmed at the chosen condition and
                           then perturbed by a central difference, exactly as in
                           <a class="xref" href="#cap-stability"
-                             title="16. Stability Derivatives">chapter 16</a> &mdash; that chapter is where
+                             title="16. Stability Derivatives">chapter 16</a>. That chapter is where
                           the step size, the Richardson check and the sign conventions are set out. Four
                           solves are needed per variant, one variable at a time, so the button is separate
-                          from the run: it costs about as much again as the comparison itself, and it is
+                          from the run. It costs about as much again as the comparison itself, and it is
                           only worth paying when the ranking is already settled.</p>
 
                         <p><span class="gui">GUI</span>: <i>Compare damping</i> on the Run &amp; results
@@ -9255,7 +9257,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           candidate and solves one flight condition per candidate, so every evaluation is
                           an ordinary steady solution of the method of <a class="xref" href="#cap-metodo"
                           title="5. The method">Chapter 5</a>. The flight condition itself comes from a
-                          saved case of the project; its definition lives on the Run Case tab, and this
+                          saved case of the project. Its definition lives on the Run Case tab, and this
                           window never edits it.</p>
 
                         <p>The mathematics that orders candidates is the <i>domination rule</i>. A design
@@ -9271,8 +9273,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <figcaption>The Design Optimization window, opened from the
                             <b>Tools</b> button in the main window's top bar. The Study page
                             is open: the study list, the two objective rows and the constraint
-                            table on the left; the variables, the search settings and the cost
-                            estimate on the right.</figcaption>
+                            table on the left. The variables, the search settings and the cost
+                            estimate are on the right.</figcaption>
                         </figure>
 
                                                 <p><b>The study.</b> <span class="gui">GUI</span>: <code>optimization</code> at the top of the window
@@ -9294,17 +9296,17 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           minimized in a study of its abuse.</p>
 
                         <p>In the <span class="gui">GUI</span>: type the summary key, for example
-                          <code>FM</code>, into the key box of Objective 1, and choose Maximize or
+                          <code>FM</code>, into the key box of Objective 1. Choose Maximize or
                           Minimize beside it. Fill Objective 2 the same way to request the front.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: the study carries an
                           <code>objectives</code> list inside <code>inputs/optimizations.bemt</code>,
                           with one entry per objective holding <code>key</code> and <code>kind</code>
                           (<code>"maximize"</code> or <code>"minimize"</code>). One entry runs the
-                          single-result search; two entries run the Pareto search.</p>
+                          single-result search. Two entries run the Pareto search.</p>
 
                         <p>From the <span class="cli">CLI</span>: the objectives come from the saved
-                          study; <code>--optimize NAME</code> reads them from
+                          study. <code>--optimize NAME</code> reads them from
                           <code>inputs/optimizations.bemt</code> exactly as the window does.</p>
 
                         <h3 id="cap-opt-constraints">14.2 Constraints</h3>
@@ -9313,15 +9315,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           ($\leq$), or equal to a value ($=$). The solver never sees the constraint as
                           a penalty added to a fitness: a design that breaks a constraint loses to every
                           design that respects it, whatever the objectives say, and among lawbreakers
-                          the milder ones win. This keeps thresholds honest &mdash; a thrust floor of
+                          the milder ones win. This keeps thresholds honest. A thrust floor of
                           $0{.}008$ either holds or it does not. Every front member reports its
                           constraint values beside its objectives, so feasibility stays visible after
                           the run. When nothing satisfied the constraints, the outcome says so instead
-                          of dressing the least-bad design up as a success.</p>
+                          of presenting the least-bad design as a success.</p>
 
-                        <p>In the <span class="gui">GUI</span>: press <i>Add constraint</i>, type the
-                          summary key into the row, pick the operator from its dropdown and enter the
-                          value. Select a row and press <i>Remove selected</i> to drop it.</p>
+                        <p>In the <span class="gui">GUI</span>: press <i>Add constraint</i>. Type the
+                          summary key into the row. Pick the operator from its dropdown. Enter the
+                          value. Select a row. Press <i>Remove selected</i> to drop it.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: the study carries a
                           <code>constraints</code> list with one entry per row, holding <code>key</code>,
@@ -9340,14 +9342,14 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>twist_tip_deg</code>, <code>max_chord_norm</code> &mdash; and the direct
                           fields <code>n_blades</code>, <code>radius_m</code> and
                           <code>root_cutout_norm</code>. Bounds need a finite lower below a finite
-                          upper; the search respects them throughout, and the stratified first
+                          upper. The search respects them throughout, and the stratified first
                           population already spreads across the whole box before evolution begins. Two
                           or three variables are usually enough: every variable multiplies the number
                           of designs the search needs to see the box properly.</p>
 
-                        <p>In the <span class="gui">GUI</span>: press <i>Add variable</i>, type the
-                          parameter name into the row and fill the lower and upper bounds. Select a row
-                          and press <i>Remove selected</i> to drop it.</p>
+                        <p>In the <span class="gui">GUI</span>: press <i>Add variable</i>. Type the
+                          parameter name into the row. Fill the lower and upper bounds. Select a row.
+                          Press <i>Remove selected</i> to drop it.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: the study carries a
                           <code>variables</code> list with one entry per row, holding
@@ -9359,7 +9361,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <h3 id="cap-opt-condition">14.4 Condition</h3>
                         <p>Every candidate is solved at one flight condition. The dropdown lists the
                           saved cases of the project with their rotational speeds. Rotation is not
-                          optional: the solver adimensionalizes by $\Omega R$, so a case without an RPM
+                          optional: the solver non-dimensionalizes by $\Omega R$, so a case without an RPM
                           cannot take part, and the window refuses to start without one. Changing the
                           condition changes the problem itself, not merely the numbers: a chord optimal
                           in hover is rarely optimal in edgewise flight, because the advancing side
@@ -9377,7 +9379,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <h3 id="cap-opt-algorithm">14.5 Algorithm</h3>
                         <p>The algorithm decides how the next generation of candidates follows from the
-                          current one. <i>NSGA-II</i> is the Pareto search: it keeps a whole population,
+                          current one. <i>NSGA-II</i> is the Pareto search. It keeps a whole population,
                           ranks it by the domination rules above, preserves variety along the front
                           with a crowding measure, and breeds the next generation from the winners.
                           <i>Differential evolution</i> is a global single-result search: it drives one
@@ -9387,8 +9389,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p>In the <span class="gui">GUI</span>: choose the algorithm in the
                           <i>Algorithm</i> dropdown. Choosing differential evolution disables the
-                          crossover and mutation controls of Section&nbsp;14.7, which have nothing to
-                          say about it; they stay on screen, greyed out.</p>
+                          crossover and mutation controls of Section&nbsp;14.7, because they do not
+                          apply to it. They stay on screen, grayed out.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: the study carries
                           <code>algorithm</code>, with <code>"nsga2"</code> or <code>"de"</code>. An
@@ -9405,7 +9407,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           first sweep. Together they fix the cost of the study almost exactly: about
                           $N \times (G + 1)$ solves, and the window prints this estimate before the
                           run. A small population with many generations walks further but explores
-                          less; a large population with few generations maps the front more evenly but
+                          less. A large population with few generations maps the front more evenly but
                           converges less. Forty designs over twenty-five generations is a sound first
                           study. The seed drives every random choice &mdash; the initial spread, the
                           tournaments, the variation &mdash; so the same seed reproduces the same
@@ -9426,16 +9428,16 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <h3 id="cap-opt-operators">14.7 Crossover and mutation</h3>
                         <p>NSGA-II breeds children with two operators. <i>Simulated binary
-                          crossover</i> blends two parents; its distribution index
-                          $\eta_c$ says how close children stay to them &mdash; large values keep the
-                          family together, small values scatter it. <i>Polynomial mutation</i> then
-                          perturbs individual genes; its index $\eta_m$ plays the same role for single
+                          crossover</i> blends two parents. Its distribution index
+                          $\eta_c$ sets how close children stay to them. Large values keep the
+                          family together, and small values scatter it. <i>Polynomial mutation</i> then
+                          perturbs individual genes. Its index $\eta_m$ plays the same role for single
                           genes, and the mutation rate is the fraction of genes touched per child. The
                           rate zero is special and is also the default: it means one over the number of
                           variables, the classic setting. Without enough mutation the population
                           contracts into a corner of the box and the front dies with it, which is why
                           the default exists rather than a literal zero. The defaults
-                          $\eta_c = 15$, $\eta_m = 20$ suit smooth aerodynamic landscapes; lower both
+                          $\eta_c = 15$ and $\eta_m = 20$ suit smooth aerodynamic landscapes. Lower both
                           when the search stalls in a narrow region.</p>
 
                         <p>In the <span class="gui">GUI</span>: set <i>Crossover eta</i>,
@@ -9454,7 +9456,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>Pressing <i>Run optimization</i> first checks the study and names every
                           problem it finds &mdash; an unknown summary key, bounds that do not increase,
                           a genetic algorithm with too few designs, two objectives given to a
-                          single-result method. Errors block the start, warnings only inform; nothing
+                          single-result method. Errors block the start, warnings only inform. Nothing
                           pays solver time to learn about a bad definition. When the check passes, the
                           search runs outside the interface thread, so the window stays responsive,
                           reports progress in evaluations completed, and answers <i>Cancel</i> between
@@ -9462,19 +9464,19 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           design solved until the stop comes back with the results, and the message
                           says the search ended early. The front table lists one non-dominated design
                           per row &mdash; its variables first, then its raw objective values, then the
-                          constraint values of Section&nbsp;14.2. No row dominates another; that is
+                          constraint values of Section&nbsp;14.2. No row dominates another. That is
                           what makes them the front.</p>
 
                         <p><b>The figures.</b> The canvas offers two views of the front. The Pareto
                           view draws the two objectives against each other: every evaluated design as
-                          a faint grey point behind, the current front as a red line with markers on
+                          a faint gray point behind, the current front as a red line with markers on
                           top, and clicking a marker selects that design in the table above. The
                           parallel-coordinates view draws one polyline per member across every
                           variable and objective, each axis normalized over the front so quantities
-                          with different units share the picture: a member reads high where it wins
-                          and low where it pays, and crossings between neighbouring axes are the
+                          with different units share the picture. A member reads high where it wins
+                          and low where it pays, and crossings between neighboring axes are the
                           visible trade-off. In the Pareto view the shape to look for is a falling
-                          curve &mdash; each step right along the first objective buys a step down on
+                          curve. Each step right along the first objective buys a step down on
                           the second, and the engineer's job is choosing the point along it worth
                           having. A front collapsed to one point means the two goals agree on this
                           rotor at this condition: the honest answer is that there is no trade-off
@@ -9483,14 +9485,14 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>The exports.</b> <i>Export CSV</i> writes the front table, one row per
                           member, variables and objectives and constraints. <i>Export report</i>
                           writes a self-contained HTML report with the metadata of the run, the front
-                          table, the trade-off figure and the planforms of three spread members, plus
-                          an evaluations CSV beside it holding every solve of the search. Both default
+                          table, the trade-off figure and the planforms of three spread members. It
+                          also writes an evaluations CSV beside it holding every solve of the search. Both default
                           to the outputs folder under the study's name, and neither overwrites silently
                           inside a batch of studies.</p>
 
-                        <p>In the <span class="gui">GUI</span>: press <i>Run optimization</i>, watch
-                          the progress line, press <i>Cancel</i> to stop early. Read the front table,
-                          pick a member against the trade-off figure, then export.</p>
+                        <p>In the <span class="gui">GUI</span>: press <i>Run optimization</i>. Watch
+                          the progress line. Press <i>Cancel</i> to stop early. Read the front table.
+                          Pick a member against the trade-off figure. Then export.</p>
 
                         <p>In the <span class="bemt">.bemt</span> file: nothing about a run persists.
                           The exports and the report are the record on disk.</p>
@@ -9519,8 +9521,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           submitted from. The front produced with eight workers is identical, to the last
                           digit, to the front produced with one.</p>
 
-                        <p>The wall time falls close to proportionally until there are more workers than
-                          the machine has cores, after which the processes compete and the gain stops. The
+                        <p>The wall time falls almost proportionally until there are more workers than
+                          the machine has cores. After that, the processes compete and the gain stops. The
                           useful ceiling is therefore the core count, which is what the field's upper limit
                           is set from. One means the designs are solved one after another.</p>
 
@@ -9534,8 +9536,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>--optimize NAME</code>, which overrides what the study stores.</p>
 
                         <h3 id="cap-opt-hypervolume">14.10 Hypervolume: how a front is scored</h3>
-                        <p><b>What it is.</b> A single number saying how good a whole Pareto front is.
-                          Comparing two fronts by eye works only when one clearly dominates the other; when
+                        <p><b>What it is.</b> A single number that states how good a whole Pareto front is.
+                          Comparing two fronts by eye works only when one clearly dominates the other. When
                           they cross, a measure is needed, and the hypervolume is the standard one.</p>
 
                         <p><b>The mathematics.</b> Fix a reference point $r$ worse than every member of the
@@ -9551,7 +9553,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           counted once, which is what makes the measure reward a front that is both close
                           to the ideal corner and spread along it, rather than one that piles many members
                           onto the same spot. It grows as the search improves and never falls, so its
-                          history is a convergence trace: a curve that has flattened says further
+                          history is a convergence trace: a curve that has flattened shows that further
                           generations are buying nothing.</p>
 
                         <p>The reference point is taken as the worst value seen on the current front in
@@ -9561,7 +9563,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           different objectives or scales.</p>
 
                         <p><span class="gui">GUI</span>: computed on every generation of an
-                          <code>nsga2</code> run with two objectives; a single-objective run records the
+                          <code>nsga2</code> run with two objectives. A single-objective run records the
                           best value instead, since an area needs two axes.</p>
 
                         <p><span class="bemt">.bemt</span>: nothing to set. It is a diagnostic of the run,
@@ -9574,10 +9576,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <h2 id="cap-transiente">15. Transient Simulation</h2>
 
-                        <p>Every other chapter of this manual computes a rotor in EQUILIBRIUM. A flight condition
-                          is given, the inflow is solved until it stops changing, and the loads are read off the
+                        <p>Every other chapter of this manual computes a rotor in EQUILIBRIUM. The solver is
+                          given a flight condition. It solves the inflow until it stops changing, and it reads the loads off the
                           converged field. That is the right answer whenever the condition lasts long enough for the
-                          wake to settle, which covers hover, steady climb and steady forward flight &mdash; most of
+                          wake to settle, which covers hover, steady climb and steady forward flight. That is most of
                           what a rotor does.</p>
 
                         <p>It is the wrong answer when the condition itself is changing. The wake carries memory: the
@@ -9587,8 +9589,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           marches that memory in time, opened from the <span class="gui">Tools</span> button in the
                           top bar.</p>
 
-                        <p>Scope, stated before the physics: the state that is marched is the INFLOW. The blade
-                          motion and the separation state can be carried along with it, but the aerodynamics inside
+                        <p>Scope, stated before the physics: the state that is marched is the INFLOW. The march
+                          can carry the blade motion and the separation state along with it, but the aerodynamics inside
                           each sample stay quasi-steady. There is no free wake and no aeroelasticity. A manoeuvre
                           whose time scale approaches one revolution is outside what this model can claim, and the
                           <a class="xref" href="#limitations" title="18. Limitations">Chapter 18</a> says so in the
@@ -9633,10 +9635,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>This matters more than it may look. The inflow time constant is a small fraction of a
                           revolution, so an explicit scheme such as Runge-Kutta is only stable when the step is
                           smaller still, and a manoeuvre sampled every few hundredths of a second would need
-                          thousands of sub-steps to survive. The exponential form has no such limit: it is the exact
+                          thousands of sub-steps to survive. The exponential form has no such limit. It is the exact
                           solution of the frozen system, so a single sub-step already relaxes smoothly toward
-                          equilibrium when the sample is long compared with the delay, which is the physically
-                          correct behaviour and not an approximation of it. Where the sample is SHORT compared with
+                          equilibrium when the sample is long compared with the delay. This is the physically
+                          correct behavior, not an approximation of it. Where the sample is SHORT compared with
                           the delay, the sub-steps are what resolve the shape of the response.</p>
 
                         <h3 id="cap-transiente-2">15.2 The trajectory</h3>
@@ -9644,8 +9646,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>What it is.</b> A manoeuvre is a list of points in time. Each point carries a complete
                           flight condition &mdash; the in-plane component, the axial component, the collective, the
                           two cyclic harmonics and the shaft speed &mdash; and the run walks from one to the next.
-                          It is not a batch: a batch solves each case from scratch and the order of the cases is
-                          irrelevant, whereas here every sample inherits the inflow state of the sample before it,
+                          It is not a batch. A batch solves each case from scratch and the order of the cases is
+                          irrelevant. Here every sample inherits the inflow state of the sample before it,
                           and reversing the order gives a different answer. That inheritance is the whole point.</p>
 
                         <p>The letters follow the mode, exactly as they do for a saved case: in propeller mode the
@@ -9653,7 +9655,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           (<a class="xref" href="#cap-nomenclatura" title="4. Nomenclature and axes">Chapter 4</a>).</p>
 
                         <p><b>Between the points.</b> Two readings are offered. <i>Linear</i> blends each quantity
-                          between the two neighbouring points, which is what a control input that is moved smoothly
+                          between the two neighboring points, which is what a control input that is moved smoothly
                           looks like. <i>Hold</i> keeps the value of the preceding point until the next one arrives,
                           a zero-order hold, which is what a step input looks like. A step is the harder test of the
                           two and the one that shows the inflow lag most clearly.</p>
@@ -9666,8 +9668,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><span class="bemt">.bemt</span>: the key <code>points</code>, a list whose entries carry
                           <code>t_s</code>, <code>mu_x</code>, <code>Vz</code>, <code>collective_deg</code>,
-                          <code>cyclic_c_deg</code>, <code>cyclic_s_deg</code> and an optional <code>rpm</code>; and
-                          the key <code>interpolation</code>, either <code>linear</code> (the default) or
+                          <code>cyclic_c_deg</code>, <code>cyclic_s_deg</code> and an optional <code>rpm</code>. The
+                          key <code>interpolation</code> is either <code>linear</code> (the default) or
                           <code>hold</code>. Manoeuvres saved with the project live in
                           <code>inputs/maneuvers.bemt</code>.</p>
 
@@ -9680,7 +9682,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                                                 <p><b>The two-case builder.</b> <span class="gui">GUI</span>: instead of typing the nodes, the builder
                           ramps between two saved cases. <code>build_case_a</code> is the case the ramp
-                          starts at and becomes the first node; <code>build_case_b</code> is the case it
+                          starts at and becomes the first node. <code>build_case_b</code> is the case it
                           ends at and becomes the last. If the two differ in more than one quantity,
                           all of them ramp together, which is a maneuver rather than a parameter
                           study.</p>
@@ -9696,7 +9698,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>The physics.</b> Two intervals decide the run and they are not the same thing. The
                           SAMPLE interval is how often the answer is written down: one sample is one row of the time
                           history and one disk map. The SUB-STEP is how finely the inflow equation is marched between
-                          two samples. Refining the sample interval makes the recorded curve smoother; refining the
+                          two samples. Refining the sample interval makes the recorded curve smoother. Refining the
                           sub-steps makes the marched state more accurate without adding a single row to the table.
                           The distinction matters because the inflow delay is short: a sample interval chosen for a
                           readable plot is usually far too coarse to resolve the response, and the sub-steps are what
@@ -9706,8 +9708,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           the sub-steps from what the PHYSICS needs. If halving the sub-steps changes the curve, the
                           march was not resolved.</p>
 
-                        <p><b>Ranges.</b> The sample interval accepts $0.001$ to $5$ seconds and defaults to $0.05$;
-                          the sub-step count accepts $1$ to $200$ and defaults to $8$. Because the scheme is
+                        <p><b>Ranges.</b> The sample interval accepts $0.001$ to $5$ seconds and defaults to $0.05$.
+                          The sub-step count accepts $1$ to $200$ and defaults to $8$. Because the scheme is
                           unconditionally stable, a coarse setting degrades the ANSWER rather than destroying the
                           run, which is why the window states the cost in solver calls instead of refusing a
                           setting.</p>
@@ -9726,7 +9728,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <h3 id="cap-transiente-4">15.4 Where the march starts</h3>
 
                         <p><b>The physics.</b> A differential equation needs an initial condition, and here the
-                          choice is a modelling statement rather than a numerical one. <i>Equilibrium</i> solves the
+                          choice is a modeling statement rather than a numerical one. <i>Equilibrium</i> solves the
                           steady inflow at the first point and starts from it, so the rotor is already settled when
                           the trajectory begins and everything that follows is the response to the trajectory alone.
                           <i>Zero</i> starts every state at zero, so the first samples show the wake building up from
@@ -9742,7 +9744,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><span class="bemt">.bemt</span>: the key <code>initial_state</code>, either
                           <code>equilibrium</code> (the default) or <code>zero</code>.</p>
 
-                        <p><span class="cli">CLI</span>: no flag of its own; it is set with
+                        <p><span class="cli">CLI</span>: no flag of its own. It is set with
                           <code>--set initial_state=zero</code> on the manoeuvre, or stored with the definition.</p>
 
                         <h3 id="cap-transiente-5">15.5 The two states that may be carried along</h3>
@@ -9756,7 +9758,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           value with its own time constant
                           (<a class="xref" href="#cap-3-3" title="8.3 Dynamic stall">Section 8.3</a>), so restarting
                           it every sample discards exactly the history the model exists to represent. It needs
-                          dynamic stall switched on for the aerofoil.</p>
+                          dynamic stall switched on for the airfoil.</p>
 
                         <p><i>Flapping</i> solves the periodic flap response at every sample and feeds the resulting
                           blade motion into the loads. It is QUASI-STEADY within a sample: the blade is assumed to
@@ -9955,7 +9957,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           why it is optional &mdash; a rotor study that stops at the derivative matrix
                           never needs it.</p>
 
-                        <p><b>The mathematics.</b> The linearised rigid-body model is
+                        <p><b>The mathematics.</b> The linearized rigid-body model is
                           $\dot{x}=Ax+Bu$ with the state
                           $x=[u,\;v,\;w,\;p,\;q,\;r,\;\phi,\;\theta]$ and the controls
                           $u=[\theta_0,\;\theta_{1c},\;\theta_{1s}]$. A rotor force enters divided by
@@ -9972,7 +9974,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           \left(\frac{\partial M_x}{\partial u}
                           + z_h\,\frac{\partial H}{\partial u}\right).$$</div>
 
-                        <p>A zero arm is therefore a modelling choice and not a neutral default: it removes
+                        <p>A zero arm is therefore a modeling choice and not a neutral default: it removes
                           the term that couples thrust and drag changes into the pitching and rolling
                           equations, which for a helicopter is most of the coupling there is. Gravity
                           enters through the attitude rows, coupling $\phi$ and $\theta$ into the speeds
