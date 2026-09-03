@@ -90,15 +90,18 @@ class TestPittCorrectionsExecutorRealInterfaces(unittest.TestCase):
         self.assertEqual(result.final_status, FinalStatus.NOT_REPRODUCED)
         self.assertGreater(result.measured_data["maximum_relative_difference"], 0.05)
 
-    def test_march_claim_keeps_real_steady_reference_when_history_is_absent(self):
+    def test_a_constant_march_settles_on_its_algebraic_fixed_point(self):
         result = self._execute("PP-B2")
-        self.assertEqual(result.final_status, FinalStatus.INCONCLUSIVE)
-        self.assertIn("steady_CT", result.measured_data)
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        self.assertLessEqual(
+            result.measured_data["maximum_absolute_difference"], 1e-6)
 
-    def test_sideslip_field_claim_runs_each_integrated_reference(self):
+    def test_sideslip_turns_the_local_field_with_the_free_stream(self):
         result = self._execute("PP-G7")
-        self.assertEqual(result.final_status, FinalStatus.INCONCLUSIVE)
-        self.assertEqual(len(result.measured_data["CT"]), 4)
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        for record in result.measured_data["models"].values():
+            self.assertAlmostEqual(record["measured_shift_deg"], 30.0,
+                                   delta=record["azimuth_cell_deg"])
 
     def test_strong_climb_is_classified_as_the_declared_limitation(self):
         result = self._execute("EXT-D2")

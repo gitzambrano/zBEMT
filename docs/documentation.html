@@ -8404,7 +8404,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p>In the <span class="bemt">.bemt</span> file, a batch may carry its own output folder and its own
                           list
-                          of figure kinds, described in Section 11.6. Nothing in this block is otherwise stored: a report is an
+                          of figure kinds, described in <a class="xref" href="#cap-6-5" title="11.6 Where the results are written">Section 11.6</a>. Nothing in this block is otherwise stored: a report is an
                           output, not part of the project definition.</p>
 
                         <p>From the <span class="cli">CLI</span>, <code>--report</code> writes
@@ -10016,14 +10016,14 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <h3 id="cap-8-1">17.1 Running from the command line</h3>
 
-                        <p>The <span class="cli">CLI</span> points at a project folder, runs the condition or the sweep
-                          asked for, and writes the results. It goes through the same code as the <span
+                        <p>The <span class="cli">CLI</span> points at a project folder, runs the requested condition or
+                          sweep, and writes the results. It goes through the same code as the <span
                             class="gui">GUI</span>
-                          and applies the same validation, so a project run either way gives the same numbers.</p>
+                          and applies the same validation. Therefore, a project run either way gives the same numbers.</p>
 
-                        <p>Every flag sets a field the <span class="gui">GUI</span> can also edit, and a <span
-                            class="bemt">.bemt</span> written by
-                          any of the three is read back identically by the other two. After installing, the command
+                        <p>Every flag sets a field the <span class="gui">GUI</span> can also edit. The other two interfaces
+                          read a <span class="bemt">.bemt</span> written by
+                          any of the three back identically. After installing, the command
                           <code>zbemt</code> is available. Without installing, <code>python -m zbemt.cli</code> is the
                           equivalent.
                         </p>
@@ -10056,8 +10056,8 @@ zbemt --project projects/MyProject \
     --reynolds 1e5,5e5,1e6 --mach 0.1,0.3 --alpha-range -10:20:0.5 \
     --ncrit 9 --xtr-top 1.0 --xtr-bot 1.0 \
     --export-table outputs/naca2412_xfoil.csv</code></pre>
-                        <p>Complete table of flags (grouped by corresponding tab. See each linked section for the
-                          physical meaning of each field):</p>
+                        <p>The table below lists the complete set of flags, grouped by their corresponding tab. See each linked section for the
+                          physical meaning of each field:</p>
                         <div class="tablewrap">
                           <table>
                             <tr>
@@ -10187,13 +10187,13 @@ zbemt --project projects/MyProject \
                             </tr>
                           </table>
                         </div>
-                        <p>A field with no dedicated flag is still reachable, with <code>--set</code>. The field
-                          sections of
-                          the earlier chapters say so one by one, and they are mostly fine-grained numerical settings
-                          (the analytical polar coefficients, the blend widths of the reverse-flow and full-range models,
-                          and
-                          the five relaxation-schedule parameters) for which a value given on the command line is
-                          rarely the natural way to work. Setting one of those permanently means editing the project
+                        <p>A field with no dedicated flag is still reachable with <code>--set</code>. The field sections
+                          of
+                          the earlier chapters state this one by one. These are mostly fine-grained numerical settings,
+                          such as the analytical polar coefficients, the blend widths of the reverse-flow and full-range
+                          models, and
+                          the five relaxation-schedule parameters. A value given on the command line is
+                          rarely the natural way to set them. Setting one permanently means editing the project
                           file, or
                           setting it in the window and saving.</p>
 
@@ -10222,36 +10222,36 @@ zbemt --project projects/MyProject \
                               <td><code>extend_full_range=True</code> with source other than
                                 <code>analytical</code>/<code>table</code>
                               </td>
-                              <td>Field has no effect in that combination.</td>
+                              <td>The field has no effect in that combination.</td>
                             </tr>
                             <tr>
                               <td>error</td>
                               <td><code>table</code> source without <code>table_slices</code> imported</td>
-                              <td>No polar for the solver to consume.</td>
+                              <td>No polar exists for the solver to consume.</td>
                             </tr>
                             <tr>
                               <td>error</td>
                               <td>external solver selected without 2D airfoil geometry</td>
-                              <td>Needs the profile shape to generate the polar (<a class="xref" href="#cap-3-8"
+                              <td>It needs the profile shape to generate the polar (<a class="xref" href="#cap-3-8"
                                   title="8.8 External polar generation">Section 8.8</a>).</td>
                             </tr>
                             <tr>
                               <td>error</td>
                               <td><code>dynamic_stall_fade_start_deg</code> &ge; <code>dynamic_stall_fade_end_deg</code>
                               </td>
-                              <td>Fading window (<a class="xref" href="#cap-3-3-4" title="8.3.5 Fade window">Section
-                                  8.3.5</a>) is invalid.</td>
+<td>The fading window (<a class="xref" href="#cap-3-3-4" title="8.3.5 Fade window">Section
+                                   8.3.5</a>) is invalid.</td>
                             </tr>
                             <tr>
                               <td>warning</td>
                               <td>$\alpha_{stall}^+\leq0$ or $\alpha_{stall}^-\geq0$ (with stall active)</td>
-                              <td>Positive/negative stall signals probably swapped.</td>
+                              <td>The positive and negative stall signals are probably swapped.</td>
                             </tr>
                             <tr>
                               <td>warning</td>
                               <td>dynamic stall with tabulated source whose $|C_l|$ peak is at the edge of the imported
                                 range</td>
-                              <td>Heuristic: the table was probably truncated before saturation.</td>
+                              <td>This is a heuristic: the table was probably truncated before saturation.</td>
                             </tr>
                             <tr>
                               <td>error</td>
@@ -10270,21 +10270,21 @@ zbemt --project projects/MyProject \
                             <tr>
                               <td>warning</td>
                               <td><code>use_compressibility=True</code> with table that already varies with Mach</td>
-                              <td>Double-counting compressibility (<a class="xref" href="#cap-3-5"
+                              <td>Enabling the correction double-counts the compressibility effects (<a class="xref" href="#cap-3-5"
                                   title="8.5 Compressibility">Section 8.5</a>).</td>
                             </tr>
                             <tr>
                               <td>error</td>
                               <td><code>inflow_field_model</code> set to a time-marching variant</td>
                               <td>zBEMT solves steady and quasi-steady conditions only. A value naming a time-marching
-                                inflow variant is rejected before the solver runs, with the message naming
+                                inflow variant is rejected before the solver runs. The message names
                                 <code>pitt_peters_steady</code> as the supported choice.
                               </td>
                             </tr>
                           </table>
                         </div>
                         <p>The window enforces most of these rules before they can be broken, by disabling a field or
-                          hiding an option that does not apply. Validation is the safety net behind that, and it applies
+                          hiding an option that does not apply. Validation is the safety net behind this. It applies
                           equally to a run started from the command line, where there are no widgets to disable.</p>
 
                                                 <hr>
@@ -10303,7 +10303,7 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Rigid-blade formulation</td>
-                              <td>zBEMT models the blade as RIGID in bending and torsion. Rigid-body flap and lead-lag about a hinge are solved (SC-11), and the hub pitching and rolling moments they carry are reported; what is neglected is elastic deflection of the blade itself, so a blade soft enough to bend appreciably is outside the model.</td>
+                              <td>zBEMT models the blade as RIGID in bending and torsion. It solves rigid-body flap and lead-lag about a hinge (SC-11) and reports the hub pitching and rolling moments they carry. What is neglected is elastic deflection of the blade itself. Therefore, a blade soft enough to bend appreciably is outside the model.</td>
                             </tr>
                             <tr>
                               <td>Annular independence</td>
@@ -10315,11 +10315,11 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Single-parameter thrust trim</td>
-                              <td>Trim solves the collective alone, or the collective together with both cyclic angles against the two hub flapping moments (a 3&times;3 Newton). It is not a vehicle trim: the fuselage, the tail rotor and the 6-DOF force and moment balance of the aircraft are outside it, so the rotor is trimmed, not the helicopter.</td>
+                              <td>Trim solves the collective alone, or the collective together with both cyclic angles against the two hub flapping moments (a 3&times;3 Newton). It is not a vehicle trim. The fuselage, the tail rotor and the 6-DOF force and moment balance of the aircraft are outside it. Therefore, the rotor is trimmed, not the helicopter.</td>
                             </tr>
                             <tr>
                               <td>Offline external polar generation</td>
-                              <td>External solvers (for example, NeuralFoil) execute offline to produce polar tables. Coupled on-the-fly aerodynamic calls during solver iterations are not supported (<a class="xref" href="#cap-3-8" title="8.8 External polar generation">Section 8.8</a>).</td>
+                              <td>External solvers (for example, NeuralFoil) execute offline to produce polar tables. Calling an external aerodynamics model during solver iterations is not supported (<a class="xref" href="#cap-3-8" title="8.8 External polar generation">Section 8.8</a>).</td>
                             </tr>
                             <tr>
                               <td>Subsonic compressibility correction</td>
@@ -10331,7 +10331,7 @@ zbemt --project projects/MyProject \
                             </tr>
                             <tr>
                               <td>Steady / quasi-steady inflow scope</td>
-                              <td>Formulation targets preliminary aeromechanical sizing and performance diagnosis, excluding unsteady free-wake vortex dynamics and high-frequency maneuver acoustics (<a class="xref" href="#sec-01-scope" title="0.1 Scope">Section 0.1</a>).</td>
+                              <td>The formulation targets preliminary aeromechanical sizing and performance diagnosis. It excludes unsteady free-wake vortex dynamics and high-frequency maneuver acoustics (<a class="xref" href="#sec-01-scope" title="0.1 Scope">Section 0.1</a>).</td>
                             </tr>
                           </table>
                         </div>
@@ -10351,8 +10351,8 @@ zbemt --project projects/MyProject \
                           <li>Prouty, R. W. <i>Helicopter Performance, Stability, and Control</i>.</li>
                           <li>Kumar, S. <a href="https://kumar-sumeet.github.io/HeliAeroNotes/"
                               target="_blank"><i>Fundamentals of Helicopter Aerodynamics</i></a>, open course (Jupyter
-                            Book). Schematic figures of actuator disk, velocity triangle, reverse flow, lift asymmetry,
-                            and power curve.</li>
+                            Book). It provides schematic figures of the actuator disk, the velocity triangle, reverse flow,
+                            lift asymmetry, and power curve.</li>
                           <li>Pitt, D. M.; Peters, D. A. "Theoretical Prediction of Dynamic-Inflow Derivatives",
                             <i>Vertica</i>, 1981.
                           </li>
@@ -10371,11 +10371,11 @@ zbemt --project projects/MyProject \
                         </ul>
 
                         <h3 id="cap-31-creditos">Figure Credits</h3>
-                        <p>The figures in this document divide into two sources, and the distinction matters for anyone
+                        <p>The figures in this document divide into two sources. The distinction matters for anyone
                           redistributing:</p>
                         <ul>
-                          <li><b><code>docs/img/*.png</code></b>: generated by zBEMT itself (sweeps, disk maps,
-                            polars). They are project material, under the same license.</li>
+                          <li>The figures in <b><code>docs/img/*.png</code></b> are generated by zBEMT itself (sweeps, disk maps,
+                            polars). They are project material under the same license.</li>
                           <li><b><code>docs/img/externas/</code></b>: eleven schematic figures by S. Kumar, <a
                               href="https://kumar-sumeet.github.io/HeliAeroNotes/" target="_blank"><i>Fundamentals of
                                 Helicopter Aerodynamics</i></a>. They are bundled here, not loaded from the original

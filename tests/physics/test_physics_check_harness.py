@@ -313,7 +313,7 @@ class TestSourceLedger(unittest.TestCase):
                 "Transient", "periodic residual",
             ),
             "REPO-PITT-WARNING": (
-                "--inflow pitt_peters_steady", "--mu-inplane 0.15",
+                "--inflow pitt_peters_steady", "--mu-inplane 0.30",
                 "warning", "Results",
             ),
             "STALL-DELAY-RATIO": (

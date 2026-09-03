@@ -128,7 +128,12 @@ def _synthetic_row(arguments: tuple[str, ...]) -> dict[str, float | str]:
         "rotor_R": radius,
         "rotor_D": diameter,
         "rotor_Omega": omega,
+        "rotor_OmegaR": omega * radius,
         "rotor_rpm": rpm,
+        # The disk angle is measured from the shaft, so it is zero in
+        # straight axial flight and grows with the cross-flow speed.
+        "alpha_disk_deg": math.degrees(math.atan2(cross_speed, axial_speed))
+        if (cross_speed or axial_speed) else 0.0,
         "cfg_Ne": element_count,
         "cfg_Npsi": azimuth_count,
         "cfg_a_sound": sound_speed,
@@ -178,7 +183,6 @@ class TestPropellerExecutor(unittest.TestCase):
             results = [executor(claim, self._context(Path(temporary_directory))) for claim in claims]
 
         expected_statuses = {
-            "PROP-G8": FinalStatus.INCONCLUSIVE,
             "PROP-N2": FinalStatus.CONFIRMED_CORRECT,
         }
         for result in results:

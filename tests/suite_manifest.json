@@ -56,6 +56,7 @@
     "tests/regression/test_option_discoverability.py",
     "tests/regression/test_physics_toggles.py",
     "tests/regression/test_physics_validation.py",
+    "tests/regression/test_pitt_peters_inflow.py",
     "tests/regression/test_pitt_peters_reporting.py",
     "tests/regression/test_plot_scaling.py",
     "tests/regression/test_plots.py",

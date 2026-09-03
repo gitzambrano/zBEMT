@@ -32,7 +32,7 @@ def _reversed_inflow_case():
     })
     return studies.run_single_case(
         replace(project, config=config),
-        FlightCondition(name="reversed inflow", rpm=400.0, mu_x=0.15,
+        FlightCondition(name="reversed inflow", rpm=400.0, mu_x=0.30,
                         collective_deg=12.0),
     )
 

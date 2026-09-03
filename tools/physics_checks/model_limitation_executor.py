@@ -263,7 +263,7 @@ class ModelLimitationExecutor:
         project = _rotor_project(inflow_field_model="pitt_peters_steady")
         case = studies.run_single_case(
             project,
-            FlightCondition(name="linear boundary", mu_x=0.15,
+            FlightCondition(name="linear boundary", mu_x=0.30,
                             collective_deg=12.0, rpm=400.0),
         )
         total_inflow = np.asarray(case.maps["lambda_total"], dtype=float)
@@ -293,7 +293,7 @@ class ModelLimitationExecutor:
             ),
             command=(
                 "Python public API: studies.run_single_case(project, "
-                "FlightCondition(mu_x=0.15, collective_deg=12)) with "
+                "FlightCondition(mu_x=0.30, collective_deg=12)) with "
                 "inflow_field_model='pitt_peters_steady'"
             ),
             notes=(

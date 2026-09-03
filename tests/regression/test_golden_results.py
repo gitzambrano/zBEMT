@@ -198,7 +198,12 @@ class TestResultsArePhysicallyPlausible(_SingleRun):
     #: thrust from 2996 N to 10260 N and its induced power from -18 kW to
     #: +42 kW -- a defect that happened to hide the autorotation behind a
     #: plausible-looking positive number.
-    AUTOROTATING = {("test14", "cruise", "Power_i")}
+    # No case is excused today. `test14/cruise` used to be: its shaft power
+    # and its INDUCED power both came out negative in cruise, which no
+    # powered rotor produces. The cause was the Pitt-Peters harmonic forcing
+    # sign, which put the induced inflow in anti-phase with the loading
+    # (`PP-P5-ASYMMETRY`). With the loading sign the case is powered again.
+    AUTOROTATING: set = set()
 
     def test_power_parts_are_not_negative(self):
         """Induced and profile power are both dissipative. Negative means

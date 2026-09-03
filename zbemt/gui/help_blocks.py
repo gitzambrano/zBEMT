@@ -24,7 +24,7 @@ BLOCK_HELP: dict[str, dict] = {
     "global_geometry": {
         "title": "Global Geometry — the scales that set everything else",
         "body": [
-            "Two numbers on this block fix the size of the problem before any aerodynamics happens: the number of blades and the radius. The root cutout and the reference chord belong to the same set and are set where the radial table is BUILT, in the Generate Table dialog, because they describe how that table is laid out; the table below then carries them as its first station and as the c/R it is normalized against.",
+            "Two numbers on this block fix the size of the problem before any aerodynamics happens: the number of blades and the radius. The root cutout and the reference chord belong to the same set. You set them in the Generate Table dialog, where the radial table is built, because they describe how that table is laid out. The table below then carries them as its first station and as the c/R value it is normalized against.",
             "<b>Radius</b> is the strongest lever in the tool. It sets the tip speed ΩR at a given rpm, hence the dynamic pressure ½ρW² at every station, hence every force. Thrust scales roughly as R⁴ at fixed rpm and fixed blade loading, and power as R⁵. Doubling the radius is not a small change, and it is also what pushes the tip toward the Mach numbers where compressibility and wave drag start to matter.",
             "<b>Number of blades</b> enters in two distinct places that pull in opposite directions. It multiplies the total load through the solidity:"
             "\n\n"
@@ -40,7 +40,7 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Blade Dynamics - the rigid blade's flap and lead-lag freedoms",
         "body": [
             "A real blade is never bolted stiff to the hub: it flaps out of the disk plane and lags against the rotation. This block gives the rigid blade those two rigid-body freedoms, solved as one periodic response that repeats every revolution. The blade does not bend; only its hinge motion acts on the flow.",
-            "Flapping answers thrust with a coning angle &beta;<sub>0</sub>, tilts the disk in edgewise flight through its 1/rev harmonics, and - when the hinge carries an offset or a spring - feeds a structural moment back into the hub: M<sub>hub</sub> = (N<sub>b</sub>/2)&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub><sup>2</sup>&minus;1)&beta;<sub>1</sub>. Lead-lag follows the same scheme in the disk plane, with a damper instead of thrust restoring.",
+            "Flapping answers thrust with a coning angle &beta;<sub>0</sub> and tilts the disk in edgewise flight through its 1/rev harmonics. When the hinge carries an offset or a spring, it also feeds a structural moment back into the hub: M<sub>hub</sub> = (N<sub>b</sub>/2)&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub><sup>2</sup>&minus;1)&beta;<sub>1</sub>. Lead-lag follows the same scheme in the disk plane, with a damper instead of thrust restoring.",
             "The defaults keep the blade fully rigid, which reproduces every result computed before this block existed. Enable a flap model and the panel beside the inputs shows the resolved frequency ratio, inertia and natural frequency as you type.",
         ],
         "anchor": "sec-blade-dynamics",
@@ -58,8 +58,8 @@ BLOCK_HELP: dict[str, dict] = {
         "body": [
             "Each row is a spanwise station: its position as a fraction of the radius, the local chord (normalized by the radius) and the local geometric twist. Between rows the engine interpolates linearly, so the table is a piecewise-linear description of a real blade, not a set of independent design points.",
             "<b>Chord distribution</b> sets how much area each annulus has to work with. Because the local dynamic pressure grows as (Ωr)², an untapered blade loads its outboard half heavily and its root barely at all. Tapering the tip trades some of that outboard area away, which lowers the tip vortex strength and moves the peak loading inboard. The ideal hover distribution (the one that makes induced velocity uniform over the disk) has chord falling roughly as 1/r, which is why practical rotors taper.",
-            "<b>Twist</b> is the built-in pitch variation, almost always negative outboard (washout). The reason is geometric: the inflow angle φ = arctan(U<sub>P</sub>/U<sub>T</sub>) is large near the root, where U<sub>T</sub> = Ωr is small, and small at the tip. Without twist the root would operate near or past stall while the tip ran at a small angle of attack. Ideal hover twist varies as 1/r. Linear washout of −8° to −14° over the span is the usual practical approximation, and it is the single most effective way to flatten the spanwise loading and raise the figure of merit.",
-            "In forward flight twist interacts with the advancing/retreating asymmetry: the same washout that balances hover leaves the advancing tip at low or negative angle of attack and the retreating blade closer to stall. That trade is why forward-flight-optimized and hover-optimized twist distributions differ.",
+            "<b>Twist</b> is the built-in pitch variation, almost always negative outboard (washout). The reason is geometric: the inflow angle φ = arctan(U<sub>P</sub>/U<sub>T</sub>) is large near the root, where U<sub>T</sub> = Ωr is small, and small at the tip. Without twist the root would operate near or past stall while the tip ran at a small angle of attack. Ideal hover twist varies as 1/r. Linear washout of −8° to −14° over the span is the usual practical approximation, and it is an effective way to flatten the spanwise loading and raise the figure of merit.",
+            "In forward flight twist interacts with the advancing and retreating asymmetry: the same washout that balances hover leaves the advancing tip at low or negative angle of attack and the retreating blade closer to stall. That trade is why forward-flight-optimized and hover-optimized twist distributions differ.",
             "Resolution matters where the gradients are: a table dense near the tip resolves the region where the Prandtl factor collapses and the loading falls steeply, which a uniform coarse table smears out.",
         ],
         "anchor": "s1",
@@ -98,7 +98,7 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Data import / tabulated polar — measured or computed coefficients",
         "body": [
             "An imported table replaces the analytical lift and drag model entirely. Instead of Cl = Cl_α(α − α₀) with a stall closure, the engine interpolates directly between the tabulated points. So everything the table contains (the real stall shape, the drag bucket, the Reynolds and Mach trends) is used, and everything it omits is invented by whatever extrapolation rule is active.",
-            "That last point is the one that bites. Outside the tabulated angle-of-attack range the interpolation holds the edge value: a table swept from −10° to 20° evaluated at 40° returns the 20° coefficients, which understates drag by a large factor. On a rotor in forward flight, inboard retreating elements routinely see angles far outside any wind-tunnel sweep, so a table without the full-range extension active is a silent source of error exactly where the loads are hardest to get right.",
+            "The edge behavior is the important consequence. Outside the tabulated angle-of-attack range the interpolation holds the edge value: a table swept from −10° to 20° evaluated at 40° returns the 20° coefficients, which understates drag by a large factor. On a rotor in forward flight, inboard retreating elements routinely see angles far outside any wind-tunnel sweep, so a table without the full-range extension active is a silent source of error exactly where the loads are hardest to get right.",
             "The table may carry additional axes: one curve per Reynolds number, per Mach number, per spanwise station. The engine interpolates between them using each element's own local conditions. A table that already resolves Mach must <b>not</b> be combined with the compressibility correction: that applies the same physics twice.",
             "Two numbers are re-derived from the table because other corrections need them: the lift-curve slope, from a finite difference near the middle of the curve, and the zero-lift angle, from where lift crosses zero. The rotational-augmentation correction is written in terms of those two quantities and cannot work without them.",
         ],
@@ -128,7 +128,7 @@ BLOCK_HELP: dict[str, dict] = {
         "body": [
             "A sweep varies one to three quantities; the rest of the flight condition still has to be specified, and these fields do that. Every generated case shares them.",
             "They are not neutral background. A sweep in collective at fixed rpm and fixed advance ratio traces a thrust curve at constant tip speed. The same collective sweep at a different fixed rpm traces a different curve. Rotational speed rescales the relative velocity at every station and therefore the Reynolds number, the Mach number, and the dynamic pressure that the coefficients are divided by. Fixing a value is a statement about the experiment, not a formality.",
-            "The most consequential fixed value is usually the advance ratio, because it alone decides how much of the disk is in reverse flow and how strong the advancing/retreating asymmetry is. A collective sweep at zero advance ratio is a hover polar; the same sweep at 0.3 is a different physical problem.",
+            "The most consequential fixed value is usually the advance ratio, because it alone decides how much of the disk is in reverse flow and how strong the advancing and retreating asymmetry is. A collective sweep at zero advance ratio is a hover polar; the same sweep at 0.3 is a different physical problem.",
             "A quantity assigned to an axis is swept and its fixed field is ignored: the axis wins.",
         ],
         "anchor": "cap-6-2",
@@ -157,7 +157,7 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Export — writing tables and figures to disk",
         "body": [
             "Export writes what is already computed: one row per condition in a table, plus whichever figure families are ticked. It runs no physics and cannot change a result.",
-            "The tabular export carries the full summary of every case: coefficients, dimensional forces, and the configuration echo that records which solver, inflow model and corrections produced those numbers. That echo is what makes a result file interpretable months later. A table of coefficients without it is not.",
+            "The tabular export carries the full summary of every case: coefficients, dimensional forces, and the configuration echo that records which solver, inflow model and corrections produced those numbers. That echo is what makes a result file interpretable months later. A table of coefficients without it is not interpretable.",
             "Figures are generated per case and per family, so a large batch with several families ticked produces a large number of files. The output folder defaults to the project's own outputs directory, and an existing file of the same name is never overwritten silently.",
             "For a document rather than a folder of files, the report generator in the Results tab produces a single self-contained page with the same data.",
         ],
@@ -177,7 +177,7 @@ BLOCK_HELP: dict[str, dict] = {
         "body": [
             "Every blade element gets its force from a <b>polar</b>: the pair of functions "
             "C<sub>l</sub>(α, Re, M) and C<sub>d</sub>(α, Re, M). BEMT never solves the flow "
-            "around the section. It looks the coefficients up and projects them onto the disk:"
+            "around the section. It reads the coefficients and projects them onto the disk:"
             "\n\n"
             r"$$dL = \dfrac{1}{2}\rho W^2 c\,C_l\,dr, \quad dD = \dfrac{1}{2}\rho W^2 c\,C_d\,dr$$"
             "\n\n"
@@ -190,9 +190,9 @@ BLOCK_HELP: dict[str, dict] = {
             r"$$C_d = C_{d0} + k\,C_l^2$$",
             "<b>Static stall models</b> extend the linear curve past α<sub>stall</sub>, "
             "where C<sub>l,s</sub> = C<sub>lα</sub>(α<sub>stall</sub> − α<sub>0</sub>):<br>"
-            "• <b>linear</b> — no limit; the line is used for every α "
-            "(solver-verification / theoretical reference only).<br>"
-            "• <b>clip</b> — C<sub>l</sub> saturates at C<sub>l,s</sub>; value-continuous but with a derivative corner.<br>"
+"• <b>linear</b> — no limit; the line is used for every α. "
+"This is for solver verification and theoretical reference only.<br>"
+"• <b>clip</b> — C<sub>l</sub> saturates at C<sub>l,s</sub>. It is value-continuous but has a derivative corner.<br>"
             "• <b>enhanced</b> (default) — C¹-continuous cosine roll-off past stall over Δ = 30°:"
             "\n\n"
             r"$$C_l = C_{l,s}\cos\left[\min\left(\dfrac{\pi}{2},\, \dfrac{\alpha - \alpha_s}{\Delta}\dfrac{\pi}{2}\right)\right]$$"
@@ -209,9 +209,9 @@ BLOCK_HELP: dict[str, dict] = {
             "For 90° &lt; |α| ≤ 180° the curve is reflected about 90° (C<sub>l</sub> odd, C<sub>d</sub> even).",
             "<b>Tabulated source.</b> Direct linear interpolation over measured or XFOIL points "
             "(α<sub>i</sub>, C<sub>l,i</sub>, C<sub>d,i</sub>), optionally one table per Reynolds, Mach and r/R "
-            "(bilinear interpolation in the extra axis). Highest fidelity where data exist. "
-            "Outside the measured α range the edge value is held, which is exactly why "
-            "the Viterna closure exists.",
+"(bilinear interpolation in the extra axis). It is accurate where the data exist. "
+"Outside the measured α range the edge value is held, which is exactly why "
+"the Viterna closure exists.",
             "<b>NeuralFoil source.</b> A neural surrogate of XFOIL evaluated on a (α, Re, M) "
             "grid; the result becomes an ordinary table consumed by the identical code path. "
             "C<sub>lα</sub> and α<sub>0</sub> are re-estimated from the table by finite difference "
@@ -245,11 +245,11 @@ BLOCK_HELP: dict[str, dict] = {
         "body": [
             "In forward flight U<sub>T</sub> = Ωr + V∞·sin ψ changes sign inboard on the retreating side. U<sub>T</sub> = 0 traces the circle r = −μR·sin ψ (only where sin ψ &lt; 0): a disk of diameter μR tangent to the hub. Inside it the trailing edge faces the flow.",
             "<b>simple_flip</b> — α<sub>eff</sub> = −α<sub>geom</sub>, |U<sub>T</sub>| in Mach. Discontinuous at U<sub>T</sub> = 0.",
-            "<b>flat_plate</b> — Cl = 0, Cd ≈ 1.9 inside the region. The most abrupt jump in Cl of the five, but physically defensible as a crude bound.",
+            "<b>flat_plate</b> — Cl = 0, Cd ≈ 1.9 inside the region. It gives the largest jump in Cl of the five, but it is physically defensible as a crude bound.",
             "<b>alpha_blending</b> — α<sub>geom</sub> multiplied by a tanh of normalized U<sub>T</sub> (rate set by reverse_flow_blend_factor): reduces, does not remove, the discontinuity.",
             "<b>thin_plate_blend</b> — no branch on sign(U<sub>T</sub>) at all: φ = atan2(U<sub>P</sub>, U<sub>T</sub>) is already continuous through U<sub>T</sub> = 0, so α<sub>eff</sub> = θ − φ is too. A smoothstep in |α<sub>geom</sub>| (center/width fields) blends the real polar into the thin-plate limit Cl<sub>fp</sub> = ½π·sin 2α, Cd<sub>fp</sub> = 2·sin²α. C¹ everywhere.",
             "<b>viterna_full_range</b> — with the polar already extended to ±180°, α<sub>eff</sub> is simply α<sub>geom</sub> mapped into (−π, π]: no reverse-flow branch is needed, the polar carries the physics in every quadrant. Requires the full-range extension to be active.",
-            "Rule of thumb: below μ ≈ 0.2–0.3 the region is small (often inside the root cutout) and all five agree. Above that, the choice is worth a sensitivity run. Masking in disk plots is a drawing option only: forces and CSV always contain the region.",
+            "As a rule of thumb, below μ of about 0.2 to 0.3 the region is small, often inside the root cutout, and all five models agree. Above that, the choice is worth a sensitivity run. Masking in disk plots is a drawing option only: forces and CSV always contain the region.",
         ],
         "anchor": "cap-3-4",
     },
@@ -260,7 +260,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>Correction.</b> The Prandtl-Glauert factor β = √(1 − M²) stretches the incompressible lift slope to its compressible equivalent:"
             "\n\n"
             r"$$C_l \to \dfrac{C_l}{\beta}, \quad C_d \to \dfrac{C_d}{\beta}, \quad \beta = \sqrt{1 - M^2}$$",
-            "The factor is 1.005 at M = 0.1, 1.048 at M = 0.3, 1.25 at M = 0.6 and formally diverges at M → 1, which is why the engine floors β instead of letting it blow up. Above M ≈ 0.75–0.8 the linearization is void anyway: shocks and wave drag are not modeled.",
+            "The factor is 1.005 at M = 0.1, 1.048 at M = 0.3, 1.25 at M = 0.6 and formally diverges at M → 1, which is why the engine floors β instead of letting it diverge. Above M from approximately 0.75 to 0.8 the linearization is void anyway: shocks and wave drag are not modeled.",
             "Enable it whenever the tip Mach exceeds ≈ 0.3. Do <b>not</b> enable it on a tabulated polar that already carries a Mach axis. That counts compressibility twice, and validation warns about exactly this combination.",
         ],
         "anchor": "cap-3-5",
@@ -271,7 +271,7 @@ BLOCK_HELP: dict[str, dict] = {
             "Two external engines generate the polar from the 2D contour. <b>NeuralFoil</b> is a neural network trained on a large body of XFOIL runs: given the contour and (α, Re, M) it returns Cl and Cd in milliseconds. <b>XFOIL</b> runs the classic boundary-element binary directly. It gives higher fidelity where it converges and takes minutes instead of milliseconds, and it needs the executable installed (zBEMT looks in ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders).",
             "What comes out is an ordinary tabulated polar: one complete Cl(α), Cd(α) curve per (Re, M) pair. From that point on the engine treats it exactly like an imported table: linear interpolation in α, selection/interpolation of the slice by local Re, M and r/R.",
             "Because it is a table, the same two limits apply: nothing outside the swept α range is known (hold-edge behavior unless the Viterna full-range extension is on), and Cl_α and α₀ used by the rotational-augmentation correction are re-estimated numerically from the generated curve.",
-            "Accuracy is best for conventional sections at −5° &lt; α &lt; 25°; it degrades at extreme α, very thin sections and unusual shapes. For production cases, validate one operating point against measured or XFOIL data.",
+            "Accuracy is highest for conventional sections at −5° &lt; α &lt; 25°; it degrades at extreme α, very thin sections and unusual shapes. For production cases, validate one operating point against measured or XFOIL data.",
         ],
         "anchor": "cap-3-8",
     },
@@ -287,7 +287,7 @@ BLOCK_HELP: dict[str, dict] = {
     "mesh_atmosphere": {
         "title": "Mesh & Atmosphere",
         "body": [
-            "The disk is discretized into Ne radial × Npsi azimuthal stations; the solver evaluates all Ne×Npsi elements at once per iteration. Δψ = 360°/Npsi. Npsi = 1 means axisymmetric (hover or axial). Resolving advancing and retreating asymmetry needs enough harmonics: 24 is a minimum, 72–144 for high μ or cyclic pitch. Radially, 30–50 is usually converged. The reference production mesh is 120×180.",
+            "The disk is discretized into Ne radial × Npsi azimuthal stations; the solver evaluates all Ne×Npsi elements at once per iteration. Δψ = 360°/Npsi. Npsi = 1 means axisymmetric (hover or axial). Resolving advancing and retreating asymmetry needs enough harmonics: 24 is a minimum, and 72 to 144 for high μ or cyclic pitch. Radially, 30 to 50 is usually converged. The reference production mesh is 120×180.",
             "The integration offset shifts the innermost and outermost nodes off r/R = 0 and r/R = 1, where the Prandtl factor F → 0 and 1/|sin φ| is singular. Too small and the edge nodes are noisy. Too large and real root and tip physics is lost.",
             "ρ scales every force and moment linearly (dL, dD ∝ ρW²), so thrust and power scale with it directly. a<sub>sound</sub> only enters through M = W/a<sub>sound</sub> in the compressibility correction. Reynolds at each station is Re = ρ·W·c(r)/μ<sub>dyn</sub>, which is what selects the slice of a tabulated polar.",
         ],
@@ -314,7 +314,7 @@ BLOCK_HELP: dict[str, dict] = {
             "\n\n"
             r"$$\mathbf{M}\,\dot{\boldsymbol{\nu}} + \mathbf{V}\mathbf{L}^{-1}\boldsymbol{\nu} = \mathbf{C}, \quad \mathbf{C} = (C_T,\, C_{M_y},\, C_{M_x})$$"
             "Solved at equilibrium (dν/dt = 0): ν = LV<sup>−1</sup>C(ν), a fixed point in 3 scalars.",
-            "Choosing: Glauert for axial flight and quick scans; Coleman (default) when fore/aft asymmetry matters; Drees for helicopter cruise 0.1 &lt; μ &lt; 0.4 where the lateral tilt is measurable; Pitt-Peters when you want the asymmetry to emerge from the physics, at the cost of a global 3-DOF solve, and with the linear-theory caveat that unrelieved hub moments can push it out of its validity range around μ ≈ 0.16–0.19.",
+            "Choosing: Glauert for axial flight and quick scans; Coleman (default) when fore/aft asymmetry matters; Drees for helicopter cruise 0.1 &lt; μ &lt; 0.4 where the lateral tilt is measurable; Pitt-Peters when you want the asymmetry to emerge from the physics, at the cost of a global 3-DOF solve, and with the linear-theory caveat that unrelieved hub moments can push it out of its validity range around μ of about 0.16 to 0.19.",
         ],
         "anchor": "cap-4-2",
     },
@@ -383,7 +383,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>fixed_point</b> — Picard with relaxation:"
             "\n\n"
             r"$$\lambda_{n+1} = \lambda_n + \omega\left[g(\lambda_n) - \lambda_n\right]$$"
-            "<br>Linear convergence, very robust.<br><b>newton</b> (default) — Newton-Raphson on r(λ) = g(λ) − λ. Quadratic near the root, but the finite-difference Jacobian degrades on derivative corners (a reason to avoid <code>stall_model=\"clip\"</code> with it).<br><b>bisection</b> — derivative-free and slowest. It expands a bracket from the physical initial estimate, then converges to the nearest bracketed root.<br><b>aitken</b> — Δ² extrapolation over two Picard iterates: superlinear, no derivative needed.",
+            "<br>It has linear convergence and is robust.<br>• <b>newton</b> (default) — Newton-Raphson on r(λ) = g(λ) − λ. It is quadratic near the root, but the finite-difference Jacobian degrades on derivative corners, a reason to avoid <code>stall_model=\"clip\"</code> with it.<br>• <b>bisection</b> — derivative-free and slow. It expands a bracket from the physical initial estimate, then converges to the nearest bracketed root.<br>• <b>aitken</b> — Δ² extrapolation over two Picard iterates. It is superlinear and needs no derivative.",
             "<b>Convergence is always tested on the true residual g(λ) − λ, before relaxation.</b> Near root, tip and the reverse-flow azimuths the relaxation factor is deliberately small, so a relaxed step is small there whether or not the element has converged. Testing it would report convergence exactly where convergence is hardest.",
             "<b>Adaptive relaxation.</b> With relax_schedule on, the effective factor is relax·relax_root_factor for r/R &lt; relax_root_threshold, similarly near the tip (relax_tip_threshold) and at azimuths flagged by relax_azimuth_threshold. Lower factors buy stability at those nodes at the cost of iterations.",
             "If an element refuses to converge, the usual causes are physical, not numerical: the polar is queried outside its α range, reverse flow is unmodeled, or the stall model has a corner. Loosen tol, smooth the stall model, or change solver before raising max_iter.",
@@ -405,7 +405,7 @@ BLOCK_HELP: dict[str, dict] = {
         "body": [
             "A case is (μ<sub>x</sub> or J<sub>x</sub>, V<sub>z</sub>, collective, rpm). From it: Ω = 2π·rpm/60, tip speed ΩR, and the two element velocities U<sub>T</sub> = Ωr + V<sub>x</sub>·sin ψ and U<sub>P</sub> = V<sub>z</sub> + v<sub>i</sub> + (radial and coning terms), with W = √(U<sub>T</sub>² + U<sub>P</sub>²).",
             "Per element: φ = atan2(U<sub>P</sub>, U<sub>T</sub>), θ(r,ψ) = θ<sub>col</sub> + θ<sub>geo</sub>(r), α<sub>eff</sub> = θ − φ. The polar gives Cl, Cd; dL and dD project to dFn = dL·cos φ − dD·sin φ and dFt = dL·sin φ + dD·cos φ. λ<sub>i</sub> at that node comes from the fixed point that equates this load with the momentum balance.",
-            "Integrating over r and ψ gives T, Q, P and the dimensionless coefficients: rotor convention C<sub>T</sub> = T/(ρAΩ²R²), C<sub>Q</sub>, C<sub>P</sub> with figure of merit FM = C<sub>T</sub><sup>3/2</sup>/(√2·C<sub>P</sub>); propeller convention C<sub>T</sub> = T/(ρn²D⁴), C<sub>P</sub> = P/(ρn³D⁵), η = J<sub>x</sub>·C<sub>T</sub>/C<sub>P</sub>. Which set you get is decided by the project mode, not by the case.",
+            "Integrating over r and ψ gives T, Q, P and the dimensionless coefficients: rotor convention C<sub>T</sub> = T/(ρAΩ²R²), C<sub>Q</sub>, C<sub>P</sub> with figure of merit FM = C<sub>T</sub><sup>3/2</sup>/(√2·C<sub>P</sub>). The propeller convention is C<sub>T</sub> = T/(ρn²D⁴), C<sub>P</sub> = P/(ρn³D⁵), η = J<sub>x</sub>·C<sub>T</sub>/C<sub>P</sub>. Which set you get is decided by the project mode, not by the case.",
             "Everything per-element (Cl, Cd, α, Re, M, Fn, Ft, λ<sub>i</sub>, iterations) is retained for the Results tab: the summary numbers are integrals of fields you can inspect directly.",
             "Use direct mode for a prescribed collective; use trim mode when thrust or C<sub>T</sub> is the requirement. Save a checked condition before running it again.",
         ],
@@ -536,7 +536,7 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Export — the derivative matrix as a file",
         "body": [
             "Export writes what is already computed. It runs no solve and cannot change a derivative.",
-            "The CSV file carries the matrix as it stands on screen: one row per output, one column per variable. The HTML report adds the trim point, the perturbation steps, the sign checks and the step-size error of every entry, which is what makes the numbers interpretable later. A matrix without its trim point and its steps is not.",
+            "The CSV file carries the matrix as it stands on screen: one row per output, one column per variable. The HTML report adds the trim point, the perturbation steps, the sign checks and the step-size error of every entry, which is what makes the numbers interpretable later. A matrix without its trim point and its steps is not interpretable.",
             "Run the study before exporting. With no result in the window there is nothing to write.",
         ],
         "anchor": "cap-stability-run",

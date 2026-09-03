@@ -69,7 +69,7 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "The form the values on this axis are written in.\n\n"
             "The same physical condition can be stated as a ratio, a "
-            "speed or an angle; this says which one the list below "
+            "speed, or an angle. This field says which one the list below "
             "uses."),
         "unit": "—",
         "equation": None,
@@ -84,7 +84,7 @@ FIELD_HELP: dict[str, dict] = {
             "The values this axis takes, separated by commas.\n\n"
             "This list is what the factorial actually uses. The range "
             "controls beside it are a convenience that WRITES into this "
-            "list; they are not read directly."),
+            "list. They are not read directly."),
         "unit": "that of the axis unit",
         "equation": None,
         "effect": "Editing the list by hand is the way to cluster points where the answer changes fastest, which an evenly spaced range cannot do.",
@@ -138,7 +138,7 @@ FIELD_HELP: dict[str, dict] = {
             "the span, and what the disk looks like from above."),
         "unit": "—",
         "equation": None,
-        "effect": "The disk maps are by far the most expensive, because they are one image per field per condition. On a long queue, switching them off is the difference between a quick batch and a slow one.",
+        "effect": "The disk maps cost the most time, because they are one image per field per condition. On a long queue, switching them off is the difference between a quick batch and a slow one.",
         "range": "any combination, including none",
         "options": None,
         "anchor": "cap-6-5",
@@ -152,7 +152,7 @@ FIELD_HELP: dict[str, dict] = {
             "under the axis letters of the project's mode."),
         "unit": "—",
         "equation": None,
-        "effect": "It is the export the results are usually read from outside the program. The figures are a view of the same numbers; the CSV is the numbers.",
+        "effect": "It is the export the results are usually read from outside the program. The figures are a view of the same numbers. The CSV is the numbers.",
         "range": "on for any batch whose results will be used elsewhere",
         "options": None,
         "anchor": "cap-6-5",
@@ -167,7 +167,7 @@ FIELD_HELP: dict[str, dict] = {
             "solved for."),
         "unit": "—",
         "equation": r"\text{solve}\;\theta_0\;\text{such that}\;T(\theta_0)=T_{target}",
-        "effect": "It changes what a comparison MEANS. Two rotors at the same collective are being compared at two different thrusts; at the same thrust they are being compared at two different collectives, which is nearly always the intended question.",
+        "effect": "It changes what a comparison MEANS. Two rotors at the same collective are compared at two different thrusts. At the same thrust they are compared at two different collectives, which is nearly always the intended question.",
         "range": "off | thrust | a coefficient",
         "options": None,
         "anchor": "cap-5-5",
@@ -426,7 +426,7 @@ FIELD_HELP: dict[str, dict] = {
             "condition."),
         "unit": "m/s",
         "equation": r"\partial(\cdot)/\partial v",
-        "effect": "Gives the lateral force and rolling-moment derivatives. In hover they are near zero by symmetry; in forward flight they are not, and that asymmetry is what couples roll to sideslip.",
+        "effect": "Gives the lateral force and rolling-moment derivatives. In hover they are near zero by symmetry. In forward flight they are not, and that asymmetry is what couples roll to sideslip.",
         "range": "step of about 0.1 to 1 m/s",
         "options": None,
         "anchor": "cap-stability-steps",
@@ -639,7 +639,7 @@ FIELD_HELP: dict[str, dict] = {
             "running."),
         "unit": "—",
         "equation": None,
-        "effect": "Only the wall-clock time changes: results are collected in submission order, so one worker and eight workers produce the same front, member for member. In the derivative study the value is stored but not yet used; that run is serial.",
+        "effect": "Only the wall-clock time changes. Results are collected in submission order, so one worker and eight workers produce the same front, member for member. In the derivative study the value is stored but not yet used. That run is serial.",
         "range": "1 to the number of cores",
         "options": None,
         "anchor": "cap-opt-workers",
@@ -723,7 +723,7 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "How many rounds of selection and variation run after the "
             "initial sample.\n\n"
-            "The population converges over generations; the hypervolume "
+            "The population converges over generations. The hypervolume "
             "curve on the Convergence view is what says whether it "
             "already has."),
         "unit": "—",
@@ -825,8 +825,8 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "How the condition moves between two nodes of the "
             "trajectory.\n\n"
-            "The nodes state where the vehicle is at given instants; "
-            "this states what it does in between."),
+            "The nodes state where the vehicle is at given instants. "
+            "This field states what it does in between."),
         "unit": "—",
         "equation": None,
         "effect": "Linear ramps every quantity smoothly between the nodes. Hold keeps each node's value until the next one, which turns the trajectory into a staircase of steps.",
@@ -929,7 +929,7 @@ FIELD_HELP: dict[str, dict] = {
             "perturbation is applied.\n\n"
             "A derivative is a slope AT A POINT, so the point has to be "
             "defined. Comparing two rotors at the same collective "
-            "compares them at different thrusts; comparing them at the "
+            "compares them at different thrusts. Comparing them at the "
             "same thrust is almost always the question actually being "
             "asked."),
         "unit": "N",
@@ -947,7 +947,7 @@ FIELD_HELP: dict[str, dict] = {
             "opposite directions: truncation, which falls as the square "
             "of the step, and round-off, which grows as the step "
             "shrinks. A single step size cannot tell you which one you "
-            "are dominated by; two can."),
+            "are dominated by. Two can."),
         "unit": "—",
         "equation": r"f'(x)\approx\dfrac{f(x+h)-f(x-h)}{2h}+O(h^2)",
         "effect": "Doubles the cost of the study and reports, per derivative, how far the half-step answer moved. A value that changes a lot means the step is wrong for that variable, not that the derivative is uncertain by that much.",
@@ -1004,7 +1004,7 @@ FIELD_HELP: dict[str, dict] = {
             "Moment of inertia about the lateral axis.\n\n"
             "It converts a pitching moment into a pitch acceleration. "
             "It is the inertia the hub arm acts through, because a hub "
-            "force at a height above the centre of gravity pitches the "
+            "force at a height above the center of gravity pitches the "
             "aircraft."),
         "unit": "kg·m²",
         "equation": r"A_{q,q}=\dfrac{1}{I_y}\dfrac{\partial M_x}{\partial q}",
@@ -1030,7 +1030,7 @@ FIELD_HELP: dict[str, dict] = {
     "hub_offset_x_m": {
         "title": "Hub ahead of the CG",
         "definition": (
-            "Longitudinal distance from the centre of gravity to the "
+            "Longitudinal distance from the center of gravity to the "
             "hub, positive forward.\n\n"
             "An arm is what makes a FORCE produce a moment. With no "
             "arm, a change in rotor force never reaches the rotational "
@@ -1045,7 +1045,7 @@ FIELD_HELP: dict[str, dict] = {
     "hub_offset_z_m": {
         "title": "Hub above the CG",
         "definition": (
-            "Vertical distance from the centre of gravity to the hub, "
+            "Vertical distance from the center of gravity to the hub, "
             "positive up.\n\n"
             "It is the arm through which a rearward hub force pitches "
             "the aircraft, and the dominant one on a helicopter, where "
@@ -1152,9 +1152,9 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "Shape of the chord distribution along the radius used by the "
             "radial table generator.\n\n"
-            "'rectangular' keeps a single constant chord; 'tapered' "
-            "interpolates linearly between a root and a tip chord; "
-            "'elliptic' follows an elliptic planform, which minimizes "
+            "- 'rectangular' keeps a single constant chord.\n"
+            "- 'tapered' interpolates linearly between a root chord and a tip chord.\n"
+            "- 'elliptic' follows an elliptic planform, which minimizes "
             "induced drag for a given lift in fixed-wing theory."),
         "unit": "—",
         "equation": (
@@ -1306,7 +1306,7 @@ FIELD_HELP: dict[str, dict] = {
         "effect": "Changing the source alters how the blade element forces are computed at each radial station and flight condition.",
         "range": "analytical, table, neuralfoil, or xfoil",
         "options": {
-            "analytical": "Polynomial analytical model with stall transition. Fast and smooth, best for preliminary design.",
+            "analytical": "Polynomial analytical model with stall transition. Fast and smooth, and suitable for preliminary design.",
             "table": "Precomputed polar curves at fixed Reynolds and Mach slices. Accurate, but it requires data and interpolation.",
             "neuralfoil": "The NeuralFoil external solver generates the polar on demand. It gives high fidelity, runs slower than the analytical model, and it requires an external installation.",
             "xfoil": "The XFOIL binary generates the polar on demand, with transition settings of its own (Ncrit and the two Xtr stations). Its fidelity is higher than NeuralFoil's, but it needs the executable installed. zBEMT looks for it through ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders. Locate… remembers your pick between sessions. The check happens when Run is clicked."
@@ -1376,7 +1376,7 @@ FIELD_HELP: dict[str, dict] = {
             "linear": "Linear lift up to stall angle, then constant. The simplest model, useful for low-stall-margin designs.",
             "clip": "Linear to stall, then Cl drops to zero immediately. Unrealistic but diagnostic for stall sensitivity.",
             "enhanced": "Smooth transition from linear region through a peak Cl_max to a shallow post-stall decline. Realistic and continuous.",
-            "viterna": "Viterna-Corrigan model with curvature. It extends to ±90° if enabled and is the most physically grounded choice for high α and reverse flow."
+            "viterna": "Viterna-Corrigan model with curvature. It extends to ±90° if enabled and is a physically grounded choice for high α and reverse flow."
         }
     },
     "alpha_stall_pos_deg": {
@@ -1666,7 +1666,7 @@ FIELD_HELP: dict[str, dict] = {
                 "Inside the reverse region the section is treated as a flat "
                 "plate: Cl = 0 and Cd = 1.9, with α_eff = −α_geom and the Mach "
                 "number taken from |Ut|.\n\n"
-                "Robust and idealized; discards the airfoil's own polar where it "
+                "It is an idealized treatment. It discards the airfoil's own polar where it "
                 "applies."),
             "simple_flip": (
                 "Mirrors the incidence in the reverse region (α_eff = −α_geom, "
@@ -2175,7 +2175,7 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "Global relaxation factor ω applied to the induced-inflow update: "
             "λ<sub>i,new</sub> = λ<sub>i,old</sub> + ω·Δλ<sub>i</sub>.\n\n"
-            "Typically 0–1; stabilizes oscillatory convergence."),
+            "It typically falls between 0 and 1. It stabilizes oscillatory convergence."),
         "unit": "—",
         "equation": r"\lambda_{i,n+1} = \lambda_{i,n} + \omega\left[g(\lambda_{i,n})-\lambda_{i,n}\right]",
         "effect": "Decreasing the relaxation factor slows convergence but improves stability. Too low a value causes stagnation.",

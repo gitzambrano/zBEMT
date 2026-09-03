@@ -34,7 +34,7 @@ from dataclasses import asdict
 
 try:
     from PyQt6.QtWidgets import QApplication, QMessageBox
-    from PyQt6.QtCore import QEventLoop, QTimer, Qt
+    from PyQt6.QtCore import QEvent, QEventLoop, QTimer, Qt
     from PyQt6.QtGui import QCloseEvent
     _HAS_QT = True
 except Exception:  # pragma: no cover - environment without PyQt6
@@ -109,6 +109,19 @@ class GuiE2ETestCase(unittest.TestCase):
         # support.
         self.mock_msgbox.StandardButton = QMessageBox.StandardButton
         self.mock_msgbox.question.return_value = QMessageBox.StandardButton.Yes
+        # Every `deleteLater` scheduled by a test must be collected before
+        # the next one starts. Left pending, dozens of main windows and
+        # their canvases pile up inside one process, and the interpreter
+        # eventually faults while Qt tears them down -- a native crash with
+        # no traceback, on whichever test happens to be running.
+        self.addCleanup(self._drain_deletions)
+
+    def _drain_deletions(self):
+        """Let Qt destroy every widget the test scheduled for deletion."""
+        for _pass in range(3):
+            self.app.processEvents()
+        self.app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        self.app.processEvents()
 
     # --- shared utilities -----------------------------------------------
 
@@ -1359,6 +1372,7 @@ class TestShortcutsMatchDocumentation(GuiE2ETestCase):
         with helpers.patch_message_box_everywhere("PROJECTS_ROOT", self._tmpdir):
             win = self.gui.MainWindow()
         self.addCleanup(win.deleteLater)
+        self.addCleanup(win.close)
         return {s.key().toString() for s in win.findChildren(QShortcut)}, win
 
     def test_all_documented_shortcuts_exist(self):
@@ -1389,7 +1403,7 @@ class TestShortcutsMatchDocumentation(GuiE2ETestCase):
 # Run Batch reorganized: generate -> queue -> run
 # =============================================================================
 
-class TestFilaDoRunBatch(GuiE2ETestCase):
+class TestRunBatchQueue(GuiE2ETestCase):
     """The tab had three run buttons and two case generation modes that did
     not meet: the factorial fired without ever showing what was about to run,
     and the explicit list lived in its own table. Now both modes flow into

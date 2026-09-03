@@ -63,7 +63,7 @@ def execute_repository_quality_claim(claim: Claim, context: ExecutionContext) ->
         run = run_cli_in_project_copy(
             ROTOR_PROJECT,
             (
-                "--rpm", "400", "--mu-inplane", "0.15", "--collective", "12",
+                "--rpm", "400", "--mu-inplane", "0.30", "--collective", "12",
                 "--inflow", "pitt_peters_steady",
             ),
             work,

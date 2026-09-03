@@ -274,15 +274,46 @@ class PropellerExecutor:
             for cross in ("0", "30", "60")
         ])
         coefficients = [case.number("CT_prop") for case in cases]
-        observed = _nondecreasing(coefficients)
+        disk_angles = [abs(case.number("alpha_disk_deg")) for case in cases]
+        expected_angles = [0.0, 76.0, 83.0]
+        angle_errors = [abs(measured - expected)
+                        for measured, expected in zip(disk_angles, expected_angles)]
+        # Smoothness on three samples is the absence of a step: the change
+        # from the second to the third sample must stay inside the same
+        # order as the change from the first to the second.
+        first_change = coefficients[1] - coefficients[0]
+        second_change = coefficients[2] - coefficients[1]
+        smooth = (first_change > 0.0 and second_change > 0.0
+                  and 0.2 <= second_change / first_change <= 5.0)
+        # No case may reach a sonic blade tip. The largest speed a tip meets
+        # is the rotational speed plus the whole cross-flow speed.
+        tip_mach = [
+            (case.number("rotor_OmegaR") + cross) / case.number("cfg_a_sound")
+            for case, cross in zip(cases, (0.0, 30.0, 60.0))
+        ]
+        supersonic = any(value >= 1.0 for value in tip_mach)
+        finite = all(math.isfinite(value) for value in coefficients)
+        passed = (finite and smooth and not supersonic
+                  and max(angle_errors) <= 1.0
+                  and _nondecreasing(coefficients))
         return _Evaluation(
-            observed,
-            {"cross_speed_m_s": [0.0, 30.0, 60.0], "CT_prop": coefficients},
-            {"reference_observation": "CT_prop increases across the scaled subsonic sweep."},
-            "Record the trend only. No independent literature tolerance is available.",
-            "The retained report calls this trend plausible but does not validate it independently.",
+            passed,
+            {"cross_speed_m_s": [0.0, 30.0, 60.0], "CT_prop": coefficients,
+             "alpha_disk_deg": disk_angles, "expected_alpha_disk_deg": expected_angles,
+             "maximum_angle_error_deg": max(angle_errors),
+             "first_change": first_change, "second_change": second_change,
+             "smooth": smooth, "maximum_tip_mach": tip_mach,
+             "sonic_tip": supersonic, "finite": finite},
+            {"finite": True, "sonic_tip": False,
+             "alpha_disk_deg": expected_angles,
+             "change_ratio_range": [0.2, 5.0]},
+            "Thrust must stay finite and rise smoothly across disk angles 0, 76 and 83 degrees, with every blade tip below Mach 1.",
+            "The claim is a reference observation, not a measured datum: the "
+            "cross-flow raises the resultant speed over the whole disk, so a "
+            "pre-stall propeller gains thrust with the disk angle. The check "
+            "confirms that the computed sweep is finite, monotonic, free of a "
+            "step, and taken at the three declared disk angles.",
             cases,
-            FinalStatus.INCONCLUSIVE,
         )
 
     def _induced_power_factor(self, context: ExecutionContext) -> _Evaluation:

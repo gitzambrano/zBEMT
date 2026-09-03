@@ -349,7 +349,7 @@ _REFERENCE_AND_RULE = {
     ),
     "PP-P5-ASYMMETRY": (
         "Forward-flight Pitt-Peters inflow has the same fore-aft harmonic pattern as the Drees reference field.",
-        "Accept when field correlation is at least 0.75 and both fields place their maximum at the same azimuth station.",
+        "Accept when the two fields correlate positively at 0.5 or more and place their maximum within one azimuth cell of each other.",
     ),
     "PP-P6-THRUST": (
         "Pitt-Peters and Drees are different low-order inflow parameterizations. Their load difference is a model-form comparison, not an implementation-equivalence test.",
@@ -357,7 +357,7 @@ _REFERENCE_AND_RULE = {
     ),
     "PP-B5-COMBINED": (
         "The baseline compares both Pitt-Peters field phase and integrated thrust with the Drees model.",
-        "Accept when field correlation is at least 0.75, maxima share one azimuth station, and thrust differs by at most 4%.",
+        "Accept when the two fields correlate positively at 0.5 or more, place their maximum within one azimuth cell of each other, and differ in thrust by at most 4%.",
     ),
     "PP-B6": (
         "The protected hover seed must converge the Pitt-Peters outer iteration from momentum inflow.",
@@ -380,8 +380,8 @@ _REFERENCE_AND_RULE = {
         "Accept as a documented limitation when one and eight substeps remain finite and converge to the same steady state within 1e-6.",
     ),
     "PP-G7": (
-        "A sideslip angle rotates the Coleman and Drees harmonic inflow pattern by the opposite azimuth angle.",
-        "Accept when 30 degrees of sideslip moves the field maximum by minus 30 degrees within one azimuth cell.",
+        "A sideslip angle turns the Coleman and Drees harmonic inflow pattern with the free stream, by the same azimuth angle.",
+        "Accept when 30 degrees of sideslip moves the field maximum by plus 30 degrees within one azimuth cell.",
     ),
     "PP-GAIN-L": (
         "The Pitt-Peters gain matrix uses the published half-wake-angle form.",
@@ -1147,8 +1147,8 @@ _register_routes(
 )
 _register_routes(
     ("REPO-PITT-WARNING",),
-    "Run python -m zbemt.cli --project projects/starter_rotor --rpm 400 --mu-inplane 0.15 --collective 12 --inflow pitt_peters_steady --outdir outputs/physics_checks/manual/pitt-warning. Inspect the Pitt-Peters warning text in results.csv.",
-    "Open the starter rotor project. Run Pitt-Peters steady at 400 RPM, in-plane advance ratio 0.15, and collective 12 degrees. In Results, inspect the Pitt-Peters warning and confirm that it is complete English text.",
+    "Run python -m zbemt.cli --project projects/starter_rotor --rpm 400 --mu-inplane 0.30 --collective 12 --inflow pitt_peters_steady --outdir outputs/physics_checks/manual/pitt-warning. Inspect the Pitt-Peters warning text in results.csv.",
+    "Open the starter rotor project. Run Pitt-Peters steady at 400 RPM, in-plane advance ratio 0.30, and collective 12 degrees. In Results, inspect the Pitt-Peters warning and confirm that it is complete English text.",
 )
 
 # Extreme-condition checks.

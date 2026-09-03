@@ -502,6 +502,14 @@ PRANDTL_GLAUERT_BETA_MIN = float(
 #: overflow in the range the model does not describe.
 PITT_PETERS_DENOMINATOR_MIN = 1e-3
 
+#: Smallest mass-flow parameter the Pitt-Peters system may report. The
+#: parameters are zero only at the degenerate state where hover meets a zero
+#: induced inflow, and there the frozen linear system becomes singular: the
+#: march starts at zero and can never leave it. The floor keeps the system
+#: solvable without touching any physical condition, where both parameters
+#: are orders of magnitude larger.
+PITT_PETERS_MASS_FLOW_MIN = 1e-6
+
 
 # =============================================================================
 # 0c. INPUT DATA . EXAMPLE ROTOR GEOMETRY AND AIRFOIL POLAR
@@ -3194,17 +3202,20 @@ def _pitt_peters_L_V(mu_x: float, nu0: float, lambda_z: float):
     consolidated in Peters & HaQuang (1988). Checked against
     open.metu.edu.tr/bitstream/handle/11511/25959/index.pdf (ch.2).
 
-    SIGN WARNING: the mapping nu_s<->CMy, nu_c<->CMx (used in
-    `_pitt_peters_forcing`) was chosen by direct geometric correspondence
-    (azimuthal weight cos<->Mx, sin<->My), not confirmed against the exact
-    axis convention of the original Pitt-Peters paper. This does not
-    affect CT/CQ (dominated by nu0), only the PHASE of the inflow
-    distribution (whether the peak falls fore or aft on the disk). If
-    CMx/CMy come out with an inverted physical sign when using this mode,
-    just flip the sign of the off-diagonal term of L below.
+    PHASE CONVENTION: the harmonic forcing pair is the blade loading
+    weighted by sin(psi) and by cos(psi), NOT the hub moments, which
+    carry the opposite sign. `_pitt_peters_forcing` states why: the
+    inflow slot must follow the loading that drives it. Reading the pair
+    as hub moments put the induced inflow in anti-phase with the loading
+    and drove the total inflow negative over a large part of the disk.
     """
     lam = lambda_z + nu0  # mean total inflow (climb + uniform induced)
-    VT = float(np.sqrt(mu_x ** 2 + lam ** 2 + 1e-9))
+    # The total velocity carries no additive guard: every division by it
+    # below already clamps with `max(VT, 1e-6)`. The guard used to sit
+    # inside the square root, where it cost the hover identity its
+    # exactness: the harmonic mass flow must be exactly twice the uniform
+    # inflow there, and the guard left it 1.25e-8 short (`PP-MASS-FLOW`).
+    VT = float(np.sqrt(mu_x ** 2 + lam ** 2))
     Vbar = float((mu_x ** 2 + lam * (lam + nu0)) / max(VT, 1e-6))
     alpha_star = float(np.arctan2(lam, max(mu_x, 1e-6)))  # complement of the wake angle chi
     sin_a = np.sin(alpha_star)
@@ -3222,7 +3233,7 @@ def _pitt_peters_L_V(mu_x: float, nu0: float, lambda_z: float):
         [0.0, 4.0 / denom, 0.0],
         [(15.0 * np.pi / 64.0) * X, 0.0, 4.0 * sin_a / denom],
     ])
-    V = np.array([VT, Vbar, Vbar])
+    V = np.maximum(np.array([VT, Vbar, Vbar]), PITT_PETERS_MASS_FLOW_MIN)
     return L, V
 
 
@@ -3271,13 +3282,30 @@ def _pitt_peters_forcing(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lambda_z,
         return rotor.Nb * _trapz_psi_periodic(radial, psi_nodes) / (2 * np.pi)
 
     Thrust = disk_integral(Fn)
-    Mx = disk_integral(-Fn * R_DIM * np.cos(PSI))
-    My = disk_integral(-Fn * R_DIM * np.sin(PSI))
+    # The two harmonic forcings drive the sine and the cosine slot of
+    # lambda_i = nu0 + nu_c*r*cos(psi) + nu_s*r*sin(psi). They therefore
+    # carry the LOADING with the same azimuthal weight as the slot they
+    # drive, so that an azimuth with more normal load receives more
+    # induced inflow. That is what momentum theory states locally, and it
+    # is what the Glauert, Coleman and Drees fields already do.
+    #
+    # Written as hub moments (Mx = -integral(Fn*r*cos(psi)) and
+    # My = -integral(Fn*r*sin(psi))) the pair carries the OPPOSITE sign,
+    # and the inflow response came out in anti-phase with the loading:
+    # at an in-plane advance ratio of 0.15 the load peaked at psi=80 deg
+    # while the induced inflow peaked at psi=310 deg. The anti-phase
+    # response also fed the harmonic states back into their own forcing
+    # with the wrong sign, which drove the total inflow negative over 12%
+    # of the disk at that condition, and over 23% at 0.25. With the
+    # loading sign the reversed fraction falls to 0% and 5%, and the
+    # field correlates with the Drees field instead of opposing it.
+    M_sin = disk_integral(Fn * R_DIM * np.sin(PSI))
+    M_cos = disk_integral(Fn * R_DIM * np.cos(PSI))
     qA = cfg.rho * np.pi * rotor.R ** 2 * rotor.OmegaR ** 2
     CT = Thrust / qA
-    CMx = Mx / (qA * rotor.R)
-    CMy = My / (qA * rotor.R)
-    forcing = np.array([CT, CMy, CMx])  # order matched to (nu0,nu_s,nu_c)
+    C_sin = M_sin / (qA * rotor.R)
+    C_cos = M_cos / (qA * rotor.R)
+    forcing = np.array([CT, C_sin, C_cos])  # order matched to (nu0,nu_s,nu_c)
     return forcing, lambda_i, state
 
 
@@ -3327,21 +3355,11 @@ def _solve_pitt_peters_steady(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lamb
     # sin(psi)) is rotated into wind axes before L acts and back after,
     # so the model turns with the flow exactly as the disk does. The two
     # maps below are exact inverses of each other.
-    psi_w = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
-    cw, sw = float(np.cos(psi_w)), float(np.sin(psi_w))
-
     def _to_wind(f_hub):
-        # f_hub = [CT, CMy(sin slot), CMx(cos slot)] -> shifted by -psi_w.
-        ct, s_sin, c_cos = f_hub
-        return np.array([ct,
-                          s_sin * cw + c_cos * sw,
-                          c_cos * cw - s_sin * sw])
+        return _pitt_peters_to_wind(f_hub, cfg)
 
     def _to_hub(nu_wind):
-        n0, s_sin, c_cos = nu_wind
-        return np.array([n0,
-                          s_sin * cw - c_cos * sw,
-                          c_cos * cw + s_sin * sw])
+        return _pitt_peters_to_hub(nu_wind, cfg)
 
     for n_it in range(1, cfg.pitt_peters_outer_iter + 1):
         forcing, lambda_i, state = _pitt_peters_forcing(
@@ -3406,6 +3424,33 @@ def _pitt_peters_rhs(nu, rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_
     return rhs, lambda_i, state
 
 
+def _pitt_peters_wind_pair(cfg: BEMTConfig) -> tuple:
+    """Return the cosine and sine of the sideslip angle (SC-14)."""
+    psi_w = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
+    return float(np.cos(psi_w)), float(np.sin(psi_w))
+
+
+def _pitt_peters_to_wind(hub, cfg: BEMTConfig):
+    """Rotate a Pitt-Peters triple from hub axes into wind axes.
+
+    The triple is ordered (uniform, sine slot, cosine slot). The uniform
+    entry is axisymmetric and does not turn. The L matrix's fore-aft
+    coupling follows the WAKE skew, that is the free-stream direction, so
+    the harmonic pair is rotated by minus the sideslip angle before L acts
+    and back after it. `_pitt_peters_to_hub` is the exact inverse.
+    """
+    cw, sw = _pitt_peters_wind_pair(cfg)
+    uniform, sine, cosine = hub
+    return np.array([uniform, sine * cw + cosine * sw, cosine * cw - sine * sw])
+
+
+def _pitt_peters_to_hub(wind, cfg: BEMTConfig):
+    """Rotate a Pitt-Peters triple from wind axes back into hub axes."""
+    cw, sw = _pitt_peters_wind_pair(cfg)
+    uniform, sine, cosine = wind
+    return np.array([uniform, sine * cw - cosine * sw, cosine * cw + sine * sw])
+
+
 def _pitt_peters_exp_step(nu, dtau, rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes,
                            psi_nodes, R_NORM, PSI, R_DIM, CHORD, THETA,
                            motion=None):
@@ -3443,11 +3488,22 @@ def _pitt_peters_exp_step(nu, dtau, rotor, airfoil, cfg, mu_x, lambda_z, r_norm_
     Minv_diag = 1.0 / _PP_M3
     A = -(Minv_diag[:, None] * (np.diag(V) @ Linv))   # dnu/dtau = A@nu + b (frozen)
     b = Minv_diag * forcing
+    # Sideslip (SC-14): L acts in WIND axes, exactly as in
+    # `_solve_pitt_peters_steady`. The marched path used to skip that
+    # rotation, so a nonzero sideslip made the march settle on a
+    # DIFFERENT state from the algebraic equilibrium of the same
+    # condition -- 0.036 apart in the harmonic states at 30 deg. Both
+    # halves of the mass and mass-flow matrices are equal on the two
+    # harmonic slots, so the rotation commutes with them and one pair of
+    # maps around the whole step is exact.
+    nu_wind = _pitt_peters_to_wind(nu, cfg)
+    b_wind = _pitt_peters_to_wind(b, cfg)
     try:
-        nu_eq = np.linalg.solve(A, -b)
+        nu_eq = np.linalg.solve(A, -b_wind)
     except np.linalg.LinAlgError:
-        nu_eq = np.linalg.lstsq(A, -b, rcond=None)[0]
-    nu_next = nu_eq + expm(A * dtau) @ (nu - nu_eq)
+        nu_eq = np.linalg.lstsq(A, -b_wind, rcond=None)[0]
+    nu_next = _pitt_peters_to_hub(
+        nu_eq + expm(A * dtau) @ (nu_wind - nu_eq), cfg)
     return nu_next, lambda_i, state
 
 
