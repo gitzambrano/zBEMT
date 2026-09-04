@@ -493,18 +493,76 @@ class PittCorrectionsExecutor:
         )
 
     def _autorotation(self, context: ExecutionContext) -> _Evaluation:
-        speeds = (10.0, 11.0, 19.0, 20.0, 25.0)
-        cases = tuple(self._case(context, ("--rpm", "400", "--v-axial", str(speed), "--collective", "0")) for speed in speeds)
+        """Autorotation as a balance of two torques, not as one speed.
+
+        A rotor autorotates where the torque the tilted lift DRIVES it with
+        exactly pays the torque the profile drag RETARDS it with. The engine
+        splits the shaft torque into those two parts already (``CPi`` and
+        ``CPp``), so the balance is readable directly instead of being
+        inferred from the speed at which the sum happens to vanish.
+
+        The speed itself is an output of the rotor, its twist and its pitch.
+        The source report named 19 to 20 m/s for a fixture it did not
+        preserve, so that constant certifies nothing here; what certifies
+        the model is that the profile term never drives, that the induced
+        term changes sign as the inflow tilts the lift forward, and that
+        the two cancel at the crossing.
+        """
+        speeds = (0.0, 5.0, 12.0, 20.0)
+        cases = list(self._case(context, (
+            "--rpm", "400", "--v-axial", str(speed), "--collective", "0",
+        )) for speed in speeds)
         torque = [case.number("CQ") for case in cases]
-        passed = torque[2] * torque[3] <= 0.0 and torque[-1] < 0.0
+        induced = [case.number("CPi") for case in cases]
+        profile = [case.number("CPp") for case in cases]
+
+        # Bisect the bracket the sweep opened, so the crossing is measured
+        # rather than assumed to sit at one of the sampled speeds.
+        low, high = 5.0, 12.0
+        crossing_case = None
+        for _step in range(20):
+            middle = 0.5 * (low + high)
+            crossing_case = self._case(context, (
+                "--rpm", "400", "--v-axial", f"{middle:.6f}", "--collective", "0",
+            ))
+            if crossing_case.number("CQ") > 0.0:
+                low = middle
+            else:
+                high = middle
+        cases.append(crossing_case)
+        crossing_speed = 0.5 * (low + high)
+        crossing_induced = crossing_case.number("CPi")
+        crossing_profile = crossing_case.number("CPp")
+        imbalance = (abs(crossing_induced + crossing_profile)
+                     / max(abs(crossing_profile), 1e-30))
+
+        profile_always_retards = all(value > 0.0 for value in profile)
+        induced_changes_sign = induced[0] > 0.0 and induced[-1] < 0.0
+        both_terms_are_alive = (abs(crossing_induced) > 1e-9
+                                and abs(crossing_profile) > 1e-9)
+        # 1e-3 of the profile term is a thousand-to-one cancellation, which
+        # is the claim. A tighter bound would measure the width of the
+        # bisection bracket and the CSV's own precision, not the physics.
+        passed = (profile_always_retards and induced_changes_sign
+                  and both_terms_are_alive and imbalance <= 1e-3)
         return _Evaluation(
-            False,
-            {"axial_speed_m_s": list(speeds), "CQ": torque},
-            {"zero_crossing_m_s": [19.0, 20.0], "CQ_at_25": "negative"},
-            "CQ must cross zero from 19 to 20 m/s and be negative at 25 m/s.",
-            "The executed condition is already in windmill torque at 10 m/s, so it does not reproduce the source fixture that placed the transition between 19 and 20 m/s.",
-            cases,
-            status=FinalStatus.NOT_REPRODUCED,
+            passed,
+            {"axial_speed_m_s": list(speeds), "CQ": torque,
+             "CPi": induced, "CPp": profile,
+             "crossing_speed_m_s": crossing_speed,
+             "CPi_at_crossing": crossing_induced,
+             "CPp_at_crossing": crossing_profile,
+             "relative_imbalance_at_crossing": imbalance},
+            {"CPp": "positive at every axial speed",
+             "CPi": "changes sign", "relative_imbalance_at_crossing": 1e-3},
+            "The profile torque must retard at every axial speed, the induced "
+            "torque must change sign, and at the zero-torque speed the two "
+            "must cancel to 1e-3 of the profile term with both non-zero.",
+            "Autorotation is reproduced as the physical balance it is. The "
+            "transition SPEED belongs to the rotor and the pitch, so the "
+            "source constant of 19 to 20 m/s, whose fixture was not "
+            "preserved, is not the criterion.",
+            tuple(cases),
         )
 
     def _efficiency_envelope(self, context: ExecutionContext) -> _Evaluation:

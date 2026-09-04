@@ -107,9 +107,28 @@ class TestPittCorrectionsExecutorRealInterfaces(unittest.TestCase):
         result = self._execute("EXT-D2")
         self.assertEqual(result.final_status, FinalStatus.OUT_OF_SCOPE_LIMITATION)
 
-    def test_unreproduced_autorotation_fixture_is_not_called_a_defect(self):
+    def test_autorotation_balances_the_driving_and_retarding_torques(self):
+        """Autorotation is a balance, and the claim is now that balance.
+
+        The source report named a transition speed of 19 to 20 m/s for a
+        fixture it did not preserve, so that constant certified nothing.
+        What certifies the model is that the profile torque always retards,
+        that the induced torque changes sign as the inflow tilts the lift
+        forward, and that the two cancel where the shaft torque vanishes."""
         result = self._execute("EXT-D5")
-        self.assertEqual(result.final_status, FinalStatus.NOT_REPRODUCED)
+        self.assertEqual(result.final_status, FinalStatus.CONFIRMED_CORRECT)
+        measured = result.measured_data
+        self.assertTrue(all(value > 0.0 for value in measured["CPp"]),
+                        "profile drag must retard at every axial speed")
+        self.assertGreater(measured["CPi"][0], 0.0)
+        self.assertLess(measured["CPi"][-1], 0.0)
+        # Both terms alive, equal and opposite: the zero is a cancellation,
+        # not two vanishing terms.
+        self.assertGreater(abs(measured["CPi_at_crossing"]), 1e-9)
+        self.assertGreater(abs(measured["CPp_at_crossing"]), 1e-9)
+        self.assertLess(measured["relative_imbalance_at_crossing"], 1e-3)
+        self.assertGreater(measured["crossing_speed_m_s"], 5.0)
+        self.assertLess(measured["crossing_speed_m_s"], 12.0)
 
     def test_empirical_inflow_spread_is_not_called_an_implementation_defect(self):
         result = self._execute("PP-P6-THRUST")

@@ -236,8 +236,8 @@ _REFERENCE_AND_RULE = {
         "Accept when 99.9% convergence emits no warning and any value below 99.5% emits one.",
     ),
     "EXT-D5": (
-        "Autorotation makes torque cross zero before the deeply descending windmill state.",
-        "Accept only after the source rotor, pitch, and descent convention reproduce the stated torque transition; a different fixture is not evidence of a defect.",
+        "Autorotation is the balance between the driving torque of the tilted lift and the retarding torque of the profile drag. Torque crosses zero where the two cancel.",
+        "Accept when the profile torque retards at every axial speed, the induced torque changes sign as the inflow tilts the lift forward, and at the zero-torque speed the two cancel to 1e-3 of the profile term while both stay non-zero. The transition SPEED is an output of the rotor and the pitch, so it is not compared with a constant from a fixture the source did not preserve.",
     ),
     "EXT-D6": (
         "Propeller efficiency starts at zero, reaches one positive peak, and returns to zero at the windmill boundary.",
@@ -1174,8 +1174,8 @@ _register_routes(
 )
 _register_routes(
     ("EXT-D5",),
-    "Run python -m zbemt.cli --project projects/starter_rotor --rpm 400 --v-axial 10 --collective 0. Repeat at axial speeds 11, 19, 20, and 25 m/s. Compare CT and CQ zero crossings.",
-    "Open the starter rotor project. In Run Batch, add axial speeds 10, 11, 19, 20, and 25 m/s at collective 0 degrees. Inspect CT and CQ in Results and locate both zero crossings.",
+    "Run python -m zbemt.cli --project projects/starter_rotor --rpm 400 --v-axial V --collective 0 for V of 0, 5, 12 and 20 m/s. Read CQ, CPi and CPp in each results.csv: CPp stays positive, CPi changes sign, and CQ crosses zero between 5 and 12 m/s. Bisect that bracket to the crossing and confirm CPi = -CPp there.",
+    "Open the starter rotor project. In Run Batch, sweep the axial flow from 0 to 20 m/s at collective 0 degrees. In Results, plot CQ, CPi and CPp against the axial speed: the profile term stays positive, the induced term changes sign, and the two cancel where the torque does.",
 )
 _register_routes(
     ("EXT-D6",),

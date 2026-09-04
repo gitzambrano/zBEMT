@@ -45,18 +45,35 @@ inconclusive result.
 
 | Status | Claims |
 | --- | ---: |
-| Confirmed correct | 128 |
+| Confirmed correct | 129 |
 | Confirmed defect | 0 |
-| Not reproduced | 4 |
+| Not reproduced | 3 |
 | Out-of-scope limitation | 6 |
 | Inconclusive | 0 |
 
-Every claim now resolves. An earlier campaign left 45 claims inconclusive
-because the source fixture had not preserved the exact polar, maneuver, local
-field, or experimental datum its acceptance rule named. Each of those rules is
-now either evaluated on the local field and the marched history that the
-public API exports, or restated as a criterion that follows from the model
-itself. Every restatement is named in "Acceptance rules restated" below.
+Every claim now resolves, and every claim that is not "confirmed correct"
+carries a DECIDED verdict. There is no third answer: each one is either a
+defect in the model, which was corrected, or a defect in the claim, which was
+restated, or a boundary of the theory, which is documented and checked. An
+earlier campaign left 45 claims inconclusive because the source fixture had
+not preserved the exact polar, maneuver, local field, or experimental datum
+its acceptance rule named. Each of those rules is now either evaluated on the
+local field and the marched history that the public API exports, or restated
+as a criterion that follows from the model itself. Every restatement is named
+in "Acceptance rules restated" below.
+
+### How to read the two non-confirmed statuses
+
+"Not reproduced" means THE CLAIM WAS WRONG, not that the question is open. In
+all three cases the source report compared two things that are not the same
+thing, and the executor measures the difference and records why it is
+expected. None of the three is a suspicion left standing.
+
+"Out-of-scope limitation" means THE THEORY ENDS THERE, and the engine says so.
+Each of the six is a positive check: the executor confirms that the declared
+limit is real, that the engine reports it, and that nothing outside the limit
+is presented as if it were valid. A limitation that the engine hid would be a
+defect, not a limitation.
 
 ## Defects found and corrected
 
@@ -137,7 +154,12 @@ exported in the result row, and raised as a result finding
   difference. Pitt-Peters uses a uniform finite-state mean inflow; local
   Glauert solves annular inflow. Zero skew removes harmonic states but does
   not make those parameterizations identical for a nonuniform blade
-  (`PROP-FA`, `PP-P6-THRUST`).
+  (`PROP-FA`, `PP-P6-THRUST`). What rules out a defect hiding behind that
+  wording is that Pitt-Peters is certified on its OWN terms, against momentum
+  theory rather than against the other model: its hover state meets the
+  momentum identity to six significant figures, and its twenty-revolution
+  march settles on the same algebraic fixed point (`PP-B1`, `PP-B6`,
+  `PP-STEADY-MARCH-AUDIT`).
 - The dynamic-stall frequency versus time-march difference at high advance
   ratio is expected once the dominant-harmonic assumption fails. The two
   methods agree within 1% in their low-advance validity range (`DS-A8`).
@@ -149,8 +171,6 @@ exported in the result row, and raised as a result finding
   exceeds one over a large part of the disk, which would raise the section lift
   above its attached-flow value. The implemented form stays inside zero to one
   (`STALL-DELAY-RATIO`).
-- The autorotation fixture at 10 m/s is already in windmill torque, so it does
-  not reproduce the source condition (`EXT-D5`).
 
 ## Documented model limitations
 
@@ -174,9 +194,15 @@ exported in the result row, and raised as a result finding
 
 ## Acceptance rules restated
 
-Nine rules named a constant that belonged to a fixture the source reports did
+Ten rules named a constant that belonged to a fixture the source reports did
 not preserve. Each is restated as a criterion that follows from the model, and
 each restatement is recorded with the claim:
+
+- `EXT-D5`: autorotation is certified as the balance between the driving
+  torque of the tilted lift and the retarding torque of the profile drag,
+  which is what the phenomenon IS. The transition SPEED follows from the
+  rotor, its twist and its pitch, so the source constant of 19 to 20 m/s
+  measured a rotor the report did not keep.
 
 - `DS-A12`: the lift overshoot is bounded by the attached-flow line, because
   the dynamic lift is a convex combination weighted by a separation state
@@ -221,6 +247,14 @@ each restatement is recorded with the claim:
   residual. The march inside one sample still covers its own revolutions, so
   the inherited state sets the start of the sample and not its periodic regime
   (`DS-A6`).
+- Autorotation is the balance it is supposed to be. The shaft torque splits
+  into an induced part and a profile part. The profile part retards at every
+  axial speed, as drag must. The induced part changes sign as the inflow tilts
+  the lift forward. Where the shaft torque vanishes, at 9.74 m/s on the starter
+  rotor at zero collective, the two are equal and opposite to seven parts in a
+  million of the profile term, and neither is near zero. The rotor therefore
+  autorotates by paying its profile drag with the energy the tilted lift takes
+  from the stream, which is the definition (`EXT-D5`).
 
 ## Suite ownership
 

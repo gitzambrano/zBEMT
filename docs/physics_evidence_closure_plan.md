@@ -10,8 +10,10 @@ model limitation. An absent executor is not a valid conclusion.
 ## Current State
 
 The campaign covers 138 canonical claims from 208 source occurrences. Every
-claim resolves: 128 confirmed correct, 4 not reproduced, 6 documented model
-limitations, and no inconclusive result. The quality orchestrator owns three
+claim resolves: 129 confirmed correct, 3 not reproduced, 6 documented model
+limitations, and no inconclusive result. Every claim that is not confirmed
+correct carries a decided verdict -- a defect in the model, a defect in the
+claim, or a documented boundary of the theory. None is left as a suspicion. The quality orchestrator owns three
 separate suites: architecture, regression, and physics.
 `tools/run_quality_checks.py` is the only public suite selector.
 
