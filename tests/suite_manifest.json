@@ -39,6 +39,8 @@
     "tests/regression/test_geometry.py",
     "tests/regression/test_golden_results.py",
     "tests/regression/test_gui_e2e.py",
+    "tests/regression/test_gui_e2e_results.py",
+    "tests/regression/test_gui_e2e_session.py",
     "tests/regression/test_gui_layout.py",
     "tests/regression/test_gui_responsiveness.py",
     "tests/regression/test_gui_smoke.py",

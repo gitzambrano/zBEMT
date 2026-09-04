@@ -11,8 +11,8 @@ jobs:
   # batch on a headless server does not need it. This job proves that: it
   # installs ONLY the base dependencies and runs everything that is not GUI.
   # If someone slips an `import PyQt6` into the engine, this breaks here.
-  motor:
-    name: motor + CLI (sem Qt), Python ${{ matrix.python }}
+  engine:
+    name: engine + CLI (no Qt), Python ${{ matrix.python }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -27,26 +27,27 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
 
-      - name: Instalar (só dependências base)
+      - name: Install (base dependencies only)
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Confirmar que PyQt6 NÃO está instalado
+      - name: Confirm that PyQt6 is NOT installed
         run: |
           python - <<'PY'
           import importlib.util, sys
           if importlib.util.find_spec("PyQt6") is not None:
-              sys.exit("PyQt6 foi instalado neste job -- ele existe para provar "
-                       "que o motor roda sem Qt. Alguma dependência o puxou.")
-          print("ok: sem PyQt6, como esperado")
+              sys.exit("PyQt6 was installed in this job. The job exists to "
+                       "prove that the engine runs without Qt, so some "
+                       "dependency has pulled it in.")
+          print("ok: no PyQt6, as expected")
           PY
 
-      - name: Testes (os de GUI pulam sozinhos sem Qt; um processo por arquivo)
+      - name: Tests (the GUI ones skip themselves without Qt; one process per file)
         run: python tests/run_all_tests.py
 
   gui:
-    name: suíte completa com GUI (headless)
+    name: complete suite with the GUI (headless)
     runs-on: ubuntu-24.04
 
     steps:
@@ -58,19 +59,19 @@ jobs:
           cache: pip
 
       # PyQt6 needs these system libraries even in offscreen mode
-      - name: Dependências de sistema do Qt
+      - name: Qt system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
             libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
 
-      - name: Instalar com todos os extras
+      - name: Install with every extra
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all]"
 
-      - name: Suíte completa (um processo por arquivo)
+      - name: Complete suite (one process per file)
         # QT_QPA_PLATFORM is also set in tests/conftest.py; repeated here
         # for anyone running the job without going through conftest.
         # One process per file (tests/run_all_tests.py) avoids the native
@@ -81,8 +82,8 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: python tests/run_all_tests.py
 
-  instalacao:
-    name: instalação limpa (wheel, fora do repositório)
+  installation:
+    name: clean installation (wheel, outside the repository)
     runs-on: ubuntu-24.04
 
     steps:
@@ -93,7 +94,7 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Construir e instalar o wheel
+      - name: Build and install the wheel
         run: |
           python -m pip install --upgrade pip build
           python -m build --wheel
@@ -102,18 +103,18 @@ jobs:
       # Runs OUTSIDE the repository: this is how you catch a path that only
       # worked by accident, because it sat next to the source code
       # (the bug that `zbemt/paths.py` exists to avoid).
-      - name: Importar e rodar o CLI de fora do repositório
+      - name: Import and run the CLI from outside the repository
         run: |
           cd /tmp
-          python -c "import zbemt; print('versão', zbemt.__version__)"
+          python -c "import zbemt; print('version', zbemt.__version__)"
           zbemt --help > /dev/null
           python - <<'PY'
           import re
           from zbemt import paths
-          raiz = paths.projects_root()
-          assert "site-packages" not in str(raiz), \
-              f"projects_root caiu dentro da instalação: {raiz}"
-          print("ok: projects_root =", raiz)
+          root = paths.projects_root()
+          assert "site-packages" not in str(root), \
+              f"projects_root fell inside the installation: {root}"
+          print("ok: projects_root =", root)
 
           # The embedded help (button "?" / F1) has to ship inside the
           # wheel, and COMPLETE: without the figures and KaTeX it opens
@@ -123,9 +124,9 @@ jobs:
               "documentation.html was not packaged: F1 would not work"
           html = doc.read_text(encoding="utf-8")
           refs = set(re.findall(r'src="((?:img|vendor)/[^"]+)"', html))
-          faltando = [r for r in refs if not (doc.parent / r).exists()]
-          assert not faltando, f"recursos da ajuda ausentes no wheel: {faltando}"
+          missing = [r for r in refs if not (doc.parent / r).exists()]
+          assert not missing, f"help resources missing from the wheel: {missing}"
           assert not re.findall(r'src="https?', html), \
-              "a ajuda embutida carrega recurso externo: nao abriria offline"
-          print(f"ok: ajuda embutida com {len(refs)} recursos, toda local")
+              "the embedded help loads an external resource: it would not open offline"
+          print(f"ok: embedded help with {len(refs)} resources, all local")
           PY

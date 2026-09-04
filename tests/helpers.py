@@ -87,9 +87,9 @@ except ModuleNotFoundError:              # pragma: no cover -- depends on the en
     HAS_QT = False
 
 
-def requires_qt(alvo):
+def requires_qt(target):
     """Class/method decorator: skip when PyQt6 is not installed."""
     import unittest
     return unittest.skipUnless(
         HAS_QT, "PyQt6 is not installed (the engine and CLI run without it "
-                "on purpose -- see the 'motor' job in .github/workflows)")(alvo)
+                "on purpose -- see the 'engine' job in .github/workflows)")(target)
