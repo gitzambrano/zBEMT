@@ -602,10 +602,9 @@ class TestMountedWindowLayout(unittest.TestCase):
             bar.height(), bar.STAGE_HEIGHT + 2 * bar.VERTICAL_MARGIN)
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
+@unittest.skipUnless(_HAS_QT, "PyQt6 not available")
 class TestButtonsOnOneRowShareAWidth(unittest.TestCase):
     """Buttons that read together must be the same size.
 
@@ -669,6 +668,7 @@ class TestButtonsOnOneRowShareAWidth(unittest.TestCase):
                 self.assertEqual(self._ragged_rows(tool), [])
 
 
+@unittest.skipUnless(_HAS_QT, "PyQt6 not available")
 class TestConfigFieldsStartInOneColumn(unittest.TestCase):
     """Every Config block must open its value column at the same x.
 
@@ -717,3 +717,7 @@ class TestConfigFieldsStartInOneColumn(unittest.TestCase):
                 max(columns) - min(columns), 2,
                 f"value column starts at {sorted(columns)}: "
                 + ", ".join(text for _x, text in rows))
+
+
+if __name__ == "__main__":
+    unittest.main()
