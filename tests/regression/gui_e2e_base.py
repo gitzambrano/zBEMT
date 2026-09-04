@@ -42,6 +42,12 @@ try:
     from PyQt6.QtGui import QCloseEvent
     _HAS_QT = True
 except Exception:  # pragma: no cover - environment without PyQt6
+    # The names still have to EXIST. The three batteries import them from
+    # here, so leaving them undefined would turn "PyQt6 is absent" into an
+    # ImportError at collection -- which is exactly what the CI job that
+    # runs the engine without Qt would hit, instead of skipping.
+    QApplication = QMessageBox = QEvent = QEventLoop = QTimer = Qt = None
+    QCloseEvent = None
     _HAS_QT = False
 
 from zbemt import geometry as geometry_mod
