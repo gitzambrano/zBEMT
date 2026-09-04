@@ -125,6 +125,8 @@ Slot names, used by `gui/widgets.py` and `gui/common.py`:
 | Rotor     | `axial`   | Axial (along-shaft) Flow | Climb or descent along the shaft |
 | Propeller | `inplane` | Cross (in-plane) Flow    | Cross-flow, vertical             |
 | Propeller | `axial`   | Axial (along-shaft) Flow | Airspeed along the shaft         |
+| Rotor     | `lateral` | Lateral (in-plane, sideways) Flow | Sideward flight or sideslip |
+| Propeller | `lateral` | Lateral (in-plane, sideways) Flow | Sideward cross-flow        |
 
 ### Rotor mode
 
@@ -134,6 +136,7 @@ Shaft vertical, so `x` is in-plane (edgewise) and `z` is along the shaft.
 | -------------------- | ------------------------------------ | ------------------------------ | ------------------------------------------------------------ | ------------------- |
 | Edgewise             | μ_x, J_x, V_x [m/s]                 | μ_x, J_x, V_x                 | `mu_x`, `J_x`, `Vx`                                    | same                |
 | Axial                | α_rotor [deg], V_z [m/s], μ_z, J_z | α_rotor, V_z, μ_z, J_z, λ_z | `alpha_rotor_deg`, `Vz`, `mu_z`, `J_z`, `lambda_z` | same                |
+| Lateral              | V_y [m/s], ψ_w [deg], μ_y, J_y     | V_y, ψ_w, μ_y, J_y            | `Vy`, `sideslip_deg`, `mu_y`, `J_y`                      | same                |
 | Axial total (output) | —                                   | V_z,total, λ_total            | `Vz_total`, `lambda_total`                               | same                |
 | Induced (output)     | —                                   | v_i, λ_i                      | `Vi`, `lambda_i`                                         | same                |
 
@@ -162,6 +165,7 @@ cross-flow in the disk plane.
 | -------------------- | ----------------------------------- | ----------------------- | --------------------------------------------- | --------------------------------------------- |
 | Axial                | J_x, μ_x, V_x [m/s]                | J_x, μ_x, V_x, λ_x    | `Vz`, `mu_z`, `J_z`, `lambda_z`       | `Vx`, `mu_x`, `J_x`, `lambda_x`       |
 | Cross                | V_z [m/s], α_disk [deg], μ_z, J_z | V_z, α_disk, μ_z, J_z | `Vx`, `mu_x`, `J_x`, `alpha_disk_deg` | `Vz`, `mu_z`, `J_z`, `alpha_disk_deg` |
+| Lateral              | V_y [m/s], ψ_w [deg], μ_y, J_y    | V_y, ψ_w, μ_y, J_y     | `Vy`, `sideslip_deg`, `mu_y`, `J_y`       | same                                          |
 | Axial total (output) | —                                  | V_x,total, λ_total     | `Vz_total`, `lambda_total`                | `Vx_total`, `lambda_total`                |
 | Induced (output)     | —                                  | v_i, λ_i               | `Vi`, `lambda_i`                          | same                                          |
 
@@ -169,6 +173,26 @@ J_x = V_x/(nD) is the classic propeller advance ratio, built from the axial
 component. α_disk = atan2(V_z, V_x) is measured from the shaft and is 0° when
 the stream is aligned with it. Straight cruise is J_x set in the Axial field,
 with V_z = 0 and α_disk = 0°.
+
+### The lateral component
+
+The disk plane holds TWO directions, and `mu_x` names only one of them.
+`FlightCondition.Vy` names the other: the lateral component, sideways and in
+the plane of the disk. It is `y` in BOTH modes, because y is horizontal and
+in the disk plane whichever way the shaft points, so it is the one flow
+component that does not rotate.
+
+The engine takes the in-plane stream as ONE magnitude and ONE direction, and
+`models.resolve_inplane_flow` is the only place the two components become
+that vector: `mu_inplane = hypot(V_x, V_y)/(ΩR)` and
+`ψ_w = atan2(V_y, V_x)`, which reaches `bemt` as
+`BEMTConfig.inflow_sideslip_deg`.
+
+`sideslip_deg` is the ANGLE SPELLING of `Vy`, not a second freedom. It SPLITS
+the known longitudinal component into a lateral one, exactly as `alpha_rotor`
+splits it into the axial one, so it never sets the scale of a velocity and
+stays inside ±89°. Pure sideward flight is written as `Vy`. A condition that
+gives both is refused by `validation` (`SC-15`).
 
 ### The letter rotation
 

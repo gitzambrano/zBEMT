@@ -87,6 +87,7 @@ def _type_name(field) -> str:
 EXPLICIT_FLAGS = {
     "mu_x": ["--mu-inplane", "--j-inplane", "--v-inplane", "--alpha-disk-deg"],
     "Vz": ["--v-axial", "--j-axial", "--mu-axial", "--alpha-rotor-deg"],
+    "Vy": ["--v-lateral", "--mu-lateral", "--j-lateral", "--sideslip-deg"],
     "collective_deg": ["--collective"],
 }
 

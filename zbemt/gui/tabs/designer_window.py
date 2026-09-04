@@ -33,6 +33,8 @@ import numpy as np
 from PyQt6.QtCore import Qt, QThread, QTimer
 from PyQt6.QtWidgets import (
     QWidget,
+    QGridLayout,
+    QSplitter,
     QVBoxLayout,
     QHBoxLayout,
     QFormLayout,
@@ -367,15 +369,34 @@ class GeometryDesignerWindow(QWidget):
         builder_column.addWidget(self._build_sweep_box())
         builder_column.addWidget(self._build_generate_box())
         builder_column.addStretch(1)
-        inner.addLayout(builder_column)
-        inner.addLayout(table_column, stretch=3)
 
         preview_column = QVBoxLayout()
         preview_column.addWidget(QLabel("Planform preview:"))
         self.preview_canvas = CanvasHost()
         self.preview_canvas.setMinimumHeight(240)
         preview_column.addWidget(self.preview_canvas, stretch=1)
-        inner.addLayout(preview_column, stretch=2)
+
+        # The three columns sit in a SPLITTER, not in fixed shares of the
+        # width. The table carries eleven columns and cannot show them all
+        # at once on a laptop screen, so the reader has to be able to give
+        # it the room -- with fixed shares the only way to read the last
+        # columns was the horizontal scrollbar, and the preview kept a
+        # fifth of the window whether it was being looked at or not.
+        self._variants_splitter = QSplitter(Qt.Orientation.Horizontal)
+        for column, minimum in ((builder_column, 300),
+                                (table_column, 380),
+                                (preview_column, 240)):
+            holder = QWidget()
+            holder.setLayout(column)
+            holder.setMinimumWidth(minimum)
+            self._variants_splitter.addWidget(holder)
+        self._variants_splitter.setChildrenCollapsible(False)
+        # The table gets the slack, because it is the one panel whose
+        # content grows with the comparison.
+        self._variants_splitter.setStretchFactor(0, 0)
+        self._variants_splitter.setStretchFactor(1, 3)
+        self._variants_splitter.setStretchFactor(2, 1)
+        inner.addWidget(self._variants_splitter)
 
         return page
 
@@ -584,7 +605,10 @@ class GeometryDesignerWindow(QWidget):
             "solve slower.")
         form.addRow("Stations:", self.gen_stations_spin)
 
-        button_row = QHBoxLayout()
+        # A 2x2 GRID, not one row of four: the panel lives in a column
+        # beside the comparison table, and four buttons on one line cut
+        # their own labels there ("Import from projec", "Save comparison.").
+        button_row = QGridLayout()
         self.btn_add_generated = QPushButton("Add as variant")
         self.btn_add_generated.setToolTip(
             "Builds the blade from these fields. Then it appends the "
@@ -592,7 +616,7 @@ class GeometryDesignerWindow(QWidget):
             "itself, not overrides over the base. The label cell stays "
             "editable.")
         self.btn_add_generated.clicked.connect(self._add_generated_variant)
-        button_row.addWidget(self.btn_add_generated)
+        button_row.addWidget(self.btn_add_generated, 0, 0)
         self.btn_import_project = QPushButton("Import from project…")
         self.btn_import_project.setToolTip(
             "Brings the blade of another project into this comparison. "
@@ -600,7 +624,7 @@ class GeometryDesignerWindow(QWidget):
             "session's base planform. This window only reads the other "
             "project.")
         self.btn_import_project.clicked.connect(self._import_from_project)
-        button_row.addWidget(self.btn_import_project)
+        button_row.addWidget(self.btn_import_project, 0, 1)
         # SC-7a: persist the whole comparison and bring one back.
         self.btn_save_comparison = QPushButton("Save comparison…")
         self.btn_save_comparison.setToolTip(
@@ -608,14 +632,13 @@ class GeometryDesignerWindow(QWidget):
             "chosen conditions and the trim -- in "
             "inputs/comparisons.bemt, so it can be re-run later.")
         self.btn_save_comparison.clicked.connect(self._save_comparison)
-        button_row.addWidget(self.btn_save_comparison)
+        button_row.addWidget(self.btn_save_comparison, 1, 0)
         self.btn_load_comparison = QPushButton("Load comparison…")
         self.btn_load_comparison.setToolTip(
             "Rebuilds the variant table from a comparison saved with this "
             "project.")
         self.btn_load_comparison.clicked.connect(self._load_comparison)
-        button_row.addWidget(self.btn_load_comparison)
-        button_row.addStretch(1)
+        button_row.addWidget(self.btn_load_comparison, 1, 1)
         form.addRow(button_row)
 
         self.gen_family_combo.currentTextChanged.connect(
@@ -1513,7 +1536,8 @@ class GeometryDesignerWindow(QWidget):
                     line.set_alpha(fade)
                 proxies.append(Line2D([0], [0], color=color, linewidth=2,
                                       label=label))
-            ax.set_title(f"Planform overlay ({n_rows} variants)")
+            ax.set_title("Planform overlay "
+                         f"({n_rows} variant{'' if n_rows == 1 else 's'})")
             if proxies:
                 ax.legend(handles=proxies, fontsize=7, loc="upper right")
         except Exception as exc:

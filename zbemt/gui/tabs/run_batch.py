@@ -46,6 +46,7 @@ from PyQt6.QtCore import Qt, QThread
 from PyQt6.QtGui import QCursor
 
 from ... import api
+from ... import models
 from ...models import FlightCondition, BatchDefinition
 
 from ..common import (
@@ -62,12 +63,15 @@ from ..common import (
     condition_unit_width,
     apply_condition_unit_width,
     equalize_button_widths,
+    install_rich_text_headings,
     resolve_condition_pair,
 )
 from ..workers import BatchRunnerWorker, launch_worker
-from ..widgets import (LongitudinalInput, AxialInput, CONDITION_UNITS,
+from ..widgets import (LongitudinalInput, AxialInput, LateralInput,
+                        CONDITION_UNITS,
                         unit_label_variable,
                         configure_unit_combo)
+from ... import nomenclature
 from ...nomenclature import to_html as _symbol_html
 
 
@@ -88,6 +92,7 @@ class RunBatchTab(QWidget):
         ("(none)", None),
         ("Edgewise (in-plane) Flow", "inplane"),
         ("Axial (along-shaft) Flow", "axial"),
+        ("Lateral (in-plane, sideways) Flow", "lateral"),
         ("Collective", "collective_deg"),
         ("RPM", "rpm"),
     ]
@@ -103,16 +108,22 @@ class RunBatchTab(QWidget):
     _AXIS_SLOTS_PROPELLER = {
         "inplane": "Cross (in-plane) Flow",
         "axial": "Axial (along-shaft) Flow",
+        # y is horizontal and in the disk plane in BOTH modes, so the
+        # lateral slot keeps one name. It is listed anyway, because a slot
+        # missing from this map reads as an oversight.
+        "lateral": "Lateral (in-plane, sideways) Flow",
     }
 
     _SLOT_TOOLTIPS = {
         False: {
             "inplane": "Edgewise (in-plane) Flow: vehicle-axis component V<sub>x</sub> that sweeps across the disk.",
             "axial": "Axial (along-shaft) Flow: vehicle-axis component V<sub>z</sub> along the rotor shaft.",
+            "lateral": "Lateral (in-plane, sideways) Flow: vehicle-axis component V<sub>y</sub>, sideways and in the plane of the disk.",
         },
         True: {
             "inplane": "<b>Cross (in-plane) Flow</b><br>V<sub>z</sub> crosses the propeller shaft.<br>Zero in straight cruise.<br>Aircraft airspeed V<sub>x</sub> belongs in the axial field.",
             "axial": "<b>Axial (along-shaft) Flow</b><br>V<sub>x</sub> is the aircraft airspeed along the shaft.<br>This is the propeller advance direction.",
+            "lateral": "<b>Lateral (in-plane, sideways) Flow</b><br>V<sub>y</sub> crosses the shaft sideways, in the plane of the disk.<br>Zero in straight cruise.",
         },
     }
 
@@ -135,8 +146,14 @@ class RunBatchTab(QWidget):
     #: `FlightCondition`. "status" is filled in during the run, so the
     #: user sees progress in the SAME table where they reviewed the
     #: cases, instead of a second table that repeated the numbering.
-    _QUEUE_COLUMNS = ["#", "name", "μₓ", "V_z [m/s]", "collective [deg]", "RPM", "status"]
-    _COL_NAME, _COL_MU, _COL_VV, _COL_COLLECTIVE, _COL_RPM, _COL_STATUS = 1, 2, 3, 4, 5, 6
+    #: The engine key of each queue column that carries a symbol. The
+    #: headings are built from `nomenclature`, so they rotate with the mode
+    #: exactly as the Run Case fields do, and no second table of symbols
+    #: exists (`PR-8`).
+    _QUEUE_SYMBOL_KEYS = {2: "mu_x", 3: "Vz", 4: "Vy", 5: "collective_deg"}
+    _QUEUE_COLUMNS = ["#", "name", "", "", "", "", "RPM", "status"]
+    (_COL_NAME, _COL_MU, _COL_VV, _COL_VY, _COL_COLLECTIVE, _COL_RPM,
+     _COL_STATUS) = 1, 2, 3, 4, 5, 6, 7
 
     def __init__(self, state: AppState):
         super().__init__()
@@ -341,15 +358,14 @@ class RunBatchTab(QWidget):
             '"rpm"<br><br>Rotational speed for every generated case, in revolutions per minute.')
         self.fixed_rpm.setRange(1, 20000); self.fixed_rpm.setValue(600)
         self.fixed_rpm.setSingleStep(10)
-        # Sideslip (SC-14) is offered here as a fixed value only, and LAST:
-        # it is the least important of the batch inputs, and sweeping it
-        # would multiply the case count for a second-order effect.
-        self.fixed_sideslip = QDoubleSpinBox()
-        self.fixed_sideslip.setToolTip(
-            '"sideslip_deg"<br><br>&psi;<sub>w</sub>, the sideslip angle of the '
-            'in-plane free stream, applied to every generated case.')
-        self.fixed_sideslip.setRange(-89, 89); self.fixed_sideslip.setValue(0.0)
-        self.fixed_sideslip.setSingleStep(1.0)
+        # The lateral component (SC-14). It is a full slot like the other
+        # two: an axis when the batch sweeps it, a fixed value otherwise.
+        self.fixed_lateral = LateralInput(default_value=0.0)
+        self.fixed_lateral.set_context_provider(self._fixed_lateral_context)
+        self.fixed_lateral.setToolTip(
+            '"Vy"<br><br>Fixed lateral velocity component for every generated '
+            'case.<br><br>Choose V<sub>y</sub>, &psi;<sub>w</sub>, '
+            '&mu;<sub>y</sub> or J<sub>y</sub> from the unit selector.')
         # Cyclic pitch (SC-11), the same pair Run Case offers. A rigid
         # blade has no flap response for the cyclic to control, so both
         # rows hide unless the geometry gives the blade flap freedom.
@@ -367,7 +383,7 @@ class RunBatchTab(QWidget):
         self.fixed_cyclic_s.setSingleStep(0.5)
         for field in (self.fixed_advance, self.fixed_axial,
                       self.fixed_collective, self.fixed_rpm,
-                      self.fixed_sideslip,
+                      self.fixed_lateral,
                       self.fixed_cyclic_c, self.fixed_cyclic_s):
             self._size_field(field)
         # All four rows have their label in the LABEL COLUMN: previously
@@ -378,6 +394,7 @@ class RunBatchTab(QWidget):
         # "everything misaligned".
         fixed_form.addRow("Advance:", self.fixed_advance)
         fixed_form.addRow("Axial flow:", self.fixed_axial)
+        fixed_form.addRow("Lateral flow:", self.fixed_lateral)
         fixed_form.addRow("Collective [deg]:",
                           self._with_unit_indent(self.fixed_collective))
         fixed_form.addRow("RPM [rev/min]:", self._with_unit_indent(self.fixed_rpm))
@@ -385,14 +402,13 @@ class RunBatchTab(QWidget):
                           self._with_unit_indent(self.fixed_cyclic_c))
         fixed_form.addRow(_sym(r"\theta_{1s}") + " — Cyclic [deg]:",
                           self._with_unit_indent(self.fixed_cyclic_s))
-        fixed_form.addRow(_sym(r"\psi_w") + " — Sideslip [deg]:",
-                          self._with_unit_indent(self.fixed_sideslip))
         # kept to hide the WHOLE ROW, label included: hiding only the
         # field left "Collective [deg]:" dangling, pointing at nothing
         self._fixed_form = fixed_form
         fbox.addWidget(fixed_box)
         self._fixed_widgets = {
             "inplane": (self.fixed_advance,), "axial": (self.fixed_axial,),
+            "lateral": (self.fixed_lateral,),
             "collective_deg": (self.fixed_collective,), "rpm": (self.fixed_rpm,),
         }
 
@@ -520,6 +536,12 @@ class RunBatchTab(QWidget):
         self.add_row_axial.setToolTip(
             '"Vz"<br><br>Second velocity component for this case.<br><br>'
             'Its physical direction follows the selected rotor or propeller mode.')
+        self.add_row_lateral = LateralInput(default_value=0.0)
+        self.add_row_lateral.set_context_provider(self._add_row_lateral_context)
+        self.add_row_lateral.setToolTip(
+            '"Vy"<br><br>Lateral velocity component for this case.<br><br>'
+            'Choose V<sub>y</sub>, &psi;<sub>w</sub>, &mu;<sub>y</sub> or '
+            'J<sub>y</sub> from the unit selector.')
         self.collective_spin = QDoubleSpinBox()
         self.collective_spin.setToolTip(
             '"collective_deg"<br><br>Collective pitch added to blade twist at each radial station.')
@@ -531,10 +553,12 @@ class RunBatchTab(QWidget):
         self.rpm_spin.setRange(1, 20000); self.rpm_spin.setValue(600)
         self.rpm_spin.setSingleStep(10)
         for field in (self.add_row_advance, self.add_row_axial,
+                      self.add_row_lateral,
                       self.collective_spin, self.rpm_spin):
             self._size_field(field)
         form.addRow("Advance:", self.add_row_advance)
         form.addRow("Axial flow:", self.add_row_axial)
+        form.addRow("Lateral flow:", self.add_row_lateral)
         form.addRow("Collective [deg]:",
                     self._with_unit_indent(self.collective_spin))
         form.addRow("RPM [rev/min]:", self._with_unit_indent(self.rpm_spin))
@@ -601,7 +625,12 @@ class RunBatchTab(QWidget):
            `sizeHint` into account, instead of assuming a fixed padding
            the theme could change.
         """
-        buttons = self.action_buttons()
+        # The three saved-batch buttons sit on the SAME row as the two
+        # queue buttons, so the width is common to all of them. Grouped
+        # apart they settled at 80 px against the row's 88, and the row
+        # read as two different button sizes.
+        buttons = self.action_buttons() + (
+            self.btn_load_batch, self.btn_save_batch, self.btn_remove_batch)
         width = equalize_button_widths(
             buttons, extra_labels=self._GENERATE_LABELS)
         # "Run" is the button that fires the work, and it's the only one
@@ -638,7 +667,7 @@ class RunBatchTab(QWidget):
         vbox = QVBoxLayout(self.queue_box)
 
         self.batch_table = QTableWidget(0, len(self._QUEUE_COLUMNS))
-        self.batch_table.setHorizontalHeaderLabels(self._QUEUE_COLUMNS)
+        self._refresh_queue_columns()
         self.batch_table.setToolTip(
             "What will be run, in canonical form (<code>mu_x</code>, <code>Vz</code>). "
             "Stage 1 fields accept <code>mu_x</code>/<code>J_x</code> and "
@@ -678,23 +707,50 @@ class RunBatchTab(QWidget):
         self.batches_combo.setMinimumWidth(180)
         self.batches_combo.currentIndexChanged.connect(self._on_saved_batch_selected)
         row.addWidget(self.batches_combo)
-        btn_load_batch = QPushButton("load")
-        btn_load_batch.setToolTip(
+        self.btn_load_batch = QPushButton("Load")
+        self.btn_load_batch.setToolTip(
             "Replaces the queue below with the conditions of the selected "
             "batch. Choosing a name in the list does the same; this button "
             "also reloads the name that is ALREADY selected, which is how "
             "you discard edits made to the queue since it was loaded.")
-        btn_load_batch.clicked.connect(self._load_selected_batch)
-        row.addWidget(btn_load_batch)
-        btn_save_batch = QPushButton("save queue")
-        btn_save_batch.setToolTip("Saves the current queue as a named batch in the project.")
-        btn_save_batch.clicked.connect(self._save_current_as_batch)
-        row.addWidget(btn_save_batch)
-        btn_remove_batch = QPushButton("remove")
-        btn_remove_batch.clicked.connect(self._remove_saved_batch)
-        row.addWidget(btn_remove_batch)
+        self.btn_load_batch.clicked.connect(self._load_selected_batch)
+        row.addWidget(self.btn_load_batch)
+        self.btn_save_batch = QPushButton("Save queue")
+        self.btn_save_batch.setToolTip(
+            "Saves the current queue as a named batch in the project.")
+        self.btn_save_batch.clicked.connect(self._save_current_as_batch)
+        row.addWidget(self.btn_save_batch)
+        self.btn_remove_batch = QPushButton("Remove batch")
+        self.btn_remove_batch.setToolTip(
+            "Deletes the selected batch from the project. The queue below is not touched.")
+        self.btn_remove_batch.clicked.connect(self._remove_saved_batch)
+        row.addWidget(self.btn_remove_batch)
         vbox.addLayout(row)
         return self.queue_box
+
+    def _queue_headings(self):
+        """One ``(plain, html)`` heading per queue column.
+
+        Unicode has no subscript `z`, so the axial speed cannot be written
+        in plain text beside a real subscript on the in-plane one. The HTML
+        form is painted (`common.RichTextHeaderView`) and the plain form
+        stays on the item."""
+        propeller = bool(self.state.is_propeller()) if self.state else False
+        out = []
+        for column, plain in enumerate(self._QUEUE_COLUMNS):
+            key = self._QUEUE_SYMBOL_KEYS.get(column)
+            if key is None:
+                out.append((plain, plain))
+                continue
+            unit = nomenclature.unit(key)
+            suffix = f" [{unit}]" if unit and unit != "-" else ""
+            out.append((nomenclature.symbol_text(key, propeller) + suffix,
+                        nomenclature.symbol_html(key, propeller) + suffix))
+        return out
+
+    def _refresh_queue_columns(self) -> None:
+        """The letters rotate with the mode, so the headings are rebuilt."""
+        install_rich_text_headings(self.batch_table, self._queue_headings())
 
     def _update_queue_label(self):
         n = self.batch_table.rowCount()
@@ -706,8 +762,18 @@ class RunBatchTab(QWidget):
     #: under, on the row-number item of column 0.
     _CONDITION_ROLE = Qt.ItemDataRole.UserRole + 1
 
-    @staticmethod
-    def _cell_texts(condition: "FlightCondition", row_number: int) -> dict:
+    def _condition_omega_r(self, condition: "FlightCondition") -> float:
+        """Tip speed of one queued condition, for the lateral column.
+
+        The column shows a VELOCITY, and a condition may carry its
+        lateral flow as the sideslip angle instead. Turning the angle into
+        the velocity it names needs the tip speed, which is this row's own
+        RPM and the project's radius."""
+        radius_m = self.state.project.geometry.radius_m \
+            if (self.state and self.state.project) else 1.0
+        return api.mu_to_V(1.0, condition.rpm or 0.0, radius_m)
+
+    def _cell_texts(self, condition: "FlightCondition", row_number: int) -> dict:
         """The text of every cell of a row, for one condition.
 
         One place, used both to FILL a row and to decide afterwards
@@ -719,6 +785,11 @@ class RunBatchTab(QWidget):
             RunBatchTab._COL_NAME: condition.name or f"case_{row_number}",
             RunBatchTab._COL_MU: f"{condition.mu_x:.4g}",
             RunBatchTab._COL_VV: f"{condition.Vz:.4g}",
+            # Whichever spelling the condition carries, the queue shows the
+            # lateral VELOCITY: a sweep of the sideslip angle would
+            # otherwise fill the queue with rows that all read zero.
+            RunBatchTab._COL_VY:
+                f"{models.lateral_velocity(condition, self._condition_omega_r(condition)):.4g}",
             RunBatchTab._COL_COLLECTIVE: f"{condition.collective_deg:.4g}",
             # An absent RPM is absent, not zero. Written as "0" -- as it
             # was -- it read back as a rotor commanded to stand still,
@@ -777,11 +848,29 @@ class RunBatchTab(QWidget):
                 name=name,
                 mu_x=number(self._COL_MU, stored.mu_x, "mu_x"),
                 Vz=number(self._COL_VV, stored.Vz, "Vz"),
+                # An edited lateral cell is a velocity, so it lands on the
+                # velocity field and clears the angle: the two spellings
+                # are one freedom, and only one of them may carry it.
+                **self._lateral_overlay(stored, number),
                 collective_deg=number(self._COL_COLLECTIVE,
                                        stored.collective_deg, "collective"),
                 rpm=number(self._COL_RPM, stored.rpm, "rpm"),
             ))
         return conditions, rejected
+
+    def _lateral_overlay(self, stored: "FlightCondition", number) -> dict:
+        """The lateral fields of a read-back row.
+
+        Untouched, the row keeps the spelling the condition was built
+        with. Edited, it becomes the velocity that was typed."""
+        shown = number(self._COL_VY,
+                       models.lateral_velocity(
+                           stored, self._condition_omega_r(stored)),
+                       "Vy")
+        if shown == models.lateral_velocity(
+                stored, self._condition_omega_r(stored)):
+            return {}
+        return {"Vy": float(shown or 0.0), "sideslip_deg": 0.0}
 
     def _fill_queue(self, conditions: list, replace: bool = True):
         if replace:
@@ -859,6 +948,9 @@ class RunBatchTab(QWidget):
         return FlightCondition(
             name=f"case_{self.batch_table.rowCount() + 1}",
             mu_x=mu_x, Vz=Vz,
+            **({"sideslip_deg": self.add_row_lateral.raw_value()}
+               if self.add_row_lateral.is_sideslip()
+               else {"Vy": self.add_row_lateral.vy(mu_x, rpm, radius_m)}),
             collective_deg=self.collective_spin.value(), rpm=rpm)
 
     def _factorial_fixed_values(self) -> dict:
@@ -872,13 +964,15 @@ class RunBatchTab(QWidget):
             fixed[self.fixed_advance.variable_name()] = self.fixed_advance.raw_value()
         if "axial" not in axis_slots:
             fixed[self.fixed_axial.variable_name()] = self.fixed_axial.raw_value()
+        if "lateral" not in axis_slots:
+            fixed[self.fixed_lateral.variable_name()] = \
+                self.fixed_lateral.raw_value()
         if "collective_deg" not in axis_slots:
             fixed["collective_deg"] = self.fixed_collective.value()
         if "rpm" not in axis_slots:
             fixed["rpm"] = self.fixed_rpm.value()
         # Never axes, so they are always passed through. The cyclic pair
         # only reaches the cases when the blade can actually flap.
-        fixed["sideslip_deg"] = self.fixed_sideslip.value()
         if self.fixed_cyclic_c.isVisible() or self.fixed_cyclic_s.isVisible():
             fixed["cyclic_c_deg"] = self.fixed_cyclic_c.value()
             fixed["cyclic_s_deg"] = self.fixed_cyclic_s.value()
@@ -1348,6 +1442,10 @@ class RunBatchTab(QWidget):
         # mu_x/J_x, just in the other slot (see `widgets.CONDITION_UNITS`)
         "mu_z": (0.0, 0.4, 0.05, 3, -2.0, 2.0),
         "J_z": (0.0, 2.0, 0.1, 3, -20.0, 20.0),
+        "Vy": (0.0, 20.0, 2.0, 2, -500.0, 500.0),
+        "mu_y": (0.0, 0.2, 0.02, 4, -2.0, 2.0),
+        "J_y": (0.0, 0.6, 0.05, 3, -20.0, 20.0),
+        "sideslip_deg": (0.0, 20.0, 5.0, 2, -89.0, 89.0),
         "collective_deg": (0.0, 14.0, 1.0, 2, -30.0, 60.0),
         "rpm": (200.0, 400.0, 20.0, 0, 0.0, 60000.0),
     }
@@ -1423,7 +1521,7 @@ class RunBatchTab(QWidget):
         is_propeller = self.state.is_propeller()
         unit_combo.blockSignals(True)
         unit_combo.clear()
-        if slot in ("inplane", "axial"):
+        if slot in ("inplane", "axial", "lateral"):
             configure_unit_combo(
                 unit_combo, CONDITION_UNITS[(slot, is_propeller)])
             unit_combo.setVisible(True)
@@ -1438,7 +1536,7 @@ class RunBatchTab(QWidget):
         slot = self._slot_of_combo(slot_combo)
         if slot is None:
             return None
-        if slot in ("inplane", "axial"):
+        if slot in ("inplane", "axial", "lateral"):
             var = unit_label_variable(slot, unit_combo.currentText())
             if var:
                 return var
@@ -1540,6 +1638,8 @@ class RunBatchTab(QWidget):
         self.fixed_axial.set_default_unit(is_prop)
         self.add_row_advance.set_default_unit(is_prop)
         self.add_row_axial.set_default_unit(is_prop)
+        self.fixed_lateral.set_default_unit(is_prop)
+        self.add_row_lateral.set_default_unit(is_prop)
         # Label and help in the mode's CONVENTION, in the two forms that
         # have the component pair (the factorial's fixed values and the
         # case-by-case mode's row). See `common.condition_label_and_tooltip`:
@@ -1548,7 +1648,9 @@ class RunBatchTab(QWidget):
         fields = ((self._fixed_form, self.fixed_advance, "inplane"),
                   (self._fixed_form, self.fixed_axial, "axial"),
                   (self._case_form, self.add_row_advance, "inplane"),
-                  (self._case_form, self.add_row_axial, "axial"))
+                  (self._case_form, self.add_row_axial, "axial"),
+                  (self._fixed_form, self.fixed_lateral, "lateral"),
+                  (self._case_form, self.add_row_lateral, "lateral"))
         for form, field, slot in fields:
             label, tip = condition_label_and_tooltip(is_prop, slot)
             field.setToolTip(tip)
@@ -1572,6 +1674,14 @@ class RunBatchTab(QWidget):
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
         return self.fixed_advance.mu_x(), self.fixed_rpm.value(), radius_m
 
+    def _fixed_lateral_context(self):
+        radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
+        return self.fixed_advance.mu_x(), self.fixed_rpm.value(), radius_m
+
+    def _add_row_lateral_context(self):
+        radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
+        return self.add_row_advance.mu_x(), self.rpm_spin.value(), radius_m
+
     def _add_row_advance_context(self):
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
         return self.rpm_spin.value(), radius_m
@@ -1585,6 +1695,7 @@ class RunBatchTab(QWidget):
             self.outdir_edit.setText(str(Path(self.state.project.path) / "outputs"))
         self._refresh_saved_batches_combo()
         self._refresh_cyclic_availability()
+        self._refresh_queue_columns()
 
     def _refresh_cyclic_availability(self):
         """Show the cyclic rows only when the blade can flap (`SC-11`).

@@ -958,8 +958,9 @@ class TestRunCaseAlignedWithTheSummary(unittest.TestCase):
         angles. And each quantity ONCE: `mu_x`/`J_x` used to appear
         twice while the engine had two keys for the same number. The
         cyclic harmonics sit beside the collective since SC-11 gave the
-        condition its own 1/rev pitch controls; the SC-14 perturbation
-        inputs (sideslip, hub rates) close the block."""
+        condition its own 1/rev pitch controls; the SC-14 lateral flow
+        (its angle and its three velocity spellings) and the hub rates
+        close the block."""
         from zbemt.gui.tabs.run_case import RunCaseTab
         keys = dict(RunCaseTab._build_groups(False))["Flight condition"]
         self.assertEqual(
@@ -969,7 +970,8 @@ class TestRunCaseAlignedWithTheSummary(unittest.TestCase):
              "alpha_rotor_deg", "alpha_disk_deg",
              "collective_deg", "cyclic_c_deg", "cyclic_s_deg",
              "rpm",
-             "sideslip_deg", "p_rate_deg_s", "q_rate_deg_s"])
+             "sideslip_deg", "Vy", "mu_y", "J_y",
+             "p_rate_deg_s", "q_rate_deg_s"])
         self.assertEqual(len(keys), len(set(keys)), "repeated quantity")
 
     def test_inflow_triad_has_its_own_group(self):
@@ -1037,6 +1039,38 @@ class TestPerturbationFields(unittest.TestCase):
         tab._on_saved_case_selected(index)
         # ...and read it back through the same path a run uses.
         condition = tab._current_condition()
-        self.assertAlmostEqual(condition.sideslip_deg, 12.0)
         self.assertAlmostEqual(condition.p_rate_deg_s, 7.5)
         self.assertAlmostEqual(condition.q_rate_deg_s, -3.0)
+        # The lateral freedom survives the trip as a QUANTITY, whichever
+        # of its two spellings the row happens to be showing: the field
+        # opens in metres per second, so a case written as an angle comes
+        # back as the velocity that angle names.
+        from zbemt import api, models
+        omega_r = api.mu_to_V(1.0, 600.0, project.geometry.radius_m)
+        self.assertAlmostEqual(
+            models.lateral_velocity(condition, omega_r),
+            models.lateral_velocity(project.saved_cases[0], omega_r),
+            places=3,
+            msg="the lateral flow changed by more than the field's own "
+                "resolution of one millimetre per second")
+
+    def test_the_angle_spelling_round_trips_when_the_row_shows_it(self):
+        """A row showing psi_w writes psi_w, so the saved case reads back
+        in the unit it was written in."""
+        from tests.helpers import make_studies_project
+        from zbemt.gui.common import AppState
+        from zbemt.gui.tabs.run_case import RunCaseTab
+        from zbemt.models import FlightCondition
+        project = make_studies_project()
+        project.saved_cases = [FlightCondition(
+            name="perturbed", mu_x=0.05, collective_deg=8.0, rpm=600.0,
+            sideslip_deg=12.0)]
+        state = AppState()
+        state.set_project(project)
+        tab = RunCaseTab(state)
+        tab.lateral.unit_combo.setCurrentText("ψ_w [deg]")
+        index = tab.saved_cases_combo.findText("perturbed")
+        tab._on_saved_case_selected(index)
+        condition = tab._current_condition()
+        self.assertAlmostEqual(condition.sideslip_deg, 12.0, places=6)
+        self.assertEqual(condition.Vy, 0.0)

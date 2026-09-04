@@ -24,9 +24,10 @@ from PyQt6.QtWidgets import (
     QTextEdit,
 )
 
-from ..common import AppState, CanvasHost, show_error, show_all_options_in, in_scroll_area
+from ..common import (AppState, CanvasHost, equalize_button_widths,
+                      show_error, show_all_options_in, in_scroll_area)
 from ..workers import DerivativeWorker, launch_worker
-from ... import api, nomenclature
+from ... import api, models, nomenclature
 from ...models import DerivativeRequest, FlightCondition
 from ...viz import plots
 
@@ -109,6 +110,7 @@ class StabilityWindow(QWidget):
         self._outcome = None
         self._last_request = None
         self._vehicle = None
+        self._study_buttons: list = []
 
         tabs = QTabWidget(self)
         tabs.addTab(in_scroll_area(self._build_trim_page()), "Trim point")
@@ -153,6 +155,9 @@ class StabilityWindow(QWidget):
             btn = QPushButton(text)
             btn.clicked.connect(handler)
             btn_row.addWidget(btn)
+            # The four read together, so they take one width on the row
+            # (`common.equalize_button_widths`, applied on first display).
+            self._study_buttons.append(btn)
         btn_row.addStretch(1)
         list_form.addRow(btn_row)
         left.addWidget(list_box)
@@ -538,6 +543,17 @@ class StabilityWindow(QWidget):
         self._update_cost_estimate()
         self._update_validation_panel()
 
+    def _lateral_of(self, condition) -> float:
+        """The lateral velocity of a condition, in either spelling.
+
+        The engine view names the COMPONENTS the solver runs on, and the
+        lateral one may be written as an angle on the condition. Reading
+        it through `models.lateral_velocity` shows the velocity either
+        way, instead of a zero angle beside a real sideward flow."""
+        radius_m = self.state.project.geometry.radius_m             if (self.state and self.state.project) else 1.0
+        return models.lateral_velocity(
+            condition, api.mu_to_V(1.0, condition.rpm or 0.0, radius_m))
+
     def _show_engine_mapping(self):
         """Point 5 of the diagnosis: makes the u/v/w -> engine mapping
         VISIBLE, so the user sees what a derivative perturbs."""
@@ -549,7 +565,7 @@ class StabilityWindow(QWidget):
         self.mapping_label.setText(
             f"Engine view: mu_x={float(condition.mu_x):g} · "
             f"Vz={float(condition.Vz):g} m/s · "
-            f"ψw={float(getattr(condition, 'sideslip_deg', 0.0) or 0.0):g}° · "
+            f"Vy={self._lateral_of(condition):g} m/s · "
             f"p={float(getattr(condition, 'p_rate_deg_s', 0.0) or 0.0):g}°/s · "
             f"q={float(getattr(condition, 'q_rate_deg_s', 0.0) or 0.0):g}°/s · "
             f"{float(condition.rpm or 0):g} rpm")
@@ -1081,8 +1097,20 @@ class StabilityWindow(QWidget):
                                          request=self._last_request)
         QMessageBox.information(self, "Exported", f"Report written:\n{path}")
 
+    def showEvent(self, event):
+        """Give the four study buttons one width.
+
+        Only after the stylesheet polish, which happens on the first
+        display, does a button's ``sizeHint`` carry the theme's padding
+        (see ``common.equalize_button_widths``)."""
+        super().showEvent(event)
+        if getattr(self, "_widths_reviewed", False):
+            return
+        self._widths_reviewed = True
+        equalize_button_widths(self._study_buttons)
+
+
 
 def request_states(outcome) -> tuple:
     """Variables present on an outcome, whatever produced it."""
     return tuple({v for (_k, v) in outcome.matrix})
-

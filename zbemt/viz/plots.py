@@ -1333,6 +1333,12 @@ def _sweep_panels(results_list) -> list:
 _AXIS_TO_SUMMARY_KEY = {
     "mu_x": "mu_x",
     "alpha_deg": "alpha_rotor_deg",
+    # The lateral slot (SC-15). Its four spellings each have a summary
+    # column of their own, so the identity is what maps them.
+    "Vy": "Vy",
+    "mu_y": "mu_y",
+    "J_y": "J_y",
+    "sideslip_deg": "sideslip_deg",
     "collective_deg": "collective_deg",
     "rpm": "rpm",
 }
@@ -1464,6 +1470,10 @@ _AXIS_TITLES = {
     "mu_x": ("advance ratio", "cross-flow ratio"),
     "alpha_deg": ("rotor disk angle of attack", "rotor disk angle of attack"),
     "alpha_disk": ("disk angle of attack", "disk angle of attack"),
+    "Vy": ("lateral speed", "lateral speed"),
+    "mu_y": ("lateral advance ratio", "lateral advance ratio"),
+    "J_y": ("lateral advance ratio", "lateral advance ratio"),
+    "sideslip_deg": ("sideslip angle", "sideslip angle"),
     "collective_deg": ("collective pitch", "collective pitch"),
     "rpm": ("rotation", "rotation"),
 }

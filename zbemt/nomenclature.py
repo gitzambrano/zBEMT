@@ -120,6 +120,29 @@ _QUANTITIES: tuple = (
            "cross-flow. ZERO in straight cruise; non-zero when the propeller "
            "flies at an angle to its axis")),
 
+    # --- lateral component (engine y, in the disk plane) --------------------
+    # y is lateral in BOTH modes: the rotor disk holds x and y, the propeller
+    # disk holds y and z, and y is the horizontal one of the pair either way.
+    # So nothing here rotates -- there is no second letter to swap with.
+    _q("Vy", "lateral", r"V_y", unit="m/s", name_unit=" m/s",
+       rotor_description=(
+           "Lateral free-stream component [m/s], in the disk plane and "
+           "perpendicular to V<sub>x</sub>. It is what makes the flow arrive "
+           "from the side instead of from straight ahead. Zero reproduces the "
+           "plain edgewise case"),
+       propeller_description=(
+           "Lateral free-stream component [m/s], in the disk plane and "
+           "perpendicular to V<sub>z</sub>. The propeller disk holds y and z, "
+           "so y is the horizontal cross-flow. Zero in straight cruise")),
+    _q("mu_y", "lateral", r"\mu_y", unit="-",
+       rotor_description=(
+           "Lateral advance ratio: &mu;<sub>y</sub> = V<sub>y</sub>/(&Omega;R), "
+           "the sideways component normalized by tip speed")),
+    _q("J_y", "lateral", r"J_y", unit="-",
+       rotor_description=(
+           "Lateral advance ratio in propeller form: J<sub>y</sub> = "
+           "V<sub>y</sub>/(nD) = &pi;&middot;&mu;<sub>y</sub>")),
+
     # --- axial component (engine z) ----------------------------------------
     _q("mu_z", "axial", r"\mu_z", r"\mu_x", "mu_x", unit="-",
        rotor_description=(
@@ -350,12 +373,24 @@ _QUANTITIES: tuple = (
            "Cyclic pitch, sine harmonic [deg]: pitch that varies once per "
            "revolution as &theta;<sub>1s</sub>sin&psi;. Together with the "
            "cosine harmonic it forms the pair the trim solves")),
-    _q("sideslip_deg", "invariant", r"\psi_w", unit="deg", name_unit="°",
+    _q("sideslip_deg", "lateral", r"\psi_w", unit="deg", name_unit="°",
        rotor_description=(
            "Sideslip angle [deg] of the in-plane free stream (SC-14): "
-           "rotates U<sub>T</sub>=&Omega;r+V&middot;sin(&psi;&minus;&psi;"
-           "<sub>w</sub>) so a lateral velocity component can be imposed. "
-           "Zero reproduces the plain edgewise case")),
+           "&psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>), the "
+           "direction the stream arrives from within the disk plane. It is "
+           "the ANGLE SPELLING of V<sub>y</sub>: it splits the known "
+           "longitudinal component into a lateral one, exactly as "
+           "&alpha;<sub>rotor</sub> splits it into the axial one. The engine "
+           "carries it as U<sub>T</sub> = &Omega;r + "
+           "V&middot;sin(&psi;&minus;&psi;<sub>w</sub>). Zero reproduces the "
+           "plain edgewise case"),
+       propeller_description=(
+           "Sideslip angle [deg] of the in-plane free stream (SC-14): "
+           "&psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>z</sub>), the "
+           "direction the stream arrives from within the disk plane. It is "
+           "the ANGLE SPELLING of V<sub>y</sub>, which splits the known "
+           "in-plane component into a lateral one. Zero reproduces the plain "
+           "cross-flow case")),
     _q("p_rate_deg_s", "invariant", r"p", unit="deg/s",
        rotor_description=(
            "Hub roll rate [deg/s] (SC-14): carries every blade element out "
@@ -859,6 +894,35 @@ _SLOT_LABELS = {
         "advance ratio.\n\n"
         "&alpha;<sub>disk</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>): 0&deg; "
         "means the free stream is aligned with the shaft."),
+    ("lateral", False): (
+        "Lateral (in-plane, sideways) Flow:",
+        "The sideways component of the flight velocity, V<sub>y</sub>. The "
+        "rotor disk holds x and y, so this component also lies IN THE PLANE "
+        "OF THE DISK, at a right angle to the edgewise flow above. It is what "
+        "makes the stream arrive from the side: sideward flight, or a "
+        "helicopter flying with sideslip.\n\n"
+        "Units offered: &psi;<sub>w</sub> [deg], V<sub>y</sub> [m/s], "
+        "&mu;<sub>y</sub> = V<sub>y</sub>/(&Omega;R), and J<sub>y</sub> = "
+        "V<sub>y</sub>/(nD).\n\n"
+        "&psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>) is the "
+        "SIDESLIP ANGLE, measured in the disk plane from the edgewise "
+        "direction: 0&deg; is flight straight ahead, and 90&deg; is pure "
+        "sideward flight. Like every angle in these fields, it does not fix "
+        "the scale of a velocity -- it splits the KNOWN component above into "
+        "this one."),
+    ("lateral", True): (
+        "Lateral (in-plane, sideways) Flow:",
+        "The sideways component of the flight velocity, V<sub>y</sub>. The "
+        "propeller disk holds y and z, so this component lies IN THE PLANE OF "
+        "THE DISK, at a right angle to the cross-flow above. Together the two "
+        "give the propeller a stream that arrives off its shaft from any "
+        "direction. Zero in straight cruise.\n\n"
+        "Units offered: &psi;<sub>w</sub> [deg], V<sub>y</sub> [m/s], "
+        "&mu;<sub>y</sub> = V<sub>y</sub>/(&Omega;R), and J<sub>y</sub> = "
+        "V<sub>y</sub>/(nD).\n\n"
+        "&psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>z</sub>) is the "
+        "SIDESLIP ANGLE, measured in the disk plane. It splits the KNOWN "
+        "in-plane component above into this one, and never sets its scale."),
     ("axial", True): (
         "Axial (along-shaft) Flow:",
         "The horizontal component of the flight velocity, V<sub>x</sub>: the "
@@ -881,7 +945,7 @@ _SLOT_LABELS = {
 
 
 def slot_label(slot: str, is_propeller: bool = False) -> tuple:
-    """`(row label, tooltip)` for one of the two input slots.
+    """`(row label, tooltip)` for one of the three input slots.
 
     Single source for Run Case and Run Batch, which between them lay out
     three pairs of these fields."""
@@ -897,6 +961,7 @@ def slot_label(slot: str, is_propeller: bool = False) -> tuple:
 #: which one is the primary.
 _PRIMARY_ROTOR = (
     "mu_x", "J_x", "Vx",                          # x = in-plane (advance)
+    "Vy", "mu_y", "J_y", "sideslip_deg",          # y = in-plane (lateral)
     "mu_z", "J_z", "Vz", "lambda_z",              # z = shaft (climb/descent)
     "alpha_rotor_deg", "alpha_disk_deg",
     "collective_deg", "rpm",
@@ -905,6 +970,7 @@ _PRIMARY_ROTOR = (
 _PRIMARY_PROPELLER = (
     "mu_z", "J_z", "Vz", "lambda_z",              # x = shaft (airspeed)
     "mu_x", "J_x", "Vx",                          # z = in-plane (cross-flow)
+    "Vy", "mu_y", "J_y", "sideslip_deg",          # y = in-plane (lateral)
     "alpha_disk_deg", "alpha_rotor_deg",
     "collective_deg", "rpm",
 )

@@ -13,6 +13,8 @@ Sec.6c of ``bemt.py``.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QComboBox, QDoubleSpinBox, QStyledItemDelegate,
@@ -106,6 +108,8 @@ _UNIT_SYMBOLS_HTML = {
     "μ_z": "&mu;<sub>z</sub>", "J_z": "J<sub>z</sub>",
     "αᵣₒₜₒᵣ [deg]": "&alpha;<sub>rotor</sub> [deg]",
     "α_dᵢₛₖ [deg]": "&alpha;<sub>disk</sub> [deg]",
+    "V_y [m/s]": "V<sub>y</sub> [m/s]", "μ_y": "&mu;<sub>y</sub>",
+    "J_y": "J<sub>y</sub>", "ψ_w [deg]": "&psi;<sub>w</sub> [deg]",
 }
 
 _UNIT_TOOLTIPS = {
@@ -116,6 +120,10 @@ _UNIT_TOOLTIPS = {
     "mu_z": "<b>μ<sub>z</sub></b><br><br>Velocity ratio based on the vehicle z component.<br><br>μ<sub>z</sub> = V<sub>z</sub>/(ΩR).",
     "J_z": "<b>J<sub>z</sub></b><br><br>Velocity ratio based on the vehicle z component.<br><br>J<sub>z</sub> = V<sub>z</sub>/(nD).",
     "alpha_deg": "<b>α<sub>rotor</sub></b><br><br>Rotor inflow angle measured from the disk plane.<br><br>It is positive when the stream arrives from BELOW the disk, which is the case that opposes the induced velocity: a positive angle therefore goes with a NEGATIVE V<sub>z</sub>.",
+    "Vy": "<b>V<sub>y</sub></b><br><br>Free-stream velocity component along the vehicle y-axis, sideways and in the plane of the disk.<br><br>It is what makes the stream arrive from the side. Zero reproduces flight straight ahead.",
+    "mu_y": "<b>μ<sub>y</sub></b><br><br>Velocity ratio based on the lateral component.<br><br>μ<sub>y</sub> = V<sub>y</sub>/(ΩR).",
+    "J_y": "<b>J<sub>y</sub></b><br><br>Velocity ratio based on the lateral component.<br><br>J<sub>y</sub> = V<sub>y</sub>/(nD).",
+    "sideslip_deg": "<b>ψ<sub>w</sub></b><br><br>Sideslip angle of the in-plane free stream, measured in the disk plane.<br><br>ψ<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>): it SPLITS the in-plane component above into a lateral one, so it needs that component to be non-zero. In hover, give V<sub>y</sub> instead.",
     "alpha_disk": "<b>α<sub>disk</sub></b><br><br>Propeller inflow angle measured from the shaft.<br><br>It is zero when V<sub>z</sub> is zero and the free stream is aligned with the shaft.",
 }
 
@@ -262,6 +270,13 @@ CONDITION_UNITS = {
     ("axial", True): (("Jₓ", "J_z"), ("μₓ", "mu_z"), ("Vₓ [m/s]", "Vz")),
     ("inplane", True): (("V_z [m/s]", "Vx"), ("α_dᵢₛₖ [deg]", "alpha_disk"),
                               ("μ_z", "mu_x"), ("J_z", "J_x")),
+    # LATERAL: the second direction of the disk plane, in both modes. y is
+    # horizontal and in the disk plane whichever way the shaft points, so
+    # this row does not rotate and both modes offer the same four units.
+    ("lateral", False): (("V_y [m/s]", "Vy"), ("ψ_w [deg]", "sideslip_deg"),
+                          ("μ_y", "mu_y"), ("J_y", "J_y")),
+    ("lateral", True): (("V_y [m/s]", "Vy"), ("ψ_w [deg]", "sideslip_deg"),
+                         ("μ_y", "mu_y"), ("J_y", "J_y")),
 }
 
 #: Pre-selected unit of each slot per mode -- the one the user almost
@@ -270,12 +285,13 @@ CONDITION_UNITS = {
 _DEFAULT_UNIT = {
     ("inplane", False): "μₓ", ("inplane", True): "V_z [m/s]",
     ("axial", False): "αᵣₒₜₒᵣ [deg]", ("axial", True): "Jₓ",
+    ("lateral", False): "V_y [m/s]", ("lateral", True): "V_y [m/s]",
 }
 
 #: Variables whose spinbox is an ANGLE (±90 range) rather than a velocity
 #: or a ratio -- used by both widgets to adjust the range when the unit
 #: is switched.
-_ANGLE_VARIABLES = ("alpha_deg", "alpha_disk")
+_ANGLE_VARIABLES = ("alpha_deg", "alpha_disk", "sideslip_deg")
 
 
 def _unit_labels(slot: str, is_propeller: bool) -> list:
@@ -687,3 +703,137 @@ class AxialInput(QWidget):
         self.spin.blockSignals(False)
 
 
+
+class LateralInput(QWidget):
+    """The LATERAL component of the flight condition (the engine's `Vy`).
+
+    The disk plane has two directions. `LongitudinalInput` gives one of
+    them; this widget gives the other, so the free stream can arrive from
+    the side: sideward flight for a rotor, a propeller in sideslip.
+
+    The units are the same in both modes, because y is horizontal and in
+    the disk plane whichever way the shaft points -- there is no second
+    letter for it to swap with. The canonical value is always `Vy` in
+    m/s; the sideslip angle is the SPELLING that splits the longitudinal
+    component, so converting to and from it needs mu_x, rpm and the
+    radius, which arrive through the context provider.
+    """
+    changed = pyqtSignal()
+
+    _SLOT = "lateral"
+
+    def __init__(self, default_value: float = 0.0):
+        super().__init__()
+        self._is_propeller = False
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.unit_combo = _UnitComboBox()
+        configure_unit_combo(
+            self.unit_combo, CONDITION_UNITS[(self._SLOT, False)])
+        default_label = _DEFAULT_UNIT[(self._SLOT, False)]
+        self.unit_combo.setCurrentText(default_label)
+        self.spin = QDoubleSpinBox()
+        self.spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.spin.setRange(-1000, 1000)
+        self.spin.setDecimals(3)
+        self.spin.setSingleStep(0.5)
+        self.spin.setValue(default_value)
+        layout.addWidget(self.unit_combo)   # combo = label, on the left
+        layout.addWidget(self.spin)
+        layout.addStretch(1)
+        self.unit_combo.currentIndexChanged.connect(self._on_unit_changed)
+        self.spin.valueChanged.connect(self.changed.emit)
+        self._context_provider = None   # callable() -> (mu_x, rpm, radius_m)
+        self._prev_unit = self.unit_combo.currentText()
+
+    def set_context_provider(self, fn):
+        self._context_provider = fn
+
+    def set_default_unit(self, is_propeller: bool):
+        """Both modes offer the same four units, so a mode switch changes
+        nothing here. The method exists because the two sibling widgets
+        have it and the tabs call all three the same way."""
+        self._is_propeller = bool(is_propeller)
+
+    def is_sideslip(self) -> bool:
+        return self.variable_name() == "sideslip_deg"
+
+    def variable_name(self) -> str:
+        """Canonical engine variable (`Vy`/`sideslip_deg`/`mu_y`/`J_y`)."""
+        return unit_label_variable(
+            self._SLOT, self.unit_combo.currentText()) or "Vy"
+
+    def _ctx(self):
+        return self._context_provider() if self._context_provider is not None else None
+
+    def _on_unit_changed(self, _index: int):
+        ctx = self._ctx()
+        if ctx is not None:
+            mu_x, rpm, radius_m = ctx
+            previous_unit = getattr(self, "_prev_unit", None)
+            Vy = self._vy_from(previous_unit, self.spin.value(), mu_x, rpm,
+                               radius_m) if previous_unit is not None \
+                else self.spin.value()
+            self.spin.blockSignals(True)
+            self._update_range()
+            self.set_vy(Vy, mu_x, rpm, radius_m)
+            self.spin.blockSignals(False)
+        else:
+            self._update_range()
+        self._prev_unit = self.unit_combo.currentText()
+        self.changed.emit()
+
+    def _update_range(self):
+        # Same reasoning as `AxialInput._update_range`: a ratio written
+        # with a velocity's three decimals keeps two significant figures,
+        # so a round trip through the combo would not come back.
+        if self.is_sideslip():
+            # 90 deg is excluded, not rounded to: there the angle asks for
+            # a lateral velocity with no longitudinal one to split.
+            self.spin.setRange(-89, 89)
+            self.spin.setDecimals(3)
+        elif self.variable_name() in ("mu_y", "J_y"):
+            self.spin.setRange(-100, 100)
+            self.spin.setDecimals(5)
+        else:
+            self.spin.setRange(-1000, 1000)
+            self.spin.setDecimals(3)
+
+    def raw_value(self) -> float:
+        return self.spin.value()
+
+    @staticmethod
+    def _omega_r(rpm: float, radius_m: float) -> float:
+        return float(api.mu_to_V(1.0, rpm, radius_m))
+
+    def _vy_from(self, label: str, value: float, mu_x: float, rpm: float,
+                 radius_m: float) -> float:
+        var = unit_label_variable(self._SLOT, label)
+        if var == "sideslip_deg":
+            return (mu_x * self._omega_r(rpm, radius_m)
+                    * math.tan(math.radians(value)))
+        if var == "mu_y":
+            return api.mu_to_V(value, rpm, radius_m)
+        if var == "J_y":
+            return api.mu_to_V(api.J_to_mu(value), rpm, radius_m)
+        return value
+
+    def vy(self, mu_x: float, rpm: float, radius_m: float) -> float:
+        """``Vy`` [m/s] corresponding to the displayed value."""
+        return self._vy_from(self.unit_combo.currentText(), self.spin.value(),
+                             mu_x, rpm, radius_m)
+
+    def set_vy(self, Vy: float, mu_x: float, rpm: float, radius_m: float):
+        var = self.variable_name()
+        self.spin.blockSignals(True)
+        if var == "sideslip_deg":
+            V_long = mu_x * self._omega_r(rpm, radius_m)
+            self.spin.setValue(math.degrees(math.atan2(Vy, V_long))
+                               if (V_long or Vy) else 0.0)
+        elif var == "mu_y":
+            self.spin.setValue(api.V_to_mu(Vy, rpm, radius_m))
+        elif var == "J_y":
+            self.spin.setValue(api.mu_to_J(api.V_to_mu(Vy, rpm, radius_m)))
+        else:
+            self.spin.setValue(Vy)
+        self.spin.blockSignals(False)

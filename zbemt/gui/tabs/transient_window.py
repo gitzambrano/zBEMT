@@ -19,7 +19,8 @@ from PyQt6.QtWidgets import (
     QMessageBox, QHeaderView, QInputDialog, QFileDialog,
 )
 
-from ..common import AppState, CanvasHost, show_error
+from ..common import (AppState, CanvasHost, equalize_button_widths,
+                      install_rich_text_headings, show_error)
 from ..workers import ManeuverWorker, launch_worker
 from ... import api, nomenclature
 from ...models import ManeuverDefinition, ManeuverPoint
@@ -85,6 +86,8 @@ class TransientWindow(QWidget):
         self._history = None
         self._maps_list = None
 
+        self._widths_reviewed = False
+        self._study_buttons: list = []
         tabs = QTabWidget(self)
         tabs.addTab(self._build_trajectory_page(), "Trajectory")
         tabs.addTab(self._build_run_page(), "Run and results")
@@ -140,23 +143,34 @@ class TransientWindow(QWidget):
 
     def _point_columns(self):
         """Column headings in the mode's own axis convention."""
+        return [plain for plain, _html in self._point_headings()]
+
+    def _point_headings(self):
+        """One ``(plain, html)`` heading per column.
+
+        Unicode has no subscript for `c` or for `z`, so the cosine cyclic
+        and the axial speed cannot be written in plain text the way their
+        siblings can. The HTML form is painted instead
+        (`common.RichTextHeaderView`), and the plain form stays on the
+        item so a reader of the heading still gets a readable string."""
         propeller = bool(self.state.is_propeller()) if self.state else False
         out = []
         for key in self._POINT_FIELDS:
             if key == "t_s":
                 # Time is not an axis, so `nomenclature` does not carry
                 # it and it does not rotate with the mode.
-                out.append("t [s]")
+                out.append(("t [s]", "t [s]"))
                 continue
-            symbol = nomenclature.symbol_text(key, propeller)
             unit = nomenclature.unit(key)
-            out.append(f"{symbol} [{unit}]" if unit and unit != "-" else symbol)
+            suffix = f" [{unit}]" if unit and unit != "-" else ""
+            out.append((nomenclature.symbol_text(key, propeller) + suffix,
+                        nomenclature.symbol_html(key, propeller) + suffix))
         return out
 
     def _refresh_point_columns(self) -> None:
         """The letters rotate with the mode, so the headings are rebuilt
         when the project changes."""
-        self.points_table.setHorizontalHeaderLabels(self._point_columns())
+        install_rich_text_headings(self.points_table, self._point_headings())
 
     def _build_trajectory_page(self) -> QWidget:
         page = QWidget()
@@ -181,6 +195,9 @@ class TransientWindow(QWidget):
             btn = QPushButton(text)
             btn.clicked.connect(handler)
             btn_row.addWidget(btn)
+            # The four read together, so they take one width on the row
+            # (`common.equalize_button_widths`, applied on first display).
+            self._study_buttons.append(btn)
         btn_row.addStretch(1)
         list_form.addRow(btn_row)
         left.addWidget(list_box)
@@ -188,7 +205,7 @@ class TransientWindow(QWidget):
         points_box = QGroupBox("Trajectory points")
         points_layout = QVBoxLayout(points_box)
         self.points_table = QTableWidget(0, len(self._POINT_FIELDS))
-        self.points_table.setHorizontalHeaderLabels(self._point_columns())
+        install_rich_text_headings(self.points_table, self._point_headings())
         # ResizeToContents, not Stretch: Stretch splits the width equally
         # over seven columns and ignores the headings, which cut "RPM
         # [rev/min]" by more than a hundred pixels. House rule: no text may
@@ -198,13 +215,16 @@ class TransientWindow(QWidget):
         self.points_table.itemChanged.connect(self._on_point_edited)
         points_layout.addWidget(self.points_table)
         pts_btns = QHBoxLayout()
-        btn_add = QPushButton("Add point")
-        btn_add.setToolTip("Appends a point one interval after the last one.")
-        btn_add.clicked.connect(self._add_point)
-        pts_btns.addWidget(btn_add)
-        btn_rm = QPushButton("Remove selected")
-        btn_rm.clicked.connect(self._remove_selected_point)
-        pts_btns.addWidget(btn_rm)
+        self.btn_add_point = QPushButton("Add point")
+        self.btn_add_point.setToolTip(
+            "Appends a point one interval after the last one.")
+        self.btn_add_point.clicked.connect(self._add_point)
+        pts_btns.addWidget(self.btn_add_point)
+        self.btn_remove_point = QPushButton("Remove selected")
+        self.btn_remove_point.setToolTip(
+            "Removes the selected trajectory points.")
+        self.btn_remove_point.clicked.connect(self._remove_selected_point)
+        pts_btns.addWidget(self.btn_remove_point)
         pts_btns.addStretch(1)
         points_layout.addLayout(pts_btns)
 
@@ -867,3 +887,17 @@ class TransientWindow(QWidget):
                                             self._maps_list)]
         api.generate_report(results, path, project=self.state.project)
         QMessageBox.information(self, "Exported", f"Report written:\n{path}")
+
+
+    def showEvent(self, event):
+        """Give the buttons that read together one width.
+
+        Only after the stylesheet polish, which happens on the first
+        display, does a button's ``sizeHint`` carry the theme's padding
+        (see ``common.equalize_button_widths``)."""
+        super().showEvent(event)
+        if self._widths_reviewed:
+            return
+        self._widths_reviewed = True
+        equalize_button_widths((self.btn_add_point, self.btn_remove_point))
+        equalize_button_widths(self._study_buttons)

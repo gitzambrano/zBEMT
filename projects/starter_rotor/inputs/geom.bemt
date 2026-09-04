@@ -57,5 +57,5 @@
   "n_blades": 4,
   "radius_m": 1.25,
   "root_cutout_norm": 0.2143,
-  "airfoil_name": "perfil zBEMT default"
+  "airfoil_name": "zBEMT default airfoil"
 }

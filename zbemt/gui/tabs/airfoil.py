@@ -1985,22 +1985,39 @@ class AirfoilTab(QWidget):
         if not self.autoscale_y_check.isChecked():
             ax.set_ylim(*fixed_range)
 
+    def _place_legend(self, ax, curves: list) -> None:
+        """Put the legend above the curves instead of on top of them.
+
+        Matplotlib's "best" placement searches for the emptiest corner,
+        and a full-range polar leaves none: the box landed on the lift
+        peak near 17 degrees and hid the very feature the reader opened
+        the tab for. A band is reserved at the top of the axis instead,
+        tall enough for the rows the legend needs, and the legend is
+        anchored into it."""
+        rows = -(-len(curves) // self._legend_ncols(curves))
+        low, high = ax.get_ylim()
+        span = high - low
+        if span > 0:
+            ax.set_ylim(low, high + span * (0.065 * rows + 0.03))
+        ax.legend(fontsize=7, ncols=self._legend_ncols(curves),
+                  loc="upper center", framealpha=0.9)
+
     def _draw_cl_alpha(self, ax, curves: list):
         for curve in curves:
             plots.plot_cl_alpha(curve["alpha_deg"], curve["cl"], ax=ax, label=curve["label"])
         self._apply_y_scale(ax, self._FIXED_CL_RANGE)
-        ax.legend(fontsize=7, ncols=self._legend_ncols(curves))
+        self._place_legend(ax, curves)
 
     def _draw_cd_alpha(self, ax, curves: list):
         for curve in curves:
             plots.plot_cd_alpha(curve["alpha_deg"], curve["cd"], ax=ax, label=curve["label"])
         self._apply_y_scale(ax, self._FIXED_CD_RANGE)
-        ax.legend(fontsize=7, ncols=self._legend_ncols(curves))
+        self._place_legend(ax, curves)
 
     def _draw_cd_cl(self, ax, curves: list):
         for curve in curves:
             plots.plot_cd_cl(curve["cl"], curve["cd"], ax=ax, label=curve["label"])
-        ax.legend(fontsize=7, ncols=self._legend_ncols(curves))
+        self._place_legend(ax, curves)
 
     def _refresh_profile_canvas(self):
         canvas = self.profile_canvas.use_simple()

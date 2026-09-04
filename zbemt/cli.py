@@ -363,6 +363,33 @@ def _build_parser() -> argparse.ArgumentParser:
                                    "--alpha-disk-deg. Alternative to --v-axial. "
                                    "Rotor mode only; a propeller reads --alpha-disk-deg. "
                                    "(--disk-alpha-deg is kept as an alias of this flag.)")
+    # The THIRD component (SC-15). The disk plane holds two directions, and
+    # the in-plane group above names only one of them. This group names the
+    # other, so the free stream can arrive from the side. Named by slot for
+    # the same reason as the in-plane one: the letter y is lateral in both
+    # modes, but the flag stays parallel to its two siblings.
+    lateral_group = p.add_mutually_exclusive_group()
+    lateral_group.add_argument("--v-lateral", dest="V_lateral", type=float, default=None,
+                               help="LATERAL velocity [m/s] (default 0.0): the "
+                                    "component sideways and in the plane of the "
+                                    "disk. Sideward flight, or flight with "
+                                    "sideslip. Alternative to "
+                                    "--mu-lateral/--j-lateral/--sideslip-deg.")
+    lateral_group.add_argument("--mu-lateral", dest="mu_lateral", type=float, default=None,
+                               help="LATERAL advance ratio: V_lateral/(Omega*R). "
+                                    "Requires --rpm. Alternative to --v-lateral.")
+    lateral_group.add_argument("--j-lateral", dest="J_lateral", type=float, default=None,
+                               help="LATERAL advance ratio in propeller form: "
+                                    "V_lateral/(n*D) = pi*mu_lateral. Requires "
+                                    "--rpm. Alternative to --v-lateral.")
+    lateral_group.add_argument("--sideslip-deg", dest="sideslip_deg", type=float, default=None,
+                               help="Sideslip angle [deg] of the in-plane free "
+                                    "stream, atan2(V_lateral, V_inplane). It "
+                                    "SPLITS the in-plane component into a lateral "
+                                    "one and never sets the scale of a velocity, "
+                                    "so it stays inside -89 to 89. For pure "
+                                    "sideward flight use --v-lateral. Alternative "
+                                    "to --v-lateral.")
     p.add_argument("--collective", type=float, default=8.0, help="Collective pitch [deg] for ad hoc.")
     p.add_argument("--cyclic", dest="cyclic", nargs=2, type=float, default=None,
                    metavar=("C", "S"),
@@ -1577,8 +1604,28 @@ def main(argv=None, options=None) -> int:
                 print(error_message, file=sys.stderr)
                 return 2
 
+        # The lateral component (SC-15). The angle spelling travels as the
+        # angle, exactly as a saved case carries it; the three velocity
+        # spellings become `Vy`. Only one of the two ever leaves here
+        # non-zero, which is the rule `validation` enforces.
+        Vy, sideslip_deg = 0.0, 0.0
+        if args.sideslip_deg is not None:
+            sideslip_deg = float(args.sideslip_deg)
+        elif args.V_lateral is not None:
+            Vy = float(args.V_lateral)
+        elif args.mu_lateral is not None or args.J_lateral is not None:
+            if args.rpm is None:
+                print("cli.py: error: --mu-lateral/--j-lateral require --rpm "
+                      "(the ratio is V/(Omega*R), and Omega comes from the RPM).",
+                      file=sys.stderr)
+                return 2
+            mu_y = (float(args.mu_lateral) if args.mu_lateral is not None
+                    else api.J_to_mu(float(args.J_lateral)))
+            Vy = api.mu_to_V(mu_y, args.rpm, radius_m)
+
         condition = FlightCondition(
             name="cli", rpm=args.rpm, mu_x=mu_x, Vz=Vz,
+            Vy=Vy, sideslip_deg=sideslip_deg,
             collective_deg=args.collective,
             cyclic_c_deg=(args.cyclic[0] if args.cyclic else 0.0),
             cyclic_s_deg=(args.cyclic[1] if args.cyclic else 0.0),

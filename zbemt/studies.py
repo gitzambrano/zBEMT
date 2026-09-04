@@ -35,6 +35,7 @@ from .models import (Project, RotorGeometryDef, FlightCondition,
                      OptimizationOutcome, DesignVariable, GEOMETRY_PARAMS,
                      INTEGER_PARAMS)
 from . import airfoils
+from . import models
 from . import geometry as geometry_gen
 from . import nomenclature
 from .bemt import (BEMTConfig, Rotor, solve_bemt, aggregate_results,
@@ -162,12 +163,16 @@ def run_single_case(project: Project, condition: FlightCondition,
     is no default."""
     cfg = _build_config(project.config, airfoil_def=project.airfoil)
     rpm = _require_rpm(condition.rpm, f"condition {condition.name!r}")
-    # Sideslip (SC-14) is a property of the CONDITION; the engine reads it
-    # from the configuration.
-    sideslip_deg = float(getattr(condition, "sideslip_deg", 0.0) or 0.0)
+    rotor = _to_rotor(project.geometry, collective_deg=condition.collective_deg, rpm=rpm)
+    # The in-plane free stream reaches the engine as ONE magnitude and ONE
+    # direction, and the condition holds it as TWO components (SC-14). The
+    # lateral component and the sideslip angle are the same freedom in two
+    # spellings; `resolve_inplane_flow` is the only place they combine.
+    mu_inplane, sideslip_deg = models.resolve_inplane_flow(
+        condition, rotor.OmegaR)
+    Vy = models.lateral_velocity(condition, rotor.OmegaR)
     if sideslip_deg != 0.0:
         cfg = replace(cfg, inflow_sideslip_deg=sideslip_deg)
-    rotor = _to_rotor(project.geometry, collective_deg=condition.collective_deg, rpm=rpm)
 
     # RADIAL profile of Reynolds and Mach numbers for the flight condition.
     # Each blade
@@ -175,7 +180,7 @@ def run_single_case(project: Project, condition: FlightCondition,
     # root and tip fall into different slices when the table has that axis.
     # Without this, the whole table collapsed onto the FIRST slice, silently
     # ignoring the entire sweep (see `airfoils.radial_reynolds_mach`).
-    radial = airfoils.radial_reynolds_mach(rotor, cfg, mu_x=condition.mu_x)
+    radial = airfoils.radial_reynolds_mach(rotor, cfg, mu_x=mu_inplane)
     airfoil_obj = airfoils.to_blade_airfoil(
         project.airfoil_sections or [project.airfoil], radial=radial)
 
@@ -192,12 +197,12 @@ def run_single_case(project: Project, condition: FlightCondition,
     if (dynamics.flap_model != "rigid" or dynamics.lag_enabled
             or has_cyclic or has_hub_rates):
         maps = solve_bemt_flapping(
-            rotor, airfoil_obj, cfg, mu_x=condition.mu_x, Vz=condition.Vz,
+            rotor, airfoil_obj, cfg, mu_x=mu_inplane, Vz=condition.Vz,
             dynamics=dynamics, cyclic_c_deg=condition.cyclic_c_deg,
             cyclic_s_deg=condition.cyclic_s_deg, p_rate=p_rate, q_rate=q_rate,
             should_cancel=should_cancel)
     else:
-        maps = solve_bemt(rotor, airfoil_obj, cfg, mu_x=condition.mu_x,
+        maps = solve_bemt(rotor, airfoil_obj, cfg, mu_x=mu_inplane,
                            Vz=condition.Vz, should_cancel=should_cancel)
         # Keep the original rigid aerodynamic path bit-for-bit while honoring
         # the blade-motion map contract. An empty coefficient dictionary keeps
@@ -220,8 +225,22 @@ def run_single_case(project: Project, condition: FlightCondition,
     summary.setdefault("rpm", summary.get("rotor_rpm", condition.rpm))
     summary.setdefault("cyclic_c_deg", condition.cyclic_c_deg)
     summary.setdefault("cyclic_s_deg", condition.cyclic_s_deg)
-    summary.setdefault("sideslip_deg",
-                        float(getattr(condition, "sideslip_deg", 0.0) or 0.0))
+    # The lateral component, in the three spellings the lateral slot offers
+    # (SC-14). `sideslip_deg` is the RESOLVED direction, so the angle a case
+    # reports always agrees with the velocity it reports beside it.
+    summary["sideslip_deg"] = float(sideslip_deg)
+    summary["Vy"] = float(Vy)
+    if Vy != 0.0:
+        # The engine ran on the MAGNITUDE of the in-plane stream, which is
+        # what it needs. What the user reads is the pair of components, so
+        # the longitudinal one goes back on screen as the condition wrote
+        # it: V_x, V_y and psi_w then agree, and a reader who takes
+        # atan2(V_y, V_x) gets the sideslip angle printed beside them.
+        summary["mu_x"] = float(condition.mu_x)
+        summary["Vx"] = float(condition.mu_x) * rotor.OmegaR
+        summary["J_x"] = float(np.pi) * float(condition.mu_x)
+    summary["mu_y"] = float(Vy / rotor.OmegaR) if rotor.OmegaR > 1e-9 else 0.0
+    summary["J_y"] = float(np.pi) * summary["mu_y"]
     summary.setdefault("p_rate_deg_s",
                         float(getattr(condition, "p_rate_deg_s", 0.0) or 0.0))
     summary.setdefault("q_rate_deg_s",
@@ -737,8 +756,13 @@ def run_collective_sweep(project: Project, collective_deg_values: Sequence[float
 # translation to propeller letters is the interface's job.
 _INPLANE_VARIABLES = ("mu_x", "J_x", "Vx", "alpha_disk")
 _AXIAL_VARIABLES = ("alpha_deg", "Vz", "mu_z", "J_z")
+#: The lateral component of the in-plane stream (SC-14), in its four
+#: spellings. `sideslip_deg` is the angle one: it splits the longitudinal
+#: component, so it derives the lateral velocity instead of setting it.
+_LATERAL_VARIABLES = ("Vy", "mu_y", "J_y", "sideslip_deg")
 _OTHER_FACTORIAL_VARIABLES = ("collective_deg", "rpm")
-_FACTORIAL_VARIABLES = _INPLANE_VARIABLES + _AXIAL_VARIABLES + _OTHER_FACTORIAL_VARIABLES
+_FACTORIAL_VARIABLES = (_INPLANE_VARIABLES + _AXIAL_VARIABLES
+                        + _LATERAL_VARIABLES + _OTHER_FACTORIAL_VARIABLES)
 
 # WHICH representations a factorial axis accepts is this module's business
 # (above). WHICH physical component each one describes is not, because that is
@@ -747,6 +771,7 @@ _FACTORIAL_VARIABLES = _INPLANE_VARIABLES + _AXIAL_VARIABLES + _OTHER_FACTORIAL_
 # the other fails here instead of grouping silently wrong.
 assert all(nomenclature.slot_of(v) == "inplane" for v in _INPLANE_VARIABLES)
 assert all(nomenclature.slot_of(v) == "axial" for v in _AXIAL_VARIABLES)
+assert all(nomenclature.slot_of(v) == "lateral" for v in _LATERAL_VARIABLES)
 
 
 #: The condition NAME comes from `nomenclature`, in the axis letters of the
@@ -836,6 +861,15 @@ def build_factorial_conditions(project: Project, axes: list[dict],
     fixed = dict(fixed or {})
     inplane_fixed = {k: fixed[k] for k in _INPLANE_VARIABLES if k in fixed}
     axial_fixed = {k: fixed[k] for k in _AXIAL_VARIABLES if k in fixed}
+    lateral_fixed = {k: fixed[k] for k in _LATERAL_VARIABLES if k in fixed}
+    if len(lateral_fixed) > 1:
+        raise ValueError(
+            f"run_factorial_batch: specify at most one of "
+            f"{'/'.join(_LATERAL_VARIABLES)} as fixed: {list(lateral_fixed)}")
+    if lateral_fixed and "lateral" in axis_slots:
+        raise ValueError(
+            f"run_factorial_batch: {list(lateral_fixed)} cannot be fixed at "
+            "the same time the lateral component is chosen as an axis.")
     if len(inplane_fixed) > 1:
         raise ValueError(
             f"run_factorial_batch: specify at most one of "
@@ -908,10 +942,11 @@ def build_factorial_conditions(project: Project, axes: list[dict],
             break
 
     base_collective = float(fixed.get("collective_deg", 8.0))
-    # Sideslip is a fixed value only, never an axis: it is the least
-    # important of the perturbation inputs (SC-14) and sweeping it would
-    # multiply the case count for a second-order effect.
-    base_sideslip = float(fixed.get("sideslip_deg", 0.0))
+    base_lateral_kind, base_lateral_value = None, 0.0
+    for _k in _LATERAL_VARIABLES:
+        if _k in lateral_fixed:
+            base_lateral_kind, base_lateral_value = _k, float(lateral_fixed[_k])
+            break
     # Cyclic pitch (SC-11) travels the same way: a fixed value, never an
     # axis, applied to every combination.
     base_cyclic_c = float(fixed.get("cyclic_c_deg", 0.0))
@@ -976,9 +1011,29 @@ def build_factorial_conditions(project: Project, axes: list[dict],
                 mu_x = base_mu
             Vz = _axial(mu_x * omega_R)
 
+        # The lateral component (SC-14). Its three velocity spellings set
+        # `Vy` directly; the angle spelling travels as the angle, and
+        # `models.resolve_inplane_flow` splits the longitudinal component
+        # with it at solve time. Only ONE of the two ever leaves here
+        # non-zero, which is the rule `validation` enforces.
+        lateral_kind, lateral_value = base_lateral_kind, base_lateral_value
+        for _k in _LATERAL_VARIABLES:
+            if _k in overrides:
+                lateral_kind, lateral_value = _k, float(overrides[_k])
+                break
+        Vy, sideslip = 0.0, 0.0
+        if lateral_kind == "Vy":
+            Vy = float(lateral_value)
+        elif lateral_kind == "mu_y":
+            Vy = float(lateral_value) * omega_R
+        elif lateral_kind == "J_y":
+            Vy = (float(lateral_value) / np.pi) * omega_R
+        elif lateral_kind == "sideslip_deg":
+            sideslip = float(lateral_value)
+
         name = condition_name(overrides, is_propeller)
         conditions.append(FlightCondition(name=name, mu_x=mu_x, collective_deg=collective_deg,
-                                          Vz=Vz, rpm=rpm, sideslip_deg=base_sideslip,
+                                          Vz=Vz, rpm=rpm, sideslip_deg=sideslip, Vy=Vy,
                                           cyclic_c_deg=base_cyclic_c,
                                           cyclic_s_deg=base_cyclic_s))
 

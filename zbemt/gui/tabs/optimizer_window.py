@@ -25,7 +25,8 @@ from PyQt6.QtWidgets import (
     QHeaderView, QInputDialog, QFileDialog,
 )
 
-from ..common import AppState, CanvasHost, show_error, show_all_options_in
+from ..common import (AppState, CanvasHost, equalize_button_widths,
+                      show_error, show_all_options_in)
 from ..workers import OptimizeMultiWorker, launch_worker
 from ... import api, nomenclature
 from ...models import (
@@ -86,6 +87,7 @@ class OptimizerWindow(QWidget):
         self._run_started_at = None
         self._outcome = None
         self._last_definition = None
+        self._study_buttons: list = []
 
         tabs = QTabWidget(self)
         tabs.addTab(self._build_definition_page(), "Study")
@@ -129,6 +131,9 @@ class OptimizerWindow(QWidget):
             btn = QPushButton(text)
             btn.clicked.connect(handler)
             btn_row.addWidget(btn)
+            # The four read together, so they take one width on the row
+            # (`common.equalize_button_widths`, applied on first display).
+            self._study_buttons.append(btn)
         btn_row.addStretch(1)
         list_form.addRow(btn_row)
         left.addWidget(list_box)
@@ -182,12 +187,13 @@ class OptimizerWindow(QWidget):
             "value.")
         cons_layout.addWidget(self.cons_table)
         cons_btns = QHBoxLayout()
-        btn_add_c = QPushButton("Add constraint")
-        btn_add_c.clicked.connect(self._add_constraint)
-        cons_btns.addWidget(btn_add_c)
-        btn_rm_c = QPushButton("Remove selected")
-        btn_rm_c.clicked.connect(self._remove_selected_constraint)
-        cons_btns.addWidget(btn_rm_c)
+        self.btn_add_constraint = QPushButton("Add constraint")
+        self.btn_add_constraint.clicked.connect(self._add_constraint)
+        cons_btns.addWidget(self.btn_add_constraint)
+        self.btn_remove_constraint = QPushButton("Remove selected")
+        self.btn_remove_constraint.clicked.connect(
+            self._remove_selected_constraint)
+        cons_btns.addWidget(self.btn_remove_constraint)
         cons_btns.addStretch(1)
         cons_layout.addLayout(cons_btns)
         left.addWidget(cons_box, 1)
@@ -204,12 +210,12 @@ class OptimizerWindow(QWidget):
         self.var_table.setToolTip(_GEOMETRY_PARAM_TIP)
         var_layout.addWidget(self.var_table)
         var_btns = QHBoxLayout()
-        btn_add_v = QPushButton("Add variable")
-        btn_add_v.clicked.connect(self._add_variable)
-        var_btns.addWidget(btn_add_v)
-        btn_rm_v = QPushButton("Remove selected")
-        btn_rm_v.clicked.connect(self._remove_selected_variable)
-        var_btns.addWidget(btn_rm_v)
+        self.btn_add_variable = QPushButton("Add variable")
+        self.btn_add_variable.clicked.connect(self._add_variable)
+        var_btns.addWidget(self.btn_add_variable)
+        self.btn_remove_variable = QPushButton("Remove selected")
+        self.btn_remove_variable.clicked.connect(self._remove_selected_variable)
+        var_btns.addWidget(self.btn_remove_variable)
         var_btns.addStretch(1)
         var_layout.addLayout(var_btns)
         right.addWidget(var_box, 1)
@@ -1044,3 +1050,20 @@ class OptimizerWindow(QWidget):
             self._outcome, path, project=self.state.project,
             definition=self._last_definition)
         QMessageBox.information(self, "Exported", f"Report written:\n{path}")
+
+
+    def showEvent(self, event):
+        """Give the buttons that read together one width.
+
+        Only after the stylesheet polish, which happens on the first
+        display, does a button's ``sizeHint`` carry the theme's padding
+        (see ``common.equalize_button_widths``)."""
+        super().showEvent(event)
+        if getattr(self, "_widths_reviewed", False):
+            return
+        self._widths_reviewed = True
+        equalize_button_widths((self.btn_add_variable,
+                                self.btn_remove_variable))
+        equalize_button_widths((self.btn_add_constraint,
+                                self.btn_remove_constraint))
+        equalize_button_widths(self._study_buttons)

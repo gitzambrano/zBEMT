@@ -102,14 +102,16 @@ def _condition_at(project: Project, request: DerivativeRequest,
             float(base.mu_x) + (delta + float(trim_controls.get("u", 0.0)))
             / omega_r)
     elif variable == "v":
-        # Lateral speed enters as an in-plane direction rotated off the
-        # x axis: total in-plane speed and its sideslip angle.
+        # Lateral speed is a component of the condition, beside the
+        # longitudinal one (SC-14): the condition carries both, and
+        # `models.resolve_inplane_flow` turns the pair into the magnitude
+        # and direction the engine reads. Perturbing v therefore leaves
+        # the longitudinal component alone, which is what makes this a
+        # derivative with respect to v and not to v AND the speed.
         u_total = float(trim_controls.get("u", float(base.mu_x) * omega_r))
-        v_total = delta
-        speed = math.hypot(u_total, v_total)
-        overrides["mu_x"] = speed / omega_r
-        overrides["sideslip_deg"] = math.degrees(
-            math.atan2(v_total, u_total)) if speed > 1e-12 else 0.0
+        overrides["mu_x"] = u_total / omega_r if omega_r > 1e-12 else 0.0
+        overrides["Vy"] = float(delta)
+        overrides["sideslip_deg"] = 0.0
     elif variable == "w":
         overrides["Vz"] = float(base.Vz) + delta
     elif variable == "p":

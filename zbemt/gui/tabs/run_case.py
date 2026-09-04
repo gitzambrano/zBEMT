@@ -39,6 +39,7 @@ from PyQt6.QtCore import Qt, QThread, QSize
 from PyQt6.QtGui import QTextDocument
 
 from ... import api
+from ... import models
 from ...models import FlightCondition, BatchDefinition
 
 from ..common import (AppState, show_error, require_project, confirm_run_despite_issues,
@@ -51,7 +52,7 @@ from ..common import (AppState, show_error, require_project, confirm_run_despite
                       resolve_condition_pair, apply_condition_pair)
 from ..instant_tooltip import install_instant_tooltip
 from ..workers import BatchRunnerWorker, launch_worker
-from ..widgets import LongitudinalInput, AxialInput
+from ..widgets import LongitudinalInput, AxialInput, LateralInput
 
 
 # =============================================================================
@@ -182,6 +183,15 @@ class RunCaseTab(QWidget):
         self._size_field(self.axial)
         form.addRow("Axial flow:", self.axial)
 
+        # --- lateral component: Vy [m/s], psi_w [deg], mu_y or J_y -------
+        # The third direction of the flight velocity (SC-14). It reads with
+        # the other two, so it sits beside them and not among the
+        # perturbation inputs, where its angle spelling used to live alone.
+        self.lateral = LateralInput(default_value=0.0)
+        self.lateral.set_context_provider(self._lateral_context)
+        self._size_field(self.lateral)
+        form.addRow("Lateral flow:", self.lateral)
+
         self.collective_spin = QDoubleSpinBox(); self.collective_spin.setRange(-10, 30); self.collective_spin.setValue(0.0)
         self.collective_spin.setSingleStep(0.5)
         self.collective_spin.setToolTip(
@@ -222,14 +232,10 @@ class RunCaseTab(QWidget):
         form.addRow("Cyclic θ₁c [deg]:", self._with_unit_indent(self.cyclic_c_spin))
         form.addRow("Cyclic θ₁s [deg]:", self._with_unit_indent(self.cyclic_s_spin))
 
-        # --- perturbation inputs (SC-14): sideslip and hub rates ---------
-        self.sideslip_spin = QDoubleSpinBox(); self.sideslip_spin.setRange(-89, 89)
-        self.sideslip_spin.setValue(0.0); self.sideslip_spin.setSingleStep(1.0)
-        self.sideslip_spin.setToolTip(
-            '"sideslip_deg" — ψ<sub>w</sub>, the sideslip angle of the '
-            'in-plane free stream [deg]. Rotates U<sub>T</sub> to '
-            'Ωr + V·sin(ψ − ψ<sub>w</sub>), so a lateral velocity can be '
-            'imposed. Zero is the plain edgewise case.')
+        # --- perturbation inputs (SC-14): the hub rates ------------------
+        # The sideslip angle used to sit here as a lone spinbox. It is a
+        # component of the flight velocity, not a hub rate, so it moved up
+        # into the lateral-flow row beside the other two components.
         self.p_rate_spin = QDoubleSpinBox(); self.p_rate_spin.setRange(-360, 360)
         self.p_rate_spin.setValue(0.0); self.p_rate_spin.setSingleStep(1.0)
         self.p_rate_spin.setToolTip(
@@ -241,10 +247,8 @@ class RunCaseTab(QWidget):
         self.q_rate_spin.setToolTip(
             '"q_rate_deg_s" — q, the hub PITCH rate [deg/s] (SC-14). Its '
             'hub moment is the pitch damping.')
-        for spin in (self.sideslip_spin, self.p_rate_spin, self.q_rate_spin):
+        for spin in (self.p_rate_spin, self.q_rate_spin):
             self._size_field(spin)
-        form.addRow("ψ<sub>w</sub> — Sideslip [deg]:",
-                    self._with_unit_indent(self.sideslip_spin))
         form.addRow("Roll rate p [deg/s]:", self._with_unit_indent(self.p_rate_spin))
         form.addRow("Pitch rate q [deg/s]:", self._with_unit_indent(self.q_rate_spin))
         form.addRow("RPM [rev/min]:", self._with_unit_indent(self.rpm_spin))
@@ -459,6 +463,13 @@ class RunCaseTab(QWidget):
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
         return self.rpm_spin.value(), radius_m
 
+    def _lateral_context(self):
+        """Given to LateralInput to convert V_y<->psi_w when the unit
+        changes: the angle SPLITS the in-plane component, so it needs
+        this tab's current mu_x, rpm and radius."""
+        radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
+        return self.advance.mu_x(), self.rpm_spin.value(), radius_m
+
     def _axial_context(self):
         """Given to AxialInput to convert alpha<->Vz when the unit
         changes (depends on this tab's current mu_x/rpm/radius)."""
@@ -515,7 +526,9 @@ class RunCaseTab(QWidget):
         # "Advance" in either mode) invited putting the aircraft's speed
         # there -- which enters as edgewise flow and produces the solution
         # for an edgewise rotor. See `common.condition_label_and_tooltip`.
-        for field, slot in ((self.advance, "inplane"), (self.axial, "axial")):
+        self.lateral.set_default_unit(propeller)
+        for field, slot in ((self.advance, "inplane"), (self.axial, "axial"),
+                            (self.lateral, "lateral")):
             label, tip = condition_label_and_tooltip(propeller, slot)
             field.setToolTip(tip)
             set_row_label(self._condition_form, field, label)
@@ -547,11 +560,37 @@ class RunCaseTab(QWidget):
         self.collective_spin.setValue(saved_case.collective_deg)
         self.cyclic_c_spin.setValue(getattr(saved_case, "cyclic_c_deg", 0.0))
         self.cyclic_s_spin.setValue(getattr(saved_case, "cyclic_s_deg", 0.0))
-        self.sideslip_spin.setValue(getattr(saved_case, "sideslip_deg", 0.0))
         self.p_rate_spin.setValue(getattr(saved_case, "p_rate_deg_s", 0.0))
         self.q_rate_spin.setValue(getattr(saved_case, "q_rate_deg_s", 0.0))
         apply_condition_pair(self.advance, self.axial, saved_case.mu_x, saved_case.Vz,
                                  self.rpm_spin.value(), project_state.geometry.radius_m)
+        self._load_lateral(saved_case, project_state.geometry.radius_m)
+
+    def _load_lateral(self, case, radius_m: float) -> None:
+        """Writes a saved case's lateral flow into the row.
+
+        A case holds the lateral freedom in ONE of its two spellings.
+        `models.lateral_velocity` reads whichever one carries it, and the
+        row then displays that velocity in whatever unit is selected --
+        so a case saved as an angle loads exactly, whichever unit the row
+        happens to be showing."""
+        Vy = models.lateral_velocity(
+            case, api.mu_to_V(1.0, self.rpm_spin.value(), radius_m))
+        self.lateral.set_vy(Vy, self.advance.mu_x(), self.rpm_spin.value(),
+                            radius_m)
+
+    def _lateral_fields(self, mu_x: float, radius_m: float) -> dict:
+        """The lateral flow of the condition, in the SPELLING on screen.
+
+        A row showing the sideslip angle writes the angle, and a row
+        showing a velocity writes the velocity. The two are the same
+        freedom, so exactly one of them is ever non-zero -- the rule
+        `validation` enforces -- and a saved case reads back in the unit
+        it was written in instead of being converted behind the user."""
+        if self.lateral.is_sideslip():
+            return {"sideslip_deg": self.lateral.raw_value(), "Vy": 0.0}
+        return {"sideslip_deg": 0.0,
+                "Vy": self.lateral.vy(mu_x, self.rpm_spin.value(), radius_m)}
 
     def _current_condition(self) -> FlightCondition:
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
@@ -562,7 +601,7 @@ class RunCaseTab(QWidget):
                                 Vz=Vz, rpm=self.rpm_spin.value(),
                                 cyclic_c_deg=self.cyclic_c_spin.value(),
                                 cyclic_s_deg=self.cyclic_s_spin.value(),
-                                sideslip_deg=self.sideslip_spin.value(),
+                                **self._lateral_fields(mu_x, radius_m),
                                 p_rate_deg_s=self.p_rate_spin.value(),
                                 q_rate_deg_s=self.q_rate_spin.value())
 
@@ -595,9 +634,9 @@ class RunCaseTab(QWidget):
         self.collective_spin.setValue(case.collective_deg)
         self.cyclic_c_spin.setValue(getattr(case, "cyclic_c_deg", 0.0))
         self.cyclic_s_spin.setValue(getattr(case, "cyclic_s_deg", 0.0))
-        self.sideslip_spin.setValue(getattr(case, "sideslip_deg", 0.0))
         self.p_rate_spin.setValue(getattr(case, "p_rate_deg_s", 0.0))
         self.q_rate_spin.setValue(getattr(case, "q_rate_deg_s", 0.0))
+        self._load_lateral(case, self.state.project.geometry.radius_m)
 
     def _save_current_as_case(self):
         if not require_project(self, self.state):
@@ -765,7 +804,8 @@ class RunCaseTab(QWidget):
                         "mu_z", "J_z", "Vz", "lambda_z",
                         "alpha_rotor_deg", "alpha_disk_deg",
                         "collective_deg", "cyclic_c_deg", "cyclic_s_deg",
-                        "sideslip_deg", "p_rate_deg_s", "q_rate_deg_s",
+                        "sideslip_deg", "Vy", "mu_y", "J_y",
+                        "p_rate_deg_s", "q_rate_deg_s",
                         "rpm"])
     _INFLOW_GROUP = ("Inflow (solved)", ["lambda_i", "lambda_total", "Vi", "Vz_total"])
     _GEOMETRY_GROUP = ("Rotor geometry (resolved)",

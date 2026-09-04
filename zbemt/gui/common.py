@@ -17,10 +17,11 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QComboBox, QWidget, QVBoxLayout, QMessageBox,
     QDialog, QLabel, QPushButton, QFileDialog, QHBoxLayout,
-    QFrame, QScrollArea, QSizePolicy,
+    QFrame, QHeaderView, QScrollArea, QSizePolicy, QStyle,
+    QStyleOptionHeader,
 )
 from PyQt6.QtCore import pyqtSignal, QEvent, QObject, QSize, Qt, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtGui import QDesktopServices, QTextDocument
 
 #: True whenever Qt is running under the offscreen platform plugin (set by
 #: `tests/conftest.py` for every headless test run). QtWebEngineWidgets is
@@ -466,7 +467,7 @@ def condition_unit_width(combos=()) -> int:
 #: Engine field each input slot is bound to. `field_help` identifies the row
 #: by the quoted token that opens the tooltip, so this has to be the ENGINE's
 #: name (disk axes) and not the one displayed, which rotates with the mode.
-_SLOT_FIELD = {"inplane": "mu_x", "axial": "Vz"}
+_SLOT_FIELD = {"inplane": "mu_x", "axial": "Vz", "lateral": "Vy"}
 
 
 def resolve_condition_pair(advance, axial, rpm: float, radius_m: float) -> tuple:
@@ -507,7 +508,8 @@ def apply_condition_pair(advance, axial, mu_x: float, Vz: float,
 
 def condition_label_and_tooltip(is_propeller: bool, slot: str) -> tuple:
     """``(row label, tooltip)`` for field ``slot``
-    (``"inplane"``/``"axial"``) in the current mode's convention.
+    (``"inplane"``/``"axial"``/``"lateral"``) in the current mode's
+    convention.
 
     The text itself lives in `nomenclature.slot_label`, which owns every
     axis name the user meets. All this adds is the quoted engine key that
@@ -563,11 +565,12 @@ def apply_condition_unit_width(root) -> int:
 
     Returns the applied width."""
     from PyQt6.QtWidgets import QWidget
-    from .widgets import LongitudinalInput, AxialInput
+    from .widgets import LongitudinalInput, AxialInput, LateralInput
 
     from PyQt6.QtWidgets import QComboBox
 
-    fields = root.findChildren((LongitudinalInput, AxialInput))
+    fields = root.findChildren((LongitudinalInput, AxialInput,
+                                LateralInput))
     combos = [c.unit_combo for c in fields if getattr(c, "unit_combo", None) is not None]
     # STANDALONE unit combos (the factorial's axis rows), marked at
     # construction: they get included in the same measurement,
@@ -728,6 +731,206 @@ def ensure_row_spacing(root, min_spacing: int = MIN_ROW_SPACING,
             row_idx.setSpacing(min_checkbox_spacing)
             ajustados += 1
     return ajustados
+
+
+
+#: The role a rich-text header keeps its HTML under.
+HEADER_HTML_ROLE = Qt.ItemDataRole.UserRole + 77
+
+
+class RichTextHeaderView(QHeaderView):
+    """Paints a table's column headings as RICH text, with real subscripts.
+
+    A `QTableWidgetItem` renders no HTML, and Unicode has no subscript for
+    an uppercase letter, for `c`, or for `z`. A heading built from
+    `nomenclature` therefore reached the screen as a mixture: the sine
+    cyclic came out as a real subscript, its cosine twin as plain digits
+    on the line, and the axial speed as a literal underscore. The reasoning
+    is the same one `run_case._RichSymbolDelegate` already applies to the
+    CELLS of the results table, and it uses the same HTML the report uses,
+    so there is no second list of symbols.
+
+    A section with no HTML under `HEADER_HTML_ROLE` is painted by the base
+    class, so a plain heading keeps its usual look.
+    """
+
+    def _document(self, html: str) -> QTextDocument:
+        """Return the laid-out document of one heading."""
+        color = self.palette().color(self.palette().ColorRole.ButtonText)
+        document = QTextDocument()
+        document.setDefaultFont(self.font())
+        document.setDocumentMargin(0)
+        document.setHtml(
+            f'<span style="color:{color.name()};white-space:pre">{html}</span>')
+        return document
+
+    def _html(self, index: int) -> str:
+        model = self.model()
+        if model is None:
+            return ""
+        value = model.headerData(index, self.orientation(), HEADER_HTML_ROLE)
+        return str(value) if value else ""
+
+    #: Space left around the text of a section, in pixels.
+    _PADDING = 10
+
+    def paintSection(self, painter, rect, index):
+        html = self._html(index)
+        if not html:
+            super().paintSection(painter, rect, index)
+            return
+        # The section's own frame is drawn without its text, so the plain
+        # form is not painted underneath the document. Clearing the text on
+        # the model instead would write to the model from inside a paint,
+        # which asks for the repaint back.
+        option = QStyleOptionHeader()
+        self.initStyleOption(option)
+        option.rect = rect
+        option.section = index
+        option.text = ""
+        option.orientation = self.orientation()
+        # The style is free to leave a clip region behind, and the one the
+        # Windows header style leaves excluded the text area: the document
+        # drew into nothing. The frame therefore gets its own save/restore
+        # pair, so the painter the document meets is the one this method
+        # was handed.
+        painter.save()
+        self.style().drawControl(QStyle.ControlElement.CE_Header, option,
+                                 painter, self)
+        painter.restore()
+        document = self._document(html)
+        painter.save()
+        painter.translate(
+            rect.left() + self._PADDING / 2,
+            rect.top() + max(0.0, (rect.height() - document.size().height()) / 2))
+        document.drawContents(painter)
+        painter.restore()
+
+    def sectionSizeFromContents(self, index):
+        """Size the section to the DOCUMENT, so no heading is ever cut."""
+        html = self._html(index)
+        if not html:
+            return super().sectionSizeFromContents(index)
+        document = self._document(html)
+        size = super().sectionSizeFromContents(index)
+        return QSize(int(document.idealWidth()) + self._PADDING,
+                     max(size.height(), int(document.size().height()) + 6))
+
+
+def install_rich_text_headings(table, headings) -> None:
+    """Give ``table`` rich-text column headings.
+
+    ``headings`` is one ``(plain, html)`` pair per column. The plain text
+    stays on the item, so anything that reads a heading back still sees a
+    readable string; the HTML is what gets painted.
+    """
+    headings = list(headings)
+    # `setHorizontalHeaderLabels` is what CREATES the header items, and
+    # those items are what a reader of a heading gets back. The HTML rides
+    # along on its own role.
+    table.setHorizontalHeaderLabels([plain for plain, _html in headings])
+    header = table.horizontalHeader()
+    if not isinstance(header, RichTextHeaderView):
+        header = RichTextHeaderView(Qt.Orientation.Horizontal, table)
+        header.setSectionsClickable(True)
+        table.setHorizontalHeader(header)
+    model = table.model()
+    for column, (_plain, html) in enumerate(headings):
+        model.setHeaderData(column, Qt.Orientation.Horizontal, html,
+                            HEADER_HTML_ROLE)
+    header.viewport().update()
+
+
+def equalize_form_label_widths(root) -> int:
+    """Opens the value column of every form under ``root`` at one x.
+
+    A page built from several ``QGroupBox`` blocks builds one
+    ``QFormLayout`` per block, and each of them sizes its label column to
+    its OWN longest label. The value column then steps left and right down
+    the page: on the Config tab the mesh block opened at 152 px, the inflow
+    block at 90 px and the solver block at 137 px, which is exactly the
+    jagged margin `align_form_labels` exists to remove one row at a time.
+
+    The forms are grouped by their nearest ``QGroupBox``, and one common
+    label width is applied per group of siblings. A NESTED block keeps its
+    own indent, because it is a child box and not a sibling: the indent is
+    what shows the nesting.
+
+    Returns how many labels were widened. Called from a tab's
+    ``showEvent`` for the same reason as `equalize_button_widths`: a
+    label's ``sizeHint`` only includes the theme's padding after the
+    stylesheet polish, which happens on first display.
+    """
+    from PyQt6.QtWidgets import QFormLayout, QGroupBox, QWidget
+
+    def _block(widget: QWidget):
+        """Return the box a form belongs to, or the root."""
+        parent = widget
+        while parent is not None and parent is not root:
+            if isinstance(parent, QGroupBox):
+                return parent.parentWidget() or root
+            parent = parent.parentWidget()
+        return root
+
+    groups: dict[int, list] = {}
+    for form in root.findChildren(QFormLayout):
+        parent = form.parentWidget()
+        if parent is None or not parent.isVisibleTo(root):
+            continue
+        groups.setdefault(id(_block(parent)), []).append(form)
+
+    widened = 0
+    for forms in groups.values():
+        labels = []
+        for form in forms:
+            for row in range(form.rowCount()):
+                item = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
+                widget = item.widget() if item is not None else None
+                if widget is not None and widget.isVisibleTo(root):
+                    labels.append(widget)
+        if len(labels) < 2:
+            continue
+        width = max(label.sizeHint().width() for label in labels)
+        for label in labels:
+            if label.minimumWidth() != width:
+                label.setMinimumWidth(width)
+                widened += 1
+    return widened
+
+
+def equalize_same_row_buttons(root) -> int:
+    """Gives one width to the buttons that sit on the same row.
+
+    Returns how many groups were equalized.
+
+    A row that carries two buttons of different text ("Save" next to
+    "Restore", "Save" next to "Remove") settles at two widths and reads
+    as an accident: the eye follows the ragged right edge instead of
+    the labels. This walks the visible buttons under ``root``, groups
+    them by the row they sit on (same rounding as the sweep in
+    `tests/regression/test_gui_layout.py`), and gives each group of
+    two or more the width of its widest member via
+    `equalize_button_widths`.
+
+    Called from the same place as `equalize_form_label_widths` (a
+    tab's first display), for the same reason: a button's `sizeHint`
+    only includes the theme's padding after the stylesheet polish.
+    """
+    from PyQt6.QtWidgets import QPushButton
+
+    rows: dict[int, list] = {}
+    for button in root.findChildren(QPushButton):
+        if not button.isVisible() or not button.text():
+            continue
+        top = button.mapTo(root, button.rect().topLeft()).y()
+        rows.setdefault(round(top / 6) * 6, []).append(button)
+
+    equalized = 0
+    for group in rows.values():
+        if len(group) >= 2:
+            equalize_button_widths(group)
+            equalized += 1
+    return equalized
 
 
 def align_form_labels(root) -> int:

@@ -106,6 +106,11 @@
         "mathtext": "$J_z$ [-]",
         "text": "Jz [-]"
       },
+      "J_y": {
+        "html": "J<sub>y</sub> [-]",
+        "mathtext": "$J_y$ [-]",
+        "text": "Jy [-]"
+      },
       "J_z": {
         "html": "J<sub>x</sub> [-]",
         "mathtext": "$J_x$ [-]",
@@ -175,6 +180,11 @@
         "html": "V<sub>z</sub> [m/s]",
         "mathtext": "$V_z$ [m/s]",
         "text": "Vz [m/s]"
+      },
+      "Vy": {
+        "html": "V<sub>y</sub> [m/s]",
+        "mathtext": "$V_y$ [m/s]",
+        "text": "Vy [m/s]"
       },
       "Vz": {
         "html": "V<sub>x</sub> [m/s]",
@@ -571,6 +581,11 @@
         "mathtext": "$\\mu_z$ [-]",
         "text": "μz [-]"
       },
+      "mu_y": {
+        "html": "&mu;<sub>y</sub> [-]",
+        "mathtext": "$\\mu_y$ [-]",
+        "text": "μy [-]"
+      },
       "mu_z": {
         "html": "&mu;<sub>x</sub> [-]",
         "mathtext": "$\\mu_x$ [-]",
@@ -773,6 +788,11 @@
         "mathtext": "$J_x$ [-]",
         "text": "Jₓ [-]"
       },
+      "J_y": {
+        "html": "J<sub>y</sub> [-]",
+        "mathtext": "$J_y$ [-]",
+        "text": "Jy [-]"
+      },
       "J_z": {
         "html": "J<sub>z</sub> [-]",
         "mathtext": "$J_z$ [-]",
@@ -842,6 +862,11 @@
         "html": "V<sub>x</sub> [m/s]",
         "mathtext": "$V_x$ [m/s]",
         "text": "Vₓ [m/s]"
+      },
+      "Vy": {
+        "html": "V<sub>y</sub> [m/s]",
+        "mathtext": "$V_y$ [m/s]",
+        "text": "Vy [m/s]"
       },
       "Vz": {
         "html": "V<sub>z</sub> [m/s]",
@@ -1238,6 +1263,11 @@
         "mathtext": "$\\mu_x$ [-]",
         "text": "μₓ [-]"
       },
+      "mu_y": {
+        "html": "&mu;<sub>y</sub> [-]",
+        "mathtext": "$\\mu_y$ [-]",
+        "text": "μy [-]"
+      },
       "mu_z": {
         "html": "&mu;<sub>z</sub> [-]",
         "mathtext": "$\\mu_z$ [-]",
@@ -1417,25 +1447,67 @@
         "Vₓ [m/s]",
         "Vx"
       ]
+    ],
+    "lateral/propeller": [
+      [
+        "V_y [m/s]",
+        "Vy"
+      ],
+      [
+        "ψ_w [deg]",
+        "sideslip_deg"
+      ],
+      [
+        "μ_y",
+        "mu_y"
+      ],
+      [
+        "J_y",
+        "J_y"
+      ]
+    ],
+    "lateral/rotor": [
+      [
+        "V_y [m/s]",
+        "Vy"
+      ],
+      [
+        "ψ_w [deg]",
+        "sideslip_deg"
+      ],
+      [
+        "μ_y",
+        "mu_y"
+      ],
+      [
+        "J_y",
+        "J_y"
+      ]
     ]
   },
   "default_unit": {
     "axial/propeller": "Jₓ",
     "axial/rotor": "αᵣₒₜₒᵣ [deg]",
     "inplane/propeller": "V_z [m/s]",
-    "inplane/rotor": "μₓ"
+    "inplane/rotor": "μₓ",
+    "lateral/propeller": "V_y [m/s]",
+    "lateral/rotor": "V_y [m/s]"
   },
   "factorial_slots": {
     "J_x": "inplane",
+    "J_y": "lateral",
     "J_z": "axial",
     "Vx": "inplane",
+    "Vy": "lateral",
     "Vz": "axial",
     "alpha_deg": "axial",
     "alpha_disk": "inplane",
     "collective_deg": "collective_deg",
     "mu_x": "inplane",
+    "mu_y": "lateral",
     "mu_z": "axial",
-    "rpm": "rpm"
+    "rpm": "rpm",
+    "sideslip_deg": "lateral"
   },
   "primary_columns": {
     "propeller": [
@@ -1446,6 +1518,10 @@
       "mu_x",
       "J_x",
       "Vx",
+      "Vy",
+      "mu_y",
+      "J_y",
+      "sideslip_deg",
       "alpha_disk_deg",
       "collective_deg",
       "rpm"
@@ -1454,6 +1530,10 @@
       "mu_x",
       "J_x",
       "Vx",
+      "Vy",
+      "mu_y",
+      "J_y",
+      "sideslip_deg",
       "mu_z",
       "J_z",
       "Vz",
@@ -1477,6 +1557,9 @@
       "cyclic_s_deg",
       "rpm",
       "sideslip_deg",
+      "Vy",
+      "mu_y",
+      "J_y",
       "p_rate_deg_s",
       "q_rate_deg_s",
       "lambda_i",
@@ -1629,6 +1712,10 @@
         "J<sub>z</sub>",
         "Advance ratio along z in propeller form: J<sub>z</sub> = V<sub>z</sub>/(nD) = &pi;&middot;&mu;<sub>z</sub>. NOT the propeller advance ratio -- that one is J<sub>x</sub>, built from the airspeed along the shaft. This is the cross-flow, zero in straight cruise"
       ],
+      "J_y": [
+        "J<sub>y</sub>",
+        "Lateral advance ratio in propeller form: J<sub>y</sub> = V<sub>y</sub>/(nD) = &pi;&middot;&mu;<sub>y</sub>"
+      ],
       "J_z": [
         "J<sub>x</sub>",
         "Advance ratio along x in propeller form: J<sub>x</sub> = V<sub>x</sub>/(nD) = &pi;&middot;&mu;<sub>x</sub>. THIS IS THE J<sub>x</sub> of propeller charts, built from the airspeed along the shaft, and the one propulsive efficiency uses"
@@ -1684,6 +1771,10 @@
       "Vx": [
         "V<sub>z</sub>",
         "Free-stream component along z [m/s]. In propeller mode z is VERTICAL, across the shaft and in the plane of the disk: the cross-flow. ZERO in straight cruise; non-zero when the propeller flies at an angle to its axis"
+      ],
+      "Vy": [
+        "V<sub>y</sub>",
+        "Lateral free-stream component [m/s], in the disk plane and perpendicular to V<sub>z</sub>. The propeller disk holds y and z, so y is the horizontal cross-flow. Zero in straight cruise"
       ],
       "Vz": [
         "V<sub>x</sub>",
@@ -2001,6 +2092,10 @@
         "&mu;<sub>z</sub>",
         "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R), the cross-flow normalized by tip speed. This is the component that varies with azimuth and makes one side of the disk see more speed than the other. Zero in straight cruise"
       ],
+      "mu_y": [
+        "&mu;<sub>y</sub>",
+        "Lateral advance ratio: &mu;<sub>y</sub> = V<sub>y</sub>/(&Omega;R), the sideways component normalized by tip speed"
+      ],
       "mu_z": [
         "&mu;<sub>x</sub>",
         "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R), the airspeed normalized by tip speed. THE SAME NUMBER as &lambda;<sub>x</sub>, in the advance-ratio vocabulary"
@@ -2051,7 +2146,7 @@
       ],
       "sideslip_deg": [
         "&psi;<sub>w</sub>",
-        "Sideslip angle [deg] of the in-plane free stream (SC-14): rotates U<sub>T</sub>=&Omega;r+V&middot;sin(&psi;&minus;&psi;<sub>w</sub>) so a lateral velocity component can be imposed. Zero reproduces the plain edgewise case"
+        "Sideslip angle [deg] of the in-plane free stream (SC-14): &psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>z</sub>), the direction the stream arrives from within the disk plane. It is the ANGLE SPELLING of V<sub>y</sub>, which splits the known in-plane component into a lateral one. Zero reproduces the plain cross-flow case"
       ],
       "solver": [
         "solver",
@@ -2163,6 +2258,10 @@
         "J<sub>x</sub>",
         "Advance ratio along x in propeller form: J<sub>x</sub> = V<sub>x</sub>/(nD) = &pi;&middot;&mu;<sub>x</sub>"
       ],
+      "J_y": [
+        "J<sub>y</sub>",
+        "Lateral advance ratio in propeller form: J<sub>y</sub> = V<sub>y</sub>/(nD) = &pi;&middot;&mu;<sub>y</sub>"
+      ],
       "J_z": [
         "J<sub>z</sub>",
         "Advance ratio along z in propeller form: J<sub>z</sub> = V<sub>z</sub>/(nD) = &pi;&middot;&mu;<sub>z</sub>"
@@ -2218,6 +2317,10 @@
       "Vx": [
         "V<sub>x</sub>",
         "Free-stream component along x [m/s]. In rotor mode x is the IN-PLANE direction, so this is the horizontal flight speed -- what &mu;<sub>x</sub> and J<sub>x</sub> are built from"
+      ],
+      "Vy": [
+        "V<sub>y</sub>",
+        "Lateral free-stream component [m/s], in the disk plane and perpendicular to V<sub>x</sub>. It is what makes the flow arrive from the side instead of from straight ahead. Zero reproduces the plain edgewise case"
       ],
       "Vz": [
         "V<sub>z</sub>",
@@ -2535,6 +2638,10 @@
         "&mu;<sub>x</sub>",
         "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R). In rotor mode x is the IN-PLANE direction, so this is the classic forward-flight advance ratio -- the component that sweeps across the blades and makes the advancing and retreating sides differ"
       ],
+      "mu_y": [
+        "&mu;<sub>y</sub>",
+        "Lateral advance ratio: &mu;<sub>y</sub> = V<sub>y</sub>/(&Omega;R), the sideways component normalized by tip speed"
+      ],
       "mu_z": [
         "&mu;<sub>z</sub>",
         "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R). In rotor mode z is the SHAFT direction, so this is climb (positive) or descent (negative). Same number as &lambda;<sub>z</sub>, written in the advance-ratio vocabulary instead of the inflow one"
@@ -2585,7 +2692,7 @@
       ],
       "sideslip_deg": [
         "&psi;<sub>w</sub>",
-        "Sideslip angle [deg] of the in-plane free stream (SC-14): rotates U<sub>T</sub>=&Omega;r+V&middot;sin(&psi;&minus;&psi;<sub>w</sub>) so a lateral velocity component can be imposed. Zero reproduces the plain edgewise case"
+        "Sideslip angle [deg] of the in-plane free stream (SC-14): &psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>), the direction the stream arrives from within the disk plane. It is the ANGLE SPELLING of V<sub>y</sub>: it splits the known longitudinal component into a lateral one, exactly as &alpha;<sub>rotor</sub> splits it into the axial one. The engine carries it as U<sub>T</sub> = &Omega;r + V&middot;sin(&psi;&minus;&psi;<sub>w</sub>). Zero reproduces the plain edgewise case"
       ],
       "solver": [
         "solver",
@@ -2635,6 +2742,7 @@
     "Hp": "<th class=\"un\">[N]</th>",
     "Hr": "<th class=\"un\">[N]</th>",
     "J_x": "<th class=\"un\">[-]</th>",
+    "J_y": "<th class=\"un\">[-]</th>",
     "J_z": "<th class=\"un\">[-]</th>",
     "Mx": "<th class=\"un\">[N&middot;m]</th>",
     "Mx_hub": "<th class=\"un\">[N·m]</th>",
@@ -2649,6 +2757,7 @@
     "Torque": "<th class=\"un\">[N&middot;m]</th>",
     "Vi": "<th class=\"un\">[m/s]</th>",
     "Vx": "<th class=\"un\">[m/s]</th>",
+    "Vy": "<th class=\"un\">[m/s]</th>",
     "Vz": "<th class=\"un\">[m/s]</th>",
     "Vz_total": "<th class=\"un\">[m/s]</th>",
     "Y": "<th class=\"un\">[N]</th>",
@@ -2728,6 +2837,7 @@
     "lock_number": "<th class=\"un\">[-]</th>",
     "mean_iter": "<th class=\"un\">[-]</th>",
     "mu_x": "<th class=\"un\">[-]</th>",
+    "mu_y": "<th class=\"un\">[-]</th>",
     "mu_z": "<th class=\"un\">[-]</th>",
     "nu_beta": "<th class=\"un\">[-]</th>",
     "nu_zeta": "<th class=\"un\">[-]</th>",

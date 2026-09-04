@@ -432,7 +432,36 @@ def validate_flight_condition(condition) -> list[Issue]:
             f"RPM must be > 0 (received {rpm_value:g}). The BEMT non-dimensionalizes "
             "by Omega*R; with zero rotation the solution is undefined (division by zero "
             "in lambda_z = Vz/(Omega*R)).")))
+    issues += _validate_lateral_flow(condition)
     return issues
+
+
+def _validate_lateral_flow(condition) -> list[Issue]:
+    """The lateral flow must be given ONCE (SC-14).
+
+    The disk plane has one lateral direction, and the condition offers two
+    spellings for it: the velocity V_y, and the sideslip angle psi_w that
+    splits the longitudinal component into it. With both non-zero the
+    condition names the same freedom twice and the two numbers disagree,
+    so there is no reading of it that is not a guess."""
+    Vy = float(getattr(condition, "Vy", 0.0) or 0.0)
+    psi_w = float(getattr(condition, "sideslip_deg", 0.0) or 0.0)
+    if not math.isfinite(Vy) or not math.isfinite(psi_w):
+        return [Issue("error", (
+            "The lateral flow is not finite: "
+            f"V_y={Vy!r}, sideslip={psi_w!r}."))]
+    if abs(psi_w) >= 90.0:
+        return [Issue("error", (
+            f"The sideslip angle must be inside -90 to 90 deg (received "
+            f"{psi_w:g}). At 90 deg the angle asks for a lateral velocity "
+            "with no longitudinal one to split, which no angle can set the "
+            "scale of. Give the lateral velocity V_y instead."))]
+    if Vy != 0.0 and psi_w != 0.0:
+        return [Issue("error", (
+            f"The lateral flow is given twice: V_y={Vy:g} m/s and a sideslip "
+            f"angle of {psi_w:g} deg. They are the same freedom in two "
+            "spellings. Give one of them and leave the other at zero."))]
+    return []
 
 
 #: Above this Mach the Prandtl-Glauert correction stops being an

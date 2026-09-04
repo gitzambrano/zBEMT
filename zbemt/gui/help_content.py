@@ -2734,11 +2734,57 @@ FIELD_HELP: dict[str, dict] = {
         "range": "−30° to +30°",
         "options": None
     },
+    "Vy": {
+        "title": "Lateral Flow",
+        "definition": (
+            "Component V<sub>y</sub> of the free stream along the vehicle y "
+            "axis: sideways, and in the plane of the disk.\n\n"
+            "The disk plane has two directions. The field above gives the "
+            "first one, and this field gives the second, so the stream can "
+            "arrive from the side: sideward flight for a rotor, a propeller "
+            "flying with its shaft out of the wind.\n\n"
+            "The engine reads the pair as one in-plane speed and one "
+            "direction, V = √(V<sub>x</sub>² + V<sub>y</sub>²) at "
+            "ψ<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>). Zero "
+            "reproduces the plain edgewise case, so every condition saved "
+            "before this field existed keeps its exact behavior."),
+        "unit": "m/s",
+        "equation": (
+            r"U_T = \Omega r + V\sin(\psi-\psi_w),\qquad "
+            r"V=\sqrt{V_x^2+V_y^2},\qquad \psi_w=\operatorname{atan2}(V_y,V_x)"),
+        "effect": (
+            "At V<sub>x</sub> = 0 the whole advance comes from the side: the "
+            "in-plane force H and the side force Y trade places, while thrust "
+            "and torque stay put.\n\n"
+            "It is the state a lateral-velocity derivative perturbs, so a "
+            "stability study sets it to a small value and reads the hub loads "
+            "it produces."),
+        "range": "−500 to +500 m/s (0 for flight straight ahead)",
+        "options": {
+            "V_y [m/s]": (
+                "The lateral velocity itself, in metres per second."),
+            "ψ_w [deg]": (
+                "The sideslip angle. It splits the in-plane component given "
+                "above into a lateral one, so it needs that component to be "
+                "non-zero and stays inside ±89°."),
+            "μ_y": (
+                "The lateral velocity over the tip speed, "
+                "μ<sub>y</sub> = V<sub>y</sub>/(ΩR)."),
+            "J_y": (
+                "The lateral velocity in the propeller vocabulary, "
+                "J<sub>y</sub> = V<sub>y</sub>/(nD) = π·μ<sub>y</sub>."),
+        }
+    },
     "sideslip_deg": {
         "title": "Sideslip of the In-Plane Flow",
         "definition": (
-            "Angle ψ<sub>w</sub> that turns the direction of the in-plane free "
-            "stream around the shaft, without changing its magnitude.\n\n"
+            "Angle ψ<sub>w</sub> between the in-plane free stream and the "
+            "longitudinal direction, measured in the plane of the disk.\n\n"
+            "It is the ANGLE SPELLING of the lateral flow V<sub>y</sub>: "
+            "ψ<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>), so it "
+            "SPLITS the in-plane component given above into a lateral one, "
+            "exactly as α<sub>rotor</sub> splits it into the axial one. "
+            "An angle never sets the scale of a velocity.\n\n"
             "The tangential speed at each azimuth becomes "
             "U<sub>T</sub> = Ωr + V·sin(ψ − ψ<sub>w</sub>), and the spanwise component "
             "becomes U<sub>R</sub> = V·cos(ψ − ψ<sub>w</sub>). The along-shaft flow is "
@@ -2748,13 +2794,17 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "deg",
         "equation": r"U_T = \Omega r + V\sin(\psi-\psi_w),\qquad U_R = V\cos(\psi-\psi_w)",
         "effect": (
-            "At ψ<sub>w</sub> = 90° the advance comes from the side: the in-plane "
-            "force H and the side force Y trade places, while thrust and torque "
-            "stay put.\n\n"
+            "It turns the loading pattern with the stream: the in-plane force "
+            "H and the side force Y trade shares of the same resultant, while "
+            "thrust and torque stay put.\n\n"
             "It is the state a lateral-velocity derivative perturbs, so a "
             "stability study sets it to a small value and reads the hub loads "
             "it produces."),
-        "range": "−89° to +89° (0° for straight edgewise flight)",
+        "range": (
+            "−89° to +89° (0° for straight edgewise flight). "
+            "90° is excluded: there the angle asks for a lateral velocity "
+            "with no longitudinal one to split, so pure sideward flight is "
+            "given as V<sub>y</sub> instead."),
         "options": None
     },
     "p_rate_deg_s": {

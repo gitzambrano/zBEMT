@@ -46,8 +46,8 @@ def new_project(path: str, name: Optional[str] = None) -> Project:
         name=name or Path(path).name,
         path=str(path),
         config=asdict(BEMTConfig()),
-        geometry=geometry.generate_tapered(airfoil_name="perfil 1"),
-        airfoil=AirfoilDef(name="perfil 1"),
+        geometry=geometry.generate_tapered(airfoil_name="airfoil 1"),
+        airfoil=AirfoilDef(name="airfoil 1"),
         airfoil_sections=[],
         batches=[],
         saved_cases=[],
@@ -1754,7 +1754,7 @@ _MAIN_COLUMNS = (
     "alpha_rotor_deg", "alpha_disk_deg",
     "collective_deg", "cyclic_c_deg", "cyclic_s_deg", "rpm",
     # SC-14 perturbation inputs: they close the condition block.
-    "sideslip_deg", "p_rate_deg_s", "q_rate_deg_s",
+    "sideslip_deg", "Vy", "mu_y", "J_y", "p_rate_deg_s", "q_rate_deg_s",
     # --- 2. RESOLVED axial flow (the manual's triad, Section 2.6.2) --
     "lambda_i", "lambda_total", "Vi", "Vz_total",
     # --- 3. coefficients, ROTOR convention ------------------------------

@@ -135,6 +135,15 @@ different rule.
   single-objective study; `SC-13` is the multi-objective one.
 - **SC-14** — Stability and control derivatives of the rotor hub loads, by
   finite differences about a trim point, in a dedicated window.
+- **SC-15** — A lateral component of the in-plane free stream, so the flight
+  velocity has all three of its components. The disk plane carries two
+  directions, and the condition names both: the longitudinal one, and the
+  lateral one it flies sideways at. The lateral one is offered in four
+  spellings that mean the same freedom -- the velocity V_y, the ratios
+  mu_y and J_y, and the sideslip angle psi_w that splits the longitudinal
+  component into it -- and a condition gives exactly one of them. It is a
+  full input slot: a fixed value, a batch axis, a results column, a CSV
+  column and a report row, on the same terms as the other two.
 
 ### 1.2 The software must not support
 

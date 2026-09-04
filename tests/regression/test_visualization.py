@@ -66,7 +66,7 @@ class TestBuildBladeSurface(unittest.TestCase):
         prof = ProfileGeometry(x=[0.0, 0.5, 1.0, 0.5], y=[0.0, 0.05, 0.0, -0.05])
         geom = _FakeGeom()
         pts, _ = visualization.build_blade_surface(geom, profile=prof, n_span=5)
-        self.assertEqual(pts.shape, (5 * 4, 3))  # n_chord=4 pontos do perfil
+        self.assertEqual(pts.shape, (5 * 4, 3))  # n_chord=4 points of the profile
 
 
 class TestBuildRotorDisk(unittest.TestCase):

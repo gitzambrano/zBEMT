@@ -672,9 +672,74 @@ class FlightCondition:
     #: not to the configuration -- they describe the state the rotor flies,
     #: not the solver that evaluates it. All default to zero, which keeps
     #: every condition saved before these fields existed exact.
-    sideslip_deg: float = 0.0       # psi_w, rotation of the in-plane flow
+    sideslip_deg: float = 0.0       # psi_w, direction of the in-plane flow
     p_rate_deg_s: float = 0.0       # roll rate  [deg/s]
     q_rate_deg_s: float = 0.0       # pitch rate [deg/s]
+    #: Lateral component of the in-plane free stream [m/s]. The disk plane
+    #: has two directions, and ``mu_x`` gives only one of them: this field
+    #: gives the other, so the stream can arrive from the side. It is the
+    #: same degree of freedom the sideslip angle names -- ``sideslip_deg``
+    #: is its ANGLE SPELLING, and the two must not both be non-zero. See
+    #: `resolve_inplane_flow`, which turns the pair into the magnitude and
+    #: direction the engine reads.
+    Vy: float = 0.0                 # lateral in-plane velocity [m/s]
+
+
+def resolve_inplane_flow(condition, omega_r: float) -> tuple:
+    """Return ``(mu_inplane, sideslip_deg)`` of one condition.
+
+    The disk plane carries two velocity components. ``mu_x`` is the
+    LONGITUDINAL one (the edgewise advance of a rotor, the cross-flow of a
+    propeller) and ``Vy`` the LATERAL one. The engine takes the pair the
+    other way round -- as one magnitude and one direction -- so this is the
+    single place where the two components become a vector.
+
+    ``sideslip_deg`` is the angle spelling of ``Vy``. It SPLITS the known
+    longitudinal component into a lateral one, exactly as ``alpha_rotor``
+    splits it into the axial one, so it never sets the scale of the
+    velocity. Giving both at once names the same freedom twice, which is
+    why `validation` refuses it.
+
+    A condition with no lateral flow returns its own ``mu_x`` and its own
+    angle untouched, so every case written before this field existed keeps
+    its exact numbers -- including a negative ``mu_x``, which stays
+    negative instead of turning into a magnitude at 180 degrees.
+    """
+    mu_x = float(getattr(condition, "mu_x", 0.0) or 0.0)
+    Vy = float(getattr(condition, "Vy", 0.0) or 0.0)
+    psi_w = float(getattr(condition, "sideslip_deg", 0.0) or 0.0)
+    omega_r = float(omega_r or 0.0)
+    if abs(psi_w) >= 90.0:
+        raise ValueError(
+            f"The sideslip angle must be inside -90 to 90 deg (got {psi_w:g}). "
+            "At 90 deg it asks for a lateral velocity with no longitudinal "
+            "one to split, which no angle can set the scale of. Give the "
+            "lateral velocity Vy instead.")
+    if omega_r <= 0.0:
+        return mu_x, psi_w
+    V_long = mu_x * omega_r
+    V_lat = Vy if Vy != 0.0 else V_long * math.tan(math.radians(psi_w))
+    if V_lat == 0.0:
+        return mu_x, psi_w
+    return math.hypot(V_long, V_lat) / omega_r, math.degrees(
+        math.atan2(V_lat, V_long))
+
+
+def lateral_velocity(condition, omega_r: float) -> float:
+    """The lateral component [m/s] of one condition, in either spelling.
+
+    Reads ``Vy`` when it carries the value, and derives it from the
+    sideslip angle when THAT is the spelling the condition was written
+    in. Every surface that reports V_y, mu_y or J_y goes through here, so
+    the two spellings can never disagree on screen."""
+    Vy = float(getattr(condition, "Vy", 0.0) or 0.0)
+    if Vy != 0.0:
+        return Vy
+    psi_w = float(getattr(condition, "sideslip_deg", 0.0) or 0.0)
+    if psi_w == 0.0:
+        return 0.0
+    mu_x = float(getattr(condition, "mu_x", 0.0) or 0.0)
+    return mu_x * float(omega_r or 0.0) * math.tan(math.radians(psi_w))
 
 
 @dataclass

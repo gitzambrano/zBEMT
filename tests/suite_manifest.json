@@ -45,6 +45,7 @@
     "tests/regression/test_gui_symbols.py",
     "tests/regression/test_instant_tooltip.py",
     "tests/regression/test_label_markup_renders.py",
+    "tests/regression/test_lateral_flow.py",
     "tests/regression/test_mode_convention.py",
     "tests/regression/test_mode_dependent_keys.py",
     "tests/regression/test_model_effects.py",

@@ -471,7 +471,7 @@ class TestAirfoilPreviewCanvas(unittest.TestCase):
         self.assertEqual(set(tab._nav_widgets.keys()), {"r_norm", "reynolds"})
         self.assertNotIn("mach", tab._nav_widgets)
 
-    def test_switching_polar_to_perfil_keeps_navigator_selection(self):
+    def test_switching_polar_to_airfoil_keeps_navigator_selection(self):
         from zbemt.models import PolarSlice
         state = self.gui.AppState()
         tab = self.gui.AirfoilTab(state)

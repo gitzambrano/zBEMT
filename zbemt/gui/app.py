@@ -174,7 +174,8 @@ class FlowIndicatorBar(QWidget):
             "Transient Simulation, Design Optimization and Stability "
             "Derivatives")
         self.btn_tools.setStyleSheet(
-            "QPushButton { font-weight: bold; border: 1px solid #888; border-radius: 14px; }")
+            "QPushButton { font-weight: bold; border: 1px solid #888; border-radius: 14px; }"
+            "QPushButton::menu-indicator { width: 0; border: none; }")
         tools_menu = QMenu(self.btn_tools)
         for label, key in self.TOOLS_MENU:
             action = tools_menu.addAction(label)
@@ -636,10 +637,35 @@ class MainWindow(QMainWindow):
         # point of the dedicated design windows. The signal now carries
         # WHICH window was requested.
         self.flow_bar.tools_requested.connect(self._open_tool)
+        # Each page opens its value column at one x. The sweep runs on the
+        # page's FIRST display, because only then does a label's sizeHint
+        # include the theme's padding (see
+        # `common.equalize_form_label_widths`).
+        self._columns_reviewed: set = set()
+        self.tabs.currentChanged.connect(self._review_columns_of_tab)
+
+    def _review_columns_of_tab(self, index: int):
+        """Give one tab's forms a common label width, and its rows one
+        button width, once."""
+        from .common import equalize_form_label_widths, equalize_same_row_buttons
+        if index in self._columns_reviewed:
+            return
+        page = self.tabs.widget(index)
+        if page is None or not page.isVisible():
+            return
+        self._columns_reviewed.add(index)
+        equalize_form_label_widths(page)
+        equalize_same_row_buttons(page)
+
+    def showEvent(self, event):
+        """Review the column of the page the window opens on."""
+        super().showEvent(event)
+        self._review_columns_of_tab(self.tabs.currentIndex())
 
     def _open_tool(self, key: str):
         """Dispatches a Tools-menu request to its window. A request whose
         window does not exist yet answers honestly instead of dying."""
+        from .common import equalize_form_label_widths
         handler = getattr(self, f"open_{key}", None)
         if handler is None:
             QMessageBox.information(
@@ -647,6 +673,18 @@ class MainWindow(QMainWindow):
                 "This tool window is not part of this build.")
             return
         handler()
+        window = getattr(self, self._TOOL_ATTRIBUTES.get(key, ""), None)
+        if window is not None and key not in self._columns_reviewed:
+            self._columns_reviewed.add(key)
+            equalize_form_label_widths(window)
+
+    #: The attribute each Tools entry keeps its window on.
+    _TOOL_ATTRIBUTES = {
+        "geometry_designer": "geometry_designer",
+        "transient_simulation": "transient_window",
+        "design_optimization": "optimizer_window",
+        "stability_derivatives": "stability_window",
+    }
 
     def open_transient_simulation(self):
         """Shows the non-modal Transient Simulation window (SC-12)."""

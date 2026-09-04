@@ -53,6 +53,12 @@ WINDOW_WIDTH = 1400
 #: this test.
 
 
+def _settle(app, cycles: int = 20) -> None:
+    """Let Qt finish laying out before a geometry is measured."""
+    for _pass in range(cycles):
+        app.processEvents()
+
+
 def _is_editable_field(w) -> bool:
     """Discards what is not really an input field.
 
@@ -598,3 +604,116 @@ class TestMountedWindowLayout(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestButtonsOnOneRowShareAWidth(unittest.TestCase):
+    """Buttons that read together must be the same size.
+
+    A row of buttons whose widths differ by a few pixels reads as an
+    accident, and the eye follows the ragged right edge instead of the
+    labels. The sweep covers every tab and every Tools window, so a new
+    row is held to the rule without anyone remembering it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls._app = QApplication.instance() or QApplication([])
+        from zbemt.gui.app import MainWindow
+        cls.window = MainWindow()
+        cls.window.resize(1600, 1000)
+        cls.window.show()
+        _settle(cls._app)
+
+    @staticmethod
+    def _rows(root):
+        """Group the visible buttons of one tree by the row they sit on."""
+        from PyQt6.QtWidgets import QPushButton
+        rows: dict[int, list] = {}
+        for button in root.findChildren(QPushButton):
+            if not button.isVisible() or not button.text():
+                continue
+            top = button.mapTo(root, button.rect().topLeft()).y()
+            rows.setdefault(round(top / 6) * 6, []).append(button)
+        return rows
+
+    def _ragged_rows(self, root):
+        found = []
+        for top, group in sorted(self._rows(root).items()):
+            if len(group) < 2:
+                continue
+            widths = [button.width() for button in group]
+            if max(widths) - min(widths) > 2:
+                found.append(
+                    f"y={top}: " + ", ".join(
+                        f"{button.text()}={button.width()}" for button in group))
+        return found
+
+    def test_every_tab(self):
+        for index in range(self.window.tabs.count()):
+            self.window.tabs.setCurrentIndex(index)
+            _settle(self._app)
+            with self.subTest(tab=self.window.tabs.tabText(index)):
+                self.assertEqual(
+                    self._ragged_rows(self.window.tabs.widget(index)), [])
+
+    def test_every_tools_window(self):
+        for opener, attribute in (
+                ("open_geometry_designer", "geometry_designer"),
+                ("open_transient_simulation", "transient_window"),
+                ("open_design_optimization", "optimizer_window"),
+                ("open_stability_derivatives", "stability_window")):
+            getattr(self.window, opener)()
+            _settle(self._app)
+            tool = getattr(self.window, attribute)
+            with self.subTest(window=attribute):
+                self.assertEqual(self._ragged_rows(tool), [])
+
+
+class TestConfigFieldsStartInOneColumn(unittest.TestCase):
+    """Every Config block must open its value column at the same x.
+
+    Each block builds its own `QFormLayout`, so each label column sized
+    itself to its own longest label and the value column stepped left and
+    right down the page.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls._app = QApplication.instance() or QApplication([])
+        from zbemt.gui.app import MainWindow
+        cls.window = MainWindow()
+        cls.window.resize(1600, 1000)
+        cls.window.show()
+        cls.window.tabs.setCurrentIndex(3)
+        _settle(cls._app)
+
+    def test_the_value_column_starts_at_one_x(self):
+        from PyQt6.QtWidgets import QFormLayout
+        tab = self.window.tabs.widget(3)
+        starts = {}
+        for form in tab.findChildren(QFormLayout):
+            for row in range(form.rowCount()):
+                label = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
+                field = form.itemAt(row, QFormLayout.ItemRole.FieldRole)
+                if label is None or field is None:
+                    continue
+                label_widget = label.widget()
+                field_widget = field.widget()
+                if label_widget is None or field_widget is None:
+                    continue
+                if not label_widget.isVisible() or not field_widget.isVisible():
+                    continue
+                # The x of the value column, measured inside the block the
+                # row belongs to, so an indented sub-block keeps its indent.
+                container = field_widget.parentWidget()
+                starts.setdefault(id(container), []).append(
+                    (field_widget.mapTo(container, field_widget.rect().topLeft()).x(),
+                     label_widget.text()))
+        for rows in starts.values():
+            if len(rows) < 2:
+                continue
+            columns = {x for x, _text in rows}
+            self.assertLessEqual(
+                max(columns) - min(columns), 2,
+                f"value column starts at {sorted(columns)}: "
+                + ", ".join(text for _x, text in rows))

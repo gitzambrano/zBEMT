@@ -31,6 +31,11 @@ def _condition(project, **overrides):
     return replace(base, **overrides)
 
 
+def _omega_r(project) -> float:
+    """Tip speed of the project's rotor at the condition RPM used here."""
+    return api.mu_to_V(1.0, 600.0, project.geometry.radius_m)
+
+
 class TestSideslip(unittest.TestCase):
     def test_config_default_is_zero(self):
         self.assertEqual(BEMTConfig().inflow_sideslip_deg, 0.0)
@@ -44,16 +49,37 @@ class TestSideslip(unittest.TestCase):
         for key in ("Thrust", "Torque", "CT", "CP", "CH", "CY"):
             self.assertEqual(a[key], b[key], key)
 
-    def test_sideslip_of_ninety_swaps_the_in_plane_forces(self):
+    def test_the_angle_that_names_no_velocity_is_refused(self):
+        """Ninety degrees of sideslip has no reading.
+
+        The angle SPLITS the longitudinal component into a lateral one,
+        so at ninety degrees it asks for a lateral velocity while giving
+        the longitudinal one no share of the stream at all. The lateral
+        velocity is the spelling that says it, and the angle spelling
+        says so instead of returning a number built from a tangent that
+        has run away."""
+        project = _project()
+        with self.assertRaises(ValueError) as raised:
+            api.run_case(project, _condition(
+                project, mu_x=0.25, sideslip_deg=90.0))
+        self.assertIn("Vy", str(raised.exception))
+
+    def test_lateral_flow_of_ninety_degrees_swaps_the_in_plane_forces(self):
         """The rotor is axisymmetric under rotating the in-plane flow by
         ninety degrees: thrust and torque are unchanged, and the
         in-plane/side force pair swaps (the side force picks up the sign
-        its axis convention gives it)."""
+        its axis convention gives it).
+
+        The ninety-degree case is written with the LATERAL VELOCITY, the
+        one spelling that reaches it: the whole in-plane stream moves
+        into V_y and the longitudinal component goes to zero."""
         project = _project()
+        omega_r = _omega_r(project)
         a = api.run_case(project, _condition(
             project, mu_x=0.25, sideslip_deg=0.0)).summary
         b = api.run_case(project, _condition(
-            project, mu_x=0.25, sideslip_deg=90.0)).summary
+            project, mu_x=0.0, Vy=0.25 * omega_r)).summary
+        self.assertAlmostEqual(b["sideslip_deg"], 90.0, places=6)
         self.assertLess(abs(a["Thrust"] - b["Thrust"]) / a["Thrust"], 1e-3)
         self.assertLess(abs(a["Torque"] - b["Torque"]) / a["Torque"],
                          1e-2)

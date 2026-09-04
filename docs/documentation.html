@@ -653,7 +653,7 @@
 <li><a href="#cap-instalacao">1. Installation</a>
 <ol>
 <li><a href="#cap-instalacao-1">1.1 What to install</a></li>
-<li><a href="#cap-instalacao-2">1.2 Starting it</a></li>
+<li><a href="#cap-instalacao-2">1.2 Starting zBEMT</a></li>
 <li><a href="#cap-instalacao-3">1.3 When an optional package is missing</a></li>
 </ol></li>
 <li><a href="#cap-interfaces">2. The GUI, the CLI and the .bemt files</a>
@@ -726,15 +726,16 @@
 </ol></li>
 <li><a href="#sec-10-run-case">10. Run Case</a>
 <ol>
-<li><a href="#cap-5-1">10.1 In-plane flow — the first row</a></li>
-<li><a href="#cap-5-2">10.2 Along-shaft flow — the second row</a></li>
+<li><a href="#cap-5-1">10.1 In-plane flow: the first row</a></li>
+<li><a href="#cap-5-2">10.2 Along-shaft flow: the second row</a></li>
 <li><a href="#cap-5-3">10.3 Collective pitch</a></li>
 <li><a href="#sec-cyclic-pitch">10.4 Cyclic pitch</a></li>
 <li><a href="#cap-5-4">10.5 Rotational speed</a></li>
 <li><a href="#cap-5-5">10.6 Run mode and trim</a></li>
 <li><a href="#cap-5-6">10.7 Saved cases</a></li>
 <li><a href="#cap-5-7">10.8 The summary table</a></li>
-<li><a href="#sec-perturbation-inputs">10.9 Perturbation inputs: sideslip and hub rates</a></li>
+<li><a href="#sec-perturbation-inputs">10.9 Perturbation inputs: the hub rates</a></li>
+<li><a href="#sec-lateral-flow">10.10 Lateral flow</a></li>
 </ol></li>
 <li><a href="#sec-11-run-batch">11. Run Batch</a>
 <ol>
@@ -810,41 +811,40 @@
 
     <p>zBEMT solves the blade-element and momentum formulations on a common radial-azimuthal mesh.
       It discretizes the blade into radial and azimuthal stations. At each element $(r,\psi)$, both
-      formulations describe the same local load, and their equality determines the induced velocity. The
+      formulations describe the same local load. Therefore, their equality determines the induced velocity. The
       integrated solution follows from these local aerodynamic states and a consistent momentum balance.</p>
 
     <ul>
       <li><b>Blade element theory</b> (<a class="xref" href="#sec-28-blade-element-theory"
           title="5.6 Blade Element Theory">Section 5.6</a>) computes the load directly from the local flow at the
-        airfoil: it takes the angle of attack and reads $C_l$ and $C_d$ from the airfoil polar. It
-        needs the induced velocity as an input (the induced velocity changes the local angle of attack)
-        but does not determine what that induced velocity should be.</li>
+        airfoil. It takes the angle of attack and reads $C_l$ and $C_d$ from the airfoil polar. It
+        needs the induced velocity as an input. The induced velocity changes the local angle of attack. However, blade element theory does not determine what that induced velocity should be.</li>
       <li><b>Momentum theory</b> (<a class="xref" href="#sec-29-momentum-theory" title="5.7 Momentum Theory">Section
           5.7</a>), applied to an elementary annular ring of the disk
         (<a class="xref" href="#cap-18-5" title="5.7.5 From global disk to elementary ring">Section 5.7.5</a>), does the
-        reverse. Given a load, conservation of momentum for the air passing
+        opposite. It determines the induced velocity that a given load requires. Given a load, conservation of momentum for the air passing
         through that ring determines the induced velocity ($\lambda_i$) required to sustain that load. It needs
-        the load as an input and does not describe the airfoil.</li>
+        the load as an input. It does not describe the airfoil.</li>
     </ul>
 
-    <p>Neither theory alone closes the governing system. The solver couples them iteratively. Blade Element Theory computes the
-      aerodynamic loads for an assumed induced velocity. Momentum Theory then
-      updates the induced inflow until the momentum balance and the blade
+    <p>Neither theory alone closes the governing system. The solver couples the two formulations iteratively. Blade element theory computes the
+      aerodynamic loads for an assumed induced velocity. Momentum theory then
+      updates the induced velocity until the momentum balance and the blade
       loads converge.
       <a class="xref" href="#cap-4-5"
-        title="9.5 The induced-inflow solver">Section 9.5</a> describes the numerical controls for this iteration, and <a
+        title="9.5 The induced-inflow solver">Section 9.5</a> describes the numerical controls for this iteration. <a
         class="xref" href="#sec-210-the-fixed-point-equation"
         title="5.8 The fixed-point equation">Section 5.8</a> gives the analytical derivation.</p>
 
-    <p>zBEMT formulates secondary physical effects (such as reverse flow, dynamic stall, non-uniform inflow, tip and
-      root losses, rotational augmentation, and compressibility in <a class="xref" href="#cap-3-5"
-        title="8.5 Compressibility">Section 8.5</a>) as modular corrections applied to
-      either the blade element loads or the momentum equations. Diagnostic analysis should therefore
-      isolate discrepancies to the corresponding branch of this coupled formulation.</p>
+    <p>zBEMT formulates secondary physical effects as modular corrections applied to either the blade element loads
+      or the momentum equations. Secondary effects include reverse flow, dynamic stall, non-uniform inflow, tip and root
+      losses, rotational augmentation, and compressibility. <a class="xref" href="#cap-3-5"
+        title="8.5 Compressibility">Section 8.5</a> describes the compressibility correction. Diagnostic analysis should therefore isolate discrepancies to the
+      corresponding branch of this coupled formulation.</p>
 
     <h3 id="sec-01-scope">0.1 Scope</h3>
 
-    <p>Use this guide in the same order as the <span class="gui">GUI</span>:</p>
+    <p>Use this guide in the same order as the <span class="gui">GUI</span> presents the tabs.</p>
     <ol>
       <li>Describe the aircraft or propeller.</li>
       <li>Define the blade geometry and the airfoil data.</li>
@@ -852,13 +852,11 @@
       <li>Define one case or a batch.</li>
       <li>Inspect the results.</li>
     </ol>
-    <p>This guide includes the equations whenever they help select a value or diagnose a result. It
-      intentionally omits source-level details that do not change that decision.</p>
+    <p>This guide includes the equations whenever they help select a value or diagnose a result. This guide intentionally omits implementation details that do not change that decision.</p>
 
     <figure>
       <img src="img/externas/forces.jpg" alt="UH-60 Black Hawk helicopter in flight" style="max-width:50%;">
-      <figcaption>UH-60 Black Hawk in flight: the physical system modeled by this document's
-        formulation: a disk of $N_b$ blades rotating at angular velocity $\Omega$, producing thrust $T$
+      <figcaption>UH-60 Black Hawk in flight. This figure shows the physical system that this document models: a disk of $N_b$ blades that rotates at angular velocity $\Omega$ and produces thrust $T$
         and torque $Q$. Source: <a href="https://en.wikipedia.org/wiki/Sikorsky_UH-60_Black_Hawk"
           target="_blank">Wikipedia</a>.</figcaption>
     </figure>
@@ -866,17 +864,16 @@
     <a id="cap-1"></a>
     <h2 id="cap-instalacao">1. Installation</h2>
 
-    <p>zBEMT requires Python 3.10 or later. The core solver uses NumPy, SciPy, Matplotlib, and pandas. GUI, three-dimensional visualization, interactive reporting, and external polar generation are
-      optional dependencies. This separation permits headless batch execution without a graphics stack.</p>
+    <p>zBEMT requires Python 3.10 or later. The core solver uses NumPy, SciPy, Matplotlib, and pandas. <span class="gui">GUI</span>, three-dimensional visualization, interactive reporting, and external polar generation are
+      optional dependencies. This separation permits headless batch execution. Therefore you can run a batch without a graphics stack.</p>
 
     <h3 id="cap-instalacao-1">1.1 What to install</h3>
 
-    <p>From the repository root, one command installs everything:</p>
+    <p>From the repository root, run one command to install everything:</p>
 
     <pre><code>pip install -e ".[all]"</code></pre>
 
-    <p>If that is more than you need, install only the groups you will use. Each group is independent, and
-      you can combine them.</p>
+    <p>If that full installation is more than you need, install only the groups you will use. Each group is independent. You can combine groups.</p>
 
     <div class="tablewrap">
       <table>
@@ -888,7 +885,7 @@
         <tr>
           <td><code>pip install -e .</code></td>
           <td>NumPy, SciPy, Matplotlib, pandas</td>
-          <td>The solver and the <span class="cli">CLI</span>. Nothing else is required to run a case or a batch.</td>
+          <td>The solver and the <span class="cli">CLI</span> use these packages. You need nothing else to run a case or a batch.</td>
         </tr>
         <tr>
           <td><code>pip install -e ".[gui]"</code></td>
@@ -923,38 +920,33 @@
       </table>
     </div>
 
-    <h3 id="cap-instalacao-2">1.2 Starting it</h3>
+    <h3 id="cap-instalacao-2">1.2 Starting zBEMT</h3>
 
     <p>The installation puts two commands on the path. <code>zbemt-gui</code> opens the
-      <span class="gui">GUI</span>, and <code>zbemt</code> is the <span class="cli">CLI</span>:
+      <span class="gui">GUI</span>. <code>zbemt</code> opens the <span class="cli">CLI</span>:
     </p>
 
     <pre><code>zbemt-gui                                  # the GUI
 zbemt --project projects/starter_rotor     # run a project from the CLI
 zbemt --help                               # every flag</code></pre>
 
-    <p>If the commands are not found, the installation directory is not on your path. The two commands
-      <code>python -m zbemt.gui.app</code> and <code>python -m zbemt.cli</code> do the same thing.
-      Both of them work with no arguments: they then fall back to the starter rotor, so a working
-      installation always opens or runs an example.
+    <p>If the shell does not find the commands, the installation directory is not on your path. The two commands
+      <code>python -m zbemt.gui.app</code> and <code>python -m zbemt.cli</code> have the same effect.
+      Both commands run without arguments. Then the commands use the starter rotor. Therefore a working installation always opens or runs an example.
     </p>
 
     <h3 id="cap-instalacao-3">1.3 When an optional package is missing</h3>
 
-    <p>A missing optional package never stops zBEMT from starting, and never changes a result. Each
-      feature that depends on an optional package checks for that package and reports it when it is missing:</p>
+    <p>A missing optional package never stops zBEMT from starting. The missing package never changes a result. Each
+      feature that depends on an optional package checks for that package. If the package is missing, the feature reports that the package is missing:</p>
 
     <ul>
-      <li>Without <b>PyQt6</b>, only the <span class="cli">CLI</span> runs. The solver is unaffected,
-        which is the point of keeping the two apart.</li>
-      <li>Without <b>PyVista</b>, the three-dimensional view is unavailable and the two-dimensional plots
-        continue to work normally.</li>
+      <li>Without <b>PyQt6</b>, only the <span class="cli">CLI</span> runs. The solver is unaffected. This separation keeps the solver and the <span class="cli">CLI</span> apart.</li>
+      <li>Without <b>PyVista</b>, the three-dimensional view is unavailable. The two-dimensional plots continue to work normally.</li>
       <li>Without <b>NeuralFoil</b>, or without the XFOIL executable when XFOIL is the chosen
-        engine, polar generation reports, when you click the button, what is missing and how to install
-        the missing package.
+        engine, polar generation reports what is missing. When you click the button, the report states how to install the missing package.
         Analytical polars and imported tables are unaffected.</li>
-      <li>Without <b>Plotly</b>, reports are generated with static figures instead of interactive
-        figures.</li>
+      <li>Without <b>Plotly</b>, the software generates reports with static figures instead of interactive figures.</li>
     </ul>
 
     <p>In every case the message names the package to install. Nothing degrades silently.</p>
@@ -968,31 +960,21 @@ zbemt --help                               # every flag</code></pre>
     <p>zBEMT exposes one computational model through three synchronized interfaces. The
       <b><span class="gui">GUI</span></b>, the <b><span class="bemt">.bemt</span></b> project files, and the
       <b><span class="cli">CLI</span></b> use the same validation, solver, and reporting paths. Equivalent
-      inputs therefore produce equivalent numerical results. This chapter defines the role of each
-      interface, the file that stores each setting, and the outputs produced by a run.
+      inputs therefore produce equivalent numerical results. This chapter defines the role of each interface. It identifies the file that stores each setting. It describes the outputs that a run produces.
     </p>
 
     <h3 id="cap-interfaces-1">2.1 What each one is for</h3>
 
-    <p>The <b><span class="gui">GUI</span></b> is where a configuration is built and checked. It shows the
-      consequences of a choice immediately: the blade preview redraws as the geometry changes, options
-      that do not apply disappear, and the bar at the top of the <span class="gui">GUI</span> reports whether each step
-      is
-      complete. Use it to define a rotor and to understand a result.</p>
+    <p>The <b><span class="gui">GUI</span></b> builds and checks a configuration. The <b><span class="gui">GUI</span></b> shows the consequence of a choice immediately. The blade preview redraws when the geometry changes. The <span class="gui">GUI</span> hides options that do not apply. The bar at the top of the <span class="gui">GUI</span> reports whether each step is complete, incomplete, or in error. Use the <span class="gui">GUI</span> to define a rotor. Use the <span class="gui">GUI</span> to examine a result.</p>
 
-    <p>The <b><span class="bemt">.bemt</span> files</b> are the record of what was configured. A project is a folder of
-      small
-      text files in JSON format, one per subject, which you can read, edit, copy between machines and
-      track in version control. These files are the definition of the case. Everything else reads from
-      them.</p>
+    <p>The <b><span class="bemt">.bemt</span> files</b> record the configuration. A project is a folder of small text files in JSON format. The folder contains one file per subject. You can read, edit, copy, and track these files in version control. These files are the definition of the case. zBEMT reads every other input from these files.</p>
 
-    <p>The <b><span class="cli">CLI</span></b> runs a project without a display. It is the way to launch a long sweep,
-      to run on a server, or to repeat the same study over several projects from a script. It needs
+    <p>The <b><span class="cli">CLI</span></b> runs a project without a display. The <b><span class="cli">CLI</span></b> provides three capabilities. It launches a long sweep. It runs on a server without a display. It repeats a study over several projects from a script. It needs
       neither the graphical libraries nor a screen.</p>
 
     <h3 id="cap-interfaces-2">2.2 The project folder</h3>
 
-    <p>A project is a folder containing two subfolders. The inputs are the definition of the case. The
+    <p>A project is a folder that contains two subfolders. The inputs are the definition of the case. The
       outputs are what a run produces.</p>
 
     <div class="tablewrap">
@@ -1042,40 +1024,24 @@ zbemt --help                               # every flag</code></pre>
       </table>
     </div>
 
-    <p>A key that is absent from a file takes its default value, so a short file is valid and describes
-      a rotor using defaults for everything it does not mention. When a key is present but not
-      recognized, zBEMT reports that key as unknown and ignores it. The unknown key does not stop the run, but zBEMT does not
-      use its value, and the field falls back to its default. This behavior is the usual cause of a hand-edited file that
-      appears to have no effect.</p>
+    <p>A key that is absent from a file takes its default value. Therefore, a short file is valid. The short file describes a rotor that uses default values for every omitted key. When a key is present but not recognized, zBEMT reports that key as unknown. Then zBEMT ignores the unknown key. The unknown key does not stop the run. zBEMT does not use the value of the unknown key. The field falls back to its default value. This fallback to the default is the usual cause of a hand-edited file that appears to have no effect.</p>
 
     <h3 id="cap-interfaces-3">2.3 Setting a value</h3>
 
-    <p>A project is a folder of <span class="bemt">.bemt</span> files, and those files are the only
-      place a setting is ever stored. The <span class="gui">GUI</span> and the
-      <span class="cli">CLI</span> are two ways of reading and writing that same folder. Neither has a
-      format of its own, and neither can express anything the other cannot: the chapters that follow
-      give, for every field, the widget that sets it, the key that stores it and the flag that overrides
-      it.
+    <p>A project is a folder of <span class="bemt">.bemt</span> files. Those files are the only place that stores a setting. The <span class="gui">GUI</span> and the
+      <span class="cli">CLI</span> are two ways of reading and writing that same folder. Neither interface has a format of its own. Neither interface can express a setting that the other interface cannot express. Therefore, the chapters that follow give for every field the widget that sets the field, the key that stores the field, and the flag that overrides the field.
     </p>
 
     <p>Each interface plays a different part.</p>
 
-    <p>The <span class="gui">GUI</span> edits and writes the files. When you type a value into a field, the
-      <span class="gui">GUI</span> changes the project held in memory. Nothing reaches disk until you save, at which point the
-      <span class="gui">GUI</span> writes the whole project back to <span class="bemt">.bemt</span> files. These are the same files you can
-      edit by hand. This is why the <span class="gui">GUI</span> is a good way to author a
-      project: build the project on screen, save it, and the folder is ready for any of the three
-      interfaces.</p>
+    <p>The <span class="gui">GUI</span> edits the project. The <span class="gui">GUI</span> writes the files. When you type a value into a field, the
+      <span class="gui">GUI</span> changes the project held in memory. zBEMT writes nothing to disk until you save. When you save, the <span class="gui">GUI</span> writes the whole project back to <span class="bemt">.bemt</span> files. These are the same files you can
+      edit by hand. Therefore, the <span class="gui">GUI</span> is a good way to author a project. Build the project on screen. Save the project. Then the folder is ready for any of the three interfaces.</p>
 
-    <p>The <span class="bemt">.bemt</span> files hold the project. They are plain JSON, so a number is
-      written as <code>"Ne": 90</code>, a switch as <code>true</code> or <code>false</code>, and a choice
-      as the quoted name of the option. You can create and edit them in a text editor without ever
+    <p>The <span class="bemt">.bemt</span> files hold the project. The <span class="bemt">.bemt</span> files are plain JSON. Therefore, a number appears as <code>"Ne": 90</code>, a switch appears as <code>true</code> or <code>false</code>, and a choice appears as the quoted name of the option. You can create and edit them in a text editor without ever
       opening the <span class="gui">GUI</span>.</p>
 
-    <p>The <span class="cli">CLI</span> runs a project and can override any field for that one run. It
-      does not write the project back: an override changes what is solved, not what is stored, so the
-      folder is exactly as it was when the run ends. Use the field's own flag where one exists, for
-      example <code>--rpm 300</code> or <code>--inflow coleman_local</code>. Reach every other field
+    <p>The <span class="cli">CLI</span> runs a project and can override any field for that one run. The <span class="cli">CLI</span> does not write the project back. An override changes what zBEMT solves, not what zBEMT stores. Therefore, the folder is exactly as it was when the run ends. If the field has its own flag, use that flag, for example, <code>--rpm 300</code> or <code>--inflow coleman_local</code>. Reach every other field
       with <code>--set</code>, which takes the file group, the field and the value:</p>
 
     <pre><code>zbemt --project projects/starter_rotor --rpm 300 \
@@ -1090,7 +1056,7 @@ zbemt --help                               # every flag</code></pre>
 
     <p>None of the three requires the others. Each of the following is a complete way to work.</p>
 
-    <p><b>Only the <span class="gui">GUI</span>.</b> Open it with <code>zbemt-gui</code> and create a project.
+    <p><b>Work with only the <span class="gui">GUI</span>.</b> Open the <span class="gui">GUI</span> with <code>zbemt-gui</code>. Then create a project.
       Complete the tabs. Run from the Run Case or Run Batch tab. Saving writes the
       <span class="bemt">.bemt</span> files. You never need to look at the files. This is the recommended
       route for a first project.
@@ -1098,13 +1064,11 @@ zbemt --help                               # every flag</code></pre>
 
     <p><b>Only <span class="bemt">.bemt</span> files.</b> Write the files by hand. Alternatively, copy an
       example project from <code>projects/</code> and edit the copy. Then solve the saved cases with
-      <code>zbemt --project projects/MyRotor</code>. The project defines the geometry, the airfoil, the
-      configuration and the conditions to run, so the command needs nothing but the folder. Nothing here
+      <code>zbemt --project projects/MyRotor</code>. The project defines the geometry, the airfoil, the configuration, and the conditions to run. Therefore, the command needs nothing but the folder. Nothing here
       requires PyQt6. Therefore, this is the route for a headless machine.
     </p>
 
-    <p><b>Only the <span class="cli">CLI</span>.</b> The <span class="cli">CLI</span> always needs a project folder: the
-      folder is where the geometry, the airfoil and the configuration live. The
+    <p><b>Only the <span class="cli">CLI</span>.</b> The <span class="cli">CLI</span> always needs a project folder. The folder stores the geometry, the airfoil, and the configuration. The
       <span class="cli">CLI</span> can create a folder: <code>zbemt --new projects/MyRotor</code> writes a
       folder with default geometry and airfoil, which you then shape with flags. A fresh project has no
       saved case, so that first command creates the folder and runs nothing. From then on, zBEMT solves
@@ -1116,22 +1080,16 @@ zbemt --project projects/MyRotor --mu-inplane 0.2 --collective 8 --rpm 300
 zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects/MyRotor</code></pre>
 
     <p><code>--save-as</code> is what turns an override into a stored setting: without it the flags
-      affect the run and nothing else. When you run <code>zbemt</code> with no arguments at all, it validates the
-      <code>starter_rotor</code> example and exits without solving. Therefore, that command is a fast way to
+      affect the run and nothing else. When you run <code>zbemt</code> with no arguments at all, zBEMT validates the <code>starter_rotor</code> example. Then zBEMT exits without solving. Therefore, that command is a fast way to
       confirm that an installation works.
     </p>
 
     <h3 id="cap-interfaces-4">2.4 Checking a project before running it</h3>
 
-    <p>Validation applies the same rules in all three interfaces, and it always runs before the solver
-      does: pressing Run, or launching a run from the command line, checks the project first and stops
-      if a check fails. You never have to ask for validation, and a run that starts already passed
-      validation.</p>
+    <p>Validation applies the same rules in all three interfaces. Validation always runs before the solver. Pressing Run in the <span class="gui">GUI</span> or launching a run from the <span class="cli">CLI</span> checks the project first. If a check fails, zBEMT stops the run. You never have to ask for validation. A run that starts has already passed validation.</p>
 
-    <p>In the <span class="gui">GUI</span> the bar at the top of the window shows each step as
-      complete, incomplete or in error, so the state of the project is visible before you press anything.
-      From the <span class="cli">CLI</span>, <code>--validate-only</code> runs the checks, reports what
-      they found and exits without solving. That is worth doing before an unattended batch that will take
+    <p>In the <span class="gui">GUI</span>, the bar at the top of the window shows each step as complete, incomplete, or in error. Therefore, the state of the project is visible before you press Run.
+      From the <span class="cli">CLI</span>, <code>--validate-only</code> runs the checks. The command reports what the checks found. Then the command exits without solving. That is worth doing before an unattended batch that will take
       hours.</p>
 
     <p>Findings are of two kinds: errors, which stop the run, and warnings, which do not. If you want to run in
@@ -1141,9 +1099,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
 
     <h3 id="cap-interfaces-5">2.5 What a run produces</h3>
 
-    <p>There are two kinds of run. A <b>single case</b> solves one flight condition. A <b>batch</b>
-      solves a list of conditions one after another, with everything except the condition held fixed, so
-      the results are directly comparable. The numbers are the same whichever way you start the run. What differs is what zBEMT shows and what it writes to disk.</p>
+    <p>There are two kinds of run. A <b>single case</b> solves one flight condition. A <b>batch</b> solves a list of conditions one after another. zBEMT holds everything except the condition fixed during the batch. Therefore, the results are directly comparable. The numbers are the same whichever way you start the run. What differs is what zBEMT shows and what it writes to disk.</p>
 
     <h4 id="cap-interfaces-5-1">2.5.1 What appears on screen</h4>
 
@@ -1226,14 +1182,11 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       </table>
     </div>
 
-    <p><b>Where the files go.</b> From the <span class="cli">CLI</span>, <code>--outdir PATH</code> chooses the folder,
-      and a
-      batch may carry its own <code>outdir</code>, which the flag overrides. When a batch has many conditions, the
+    <p><b>Where the files go.</b> From the <span class="cli">CLI</span>, <code>--outdir PATH</code> chooses the folder. A batch may carry its own <code>outdir</code>. If both exist, the flag overrides the batch setting. When a batch has many conditions, the
       per-condition images are numerous. Therefore, <code>--export-layout per_case</code> puts each condition's
       figures in its own subfolder instead of naming them all in one.</p>
 
-    <p><b>The plots and the report are independent.</b> If you ask for no plots, the report is not emptied;
-      if you ask for a report, no loose images are written. The plots setting controls what sits on disk as
+    <p><b>The plots and the report are independent.</b> If you ask for no plots, zBEMT does not empty the report. If you ask for a report, zBEMT writes no loose images. The plots setting controls what sits on disk as
       PNG files. The report setting controls what is embedded in the HTML. When a report would carry a very
       large number of figures, zBEMT writes it as a small main page with companion pages beside it, so the main page stays
       quick to open. Nothing is left out.</p>
@@ -1270,57 +1223,50 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
 
     <div class="boxed note" id="workflow-reference">
       <b>Reading order.</b> The operational path is Project &rarr; Geometry &rarr; Airfoil
-      &rarr; Config/Engine &rarr; Run Case or Run Batch &rarr; Results. The introduction chapters
+      &rarr; Config and Engine &rarr; Run Case or Run Batch &rarr; Results. The introduction chapters
       before them explain the method once, so that the chapters that follow can describe the
       controls rather than the theory. From there, each tab has a chapter of its own.
-      Each chapter explains every field where its control is: the physics, the mathematics, the options,
-      and how to set it in the <span class="gui">GUI</span>, in a <span class="bemt">.bemt</span> file and from the <span class="cli">CLI</span>. The Help
+      Each chapter explains every field where its control is. It gives the physics, the mathematics and the options. It then gives how to set the field in the <span class="gui">GUI</span>, in a <span class="bemt">.bemt</span> file and from the <span class="cli">CLI</span> in three separate paragraphs. The Help
       button
       on any field opens exactly that section.
     </div>
 
-    <h4 id="uso-projeto">Project &mdash; start from a saved state</h4>
+    <h4 id="uso-projeto">Project: start from a saved state</h4>
     <p>In the <b>Project</b> tab, create a project or open an example. Choose Rotor or
-      Propeller before you enter the flight conditions: the engine solves the same physics,
-      but the interface switches the input and coefficient conventions. Edits reach the
+      Propeller before you enter the flight conditions. The engine solves the same physics in both modes. Therefore, the interface switches the input and coefficient conventions. Edits reach the
       project in memory as you make them. <b>Save</b> writes that state to disk.
       Switching projects clears the session's result history.</p>
 
-    <h4 id="uso-geometria">Geometry &mdash; describe the blade before tuning the case</h4>
+    <h4 id="uso-geometria">Geometry: describe the blade before tuning the case</h4>
     <p>Enter the blade count and the radius. If you do not have a geometry table yet,
       generate a starting table. Then review <i>r/R</i>, chord and twist. Each cell you edit goes into the project in
-      memory at once, so the preview and the calculation always describe the same blade. <b>Save</b> writes it to disk and <b>Restore</b> reloads the last saved version. The
+      memory at once, so the preview and the calculation always describe the same blade. <b>Save</b> writes the changes to disk. <b>Restore</b> reloads the last saved version. The
       field list at the head of each chapter follows the order of the controls on screen.
     </p>
 
-    <h4 id="uso-aerofolio">Airfoil &mdash; where the local forces come from</h4>
-    <p>The polar source is <code>analytical</code> (closed-form linear
-      coefficients) or <code>table</code> (imported or generated data, covering
-      Reynolds, Mach and angles of attack). Dynamic stall, reverse flow and
-      compressibility are independent corrections applied to that base
-      polar.</p>
+    <h4 id="uso-aerofolio">Airfoil: where the local forces come from</h4>
+    <p>The polar source is <code>analytical</code> or <code>table</code>. Analytical uses closed-form linear coefficients. Table uses imported or generated data that covers Reynolds number, Mach number and angle of attack. The solver applies dynamic stall, reverse flow and compressibility as independent corrections to that base polar.</p>
 
-    <h4 id="uso-config">Config/Engine &mdash; mesh and physical models</h4>
-    <p><i>Ne</i> discretizes the radius and <i>Npsi</i> discretizes the azimuth. Together they define the mesh over which the solver integrates forces. Inflow,
-      Prandtl losses and solver are independent models composed over that mesh.
-      The static validation runs on its own. The panel at the bottom of the tab
-      restates it after every edit, here or in any other tab. Therefore, what
+    <h4 id="uso-config">Config/Engine: mesh and physical models</h4>
+    <p><i>Ne</i> discretizes the radius. <i>Npsi</i> discretizes the azimuth. Together they define the mesh over which the solver integrates forces. Inflow,
+      Prandtl losses and the solver are independent models. The solver composes them over that mesh.
+      The static validation runs on its own. The panel at the bottom of the tab restates the validation result after every edit in any tab. Therefore, what
       it shows is always the current project.</p>
 
-    <h4 id="uso-case">Run Case &mdash; one physical condition at a time</h4>
+    <h4 id="uso-case">Run Case: one physical condition at a time</h4>
     <p>Set the in-plane advance, axial velocity, collective and RPM. Collective and
-      RPM are not numerical conveniences: they set the geometric angle and the velocity scale
+      RPM are not numerical conveniences. They set the geometric angle and the velocity scale
       of the flow. Run the case. Then use the <b>Results</b> tab to compare the case against
       earlier runs.</p>
 
-    <h4 id="uso-batch">Run Batch &mdash; generate, queue, run</h4>
-    <p>Choose axes or add individual conditions. Both paths feed the same queue. Review it before running. A batch is not an automatic trim: with the collective
+    <h4 id="uso-batch">Run Batch: generate, queue, run</h4>
+    <p>Choose axes or add individual conditions. Both paths feed the same queue. Before you run the batch, review the queue. A batch is not an automatic trim: with the collective
       held fixed, thrust and power are outputs that vary with the condition.</p>
 
-    <h4 id="uso-resultados">Results &mdash; compare before exporting</h4>
+    <h4 id="uso-resultados">Results: compare before exporting</h4>
     <p>Select one or more runs from the history to compare charts and tables.
       Export writes result files. The report command creates the self-contained HTML
-      of the run. Neither changes the physics that was already solved.</p>
+      of the run. Neither the export nor the report changes the physics that the solver already solved.</p>
 
     <a id="cap-0"></a>
     <h3 id="sec-12-workflow">3.2 Workflow</h3>
@@ -1331,18 +1277,10 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       <pre>zbemt-gui        # GUI
 zbemt --help     # command line</pre>
       Without installing, the equivalents are <code>python -m zbemt.gui.app</code> and
-      <code>python -m zbemt.cli</code>. The window opens maximized and empty: the first step is
-      always the <b>Project</b> tab, where you choose one of the examples that come preinstalled
-      (<a class="xref" href="#cap-0-5" title="3.2.5 First use">Section 3.2.5</a>) or create a new project.
+      <code>python -m zbemt.cli</code>. The window opens maximized and empty. The first step is always the <b>Project</b> tab. There you choose one of the examples that come preinstalled (<a class="xref" href="#cap-0-5" title="3.2.5 First use">Section 3.2.5</a>) or create a new project.
     </div>
 
-    <p>The <span class="gui">GUI</span> workflow is organized into <b>seven tabs</b> matching standard
-      project setup: <b>1. Project</b> (mode and file management) &rarr; <b>2. Geometry</b> (radial blade
-      chord and twist distribution) &rarr; <b>3. Airfoil</b> (polar models and aerodynamic corrections)
-      &rarr; <b>4. Config/Engine</b> (discretization, inflow model, and solver numerical parameters) &rarr;
-      <b>5. Run Case</b> (single flight condition evaluation) or <b>6. Run Batch</b> (parametric sweeps)
-      &rarr; <b>7. Results</b> (post-processing and export). The reference manual follows this tab sequence
-      sequentially.
+    <p>The <span class="gui">GUI</span> organizes the workflow into seven tabs. The reference manual follows this tab sequence sequentially: <b>1. Project</b> — mode and file management &rarr; <b>2. Geometry</b> — radial blade chord and twist distribution &rarr; <b>3. Airfoil</b> — polar models and aerodynamic corrections &rarr; <b>4. Config and Engine</b> — discretization, inflow model, and solver numerical parameters &rarr; <b>5. Run Case</b> — single flight condition evaluation or <b>6. Run Batch</b> — parametric sweeps &rarr; <b>7. Results</b> — post-processing and export.
     </p>
 
     <h4 id="cap-0-1">3.2.1 Flow indicator bar</h4>
@@ -1350,7 +1288,7 @@ zbemt --help     # command line</pre>
       of the seven steps above. Green means the step is configured and valid. Amber means it is configured with warnings. Red
       means a blocking error. Gray means it is not yet configured. Click any indicator to jump directly to the corresponding tab. This jump helps
       you resume a large project without stepping through the tabs in
-      order. The <b>Help</b> button opens this document; its shortcut <b>F1</b> sits at the far
+      order. The <b>Help</b> button opens this document. Its shortcut <b>F1</b> sits at the far
       right of the same bar. The <b>Tools</b> button sits immediately to the left of Help. It opens
       the Geometry Designer (<a class="xref" href="#cap-designer" title="13. Geometry Variation Studies">Chapter
         13</a>).</p>
@@ -1361,7 +1299,7 @@ zbemt --help     # command line</pre>
       update immediately. There is no pending draft, and no button that has to be pressed before a value
       counts.</p>
 
-    <p>Writing to disk is the one thing that does not happen automatically. The project folder stays
+    <p>zBEMT does not write to disk automatically. The project folder stays
       exactly as it was until you save, so you can make an edit, examine it and abandon it without
       consequence.</p>
 
@@ -1372,16 +1310,14 @@ zbemt --help     # command line</pre>
     </p>
 
     <p><b>Save.</b> <b>Save</b> writes the whole project folder and clears the
-      asterisks. The button is in the Project tab and repeated in Geometry, Airfoil and
-      Config/Engine (labeled <b>Save</b> in the Geometry tab), so you never have to change
-      tabs to commit what you just typed. <code>Ctrl+S</code> does the same from anywhere in
+      asterisks. The button is in the Project tab and repeated in Geometry, Airfoil and Config and Engine. In the Geometry tab the button is labeled <b>Save</b>. Therefore, you never have to change tabs to commit what you just typed. <code>Ctrl+S</code> does the same from anywhere in
       the <span class="gui">GUI</span>.</p>
 
     <p><b>Restore.</b> <b>Restore</b>, labeled <b>Restore</b> in the Geometry
       and Airfoil tabs, does the opposite. It reloads the project folder exactly as it stands
       on disk and discards every unsaved edit. It is a full reload, not a step-by-step undo,
       and it asks for confirmation first when there is unsaved work. This reload is what makes free
-      experimentation safe. Change values and watch the preview. Then either save the changes or discard
+      experimentation safe. Change values. Then watch the preview. Then either save the changes or discard
       them with Restore.</p>
 
     <p>When you close the <span class="gui">GUI</span> with unsaved work, zBEMT asks before it exits and offers
@@ -1420,7 +1356,7 @@ zbemt --help     # command line</pre>
         </tr>
         <tr>
           <td><code>Ctrl+Enter</code></td>
-          <td>Re-reads the current tab's fields into the project in memory. Edits already apply as you type (<a
+          <td>This shortcut re-reads the current tab's fields into the project in memory. Edits already apply as you type (<a
               class="xref" href="#cap-0-2" title="3.2.2 Live edits, unsaved marker, save and restore">Section
               3.2.2</a>), so this only forces a refresh. It never writes to disk</td>
         </tr>
@@ -1442,9 +1378,7 @@ zbemt --help     # command line</pre>
     <h4 id="cap-0-5">3.2.5 First use</h4>
     <p>The repository ships <b>16</b> ready-to-run projects under <code>projects/</code>.
       Two are the starting points: <code>starter_rotor</code> for a helicopter rotor and
-      <code>starter_propeller</code> for an aircraft propeller. The remaining fourteen are the projects of the
-      worked examples, and they are worth opening for the same reason: between them they cover
-      both modes, the range of machine sizes zBEMT is used on, and most of the models it implements.
+      <code>starter_propeller</code> for an aircraft propeller. The remaining fourteen are the worked examples. They are worth opening. Together they cover both modes, the range of machine sizes that zBEMT handles, and most of the models that zBEMT implements.
       An opened example is a fast way to understand the tool, because it already carries saved flight
       cases and sweeps.
     </p>
@@ -1627,26 +1561,21 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 11.7</a>).</p>
 
     <p>To start from your own rotor instead of an example, begin with the Project tab. Then follow
-      the tabs in order. Each of the seven has a chapter of its own, in the same order.</p>
+      the tabs in order. Each of the seven tabs has a chapter of its own, in the same order.</p>
 
     <hr>
 
     <a id="cap-9"></a>
     <h2 id="cap-nomenclatura">4. Nomenclature and axes</h2>
 
-    <p>This chapter defines the vehicle-axis convention, the rotor and propeller display
-      labels, the sign conventions, and the dimensional and nondimensional quantities used throughout
-      the <span class="gui">GUI</span>, <span class="bemt">.bemt</span> files, and
-      <span class="cli">CLI</span>. The equations are unchanged by the display convention.
+    <p>This chapter defines the vehicle-axis convention. It defines the rotor and propeller display labels, the sign conventions, and the dimensional and nondimensional quantities that the <span class="gui">GUI</span>, <span class="bemt">.bemt</span> files, and <span class="cli">CLI</span> use. The display convention does not change the equations.
     </p>
 
     <h3 id="sec-21-nomenclature">4.1 Nomenclature</h3>
 
     <figure>
       <img src="img/axis_convention.svg" alt="Axis convention for rotor and propeller mode">
-      <figcaption>Axis convention. The <b>same physical component changes letter with the mode</b>: the
-        component along the shaft, the one the induced velocity adds to, is $z$ for a rotor
-        and $x$ for a propeller, while the in-plane component is $x$ for a rotor and $z$ for a propeller.
+      <figcaption>Axis convention. The <b>same physical component changes letter with the mode</b>. The component along the shaft, the direction of the induced velocity, is $z$ for a rotor and $x$ for a propeller. The in-plane component is $x$ for a rotor and $z$ for a propeller.
         The angle is measured from the disk plane for a rotor ($\alpha_{rotor}$) and from the shaft for a
         propeller ($\alpha_{disk}$).
         <b>Sign.</b> Every axial quantity shares one direction: $V_z$, $\lambda_z$, $\mu_z$, $J_z$,
@@ -1683,7 +1612,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       letters between them.
     </p>
 
-    <h4>Rotor &mdash; vertical shaft</h4>
+    <h4>Rotor: vertical shaft</h4>
 
     <p>Axial flow is <b>vertical</b>. It is the climb, when positive, or the descent, when negative. In-plane flow is
       <b>horizontal</b>. It is the classic forward-flight advance.
@@ -1722,7 +1651,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       level forward flight and positive when the flow arrives from below the disk. Level cruise is
       therefore $\mu_x>0$ with $\alpha_{rotor}\approx0^\circ$. Hover is $\mu_x=\mu_z=0$.</p>
 
-    <h4>Propeller &mdash; horizontal shaft</h4>
+    <h4>Propeller: horizontal shaft</h4>
 
     <p>Axial flow is <b>horizontal</b>: the aircraft's airspeed. In-plane flow is <b>vertical</b>: the
       cross-flow that appears in a climb, a descent or at an angle of attack, and is zero in straight
@@ -1893,7 +1822,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         <tr>
           <td>$\lambda_r$</td>
           <td>dimensionless</td>
-          <td>Local rotational/axial ratio (Himmelskamp correction, <a class="xref" href="#cap-4-4-1"
+          <td>Local rotational and axial ratio (Himmelskamp correction, <a class="xref" href="#cap-4-4-1"
               title="9.4.1 Rotational augmentation">Section 9.4.1</a>).</td>
         </tr>
         <tr>
@@ -2082,7 +2011,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         <tr>
           <td>$C_T$, $C_Q$, $C_P$</td>
           <td>dimensionless</td>
-          <td>Thrust/torque/power coefficients, rotor convention.</td>
+          <td>Thrust, torque and power coefficients, rotor convention.</td>
         </tr>
         <tr>
           <td>$C_{T,prop}$, $C_{Q,prop}$, $C_{P,prop}$</td>
@@ -2551,21 +2480,16 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <h2 id="cap-metodo">5. The method</h2>
 
-    <p>The method described next is quasi-steady twice over: the inflow reacts without inertia
-      inside one solve, and the blade, when it carries a flap or lag freedom, answers with a
-      periodic response that repeats every revolution instead of a transient. Both limits
-      belong to the model, not to an approximation of it, and they are what keep a
-      blade-element momentum solution consistent.</p>
+    <p>The next sections describe a quasi-steady method. The method is quasi-steady in two senses. Inside one solve, the inflow reacts with no inertia.
+      When the blade has a flap or lag freedom, the blade produces a periodic response that repeats each revolution. It does not produce a transient. Both limits belong to the model. They do not belong to an approximation of the model. Therefore they keep the blade-element momentum solution consistent.</p>
 
 <h3 id="sec-23-disk-discretization-radial-azimuthal-mesh">5.1 Disk discretization: radial-azimuthal mesh</h3>
 
-    <p>BEMT solves the physics element by element. The method writes a local equation at each point
-      $(r,\psi)$ and integrates the result numerically over the disk as a double Riemann integral
-      approximated by the trapezoidal rule (detailed in <a class="xref" href="#sec-122-results-aggregation"
+    <p>BEMT solves the physics element by element. The method formulates a local equation at each point
+      $(r,\psi)$. Then it integrates the result over the disk as a double Riemann integral. The integral uses the trapezoidal rule (see <a class="xref" href="#sec-122-results-aggregation"
         title="12.2 Results Aggregation">Section 12.2</a>). The discrete mesh
       replaces the continuous disk with
-      $N_e$ radial stations by $N_\psi$ azimuthal stations: $N_e\times N_\psi$ elements, each with
-      position $(r,\psi)$, interpolated chord and twist, and, after solution, its own aerodynamic state.</p>
+      $N_e$ radial stations and $N_\psi$ azimuthal stations. The mesh has $N_e\times N_\psi$ elements. Each element has a position $(r,\psi)$, an interpolated chord and twist, and its own aerodynamic state after solution.</p>
 
     <figure>
       <img src="img/11-disk-discretization-radial-azimuthal-mesh-1.png" alt="Actual zBEMT radial-azimuthal mesh" style="max-width:42%;">
@@ -2577,9 +2501,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <p>In hover, and in any purely axial climb or descent, the in-plane component is zero and the
       solution does not depend on $\psi$. The full mesh is built even so, and every azimuthal column then
-      returns the same result. This uniformity is deliberate: one formulation covers hover, climb, descent
-      and forward flight, and the axisymmetric case is simply the limit of the general one rather than a
-      separate treatment. The cost is redundant work in hover, so raising $N_\psi$ in hover gains no
+      returns the same result. This uniformity is deliberate. One formulation covers hover, climb, descent and forward flight. Therefore the axisymmetric case is the limit of the general case. It is not a separate treatment. The cost is redundant work in hover, so raising $N_\psi$ in hover gains no
       accuracy.</p>
 
     <div class="boxed">
@@ -2599,11 +2521,9 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       integral (trapezoidal) over this mesh.</p>
 
     <div class="boxed note">
-      $N_e$ controls the radial resolution of the mesh. A higher $N_e$ increases the fidelity near the root (where
-      $C_l$ and $C_d$ vary rapidly with the Himmelskamp correction, <a class="xref" href="#cap-4-4-1"
-        title="9.4.1 Rotational augmentation">Section 9.4.1</a>) and near the tip
-      (where the Prandtl factor, <a class="xref" href="#cap-4-3" title="9.3 Tip and root loss">Section 9.3</a>, varies
-      rapidly). $N_\psi$ controls the azimuthal resolution.
+      $N_e$ controls the radial resolution of the mesh. A higher $N_e$ increases fidelity near the root, where
+      $C_l$ and $C_d$ vary rapidly with the Himmelskamp correction (see <a class="xref" href="#cap-4-4-1"
+        title="9.4.1 Rotational augmentation">Section 9.4.1</a>), and near the tip, where the Prandtl factor varies rapidly (see <a class="xref" href="#cap-4-3" title="9.3 Tip and root loss">Section 9.3</a>). $N_\psi$ controls the azimuthal resolution.
       In pure hover ($\mu_x=0$) the flow is axisymmetric, and $N_\psi=1$ already solves the problem
       exactly. In forward flight, $N_\psi$ determines how well the azimuthal variation of $\alpha_{eff}$
       is resolved. With dynamic stall active, $N_\psi$ also sets the azimuthal resolution of the
@@ -2616,9 +2536,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <a id="s3"></a>
     <h3 id="sec-24-blade-element-velocities-u-p-u-t-w">5.2 Blade element velocities: $U_P$, $U_T$, $W$</h3>
 
-    <p>At a blade element at $(r,\psi)$, with the rotor turning at $\Omega$, advancing at $V_x$ and
-      climbing or descending at $V_z$, the relative velocity is the vector sum of three
-      contributions: rotor rotation, aircraft forward motion, and induced velocity (<a class="xref"
+    <p>Consider a blade element at $(r,\psi)$. The rotor turns at $\Omega$, advances at $V_x$ and climbs or descends at $V_z$. At this element the relative velocity is the vector sum of rotor rotation, aircraft forward motion, and induced velocity (see <a class="xref"
         href="#sec-29-momentum-theory" title="5.7 Momentum Theory">Section 5.7</a>). This
       relative velocity decomposes into two orthogonal components: one in the disk plane
       ($U_T$) and one perpendicular to it ($U_P$).</p>
@@ -2639,9 +2557,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
           target="_blank">S. Kumar, <i>Fundamentals of Helicopter Aerodynamics</i></a>.</figcaption>
     </figure>
 
-    <p>This asymmetry (advancing blade faster, retreating blade slower) produces the lift asymmetry
-      characteristic of forward flight and, at sufficiently high $\mu_x$, a region
-      with $U_T&lt;0$: the reverse flow (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>).</p>
+    <p>This asymmetry produces the lift asymmetry characteristic of forward flight. The advancing blade moves faster, the retreating blade slower. At sufficiently high $\mu_x$ a region with $U_T&lt;0$ appears: the reverse flow (see <a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>).</p>
 
     <h4 id="cap-12-2">5.2.2 Component perpendicular to the disk, $U_P$</h4>
     <div class="eqn">$$U_P \;=\; V_z \;+\; v_i \;=\; (\lambda_z + \lambda_i)\,\Omega R \;=\; \lambda_{total}\,\Omega R$$
@@ -2664,7 +2580,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <figure>
       <img src="img/externas/BET_airfoil_loads.png" alt="Velocity triangle and blade element loads">
-      <figcaption>Velocity triangle ($U_P$, $U_T$, $W$) and lift/drag decomposition
+      <figcaption>Velocity triangle ($U_P$, $U_T$, $W$) and lift and drag decomposition
         via $\phi$. Source: <a href="https://kumar-sumeet.github.io/HeliAeroNotes/Lectures/2_BET/1_BET.html"
           target="_blank">S. Kumar, <i>Fundamentals of Helicopter Aerodynamics</i></a>.</figcaption>
     </figure>
@@ -2685,14 +2601,13 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <h4 id="cap-13-1">5.3.1 Pitch angle, $\theta$</h4>
     <p>$\theta(r)$ is the geometric incidence of the blade chord with respect to the disk reference plane,
-      at radial station $r$. It comprises two added components: the built-in twist
+      at radial station $r$. It comprises two added components. The first is the built-in twist
       $\theta_{tw}(r)$, embedded in the physical blade geometry and typically decreasing from root to tip
-      (<a class="xref" href="#cap-2-3" title="7.4 The radial table">Section 7.4</a>), and the pitch control commanded by
-      the pilot or control system, which may have
-      a collective component (uniform in $r$ and $\psi$) and a cyclic component (varying with $\psi$, used
-      for attitude control in forward flight). $\theta(r)$ is, throughout the formulation, a pure
-      input datum: it depends exclusively on the blade geometry and pitch command, never on
-      induced velocity or any result of the BEMT solution.</p>
+      (<a class="xref" href="#cap-2-3" title="7.4 The radial table">Section 7.4</a>). The second is the pitch control commanded
+      by the pilot or control system, which may have a collective component (uniform in $r$ and $\psi$) and a cyclic
+      component (varying with $\psi$, used for attitude control in forward flight). $\theta(r)$ is, throughout the
+      formulation, a pure input datum: it depends exclusively on the blade geometry and pitch command, never on induced
+      velocity or any result of the BEMT solution.</p>
     <p>The pitch command splits into a part that is the same at every station and a part that varies
       around the azimuth. Denote the first as the collective $\theta_0$ and the second as
       $\theta_{cyc}(\psi)$:</p>
@@ -2713,7 +2628,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <div class="eqn">$$\phi \;=\; \arctan\!\left(\frac{U_P}{U_T}\right)$$</div>
     <p>$\phi$ is the angle between the relative velocity $W$ incident on the blade element and the
       rotor disk plane. Physically, $\phi$ measures how much the incident flow is tilted out of the disk plane
-      in the normal direction, a tilt caused entirely by the sum of climb/descent velocity and induced velocity
+      in the normal direction, a tilt caused entirely by the sum of climb or descent velocity and induced velocity
       (<a class="xref" href="#cap-12-2" title="5.2.2 Component perpendicular to the disk, $U_P$">Section 5.2.2</a>).
       When the rotor is unloaded ($U_P=0$, zero inflow), $\phi=0$ and the relative wind is tangent to the
       disk plane. As induced velocity grows, $\phi$ increases, tilting the elementary lift vector
@@ -2742,19 +2657,13 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <h4 id="cap-13-3">5.3.3 Effective angle of attack, $\alpha_{eff}$</h4>
     <div class="eqn">$$\alpha_{eff} \;=\; \theta \;-\; \phi$$</div>
-    <p>This relation connects the blade geometry ($\theta$, a fixed input datum) to the
-      aerodynamics of the element ($\alpha_{eff}$, which feeds the lift and drag relations $C_l(\alpha_{eff})$
-      and $C_d(\alpha_{eff})$, <a class="xref" href="#cap-19-2"
-        title="5.6.2 2D airfoil aerodynamics: the airfoil polar">Section 5.6.2</a>) through the inflow angle ($\phi$, a
-      function of $\lambda_i$
-      as given in <a class="xref" href="#cap-13-2" title="5.3.2 Inflow angle, $\phi$">Section 5.3.2</a>). It is
-      precisely through this subtraction that the induced velocity,
-      a quantity determined by momentum theory (<a class="xref" href="#sec-29-momentum-theory"
-        title="5.7 Momentum Theory">Section 5.7</a>), feeds back into the load
-      calculated by blade element theory (<a class="xref" href="#sec-28-blade-element-theory"
-        title="5.6 Blade Element Theory">Section 5.6</a>): the complete coupling between the two
-      theories is formalized in <a class="xref" href="#sec-211-formal-coupling" title="5.9 Formal Coupling">Section
-        5.9</a>.</p>
+    <p>This relation connects the blade geometry to the aerodynamics of the element through the inflow angle $\phi$. $\theta$ is a fixed input datum. $\alpha_{eff}$ feeds the lift and drag relations $C_l(\alpha_{eff})$ and $C_d(\alpha_{eff})$ (see <a class="xref" href="#cap-19-2"
+        title="5.6.2 2D airfoil aerodynamics: the airfoil polar">Section 5.6.2</a>). $\phi$ is a function of $\lambda_i$ (see <a class="xref" href="#cap-13-2"
+        title="5.3.2 Inflow angle, $\phi$">Section 5.3.2</a>). This subtraction feeds the induced velocity back into the
+      load. The induced velocity is determined by momentum theory (<a class="xref" href="#sec-29-momentum-theory"
+        title="5.7 Momentum Theory">Section 5.7</a>), and the load is calculated by blade element theory (<a class="xref"
+        href="#sec-28-blade-element-theory" title="5.6 Blade Element Theory">Section 5.6</a>). The complete coupling
+      between the two theories is formalized in <a class="xref" href="#sec-211-formal-coupling" title="5.9 Formal Coupling">Section 5.9</a>.</p>
 
     <div class="boxed note">
       The relation $\alpha_{eff}=\theta-\phi$ presumes $U_T>0$. For $U_T&lt;0$ (retreating blade at
@@ -2946,27 +2855,6 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       (<a class="xref" href="#cap-13-3" title="5.3.3 Effective angle of attack, $\alpha_{eff}$">Section 5.3.3</a>) and
       the airfoil polar. This is what makes the problem tractable: it
       turns one three-dimensional flow into $N_e\times N_\psi$ independent two-dimensional ones.</p>
-
-<p>The airfoil polar is the local two-dimensional constitutive relation that maps effective angle
-of attack, Reynolds number and Mach number to lift and profile-drag coefficients. The blade-element
-equations use those coefficients to calculate sectional loads. This chapter establishes the physical
-role of the polar. The Airfoil tab chapter specifies every polar model and its configuration.</p>
-
-<p>For attached, incompressible flow, thin-airfoil theory gives the useful reference relation</p>
-<div class="eqn">$$C_l(\alpha)\approx C_{l_\alpha}(\alpha-\alpha_0),\qquad C_{l_\alpha}\approx2\pi\ \mathrm{rad}^{-1}.$$</div>
-<p>Here $\alpha$ is effective angle of attack, $\alpha_0$ is the zero-lift angle, and
-$C_{l_\alpha}$ is the lift-curve slope. Cambered airfoils commonly have $\alpha_0&lt;0$.
-Separation invalidates the attached-flow relation and changes both coefficients. The selected polar
-must therefore cover, or be extended to cover, the operating conditions of the blade.</p>
-
-<p>The polar enters the elemental-load equations</p>
-<div class="eqn">$$dL=\tfrac12\rho W^2cC_l\,dr,\qquad dD=\tfrac12\rho W^2cC_d\,dr,$$</div>
-<p>where $\rho$ is air density, $W$ is local relative-speed magnitude, $c$ is chord, and $dr$ is
-the radial element width. The Airfoil tab chapter documents the applicable physics, equations,
-formats and limitations of each polar source.</p>
-<div class="eqn">$$C_l=f(\alpha)\,,\qquad C_d=f(C_l^2)$$</div>
-
-   
 
     
 
@@ -3647,8 +3535,7 @@ formats and limitations of each polar source.</p>
 
     <p><span class="gui">GUI</span>: <i>New Project</i>, <i>Open from another folder</i> and
       <i>Save</i>, with the <i>Existing Projects</i> list and its <i>Refresh List</i> button on the left.
-      A project in the list opens on a double click. The line below the buttons reports which project is
-      active and the folder it came from. Use this line to confirm which project the <span class="gui">GUI</span> edits.
+      A project in the list opens on a double click. The line below the buttons reports the active project and its folder. Use this line to confirm which project the <span class="gui">GUI</span> edits.
     </p>
 
     <p><span class="bemt">.bemt</span>: saving writes the whole <code>inputs/</code> folder:
@@ -3694,7 +3581,7 @@ formats and limitations of each polar source.</p>
       <span class="bemt">.bemt</span>, and <span class="cli">CLI</span> configuration. The list above
       covers the fields that sit directly on the tab. The chapter also documents the radial table itself
       (<a class="xref" href="#cap-2-3" title="7.4 The radial table">Section 7.4</a>) and the fields of the <i>Generate
-        Table</i> dialog (7.4.1 and 7.4.2), which carry their own
+        Table</i> dialog (<a class="xref" href="#cap-2-2-0" title="7.5.1 The dialog's fields">Section 7.5.1</a> and <a class="xref" href="#cap-2-2-1" title="7.5.2 Solidity and blade aspect ratio">Section 7.5.2</a>), which carry their own
       help where they appear.
     </p>
 
@@ -3751,12 +3638,11 @@ formats and limitations of each polar source.</p>
 
     <p><b>The physics.</b> So far the blade was fixed to the hub: it rotates about the
       shaft but cannot bend upwards or swing backwards. A real blade is hinged or flexible
-      enough to move. This block gives the rigid blade two rigid-body freedoms, solved as one
-      periodic response around the azimuth: flapping, an out-of-plane rotation $\beta(\psi)$
-      about a hinge at offset $e$, and lead-lag, an in-plane rotation $\zeta(\psi)$ at the same
-      offset. The blade itself stays rigid and does not bend, and the response
-      carries no transient, so each revolution repeats the previous one. The aerodynamics of one
-      station stays steady. Only the motion adds terms to the local flow,</p>
+      enough to move. This block gives the rigid blade two rigid-body freedoms. zBEMT solves the two freedoms as one
+      periodic response around the azimuth. Flapping is an out-of-plane rotation $\beta(\psi)$ about a hinge at offset
+      $e$, and lead-lag is an in-plane rotation $\zeta(\psi)$ at the same offset. The blade itself stays rigid and does
+      not bend, and the response carries no transient, so each revolution repeats the previous one. The aerodynamics of
+      one station stays steady. Only the motion adds terms to the local flow,</p>
     <div class="eqn">$$U_P \mathrel{+}= (r-eR)\,\dot\beta + V_\infty\,\beta\cos\psi,
       \qquad U_T \mathrel{+}= (r-eR)\,\dot\zeta,$$</div>
     <p>so a moving blade changes what every downstream model sees.</p>
@@ -4063,7 +3949,9 @@ formats and limitations of each polar source.</p>
       the column. Chord is normalized, so a chord of $0.08$ on a radius of $1.25$ m is $0.1$ m. Twist is
       in degrees and is normally positive at the root and falling toward the tip. A blade whose twist
       rises outboard is almost always a sign of a sign convention applied backwards. Ten to twenty
-      stations describe most blades adequately, with more where the planform changes quickly.</p>
+      stations describe most blades adequately, with more where the planform changes quickly. The project is checked before
+      the solver runs: a table that is not strictly increasing, that lies outside the blade limits, or whose columns have
+      different lengths is rejected and the run does not start.</p>
 
     <p><span class="gui">GUI</span>: the <i>Radial Distribution Table</i>, with the columns
       <i>r/R</i>, <i>chord c/R</i> and <i>twist [deg]</i>, editable cell by cell. Confirming a cell
@@ -4197,7 +4085,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <h4 id="cap-2-2-1">7.5.2 Solidity and blade aspect ratio</h4>
 
     <p>The same dialog can size the chord from a target solidity or a target blade aspect ratio instead
-      of from a chord in metres. For $N_b$ blades of radius $R$ and planform area $S_b$ each,</p>
+      of from a chord in meters. For $N_b$ blades of radius $R$ and planform area $S_b$ each,</p>
     <div class="eqn">$$\sigma = \frac{N_b S_b}{\pi R^2},\qquad
       AR = \frac{R^2}{S_b} = \frac{N_b}{\pi\sigma}.$$</div>
     <p>With the number of blades fixed, these two are not independent: an increase of the solidity
@@ -4268,7 +4156,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     </figure>
     <!-- INDICE-DE-CAMPOS:aerofolio -->
 <div class="boxed">
-<b>This tab has 37 fields, listed below in the order they appear on screen.</b> The sections below are self-contained and use the same explanations as the field Help in the window.
+<b>Fields in this tab, in the order they appear on screen</b> (37). The sections below are self-contained and use the same explanations as the field Help in the window.
 <ol class="indice-de-campos"><li><code>name</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>source</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cl_alpha</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>alpha0_deg</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>cd0</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>k</code> &rarr; <a href="#cap-3-2-1">8.2.1</a></li><li><code>stall_model</code> &rarr; <a href="#cap-3-2-2">8.2.2</a></li><li><code>alpha_stall_pos_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>alpha_stall_neg_deg</code> &rarr; <a href="#cap-3-2-3">8.2.3</a></li><li><code>use_dynamic_stall</code> &rarr; <a href="#cap-3-3-1">8.3.3</a></li><li><code>dynamic_stall_method</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>reverse_flow_model</code> &rarr; <a href="#cap-3-4-1">8.4.1</a></li><li><code>reverse_flow_blend_factor</code> &rarr; <a href="#cap-3-4-2">8.4.2</a></li><li><code>thin_plate_blend_center_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>thin_plate_blend_width_deg</code> &rarr; <a href="#cap-3-4-3">8.4.3</a></li><li><code>use_compressibility</code> &rarr; <a href="#cap-3-5">8.5</a></li><li><code>generator_params</code> &rarr; <a href="#cap-3-7-biconvex">8.7.5</a></li><li><code>naca_code</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_upper</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>cst_lower</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>bezier_control_points</code> &rarr; <a href="#cap-3-7-0">8.7.1</a></li><li><code>external_reynolds_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_mach_list</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_min_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_max_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>external_alpha_step_deg</code> &rarr; <a href="#cap-3-8-1">8.8.1</a></li><li><code>xfoil_ncrit</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_top</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>xfoil_xtr_bot</code> &rarr; <a href="#cap-3-8-xfoil">8.8.2</a></li><li><code>r_norm</code> &rarr; <a href="#cap-3-1-3">8.1.3</a></li><li><code>extend_full_range</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>viterna_blend_width_deg</code> &rarr; <a href="#cap-3-2-4">8.2.4</a></li><li><code>dynamic_stall_A</code> &rarr; <a href="#cap-3-3-3">8.3.4</a></li><li><code>dynamic_stall_fade_start_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_fade_end_deg</code> &rarr; <a href="#cap-3-3-4">8.3.5</a></li><li><code>dynamic_stall_time_march_revolutions</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li><li><code>dynamic_stall_time_march_avg_last</code> &rarr; <a href="#cap-3-3-2">8.3.6</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:aerofolio -->
@@ -4277,19 +4165,18 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       limitations, available options, and separate <span class="gui">GUI</span>,
       <span class="bemt">.bemt</span>, and <span class="cli">CLI</span> instructions.
     </p>
-    <p>The <b>Airfoil</b> tab defines the sectional aerodynamic properties across the blade span:
-      static lift and drag polars with post-stall models (<a class="xref" href="#cap-3-2"
-        title="8.2 Aerodynamic model">Section 8.2</a>), dynamic stall unsteady lag (<a class="xref"
-        href="#cap-3-3" title="8.3 Dynamic stall">Section 8.3</a>), reverse-flow post-stall extensions
-      (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section 8.4</a>), subsonic
-      compressibility corrections (<a class="xref" href="#cap-3-5"
+    <p>The <b>Airfoil</b> tab defines the sectional aerodynamic properties across the blade span. It covers static lift
+      and drag polars with post-stall models (<a class="xref" href="#cap-3-2" title="8.2 Aerodynamic model">Section
+        8.2</a>), dynamic stall unsteady lag (<a class="xref" href="#cap-3-3" title="8.3 Dynamic stall">Section
+        8.3</a>), reverse-flow post-stall extensions (<a class="xref" href="#cap-3-4" title="8.4 Reverse flow">Section
+        8.4</a>), subsonic compressibility corrections (<a class="xref" href="#cap-3-5"
         title="8.5 Compressibility">Section 8.5</a>), tabulated polar ingestion (<a class="xref"
-        href="#cap-3-6" title="8.6 Data import / tabulated polar">Section 8.6</a>), and 2D coordinate
-      profiling for polar generation via NeuralFoil or XFOIL (<a class="xref" href="#cap-3-7"
+        href="#cap-3-6" title="8.6 Data import / tabulated polar">Section 8.6</a>), and 2D coordinate profiling for
+      polar generation via NeuralFoil or XFOIL (<a class="xref" href="#cap-3-7"
         title="8.7 Profile 2D geometry">Sections 8.7</a>&ndash;<a class="xref" href="#cap-3-8"
-        title="8.8 External polar generation">8.8</a>). When multiple radial stations
-      are defined (<a class="xref" href="#cap-3-1" title="8.1 Radial sections (multi-section airfoil)">Section
-        8.1</a>), these settings apply independently per spanwise section.</p>
+        title="8.8 External polar generation">8.8</a>). When multiple radial stations are defined (<a class="xref"
+        href="#cap-3-1" title="8.1 Radial sections (multi-section airfoil)">Section 8.1</a>), these settings apply
+      independently per spanwise section.</p>
 
     <h3 id="cap-3-1">8.1 Radial sections (multi-section airfoil)</h3>
     <p>A blade can use a single airfoil from root to tip, or vary the airfoil along the radius
@@ -4328,6 +4215,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       along the whole span: the same camber, the same thickness ratio, the same leading-edge radius
       from root to tip. It does <i>not</i> say that the aerodynamics is the same everywhere. The flow
       the blade meets changes strongly with radius,</p>
+    <p>The <span class="gui">GUI</span> <b>freezes the field</b>. As soon as the airfoil source is <code>table</code>, <code>neuralfoil</code> or <code>xfoil</code> and the loaded polar carries more than one Mach value, the checkbox is cleared and grayed out, and its tooltip says how many distinct Mach slices were found. Because it is the source in use that decides, switching back to an analytical airfoil releases the field and restores whatever the setting was before it was frozen: the choice is suspended, not discarded.</p>
+
     <div class="eqn">$$Re(r) = \frac{U(r)\,c(r)}{\nu},\qquad
       M(r) = \frac{U(r)}{a},\qquad U(r) \simeq \Omega r + V_x\sin\psi,$$</div>
     <p>and that variation stays resolved: each radial station selects the tabulated condition
@@ -4341,8 +4230,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
     <p><b>Scope and modeling assumptions.</b> Uniform single-profile modeling is appropriate for
       constant-section blades, small-scale propellers, and idealized rotor studies. However, full-scale
       rotorcraft and wind turbine blades incorporate spanwise aerodynamic tailoring. A typical tailoring
-      runs from thick root sections of 18 to 24 per cent thickness, which give the required structural
-      depth, to thin tip sections of 8 to 12 per cent, which limit transonic drag. Enforcing a single profile throughout introduces systematic errors: applying the thick root
+      runs from thick root sections of 18 to 24 percent thickness, which give the required structural
+      depth, to thin tip sections of 8 to 12 percent, which limit transonic drag. Enforcing a single profile throughout introduces systematic errors: applying the thick root
       profile at the tip overpredicts profile power due to high dynamic pressure, whereas applying the thin
       tip profile at the root underestimates low-Reynolds drag and delays root separation.</p>
 
@@ -4961,7 +4850,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           extrapolated far outside the range it was fitted over. At
                           $\alpha=-148^\circ$ it reads about $-15.6$, while the static polar,
                           extended by Viterna, gives about $+0.96$. The ratio is negative there, and on a
-                          rotor at $\mu_x=0.3$ that is true over roughly forty per cent of the disk.</p>
+                          rotor at $\mu_x=0.3$ that is true over roughly forty percent of the disk.</p>
 
                         <p><b>The steady limit is exact.</b> When the angle of attack is not changing,
                           the relaxation gives $f=f_{st}$ and the model must return the static polar
@@ -5300,7 +5189,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
             <p><b>Definition and configuration.</b> These two angles place the changeover used by
               <code>thin_plate_blend</code>, and do nothing under any other option. The center is the angle of
-              attack at which the section is treated as half aerofoil and half flat plate. The width is how many
+              attack at which the section is treated as half airfoil and half flat plate. The width is how many
               degrees the changeover takes.
             </p>
 
@@ -5846,7 +5735,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <code>epsilon</code>, which controls the thickness, and <code>camber</code>, which
                   bows the mean line. Both must be finite, and $\epsilon$ must be positive. The camber
                   may be negative for a section loaded downward. The defaults 0.08 and 0.05 give a
-                  section of roughly ten per cent thickness with camber.</p>
+                  section of roughly ten percent thickness with camber.</p>
 
                 <p><span class="gui">GUI</span>: choose <code>joukowski</code> in the <i>Source</i>
                   dropdown of the <i>Profile 2D geometry</i> block. One row appears, <i>Joukowski (eps,
@@ -7054,7 +6943,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <!-- INDICE-DE-CAMPOS:run_case -->
 <div class="boxed">
 <b>Fields in this tab, in the order they appear on screen</b> (12). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>sideslip_deg</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>p_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>q_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li></ol>
+<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>Vy</code> &rarr; <a href="#sec-lateral-flow">10.10</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>p_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>q_rate_deg_s</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:run_case -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below follows the visible order and
@@ -7086,7 +6975,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       </ol>
                     </div>
 
-                    <h3 id="cap-5-1">10.1 In-plane flow &mdash; the first row</h3>
+                    <h3 id="cap-5-1">10.1 In-plane flow: the first row</h3>
 
                     <p><b>The physics.</b> The disk sweeps out a plane, and the free stream can be split into a
                       component lying <em>in</em> that plane and a component running <em>along the shaft</em>. This row
@@ -7179,7 +7068,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       The dimensional velocity (<code>--v-inplane</code>) and the angle (<code>--alpha-disk-deg</code>) require
                       <code>--rpm</code>, because both need the tip speed for the conversion.
                     </p>
-                    <h3 id="cap-5-2">10.2 Along-shaft flow &mdash; the second row</h3>
+                    <h3 id="cap-5-2">10.2 Along-shaft flow: the second row</h3>
 
                     <p><b>The physics.</b> This row sets the other half of the free stream: the component running along
                       the shaft, parallel to the axis the disk pushes air down. It matters more than its share of the
@@ -7450,36 +7339,87 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       along the blade, the convergence history, the disk maps and the sweep curves all live in the
                       Results tab, which also keeps every run of the session in its history.</p>
 
-                    <h3 id="sec-perturbation-inputs">10.9 Perturbation inputs: sideslip and hub rates</h3>
+                    <h3 id="sec-perturbation-inputs">10.9 Perturbation inputs: the hub rates</h3>
 
-                    <p>Three further quantities describe the state a rotor flies in, and a saved case may carry them
-                      beside the familiar advance ratio and collective. The <b>sideslip angle</b>
-                      $\psi_w$ rotates the direction of the in-plane free stream: the tangential speed at each azimuth
-                      becomes $U_T = \Omega r + V\sin(\psi - \psi_w)$, so a case with $\psi_w = 90°$ flies with its
-                      advance coming from the side, and the in-plane force $H$ trades places with the side force $Y$
-                      while thrust and torque stay put. The <b>hub roll rate</b> $p$ and the <b>hub pitch rate</b> $q$
-                      tilt the hub while the blade turns: every blade element then moves out of the disk plane by
-                      $r\,(q\cos\psi - p\sin\psi)$, and the flap balance receives a gyroscopic forcing of its own.
-                      Their first use is the stability-derivative study, where small perturbations of exactly these
-                      states are what a derivative means; a rotor with no flap freedom still shows their aerodynamic
-                      effect. All three default to zero, which is the plain edgewise case and reproduces every result
-                      computed without them.</p>
+                    <p>Two further quantities describe the state a rotor flies in, and a saved case may carry them
+                      beside the familiar advance ratio and collective. The <b>hub roll rate</b> $p$ and the <b>hub
+                      pitch rate</b> $q$ tilt the hub while the blade turns: every blade element then moves out of the
+                      disk plane by $r\,(q\cos\psi - p\sin\psi)$, and the flap balance receives a gyroscopic forcing
+                      of its own. Their first use is the stability-derivative study, where small perturbations of
+                      exactly these states are what a derivative means; a rotor with no flap freedom still shows their
+                      aerodynamic effect. Both default to zero, which reproduces every result computed without them.
+                      The third perturbation the derivative study uses is the lateral velocity, which is a component of
+                      the flight velocity rather than a hub motion and therefore has a field of its own
+                      (<a class="xref" href="#sec-lateral-flow" title="10.10 Lateral flow">Section 10.10</a>).</p>
 
-                    <p>In the <span class="gui">GUI</span>: the Run Case tab carries all three beside the
-                      cyclic pitch of the condition block, as the fields <i>Sideslip ψ<sub>w</sub></i>,
-                      <i>Roll rate p</i> and <i>Pitch rate q</i>. A saved case stores whatever is
-                      on screen, so the values travel into batches, comparisons and the derivative studies
-                      exactly like any other input.</p>
+                    <p>In the <span class="gui">GUI</span>: the Run Case tab carries both below the
+                      cyclic pitch of the condition block, as the fields <i>Roll rate p</i> and
+                      <i>Pitch rate q</i>. A saved case stores whatever is on screen, so the values travel
+                      into batches, comparisons and the derivative studies exactly like any other input.</p>
 
                     <p>In the <span class="bemt">.bemt</span> file: add
-                      <code>sideslip_deg</code>, <code>p_rate_deg_s</code> or
+                      <code>p_rate_deg_s</code> or
                       <code>q_rate_deg_s</code> to any entry of
-                      <code>inputs/saved_cases.bemt</code> (degrees and degrees per second). Absent fields mean zero,
+                      <code>inputs/saved_cases.bemt</code> (degrees per second). Absent fields mean zero,
                       so every case saved before these keys existed keeps its exact behavior.</p>
 
                     <p>From the <span class="cli">CLI</span>: a saved case is data, so the perturbation
-                      inputs travel with it wherever the case is used. The engine-side carrier accepts
-                      <code>--set config.inflow_sideslip_deg</code> directly, which sets the sideslip for
+                      inputs travel with it wherever the case is used, and
+                      <code>--from-bemt-case NAME</code> runs a case that carries them.</p>
+
+                    <h3 id="sec-lateral-flow">10.10 Lateral flow</h3>
+
+                    <p>The flight velocity has three components, and the two fields above give two of them. The disk
+                      plane holds two directions, not one: the field <i>Advance</i> gives the longitudinal component
+                      $V_x$, and this field gives the lateral component $V_y$, at a right angle to it and still in the
+                      plane of the disk. Together they let the stream arrive from any direction within that plane. A
+                      helicopter flying sideways, a helicopter in sideslip, and a propeller whose shaft is out of the
+                      wind sideways are all the same input.</p>
+
+                    <p>The engine works with the in-plane stream as a magnitude and a direction, and the two
+                      components give it both:
+                      $V = \sqrt{V_x^2 + V_y^2}$ and $\psi_w = \operatorname{atan2}(V_y, V_x)$. The direction enters
+                      the blade element through the azimuth: the tangential speed becomes
+                      $U_T = \Omega r + V\sin(\psi - \psi_w)$ and the spanwise component becomes
+                      $U_R = V\cos(\psi - \psi_w)$, so the whole loading pattern turns with the stream. The
+                      along-shaft flow is untouched. At $V_x = 0$ the advance comes entirely from the side, and the
+                      in-plane force $H$ and the side force $Y$ trade shares of the same resultant while thrust and
+                      torque stay put. Zero reproduces the plain edgewise case, so every condition saved before this
+                      field existed keeps its exact numbers.</p>
+
+                    <p>Four spellings name this one freedom, and a condition gives exactly one of them. The velocity
+                      $V_y$ in metres per second is the direct one. The ratios $\mu_y = V_y/(\Omega R)$ and
+                      $J_y = V_y/(nD)$ are the same number in the two non-dimensional vocabularies the other components
+                      already use. The <b>sideslip angle</b> $\psi_w$ in degrees is the angle spelling: it SPLITS the
+                      longitudinal component into a lateral one, exactly as $\alpha_{rotor}$ splits it into the axial
+                      one, and like every angle in these fields it never sets the scale of a velocity. That is why it
+                      is limited to $-89°$ to $+89°$: at $90°$ it would ask for a lateral velocity with no
+                      longitudinal one to take a share of, so pure sideward flight is written as $V_y$ instead. Giving
+                      the angle and a velocity at the same time names the freedom twice, and validation refuses it.</p>
+
+                    <p>In the <span class="gui">GUI</span>: the <i>Lateral flow</i> row of the condition block,
+                      immediately below <i>Axial flow</i>, whose dropdown on the left is both the row label and the
+                      unit selector, offering $V_y$, $\psi_w$, $\mu_y$ and $J_y$. Changing the unit converts the value
+                      instead of reinterpreting it. The Run Batch tab carries the same row twice: once among the fixed
+                      values, and once in the case-by-case editor. It is also a full sweep axis there, so a batch can
+                      march through lateral speed or sideslip the way it marches through advance ratio.</p>
+
+                    <p>In the <span class="bemt">.bemt</span> file: add <code>Vy</code>, in metres per second, or
+                      <code>sideslip_deg</code>, in degrees, to any entry of
+                      <code>inputs/saved_cases.bemt</code>. One of the two, never both. Absent fields mean zero, so
+                      every case saved before these keys existed keeps its exact behavior. The results carry the
+                      lateral flow back in every spelling: <code>Vy</code>, <code>mu_y</code>, <code>J_y</code> and
+                      the resolved <code>sideslip_deg</code> appear in the summary table, in the exported CSV and in
+                      the HTML report, beside the longitudinal and axial components.</p>
+
+                    <p>From the <span class="cli">CLI</span>: one flag per spelling, mutually exclusive with each
+                      other exactly as the dropdown is:
+                      <code>--v-lateral</code> in metres per second, <code>--mu-lateral</code>,
+                      <code>--j-lateral</code> and <code>--sideslip-deg</code>. The two ratios need
+                      <code>--rpm</code>, since the tip speed they divide by comes from it. A saved case is data, so
+                      the lateral flow also travels with it wherever the case is used, and
+                      <code>--from-bemt-case NAME</code> runs a case that carries it. The engine-side carrier accepts
+                      <code>--set config.inflow_sideslip_deg</code> directly, which sets the in-plane direction for
                       every condition of the project at once.</p>
 
                     <hr>
@@ -7493,8 +7433,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       values given on up to three axes. An explicit list enters each condition by hand. Both fill the
                       same queue, and the queue is what runs.</p>
 
-                    <p>The four quantities that a batch sweeps are the in-plane component of the flow, the along-shaft
-                      component, the collective and the rotational speed. They are exactly the four that define a
+                    <p>The five quantities that a batch sweeps are the in-plane component of the flow, the along-shaft
+                      component, the lateral component, the collective and the rotational speed. They are exactly the
+                      five that define a
                       single case, and they mean the same thing here as there. This chapter therefore documents what a
                       batch does with them: how a queue is generated, what the unswept values do to the answer,
                       and where the results go. <a class="xref" href="#sec-10-run-case"
@@ -7510,7 +7451,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <!-- INDICE-DE-CAMPOS:run_batch -->
 <div class="boxed">
 <b>Fields in this tab, in the order they appear on screen</b> (21). The sections below are self-contained and use the same explanations as the field Help in the window.
-<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>range_from</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_to</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_step</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_quantity</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_values</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>sideslip_deg</code> &rarr; <a href="#sec-perturbation-inputs">10.9</a></li><li><code>replace_queue</code> &rarr; <a href="#cap-6-3">11.4</a></li><li><code>batches</code> &rarr; <a href="#cap-6-4">11.5</a></li><li><code>outdir</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>plots</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>save_csv</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>axis_unit</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li></ol>
+<ol class="indice-de-campos"><li><code>trim_mode</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>range_from</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_to</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>range_step</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_quantity</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>axis_values</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>replace_queue</code> &rarr; <a href="#cap-6-3">11.4</a></li><li><code>batches</code> &rarr; <a href="#cap-6-4">11.5</a></li><li><code>outdir</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>plots</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>save_csv</code> &rarr; <a href="#cap-6-5">11.6</a></li><li><code>mu_x</code> &rarr; <a href="#cap-5-1">10.1</a></li><li><code>Vz</code> &rarr; <a href="#cap-5-2">10.2</a></li><li><code>Vy</code> &rarr; <a href="#sec-lateral-flow">10.10</a></li><li><code>collective_deg</code> &rarr; <a href="#cap-5-3">10.3</a></li><li><code>rpm</code> &rarr; <a href="#cap-5-4">10.5</a></li><li><code>target_kind</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>target_value</code> &rarr; <a href="#cap-5-5">10.6</a></li><li><code>axis_unit</code> &rarr; <a href="#cap-6-1">11.2</a></li><li><code>cyclic_c_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li><li><code>cyclic_s_deg</code> &rarr; <a href="#sec-cyclic-pitch">10.4</a></li></ol>
 </div>
 <!-- /INDICE-DE-CAMPOS:run_batch -->
                     <p class="boxed"><b>Editorial scope.</b> Each field section below explains how the control changes
@@ -8661,6 +8602,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           using the airfoil polar, the mesh, the inflow model and the corrections of the
                           open project. A difference between two results therefore has a geometric
                           cause.</p>
+
+                        <p>The comparison is saved with the project and reopens with it. Therefore, results from one session remain available in the next without rerunning.</p>
 
                         <p>Open the Geometry Designer like this:</p>
                         <ol>
@@ -9940,7 +9883,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                                                 <p><b>The outputs.</b> <span class="gui">GUI</span>: <code>Thrust</code> is the force along the shaft and
                           the output most derivatives are read against. <code>H</code> is the in-plane drag
                           force: small beside the thrust and decisive anyway, because with a hub above
-                          the centre of gravity it is the force whose arm pitches the aircraft.
+                          the center of gravity it is the force whose arm pitches the aircraft.
                           <code>Y</code> is its lateral companion, near zero in hover by symmetry.
                           <code>Torque</code> is the moment about the shaft, which is what an engine or a
                           governor model needs.</p>
@@ -9953,7 +9896,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>What these are.</b> The derivatives above belong to the ROTOR. Turning them
                           into aircraft motion needs the aircraft, and the aircraft is not derivable from
                           the blade: its mass, its three moments of inertia and where the hub sits relative
-                          to the centre of gravity have to be stated. That is what this block asks for, and
+                          to the center of gravity have to be stated. That is what this block asks for, and
                           why it is optional &mdash; a rotor study that stops at the derivative matrix
                           never needs it.</p>
 
@@ -9967,7 +9910,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           A_{q,q}=\frac{1}{I_y}\frac{\partial M_x}{\partial q}.$$</div>
 
                         <p>The hub arm is what makes a FORCE produce a moment. With the hub a height
-                          $z_h$ above the centre of gravity, a rearward hub force pitches the aircraft, so
+                          $z_h$ above the center of gravity, a rearward hub force pitches the aircraft, so
                           the pitching row gains the arm term</p>
 
                         <div class="eqn">$$A_{q,u}=\frac{1}{I_y}
@@ -9981,7 +9924,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           about the trimmed pitch attitude.</p>
 
                         <p><b>What it does not model.</b> One rotor and nothing else: no fuselage drag, no
-                          tail rotor, no horizontal stabiliser, no engine or governor dynamics. The
+                          tail rotor, no horizontal stabilizer, no engine or governor dynamics. The
                           eigenvalues drawn beside the block are those of a rotor-and-mass system, useful
                           for comparing designs against each other, and not a flight-dynamics model of an
                           aircraft.</p>
