@@ -2761,18 +2761,21 @@ FIELD_HELP: dict[str, dict] = {
             "it produces."),
         "range": "−500 to +500 m/s (0 for flight straight ahead)",
         "options": {
-            "V_y [m/s]": (
-                "The lateral velocity itself, in metres per second."),
-            "ψ_w [deg]": (
-                "The sideslip angle. It splits the in-plane component given "
-                "above into a lateral one, so it needs that component to be "
-                "non-zero and stays inside ±89°."),
-            "μ_y": (
-                "The lateral velocity over the tip speed, "
-                "μ<sub>y</sub> = V<sub>y</sub>/(ΩR)."),
+            "Vy": (
+                "V<sub>y</sub> [m/s] — the lateral velocity itself, in "
+                "metres per second."),
+            "sideslip_deg": (
+                "ψ<sub>w</sub> [deg] — the sideslip angle. It splits "
+                "the in-plane component given above into a lateral one, so it "
+                "needs that component to be non-zero and stays inside "
+                "±89°."),
+            "mu_y": (
+                "μ<sub>y</sub> — the lateral velocity over the tip "
+                "speed, μ<sub>y</sub> = V<sub>y</sub>/(ΩR)."),
             "J_y": (
-                "The lateral velocity in the propeller vocabulary, "
-                "J<sub>y</sub> = V<sub>y</sub>/(nD) = π·μ<sub>y</sub>."),
+                "J<sub>y</sub> — the lateral velocity in the propeller "
+                "vocabulary, J<sub>y</sub> = V<sub>y</sub>/(nD) = "
+                "π·μ<sub>y</sub>."),
         }
     },
     "sideslip_deg": {
