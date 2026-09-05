@@ -1,4 +1,4 @@
-﻿"""Provide concise block-level help for GUI group boxes.
+"""Provide concise block-level help for GUI group boxes.
 
 The registry maps each visible block identifier to a title, Qt rich-text body, and
 documentation anchor. ``help_popup.py`` renders the entries and tab widgets provide
@@ -11,18 +11,18 @@ from __future__ import annotations
 
 BLOCK_HELP: dict[str, dict] = {
     "operation_mode": {
-        "title": "Operation Mode — rotor or propeller",
+        "title": "Operation Mode: rotor or propeller",
         "body": [
-            "The same solver runs both. What changes is the <b>reference frame the answer is reported in</b>, and that choice is not cosmetic. The two conventions non-dimensionalize thrust and power by different scales, so the same physical rotor produces two entirely different sets of numbers.",
+            "Rotor and propeller modes use the same physical model but report results with different reference conventions. The two conventions use different scales for non-dimensional thrust and power, so their coefficient values are not interchangeable.",
             "<b>Rotor convention.</b> The disk is the reference area and tip speed the reference velocity: C<sub>T</sub> = T/(ρ·A·Ω²R²), C<sub>Q</sub> = Q/(ρ·A·Ω²R³), C<sub>P</sub> = P/(ρ·A·Ω³R³). The natural efficiency measure is the <b>figure of merit</b> FM = C<sub>T</sub><sup>3/2</sup>/(√2·C<sub>P</sub>), which compares the actual hover power with the induced power an ideal actuator disk would need for the same thrust. FM is a hover metric and loses meaning in fast forward flight.",
             "<b>Propeller convention.</b> The rotational frequency n = rpm/60 and the diameter D = 2R are the reference scales: C<sub>T</sub> = T/(ρ·n²D⁴), C<sub>P</sub> = P/(ρ·n³D⁵), with advance ratio J<sub>x</sub> = V<sub>x</sub>/(nD). Efficiency is η = J<sub>x</sub>·C<sub>T</sub>/C<sub>P</sub>, the ratio of useful propulsive power T·V<sub>x</sub> to shaft power. That ratio is identically zero at static thrust and peaks at a finite J<sub>x</sub>.",
-            "The distinction also changes what the flight-condition fields mean. A rotor is described by the advance ratio μ<sub>x</sub> = V<sub>x</sub>/(ΩR) and an angle α<sub>rotor</sub>; a propeller by J<sub>x</sub> and an axial speed V<sub>x</sub>, since the flow is essentially along the shaft. The engine solves the same blade-element/momentum coupling either way.",
+            "The distinction also changes what the flight-condition fields mean. A rotor is described by the advance ratio μ<sub>x</sub> = V<sub>x</sub>/(ΩR) and an angle α<sub>rotor</sub>; a propeller by J<sub>x</sub> and an axial speed V<sub>x</sub>, since the flow is essentially along the shaft. The blade-element and momentum balances are unchanged between the two conventions.",
             "Pick the convention your reference data uses. Reading a propeller C<sub>T</sub> as if it were a rotor C<sub>T</sub> is a factor-of-7.75 error and nothing warns you: substituting Ω = 2πn and D = 2R gives C<sub>T,prop</sub>/C<sub>T,rotor</sub> = π³/4 ≈ 7.75 and C<sub>P,prop</sub>/C<sub>P,rotor</sub> = π⁴/4 ≈ 24.4, for the same rotor at the same operating point.",
         ],
         "anchor": "cap-14-4",
     },
     "global_geometry": {
-        "title": "Global Geometry — the scales that set everything else",
+        "title": "Global Geometry: the scales that set everything else",
         "body": [
             "Two numbers on this block fix the size of the problem before any aerodynamics happens: the number of blades and the radius. The root cutout and the reference chord belong to the same set. You set them in the Generate Table dialog, where the radial table is built, because they describe how that table is laid out. The table below then carries them as its first station and as the c/R value it is normalized against.",
             "<b>Radius</b> is the strongest lever in the tool. It sets the tip speed ΩR at a given rpm, hence the dynamic pressure ½ρW² at every station, hence every force. Thrust scales roughly as R⁴ at fixed rpm and fixed blade loading, and power as R⁵. Doubling the radius is not a small change, and it is also what pushes the tip toward the Mach numbers where compressibility and wave drag start to matter.",
@@ -37,7 +37,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-2-1",
     },
     "blade_dynamics": {
-        "title": "Blade Dynamics - the rigid blade's flap and lead-lag freedoms",
+        "title": "Blade Dynamics: the rigid blade's flap and lead-lag freedoms",
         "body": [
             "A real blade is never bolted stiff to the hub: it flaps out of the disk plane and lags against the rotation. This block gives the rigid blade those two rigid-body freedoms, solved as one periodic response that repeats every revolution. The blade does not bend; only its hinge motion acts on the flow.",
             "Flapping answers thrust with a coning angle &beta;<sub>0</sub> and tilts the disk in edgewise flight through its 1/rev harmonics. When the hinge carries an offset or a spring, it also feeds a structural moment back into the hub: M<sub>hub</sub> = (N<sub>b</sub>/2)&middot;I<sub>&beta;</sub>&Omega;<sup>2</sup>(&nu;<sub>&beta;</sub><sup>2</sup>&minus;1)&beta;<sub>1</sub>. Lead-lag follows the same scheme in the disk plane, with a damper instead of thrust restoring.",
@@ -46,7 +46,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "sec-blade-dynamics",
     },
     "flap_plots": {
-        "title": "Blade dynamics plots - what the flap response did",
+        "title": "Blade dynamics plots: what the flap response did",
         "body": [
             "Three figures read the blade-dynamics part of a result. The <b>flap response</b> draws &beta;(&psi;) over one revolution as a polar curve, with each harmonic's amplitude annotated. The <b>effect of flapping</b> re-solves the same condition once more with a rigid blade and puts the two disk maps side by side, so the change is visible where it happens.",
             "The <b>convergence</b> figure shows the outer-loop trace: how large a correction each exchange between inflow and blade motion tried to apply, until it met the tolerance. A trace that falls smoothly means the coupling agreed; a trace that stalls names its residual honestly.",
@@ -54,9 +54,9 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "sec-blade-dynamics",
     },
     "radial_table": {
-        "title": "Radial Distribution Table — how the blade varies along the span",
+        "title": "Radial Distribution Table: how the blade varies along the span",
         "body": [
-            "Each row is a spanwise station: its position as a fraction of the radius, the local chord (normalized by the radius) and the local geometric twist. Between rows the engine interpolates linearly, so the table is a piecewise-linear description of a real blade, not a set of independent design points.",
+            "Each row is a spanwise station: its position as a fraction of the radius, the local chord (normalized by the radius) and the local geometric twist. Values between rows are linearly interpolated. The table therefore defines a piecewise-linear blade geometry rather than independent design points.",
             "<b>Chord distribution</b> sets how much area each annulus has to work with. Because the local dynamic pressure grows as (Ωr)², an untapered blade loads its outboard half heavily and its root barely at all. Tapering the tip trades some of that outboard area away, which lowers the tip vortex strength and moves the peak loading inboard. The ideal hover distribution (the one that makes induced velocity uniform over the disk) has chord falling roughly as 1/r, which is why practical rotors taper.",
             "<b>Twist</b> is the built-in pitch variation, almost always negative outboard (washout). The reason is geometric: the inflow angle φ = arctan(U<sub>P</sub>/U<sub>T</sub>) is large near the root, where U<sub>T</sub> = Ωr is small, and small at the tip. Without twist the root would operate near or past stall while the tip ran at a small angle of attack. Ideal hover twist varies as 1/r. Linear washout of −8° to −14° over the span is the usual practical approximation, and it is an effective way to flatten the spanwise loading and raise the figure of merit.",
             "In forward flight twist interacts with the advancing and retreating asymmetry: the same washout that balances hover leaves the advancing tip at low or negative angle of attack and the retreating blade closer to stall. That trade is why forward-flight-optimized and hover-optimized twist distributions differ.",
@@ -65,27 +65,27 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "s1",
     },
     "radial_sections": {
-        "title": "Radial Sections — more than one airfoil along the blade",
+        "title": "Radial Sections: more than one airfoil along the blade",
         "body": [
             "A real blade rarely uses one profile from root to tip. The two ends face genuinely different flow, and the sections are chosen accordingly: a thick, high-camber, high-maximum-lift profile inboard, where the local velocity is low and structural depth is needed, and a thin, low-drag, high-critical-Mach profile outboard. Outboard the velocity is high and compressibility is the binding constraint.",
-            "With two or more sections defined, the engine assigns each blade element the polar of the <b>nearest</b> defined station and no longer looks at the single-airfoil definition at all. There is no blending between neighboring sections: the change is a step at the midpoint between two stations, which is visible as a discontinuity in the spanwise load if the two polars differ strongly.",
+            "With two or more radial sections, aerodynamic coefficients are interpolated between neighboring section polars as a function of r/R. This gives a continuous spanwise transition between the defined sections.",
             "The consequence to expect in the result is concentrated where the sections differ most in maximum lift and in zero-lift angle: a section with a more negative α₀ produces lift at a lower geometric pitch, so switching profiles mid-span shifts the local angle of attack the same way a twist step would.",
-            "With zero or one section the tab is in single-airfoil mode and the whole blade uses one polar. That is the right choice when the polar is the dominant uncertainty anyway. A second section is only worth defining when its polar is genuinely known.",
+            "With zero or one radial section, the complete blade uses one polar. Add sections when distinct spanwise polar data are available.",
         ],
         "anchor": "cap-3-1",
     },
     "polar_navigator": {
-        "title": "Navigate (r/R, Reynolds, Mach) — which slice you are looking at",
+        "title": "Navigate (r/R, Reynolds, Mach): which slice you are looking at",
         "body": [
             "A tabulated polar is not one curve. It is a family: Cl and Cd depend on angle of attack, on Reynolds number and on Mach number, and in a multi-section blade also on spanwise position. These controls choose which slice of that family the preview draws.",
-            "They are a <b>viewing</b> choice only. Nothing here changes the project or the computation. During a run the engine picks the slice for each element from that element's own local conditions, interpolating between the tabulated values.",
+            "These controls change the preview only. During analysis, coefficients are interpolated in angle of attack and radial position. Reynolds-number and Mach-number dimensions use the nearest available tabulated condition.",
             "The three axes matter for different reasons. <b>Reynolds number</b> Re = ρ·W·c/μ governs the state of the boundary layer: below roughly 10⁵ the layer stays laminar over much of the chord, separation happens early, and minimum drag can be several times its high-Reynolds value. <b>Mach number</b> M = W/a governs compressibility: lift slope grows as 1/√(1−M²) until the critical Mach number, beyond which a shock forms and drag rises steeply. <b>Spanwise position</b> matters only when the blade has more than one defined section.",
             "Use the navigator to check that the tabulated data actually covers the conditions your case will produce. A polar tabulated only up to M = 0.4 evaluated on a rotor whose advancing tip reaches M = 0.8 will hold the edge value, silently and wrongly.",
         ],
         "anchor": "cap-3-10",
     },
     "local_corrections": {
-        "title": "Compressibility and Reverse Flow — where the 2D polar stops being enough",
+        "title": "Compressibility and Reverse Flow: where the 2D polar stops being enough",
         "body": [
             "This block groups the two corrections that both answer the same question: the polar was measured (or computed) in a steady, incompressible, forward-facing 2D flow, and parts of a real rotor disk are none of those things.",
             "<b>Reverse flow</b> is a geometric consequence of forward flight. The tangential velocity of an element is U<sub>T</sub> = Ωr + V∞·sin ψ, which changes sign wherever the free stream overwhelms the rotation (inboard on the retreating side). The locus U<sub>T</sub> = 0 is a circle of diameter μR tangent to the hub. Inside it the trailing edge meets the flow first, and a polar measured leading-edge-first says nothing valid about that. Its size grows linearly with the advance ratio, so it is negligible in hover and dominates the inboard retreating quadrant at high speed.",
@@ -95,26 +95,26 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-4-4",
     },
     "table_import": {
-        "title": "Data import / tabulated polar — measured or computed coefficients",
+        "title": "Data import / tabulated polar: measured or computed coefficients",
         "body": [
-            "An imported table replaces the analytical lift and drag model entirely. Instead of Cl = Cl_α(α − α₀) with a stall closure, the engine interpolates directly between the tabulated points. So everything the table contains (the real stall shape, the drag bucket, the Reynolds and Mach trends) is used, and everything it omits is invented by whatever extrapolation rule is active.",
+            "An imported table replaces the analytical lift and drag model. Coefficients are linearly interpolated in angle of attack. The supplied data define stall shape, drag behavior, and any Reynolds-number, Mach-number, or radial variation represented by the table.",
             "The edge behavior is the important consequence. Outside the tabulated angle-of-attack range the interpolation holds the edge value: a table swept from −10° to 20° evaluated at 40° returns the 20° coefficients, which understates drag by a large factor. On a rotor in forward flight, inboard retreating elements routinely see angles far outside any wind-tunnel sweep, so a table without the full-range extension active is a silent source of error exactly where the loads are hardest to get right.",
-            "The table may carry additional axes: one curve per Reynolds number, per Mach number, per spanwise station. The engine interpolates between them using each element's own local conditions. A table that already resolves Mach must <b>not</b> be combined with the compressibility correction: that applies the same physics twice.",
+            "A table can include Reynolds number, Mach number, and spanwise position as additional axes. Radial sections are interpolated in r/R. Reynolds-number and Mach-number dimensions use the nearest available condition. Do <b>not</b> combine a Mach-resolved table with the separate compressibility correction, because that applies the same effect twice.",
             "Two numbers are re-derived from the table because other corrections need them: the lift-curve slope, from a finite difference near the middle of the curve, and the zero-lift angle, from where lift crosses zero. The rotational-augmentation correction is written in terms of those two quantities and cannot work without them.",
         ],
         "anchor": "cap-3-6",
     },
     "project_configuration": {
-        "title": "Project configuration — what is stored and what is not",
+        "title": "Project configuration: what is stored and what is not",
         "body": [
-            "Everything the tabs edit lives in a single project file: geometry, airfoil definition, engine settings, saved flight conditions and saved case queues. It is the same file the command line reads, so a case set up in the window and a case run from a script are the same case.",
+            "A project folder stores the geometry, airfoil definition, analysis settings, saved flight conditions, and saved case queues. The GUI and CLI use the same project data, so equivalent inputs define the same case.",
             "What is <b>not</b> stored is anything derived: results, figures, and reports. Those are regenerated from the inputs, which is what makes a project reproducible: the file is the experiment, not its output.",
             "Applying a change and saving it are separate steps on purpose. Applying makes the change take effect in the session so a run reflects it immediately. Saving writes it to disk. A window closed with applied-but-unsaved changes warns before discarding them.",
         ],
         "anchor": "cap-interfaces-2",
     },
     "saved_cases": {
-        "title": "Saved Cases — flight conditions kept with the project",
+        "title": "Saved Cases: flight conditions kept with the project",
         "body": [
             "A flight condition is four numbers: advance ratio (or axial speed), disk angle (or climb velocity), collective pitch and rotational speed. Together they fix the entire velocity field the blade sees, and therefore the whole solution.",
             "Saving one stores it in the project file under a name, so the exact condition survives closing the window and is available to the command line and to scripts. This is the mechanism for a reproducible reference point: the design hover case, the cruise case, the condition a wind-tunnel run was measured at.",
@@ -124,7 +124,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-5-4",
     },
     "batch_fixed_values": {
-        "title": "Fixed values — the condition variables that are not being swept",
+        "title": "Fixed values: the condition variables that are not being swept",
         "body": [
             "A sweep varies one to three quantities; the rest of the flight condition still has to be specified, and these fields do that. Every generated case shares them.",
             "They are not neutral background. A sweep in collective at fixed rpm and fixed advance ratio traces a thrust curve at constant tip speed. The same collective sweep at a different fixed rpm traces a different curve. Rotational speed rescales the relative velocity at every station and therefore the Reynolds number, the Mach number, and the dynamic pressure that the coefficients are divided by. Fixing a value is a statement about the experiment, not a formality.",
@@ -134,7 +134,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-6-2",
     },
     "case_queue": {
-        "title": "Case queue — the single source of truth for what will run",
+        "title": "Case queue: the single source of truth for what will run",
         "body": [
             "Both ways of specifying a batch (a factorial expansion over axes, and an explicit list of conditions) end in this queue, and only the queue is executed. Generating cases fills it. It does not run anything and computes no physics.",
             "That separation is what makes a large sweep safe to set up. A three-axis factorial multiplies rather than adds: ten advance ratios by five collectives by four rotational speeds is two hundred cases, not nineteen. The queue shows the actual count before any solver time is spent, which is the moment to notice that the mesh and the case count together imply an overnight run.",
@@ -143,7 +143,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-6-3",
     },
     "batch_run": {
-        "title": "Run — executing the queue, directly or trimmed",
+        "title": "Run: executing the queue, directly or trimmed",
         "body": [
             "Each queued condition is solved exactly as a single case would be: same mesh, same inflow model, same corrections, same convergence criterion. A batch is a loop, not a different physics.",
             "<b>Direct mode</b> takes the collective as given and reports whatever thrust results. This is the right mode when the question is about the rotor's response: a collective sweep, a stall boundary, the shape of a power curve.",
@@ -154,7 +154,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-6",
     },
     "batch_export": {
-        "title": "Export — writing tables and figures to disk",
+        "title": "Export: writing tables and figures to disk",
         "body": [
             "Export writes what is already computed: one row per condition in a table, plus whichever figure families are ticked. It runs no physics and cannot change a result.",
             "The tabular export carries the full summary of every case: coefficients, dimensional forces, and the configuration echo that records which solver, inflow model and corrections produced those numbers. That echo is what makes a result file interpretable months later. A table of coefficients without it is not interpretable.",
@@ -164,7 +164,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-6-4",
     },
     "view_3d": {
-        "title": "3D view — geometry and load in space",
+        "title": "3D view: geometry and load in space",
         "body": [
             "The three-dimensional view paints a solved field onto the actual blade surface, which is the one representation that shows spanwise and azimuthal variation together with the blade's own shape. It is a rendering of results already computed. Changing the field here re-colors the view. It does not re-solve.",
             "It answers questions the flat disk map cannot. Twist and taper are visible as geometry rather than inferred from a curve, so a loading peak can be read directly against the chord and pitch that produced it: for instance whether a high local lift coefficient is a genuinely stalled station or simply a narrow chord carrying an ordinary load.",
@@ -173,7 +173,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-7-4",
     },
     "aerodynamic_model": {
-        "title": "Aerodynamic Model — the 2D airfoil polar",
+        "title": "Aerodynamic Model: the 2D airfoil polar",
         "body": [
             "Every blade element gets its force from a <b>polar</b>: the pair of functions "
             "C<sub>l</sub>(α, Re, M) and C<sub>d</sub>(α, Re, M). BEMT never solves the flow "
@@ -208,8 +208,8 @@ BLOCK_HELP: dict[str, dict] = {
             "<br>A<sub>2</sub> and B<sub>2</sub> enforce exact continuity at α<sub>s</sub>. "
             "For 90° &lt; |α| ≤ 180° the curve is reflected about 90° (C<sub>l</sub> odd, C<sub>d</sub> even).",
             "<b>Tabulated source.</b> Direct linear interpolation over measured or XFOIL points "
-            "(α<sub>i</sub>, C<sub>l,i</sub>, C<sub>d,i</sub>), optionally one table per Reynolds, Mach and r/R "
-"(bilinear interpolation in the extra axis). It is accurate where the data exist. "
+            "(α<sub>i</sub>, C<sub>l,i</sub>, C<sub>d,i</sub>). Radial sections are interpolated in r/R. "
+"Reynolds and Mach dimensions use the nearest available condition. It is accurate where the data exist. "
 "Outside the measured α range the edge value is held, which is exactly why "
 "the Viterna closure exists.",
             "<b>NeuralFoil source.</b> A neural surrogate of XFOIL evaluated on a (α, Re, M) "
@@ -221,7 +221,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-3-2",
     },
     "dynamic_stall": {
-        "title": "Dynamic Stall (Øye) — separation lag",
+        "title": "Dynamic Stall (Øye): separation lag",
         "body": [
             "Separation does not follow α instantly: it lags by a few convective times c/W. Sweeping through stall once per revolution therefore traces a <b>hysteresis loop</b>, not the static curve: Cl overshoots while α rises and stays low while α falls.",
             "<b>State variable.</b> Attached fraction of the chord f ∈ [0,1] from Kirchhoff's mixture with static polar C<sub>l,att</sub> = C<sub>lα</sub>(α − α<sub>0</sub>):\n\n"
@@ -241,7 +241,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-3-3",
     },
     "reverse_flow": {
-        "title": "Reverse Flow — the retreating-side circle",
+        "title": "Reverse Flow: the retreating-side circle",
         "body": [
             "In forward flight U<sub>T</sub> = Ωr + V∞·sin ψ changes sign inboard on the retreating side. U<sub>T</sub> = 0 traces the circle r = −μR·sin ψ (only where sin ψ &lt; 0): a disk of diameter μR tangent to the hub. Inside it the trailing edge faces the flow.",
             "<b>simple_flip</b> — α<sub>eff</sub> = −α<sub>geom</sub>, |U<sub>T</sub>| in Mach. Discontinuous at U<sub>T</sub> = 0.",
@@ -260,7 +260,7 @@ BLOCK_HELP: dict[str, dict] = {
             "<b>Correction.</b> The Prandtl-Glauert factor β = √(1 − M²) stretches the incompressible lift slope to its compressible equivalent:"
             "\n\n"
             r"$$C_l \to \dfrac{C_l}{\beta}, \quad C_d \to \dfrac{C_d}{\beta}, \quad \beta = \sqrt{1 - M^2}$$",
-            "The factor is 1.005 at M = 0.1, 1.048 at M = 0.3, 1.25 at M = 0.6 and formally diverges at M → 1, which is why the engine floors β instead of letting it diverge. Above M from approximately 0.75 to 0.8 the linearization is void anyway: shocks and wave drag are not modeled.",
+            "The factor is 1.005 at M = 0.1, 1.048 at M = 0.3, and 1.25 at M = 0.6. It diverges as M approaches 1, where the correction is not valid. Above approximately M = 0.75 to 0.8, shocks and wave drag make this linear correction unsuitable.",
             "Enable it whenever the tip Mach exceeds ≈ 0.3. Do <b>not</b> enable it on a tabulated polar that already carries a Mach axis. That counts compressibility twice, and validation warns about exactly this combination.",
         ],
         "anchor": "cap-3-5",
@@ -268,8 +268,8 @@ BLOCK_HELP: dict[str, dict] = {
     "polar_generation": {
         "title": "Polar Generation (External Engines)",
         "body": [
-            "Two external engines generate the polar from the 2D contour. <b>NeuralFoil</b> is a neural network trained on a large body of XFOIL runs: given the contour and (α, Re, M) it returns Cl and Cd in milliseconds. <b>XFOIL</b> runs the classic boundary-element binary directly. It gives higher fidelity where it converges and takes minutes instead of milliseconds, and it needs the executable installed (zBEMT looks in ZBEMT_XFOIL_BIN, your remembered Locate… choice, PATH, and the standard install folders).",
-            "What comes out is an ordinary tabulated polar: one complete Cl(α), Cd(α) curve per (Re, M) pair. From that point on the engine treats it exactly like an imported table: linear interpolation in α, selection/interpolation of the slice by local Re, M and r/R.",
+            "Two external methods can generate a polar from a two-dimensional contour. <b>NeuralFoil</b> evaluates a trained aerodynamic model and is fast. <b>XFOIL</b> runs the established panel and boundary-layer method and is slower but useful as an independent reference where it converges. XFOIL requires an installed executable selected in the GUI or available on <code>PATH</code>.",
+            "The output is a tabulated polar with one complete C<sub>l</sub>(α), C<sub>d</sub>(α) curve for each Reynolds-number and Mach-number pair. Analysis then uses it in the same way as an imported polar table.",
             "Because it is a table, the same two limits apply: nothing outside the swept α range is known (hold-edge behavior unless the Viterna full-range extension is on), and Cl_α and α₀ used by the rotational-augmentation correction are re-estimated numerically from the generated curve.",
             "Accuracy is highest for conventional sections at −5° &lt; α &lt; 25°; it degrades at extreme α, very thin sections and unusual shapes. For production cases, validate one operating point against measured or XFOIL data.",
         ],
@@ -279,7 +279,7 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "2D Profile Geometry",
         "body": [
             "The contour x/c ∈ [0,1] with upper/lower ordinates y/c. It is <b>not</b> the blade geometry (chord, twist, planform) — it is the shape of one section.",
-            "The contour never enters the blade element equations. It matters in exactly two places: drawing, and generating a polar with NeuralFoil. Once a polar exists, the engine only ever sees Cl(α, Re, M) and Cd(α, Re, M).",
+            "The contour is used for geometry visualization and polar generation. Once a polar exists, aerodynamic forces depend on C<sub>l</sub>(α, Re, M) and C<sub>d</sub>(α, Re, M), not directly on the contour coordinates.",
             "Sources: NACA 4- and 5-digit codes, CST (class-shape transformation) coefficients, Bézier control points, the analytic PARSEC, Joukowski and biconvex families, or imported .dat coordinates (Selig or Lednicer). Each one is a Source option of its own and reveals its fields. Import reads chord-normalized units, so scale the file first when it uses mm or inches.",
         ],
         "anchor": "cap-3-7",
@@ -287,14 +287,14 @@ BLOCK_HELP: dict[str, dict] = {
     "mesh_atmosphere": {
         "title": "Mesh & Atmosphere",
         "body": [
-            "The disk is discretized into Ne radial × Npsi azimuthal stations; the solver evaluates all Ne×Npsi elements at once per iteration. Δψ = 360°/Npsi. Npsi = 1 means axisymmetric (hover or axial). Resolving advancing and retreating asymmetry needs enough harmonics: 24 is a minimum, and 72 to 144 for high μ or cyclic pitch. Radially, 30 to 50 is usually converged. The reference production mesh is 120×180.",
+            "The disk is discretized into Ne radial × Npsi azimuthal stations. Δψ = 360°/Npsi. Npsi = 1 is axisymmetric and is appropriate for hover or axial flow. Edgewise flight and cyclic pitch require azimuthal resolution. Use at least 24 stations for basic asymmetric cases and refine the mesh until the integrated outputs are insensitive to further refinement.",
             "The integration offset shifts the innermost and outermost nodes off r/R = 0 and r/R = 1, where the Prandtl factor F → 0 and 1/|sin φ| is singular. Too small and the edge nodes are noisy. Too large and real root and tip physics is lost.",
             "ρ scales every force and moment linearly (dL, dD ∝ ρW²), so thrust and power scale with it directly. a<sub>sound</sub> only enters through M = W/a<sub>sound</sub> in the compressibility correction. Reynolds at each station is Re = ρ·W·c(r)/μ<sub>dyn</sub>, which is what selects the slice of a tabulated polar.",
         ],
         "anchor": "cap-4-1-1",
     },
     "inflow": {
-        "title": "Inflow Model — how λi is distributed over the disk",
+        "title": "Inflow Model: how λi is distributed over the disk",
         "body": [
             "Momentum theory gives the mean induced inflow; a real wake in forward flight is <b>tilted backwards</b>, so the front of the disk sees more inflow than the rear. The three classical models add that asymmetry as a first harmonic on top of the mean (ring-theory) solution:"
             "\n\n"
@@ -329,7 +329,7 @@ BLOCK_HELP: dict[str, dict] = {
             r"$$f_{\mathrm{root}} = \dfrac{N_b}{2}\dfrac{x - x_{\mathrm{root}}}{x\,|\sin\varphi|}, \quad F_{\mathrm{root}} = \dfrac{2}{\pi}\arccos\!\left(e^{-f_{\mathrm{root}}}\right)$$"
             "\n\n"
             r"$$F = F_{\mathrm{tip}}\cdot F_{\mathrm{root}}, \qquad x = r/R$$",
-            "More blades → smaller loss (closer to the continuous-curtain limit). Closer to an edge, or larger φ (more heavily loaded rotor), the faster F drops. In the code F multiplies the effective U<sub>P</sub> in the momentum balance: a smaller F means the same load must be sustained by a larger induced velocity over a smaller effective area.",
+            "More blades reduce the loss and approach the continuous-disk limit. The factor decreases near the root and tip and at larger inflow angles. A smaller F represents a smaller effective lifting area, so the same local load requires more induced velocity.",
             "Modes: off (F = 1, for theoretical comparison only), tip, root, both (default and the physical case).",
         ],
         "anchor": "cap-4-3",
@@ -374,12 +374,12 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-4-2-5",
     },
     "induction_solver": {
-        "title": "Induction Solver — the fixed point in λi",
+        "title": "Induction Solver: the fixed point in λi",
         "body": [
             "At every element, blade-element theory and momentum theory must give the same load. Written as one scalar equation per node:"
             "\n\n"
             r"$$g(\lambda_i) = \lambda_i$$"
-            "<br>where g comes from evaluating the polar at α(λ<sub>i</sub>) and inverting the momentum balance. Everything else in the engine is preparation for this root find.",
+            "<br>where g comes from evaluating the polar at α(λ<sub>i</sub>) and inverting the momentum balance. The required solution is the induced-inflow field that satisfies this equation at every node.",
             "<b>fixed_point</b> — Picard with relaxation:"
             "\n\n"
             r"$$\lambda_{n+1} = \lambda_n + \omega\left[g(\lambda_n) - \lambda_n\right]$$"
@@ -401,7 +401,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-4-5-4",
     },
     "run_case": {
-        "title": "Run Case — one flight condition end to end",
+        "title": "Run Case: one flight condition end to end",
         "body": [
             "A case is (μ<sub>x</sub> or J<sub>x</sub>, V<sub>z</sub>, collective, rpm). From it: Ω = 2π·rpm/60, tip speed ΩR, and the two element velocities U<sub>T</sub> = Ωr + V<sub>x</sub>·sin ψ and U<sub>P</sub> = V<sub>z</sub> + v<sub>i</sub> + (radial and coning terms), with W = √(U<sub>T</sub>² + U<sub>P</sub>²).",
             "Per element: φ = atan2(U<sub>P</sub>, U<sub>T</sub>), θ(r,ψ) = θ<sub>col</sub> + θ<sub>geo</sub>(r), α<sub>eff</sub> = θ − φ. The polar gives Cl, Cd; dL and dD project to dFn = dL·cos φ − dD·sin φ and dFt = dL·sin φ + dD·cos φ. λ<sub>i</sub> at that node comes from the fixed point that equates this load with the momentum balance.",
@@ -412,7 +412,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-17",
     },
     "run_batch": {
-        "title": "Run Batch — sweeping the dimensionless space",
+        "title": "Run Batch: sweeping the dimensionless space",
         "body": [
             "A batch is a Cartesian product over up to three axes chosen from Edgewise (in-plane) Flow (μ<sub>x</sub> or J<sub>x</sub>), Cross (in-plane) Flow (μ<sub>z</sub> or J<sub>z</sub>), Axial (along-shaft) Flow (α<sub>rotor</sub> or V<sub>z</sub>), collective, and rpm. Expansion is instant and runs no physics; the queue it fills is the single source of truth for what will run.",
             "The axes are not independent knobs on the same physics: μ<sub>x</sub> = V<sub>x</sub>/(ΩR) sets the fore/aft asymmetry of the disk (and therefore how much reverse flow exists at all, the region r = −μ<sub>x</sub>R·sin ψ). Collective shifts α<sub>eff</sub> uniformly. rpm rescales W, hence Reynolds, Mach, and every coefficient's denominator. A sweep that varies rpm at fixed μ<sub>x</sub> is not the same experiment as one that varies V<sub>x</sub>.",
@@ -422,7 +422,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-14",
     },
     "results": {
-        "title": "Results — choose, inspect, and interpret the solution",
+        "title": "Results: choose, inspect, and interpret the solution",
         "body": [
             "Start by selecting one or more entries in <b>Results from this session</b>. A Run Case creates one entry; a Run Batch creates one entry containing all of its conditions. Use <b>Select all</b> and <b>Clear selection</b> to change what is plotted, and <b>Delete entries</b> only when an entry should be removed from this session's history for good.",
             "Choose <b>Disk map</b> for the spatial answer at one condition, <b>Coefficients vs. Axis</b> for a sweep, <b>Azimuth / Radius</b> for a sectional load distribution, or <b>3D</b> for geometry and load inspection. These controls change the question being plotted. They do not rerun the aerodynamic solver.",
@@ -439,7 +439,7 @@ BLOCK_HELP: dict[str, dict] = {
             "The table holds one row per geometry. The first row is <b>base</b>, the project's own planform. Each cell states an override over it, and an empty cell keeps the project value. Use <b>Add variant</b> to copy the base row under a new label, then edit the copy. Use <b>Remove selected</b> to delete rows. The variation sweep builder turns one parameter into several rows at once: pick the parameter, give a Start, End and Count range or explicit values, and press <b>Build variants</b>. The builder validates each appended row against the project's own generator before it adds the row.",
             "The label is what names the geometry in the verdict chips, in the figures and in the exports, so give every variant a name that states its design idea.",
             "The <b>Conditions</b> page decides what every variant runs: the project's saved cases, one single condition built from four fields, or a sweep of one quantity. The estimate line states variants × cases = solves before anything runs.",
-            "<b>Run comparison</b> solves every condition of every geometry on a worker thread, reports progress, and can be canceled. The verdict strip reads the first condition of each geometry. The ranking figure draws the chosen summary quantity for every geometry at the reference case. The overlay figure draws every curve across all conditions. <b>Export report</b> writes a self-contained HTML file with the full summary, and <b>Export CSV</b> writes one row per geometry per condition, both into the project's outputs folder.",
+            "<b>Run comparison</b> evaluates every condition for every geometry, reports progress, and can be canceled. The verdict strip reads the first condition of each geometry. The ranking figure draws the chosen summary quantity for every geometry at the reference case. The overlay figure draws every curve across all conditions. <b>Export report</b> writes a self-contained HTML file with the full summary, and <b>Export CSV</b> writes one row per geometry per condition, both into the project's outputs folder.",
             "Comparison variants are not persisted. The table is rebuilt from the project's own geometry on every load, so a comparison worth keeping should be re-created deliberately or exported before closing. Design optimization is not part of this window: it runs as an outer loop from the command line or the library.",
         ],
         "anchor": "designer-variants",
@@ -448,13 +448,13 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Optimization studies stored in this project",
         "body": [
             "A study is a persisted search problem: which quantities to drive, in which direction, over which bounded parameters, at one flight condition. It lives in inputs/optimizations.bemt beside the project and survives sessions.",
-            "<b>New</b> appends an empty study with one objective and one variable as a starting point. <b>Duplicate</b> copies what is on screen under a new name, which is the cheap way to compare algorithms on the same problem. <b>Rename</b> changes only the name; <b>Delete</b> removes the study from the project after confirmation.",
+            "<b>New</b> appends an empty study with one objective and one variable as a starting point. <b>Duplicate</b> copies what is on screen under a new name, which provides a convenient way to compare algorithms on the same problem. <b>Rename</b> changes only the name; <b>Delete</b> removes the study from the project after confirmation.",
             "The name labels the report, the front CSV and the evaluations CSV, so two studies never overwrite each other's artifacts.",
         ],
         "anchor": "cap-optimization",
     },
     "optimization_objectives": {
-        "title": "Objectives — what better means",
+        "title": "Objectives: what better means",
         "body": [
             "An objective names one summary quantity and states its good direction. The first row is required; the second row is the switch between the two regimes of this window: an empty second box drives ONE quantity with the global search, a filled one evolves a whole <b>Pareto front</b> of designs no member of which dominates another.",
             "Domination rule: design A dominates B when A is at least as good on every objective and strictly better on one. The front is the set dominated by nobody. With constraints, any feasible design beats any infeasible one first.",
@@ -463,7 +463,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-opt-objectives",
     },
     "optimization_constraints": {
-        "title": "Constraints — the designs the search may not keep",
+        "title": "Constraints: the designs the search may not keep",
         "body": [
             "Each row reads one summary quantity and requires it above (&ge;), below (&le;) or equal (=) to a value. Constraints are not penalties added to a fitness: a design that breaks one loses to every design that respects it, whatever the objectives say, and among violators the milder ones rank better.",
             "This keeps thresholds honest: a thrust floor either holds or it does not, and when nothing satisfied the constraints the outcome says so instead of dressing up the least-bad design as a success. Every front member reports its constraint values next to its objectives.",
@@ -471,7 +471,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-opt-constraints",
     },
     "optimization_variables": {
-        "title": "Design variables — the degrees of freedom",
+        "title": "Design variables: the degrees of freedom",
         "body": [
             "Each row is one parameter the search may turn, with the range it may turn it over: planform generator inputs (root_chord_norm, tip_chord_norm, twist_root_deg, twist_tip_deg, max_chord_norm) or the direct fields n_blades, radius_m, root_cutout_norm.",
             "Bounds need finite numbers with lower below upper. The first population already spreads across the whole box, stratified, before evolution starts — so the search sees every corner at least once.",
@@ -480,9 +480,9 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-opt-variables",
     },
     "optimization_search": {
-        "title": "Search settings — condition, algorithm and budget",
+        "title": "Search settings: condition, algorithm and budget",
         "body": [
-            "<b>Condition</b> is the saved case every candidate is solved at; rotation is mandatory because the solver adimensionalizes by &Omega;R.",
+            "<b>Condition</b> is the saved case used to evaluate every candidate. Rotational speed is required because advance ratios and several coefficients use &Omega;R as a reference velocity.",
             "<b>Algorithm</b>: NSGA-II evolves the whole front (tournament by the domination rules, then crossover and mutation); differential evolution drives the FIRST objective only through global difference vectors. The SBX crossover index &eta;<sub>c</sub>, the mutation index &eta;<sub>m</sub> and the mutation rate belong to NSGA-II and disable under DE. A rate of 0 means one over the variable count — the classic default, and the reason the population does not contract into a corner.",
             "<b>Population &times; (generations + 1)</b> is almost exactly the solver-call count; the estimate line states it before anything runs. The seed drives every random choice, so the same seed reproduces the same search exactly.",
         ],
@@ -501,12 +501,12 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Derivative studies stored in this project",
         "body": [
             "A derivative study is a persisted perturbation plan (SC-14): which states and controls to nudge, about which trim point, with which finite-difference steps. It lives in inputs/derivatives.bemt beside the project.",
-            "New/Duplicate/Rename/Delete behave exactly as on the Design Optimization window: duplicate is the cheap way to rerun the same plan with another step size or another trim.",
+            "New/Duplicate/Rename/Delete behave exactly as on the Design Optimization window: Duplicate provides a convenient way to rerun the same plan with another step size or another trim.",
         ],
         "anchor": "cap-stability",
     },
     "stability_trim": {
-        "title": "Trim point — the state everything is measured about",
+        "title": "Trim point: the state everything is measured about",
         "body": [
             "A derivative is only meaningful once the reference state is fixed. Zero flapping solves both cyclic harmonics so the tip-path plane sits level at the trim point; Thrust solves collective to a target thrust; None keeps the controls exactly as saved.",
             "Run the trim ALONE first and read its controls and loads. A trim that surprises you will surprise every derivative built on top of it.",
@@ -515,7 +515,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-stability-trim",
     },
     "stability_perturbations": {
-        "title": "Perturbations — what is nudged, and by how much",
+        "title": "Perturbations: what is nudged, and by how much",
         "body": [
             "Each selected variable gets TWO solves per derivative (plus/minus the step), or FOUR when the Richardson half-step check is on: nine variables with the check cost thirty-six solves plus the trim. The estimate line states it before anything runs.",
             "Steps are stated per quantity in its own unit — 0.5 m/s for speeds, 0.02 rad/s for rates, 0.1 deg for pitch controls, half a percent of the trim rpm for &Omega; — because truncation error grows as h<sup>2</sup> while round-off shrinks as 1/h.",
@@ -527,13 +527,13 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Matrix, sign checks and the optional vehicle model",
         "body": [
             "Outputs run down the rows, variables across the columns; hover a cell for its step and step-size error, and any cell whose two estimates differ by more than five percent turns red — trust its trend, not its digits.",
-            "The SIGN CHECKS panel is why the window can be trusted: heave damping must be negative, pitch damping must be negative, thrust must rise with collective. A FAIL here means an engine sign flipped somewhere, not that your rotor is exotic.",
+            "The SIGN CHECKS panel is why the window can be trusted: heave damping must be negative, pitch damping must be negative, thrust must rise with collective. A FAIL indicates an inconsistency in the sign convention, derivative calculation, or model setup. Investigate it before using the derivatives.",
             "The optional vehicle block turns hub derivatives into rigid-body A/B matrices and draws their eigenvalues (one rotor only: no fuselage, tail or engine dynamics). Poles left of the axis are damped; red poles are unstable.",
         ],
         "anchor": "cap-stability-run",
     },
     "stability_export": {
-        "title": "Export — the derivative matrix as a file",
+        "title": "Export: the derivative matrix as a file",
         "body": [
             "Export writes what is already computed. It runs no solve and cannot change a derivative.",
             "The CSV file carries the matrix as it stands on screen: one row per output, one column per variable. The HTML report adds the trim point, the perturbation steps, the sign checks and the step-size error of every entry, which is what makes the numbers interpretable later. A matrix without its trim point and its steps is not interpretable.",
@@ -545,13 +545,13 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Maneuvers stored in this project",
         "body": [
             "A maneuver is a persisted trajectory: a list of flight conditions in time, together with the sampling and march settings that turn the list into a run. It lives in inputs/maneuvers.bemt beside the project and survives the session.",
-            "<b>New</b> appends a two-point trajectory as a starting point. <b>Duplicate</b> copies what is on screen under a new name, which is the cheap way to march the same trajectory with another sample interval. <b>Rename</b> changes only the name. <b>Delete</b> removes the maneuver from the project after confirmation.",
+            "<b>New</b> appends a two-point trajectory as a starting point. <b>Duplicate</b> copies what is on screen under a new name, which provides a convenient way to march the same trajectory with another sample interval. <b>Rename</b> changes only the name. <b>Delete</b> removes the maneuver from the project after confirmation.",
             "An edit in this window writes the maneuver back into the project at once and marks the project unsaved. Saving the project is the separate step that puts the maneuver on disk.",
         ],
         "anchor": "cap-transiente",
     },
     "maneuver_points": {
-        "title": "Trajectory points — the prescribed flight condition in time",
+        "title": "Trajectory points: the prescribed flight condition in time",
         "body": [
             "Each row is one node of the trajectory: the time, the in-plane advance ratio, the axial speed, the collective, the two cyclic harmonics and the rotational speed. Together the columns fix the whole flight condition at that instant.",
             "The rows are nodes, not samples. Their times must increase strictly, and the sampler builds the uniform grid between them. Therefore the table states the shape of the input, and the Sampling and march block states the resolution it is read at.",
@@ -561,7 +561,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-transiente",
     },
     "maneuver_build": {
-        "title": "Build from two saved cases — a ramp between known conditions",
+        "title": "Build from two saved cases: a ramp between known conditions",
         "body": [
             "This block writes the trajectory from two conditions the project already holds, which is faster and safer than typing the nodes by hand. Select a start case, an end case and a duration, then press <b>Build ramp</b>.",
             "The result is a two-node trajectory: the start condition at the origin of time, and the end condition after the duration plus a short hold. The hold is a quarter of the duration, up to half a second, and it keeps both boundary conditions visible in the time history.",
@@ -570,7 +570,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-transiente",
     },
     "maneuver_march": {
-        "title": "Sampling and march — how the trajectory becomes a run",
+        "title": "Sampling and march: how the trajectory becomes a run",
         "body": [
             "These settings turn the trajectory into a solve. The sampler resamples the nodes onto a uniform grid, and the march integrates the three Pitt-Peters inflow states along that grid. Every sample inherits the state of the sample before it, so the three states are the marched degrees of freedom.",
             "<b>Interpolation</b> decides how a sample reads the trajectory between two nodes. Linear blends every quantity between the neighboring nodes. Hold keeps the value of the last node whose time is not past, which is what a step input needs.",
@@ -581,15 +581,15 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-transiente",
     },
     "maneuver_cost": {
-        "title": "Cost estimate — the size of the march before it runs",
+        "title": "Cost estimate: the size of the march before it runs",
         "body": [
-            "The line states the sample count times the sub-steps per sample, which is almost exactly the number of solver calls the march makes. It is arithmetic on the settings above and runs no physics.",
+            "The line states the sample count times the sub-steps per sample, which estimates the number of analysis evaluations required by the march. It is calculated from the settings above without running the analysis.",
             "Both factors are cheap to change and expensive to ignore. Halving the sample interval doubles the samples, and doubling the sub-steps doubles the calls again. Read the number before you press <b>Run maneuver</b>.",
         ],
         "anchor": "cap-transiente",
     },
     "maneuver_validation": {
-        "title": "Validation — the static findings for this trajectory",
+        "title": "Validation: the static findings for this trajectory",
         "body": [
             "The panel lists what can be checked without a solve, in the same style as the Config tab. It re-reads the form after every edit.",
             "An <b>error</b> is a condition the march cannot start from: fewer than two nodes, times that do not increase strictly, no rotational speed from the first node onward, or a sample interval that is not positive. A sample interval larger than the shortest interval between two nodes is an error for the same reason: the grid would step over a node and lose part of the prescribed input.",
@@ -598,16 +598,16 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-transiente",
     },
     "maneuver_preview": {
-        "title": "Trajectory preview — the sampled input, not the table",
+        "title": "Trajectory preview: the sampled input, not the table",
         "body": [
-            "The figure draws the in-plane component and the axial speed of every sample against time. It shows the grid the march will read, therefore an interpolation or a sample interval that misrepresents the intended input is visible here before any solver time is spent.",
+            "The figure draws the in-plane component and axial speed of every sample against time. It shows the sampled trajectory, so an unsuitable interpolation rule or sample interval is visible before the analysis runs.",
             "The two interpolation rules look different on purpose: Hold draws a staircase and Linear draws straight segments between nodes.",
             "A trajectory that cannot be sampled states the reason in place of the curve. The usual cause is a missing rotational speed or a node order that the Validation panel already reports.",
         ],
         "anchor": "cap-transiente",
     },
     "maneuver_history": {
-        "title": "Time history — one row per sample",
+        "title": "Time history: one row per sample",
         "body": [
             "The table holds the marched result: the time, the load coefficients, the three inflow states, the collective, the interval the march actually integrated and the sub-step count of that step.",
             "The three states describe the whole inflow field of Pitt-Peters, with x = r/R:"
@@ -621,7 +621,7 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-transiente",
     },
     "maneuver_disk_map": {
-        "title": "Disk map at sample — where the transient happened",
+        "title": "Disk map at sample: where the transient happened",
         "body": [
             "The map draws the induced inflow &lambda;<sub>i</sub> over the disk at one sample of the march. The spin box selects the sample index, so stepping through it walks the transient in space.",
             "The time history states what the integrated loads did. This map states where on the disk they did it. During a transient the first harmonic of the inflow lags the input, therefore the tilt of the field here is not the tilt a steady solve at the same condition returns.",

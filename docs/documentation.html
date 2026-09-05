@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -864,8 +864,7 @@
     <a id="cap-1"></a>
     <h2 id="cap-instalacao">1. Installation</h2>
 
-    <p>zBEMT requires Python 3.10 or later. The core solver uses NumPy, SciPy, Matplotlib, and pandas. <span class="gui">GUI</span>, three-dimensional visualization, interactive reporting, and external polar generation are
-      optional dependencies. This separation permits headless batch execution. Therefore you can run a batch without a graphics stack.</p>
+    <p>zBEMT requires Python 3.10 or later. The base installation provides command-line analysis and batch execution. <span class="gui">GUI</span>, three-dimensional visualization, interactive reporting, and external polar generation require the corresponding optional dependencies.</p>
 
     <h3 id="cap-instalacao-1">1.1 What to install</h3>
 
@@ -930,10 +929,7 @@
 zbemt --project projects/starter_rotor     # run a project from the CLI
 zbemt --help                               # every flag</code></pre>
 
-    <p>If the shell does not find the commands, the installation directory is not on your path. The two commands
-      <code>python -m zbemt.gui.app</code> and <code>python -m zbemt.cli</code> have the same effect.
-      Both commands run without arguments. Then the commands use the starter rotor. Therefore a working installation always opens or runs an example.
-    </p>
+    <p>If the shell does not find <code>zbemt</code> or <code>zbemt-gui</code>, verify that zBEMT is installed in the active Python environment and that the environment's command directory is on <code>PATH</code>.</p>
 
     <h3 id="cap-instalacao-3">1.3 When an optional package is missing</h3>
 
@@ -958,9 +954,7 @@ zbemt --help                               # every flag</code></pre>
         class="bemt">.bemt</span> files</h2>
 
     <p>zBEMT exposes one computational model through three synchronized interfaces. The
-      <b><span class="gui">GUI</span></b>, the <b><span class="bemt">.bemt</span></b> project files, and the
-      <b><span class="cli">CLI</span></b> use the same validation, solver, and reporting paths. Equivalent
-      inputs therefore produce equivalent numerical results. This chapter defines the role of each interface. It identifies the file that stores each setting. It describes the outputs that a run produces.
+      <b><span class="gui">GUI</span></b>, <b><span class="bemt">.bemt</span></b> project files, and the <b><span class="cli">CLI</span></b> describe the same analysis case. Equivalent inputs produce equivalent numerical results. This chapter explains the role of each interface, where settings are stored, and what a run produces.
     </p>
 
     <h3 id="cap-interfaces-1">2.1 What each one is for</h3>
@@ -1276,8 +1270,7 @@ zbemt --project projects/MyRotor --rpm 300 --set config.Ne=90 --save-as projects
       two commands open the two interfaces:
       <pre>zbemt-gui        # GUI
 zbemt --help     # command line</pre>
-      Without installing, the equivalents are <code>python -m zbemt.gui.app</code> and
-      <code>python -m zbemt.cli</code>. The window opens maximized and empty. The first step is always the <b>Project</b> tab. There you choose one of the examples that come preinstalled (<a class="xref" href="#cap-0-5" title="3.2.5 First use">Section 3.2.5</a>) or create a new project.
+      The window opens on the <b>Project</b> tab. Select an installed example (<a class="xref" href="#cap-0-5" title="3.2.5 First use">Section 3.2.5</a>) or create a project.
     </div>
 
     <p>The <span class="gui">GUI</span> organizes the workflow into seven tabs. The reference manual follows this tab sequence sequentially: <b>1. Project</b> — mode and file management &rarr; <b>2. Geometry</b> — radial blade chord and twist distribution &rarr; <b>3. Airfoil</b> — polar models and aerodynamic corrections &rarr; <b>4. Config and Engine</b> — discretization, inflow model, and solver numerical parameters &rarr; <b>5. Run Case</b> — single flight condition evaluation or <b>6. Run Batch</b> — parametric sweeps &rarr; <b>7. Results</b> — post-processing and export.
@@ -2134,10 +2127,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <h3 id="cap-nomenclatura-helice">4.2 Propeller mode</h3>
 
 
-    <p>The formulation in the physics chapters is developed in standard <b>disk-oriented rotor coordinates</b>,
-      matching the internal solver frame. This chapter details the physical distinctions and the coordinate
-      transformations that an <b>airplane propeller</b> introduces: flow axis alignment, non-dimensional
-      parameter conventions, incident inflow angle definitions, and applicable propulsive efficiency metrics.</p>
+    <p>The physics chapters use disk-oriented rotor coordinates. Propeller mode expresses the same physical quantities using shaft-oriented flight variables and standard propeller non-dimensional coefficients. This section defines the coordinate conventions, inflow angles, and efficiency measures used in each mode.</p>
 
     <div class="boxed note">
       <b>Summary.</b> A propeller operates with its thrust axis aligned horizontally, making axial
@@ -2149,11 +2139,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <h4 id="cap-prop-1">4.2.1 Physical distinctions</h4>
 
-    <p>The core governing equations of Blade Element Momentum Theory remain identical across both modes.
-      The numerical solver accepts the velocity pair $(\mu_x, V_z)$ in internal disk axes and solves
-      the coupled fixed-point system (<a class="xref" href="#sec-210-the-fixed-point-equation"
-        title="5.8 The fixed-point equation">Section 5.8</a>). Operating mode configuration alters the
-      boundary flow conditions, which deactivates several asymmetric flow phenomena in pure axial cruise:</p>
+    <p>Blade Element Momentum Theory uses the same force and momentum balances in rotor and propeller modes. The selected mode changes the flight-variable convention and which asymmetric-flow effects are relevant. In pure axial propeller operation, the following edgewise-flow effects are inactive:</p>
 
     <p><b>Alignment of the axial flight velocity.</b> In a helicopter rotor, the shaft is oriented vertically and
       forward flight produces an in-plane velocity component ($V_x$). In an axial propeller, the shaft is
@@ -2191,12 +2177,9 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
 
     <p><a class="xref" href="#sec-21-nomenclature" title="4.1 Nomenclature">Section 4.1</a> establishes the
       reference convention: coordinate axes remain vehicle-fixed ($x$ longitudinal and forward, $z$ vertical and up),
-      while the shaft orientation changes between rotor and propeller configurations. This section defines
-      the mapping between display symbols and internal solver keys.</p>
+      while the shaft orientation changes between rotor and propeller configurations. This section defines the user-facing notation for each operating mode.</p>
 
-    <p>Project files and internal engine variables maintain disk-aligned coordinates and <b>do not rotate</b>.
-      User interfaces, tabular outputs, and generated plots display vehicle-fixed notation corresponding to
-      the selected operating mode:</p>
+    <p>Project inputs, tabular outputs, and plots use the notation associated with the selected operating mode. The following table relates the rotor and propeller conventions:</p>
 
     <div class="tablewrap">
       <table>
@@ -2699,13 +2682,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         title="8.5 Compressibility">Section 8.5</a>). The envelope between retreating blade stall and advancing
       tip compressibility dictates the maximum forward speed.</p>
 
-    <p><b>Axis conventions in rotor and propeller mode.</b> In rotor mode, $\mu_x$ denotes the in-plane advance
-      ratio and $\mu_z$ denotes axial inflow along the shaft. In propeller mode, the shaft is aligned
-      longitudinally, so the displayed labels rotate: axial flight speed corresponds to $\mu_x$ (or $J_x$), while
-      vertical cross-flow corresponds to $\mu_z$ (or $J_z$). Internal solver variables maintain
-      disk-aligned coordinates (axial flow stored under <code>mu_z</code>, <code>J_z</code> and <code>Vz</code>),
-      while the user interface adjusts the input labels according to the operating mode (<a class="xref"
-        href="#cap-5-1" title="10.1 In-plane flow — the first row">Section 10.1</a>).</p>
+    <p><b>Axis conventions in rotor and propeller mode.</b> In rotor mode, $\mu_x$ is the in-plane advance ratio and $\mu_z$ is axial inflow along the shaft. In propeller mode, axial flight uses $J_x$ and cross-flow uses $J_z$. The GUI, CLI, project files, tables, and plots use the notation for the selected operating mode (<a class="xref" href="#cap-5-1" title="10.1 In-plane flow: the first row">Section 10.1</a>).</p>
 
     <p><b>Reading the number.</b> $\mu_x=0$ is hover, where the disk is axisymmetric and every field
       depends on radius alone. Up to roughly $0.1$ the asymmetry is mild and the reverse-flow circle
@@ -2787,10 +2764,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       so the number it returns is not a propulsive efficiency.</p>
 
     <div class="boxed note">
-      zBEMT calculates both coefficient families at every evaluation, independent of
-      <code>cfg.is_propeller</code>: this flag determines only which convention is used by default
-      in plots and sweeps (<a class="xref" href="#cap-projeto-1" title="6.1 Operation mode: rotor or propeller">Section
-        6.1</a>), never what is calculated internally.
+      Rotor and propeller coefficient families represent the same dimensional forces and powers with different reference scales. The <code>is_propeller</code> setting selects the convention used by default in plots and sweeps (<a class="xref" href="#cap-projeto-1" title="6.1 Operation mode: rotor or propeller">Section 6.1</a>).
     </div>
 
 
@@ -3238,17 +3212,10 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       models of <a class="xref" href="#cap-4-2" title="9.2 Inflow model">Section 9.2</a>, equal to $1$ in classical
       BEMT.</p>
 
-    <p>Two features of the denominator are worth reading. The factor
-      $\sqrt{\lambda_{total}^{2}+\mu_x^{2}}$ is the speed of the mass flow through the ring: it reduces
-      to the axial component alone in hover, where $\mu_x=0$, and grows with the in-plane component in
-      forward flight, which is why the same load needs less induced velocity as the rotor advances. Both
-      terms vanish together at the root of a hovering rotor, so the implementation adds a small constant under
-      the root to keep the expression finite there. The constant is far below the tolerance of <a class="xref"
-        href="#cap-4-5-2" title="9.5.2 Iteration limit and tolerance">Section 9.5.2</a>
-      and does not affect a converged result.</p>
+    <p>The denominator contains the local mass-flow speed $\sqrt{\lambda_{total}^{2}+\mu_x^{2}}$. It reduces to the axial component in hover and increases with in-plane speed. Therefore the induced velocity required for a given load decreases as advance ratio increases. Hover at zero load is the limiting case in which both velocity components approach zero.</p>
 
-    <h4 id="cap-20-2">5.9.2 Order in which an element is evaluated</h4>
-    <p>Given a trial field $\lambda_i$, the function executes, vectorized over the entire mesh
+    <h4 id="cap-20-2">5.9.2 Element evaluation sequence</h4>
+    <p>Given a trial field $\lambda_i$, the blade elements are evaluated over the entire mesh
       $(N_e,N_\psi)$:</p>
     <ol>
       <li>$U_P$, $U_T$, $W$ (<a class="xref" href="#sec-24-blade-element-velocities-u-p-u-t-w"
@@ -3557,11 +3524,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <a id="cap-2"></a>
     <h2 id="sec-5-geometry">7. Geometry</h2>
 
-    <p>The Geometry tab describes the blade. Two numbers apply to the rotor as a whole: the number of
-      blades and the radius. The rest of the blade is a table that gives the chord and the twist at a
-      series of radial stations. The solver reads only the table, independently of what produced it. A blade
-      generated from a preset and a blade entered cell by cell are the same object once they are on
-      screen.</p>
+    <p>The Geometry tab defines the blade. The number of blades and radius apply to the complete rotor. A radial table defines local chord and twist. Presets and manual entry both populate this table, so equivalent table values define equivalent geometry.</p>
 
     <figure>
       <img src="img/gui/geometry.png" alt="Geometry tab">
@@ -3887,8 +3850,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p><span class="cli">CLI</span>:
       <code>--set geom.dynamics.lag_enabled=true</code>.</p>
 
-    <p>An example project with an articulated blade lives at
-      <a href="#cap-projeto" title="6. Project"><code>projects/test13</code></a>.</p>
+    <p>Use the blade-dynamics controls above to define an articulated blade. Save the project before using the same configuration in a batch or from the CLI.</p>
 
     <h3 id="cap-2-5">7.3 Root cutout</h3>
 
@@ -5437,16 +5399,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   bounded by the minimum and maximum $\alpha$ present in the data table.</p>
 
                 <h3 id="cap-3-7">8.7 Profile 2D geometry</h3>
-                <p>This block holds the two-dimensional contour of the section: the shape itself, not the blade
-                  planform. It is required only when a polar is to be generated from the shape, which is the external
-                  solver of 8.8. With an analytical or an already tabulated polar it is optional and purely
-                  illustrative, feeding the profile preview and nothing else.</p>
+                <p>This block defines the two-dimensional section contour, not the blade planform. A contour is required when a polar is generated from geometry. It is optional when an analytical or tabulated polar already defines the aerodynamic coefficients.</p>
 
-                <p>The contour never enters the blade element equations. What the solver reads is the polar, and the
-                  shape reaches the solution only through the coefficients a generator produces from it. Once those
-                  coefficients exist, editing the contour changes nothing until the generator is run again. The
-                  sources below are eight ways of arriving at the same thing, a list of normalized coordinate
-                  pairs.</p>
+                <p>Aerodynamic analysis uses the polar coefficients. Editing the contour therefore does not change aerodynamic results until a new polar is generated. Each source option below defines the same output: normalized section coordinates.</p>
                 <div class="tablewrap">
                   <table>
                     <tr>
@@ -5503,10 +5458,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <h4 id="cap-3-7-0">8.7.1 Choosing the shape</h4>
 
-                <p><b>The physics.</b> The contour never enters the blade element equations. What the solver reads
-                  is the polar, and the shape matters only because a polar can be generated from it. A profile is
-                  therefore needed when a polar is to be produced from the section itself. It is optional, and purely
-                  illustrative, when the polar is analytical or already tabulated.</p>
+                <p><b>The physics.</b> Blade-element forces depend on aerodynamic coefficients from the selected polar. The contour matters when those coefficients are generated from section geometry. It is optional when the polar is analytical or already tabulated.</p>
 
                 <p><b>What can be entered.</b> Eight ways to obtain the same thing, a set of contour
                   coordinates. A <i>Source</i> dropdown selects the family, and each family reveals the
@@ -5789,16 +5741,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 </p>
 
                 <h3 id="cap-3-8">8.8 External polar generation</h3>
-                <p>Two external engines estimate a two-dimensional airfoil polar from profile coordinates,
-                  Reynolds number, Mach number and an angle-of-attack sweep. <b>NeuralFoil</b> is a neural-network
-                  surrogate of XFOIL. One evaluation costs milliseconds, so a dense sweep costs seconds.
-                  <b>XFOIL</b>
-                  runs the classic boundary-element binary directly. It gives higher fidelity where it converges,
-                  takes minutes instead of milliseconds, and it needs the executable installed on the machine.
-                  Neither is a flow
-                  solver and neither replaces validated measurements in a certification or high-consequence
-                  analysis. The output of both is a set of $C_l$ and $C_d$ samples that the blade-element method
-                  uses by the same tabulated interpolation as an imported polar.</p>
+                <p>Two external methods can generate tabulated polars from a two-dimensional contour. <b>NeuralFoil</b> provides fast estimates over an angle, Reynolds-number, and Mach-number grid. <b>XFOIL</b> provides an independent panel and boundary-layer calculation where it converges. XFOIL requires an installed executable selected in the GUI or available on <code>PATH</code>.</p>
                 <p>The generated coefficients are applicable only within the profile, Reynolds, Mach and angle
                   range requested. They must be reviewed against available data when separation, transition,
                   compressibility, roughness, Reynolds sensitivity or deep stall materially affects the design. NeuralFoil needs the
@@ -8169,12 +8112,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           condition, like every spatial view: it shows where the blade carries load now, not how the
                           loading changes as
                           the condition moves.</p>
-                                                <p><b>Drawing resolution.</b> The preview draws a thinned copy of the mesh, not
-                          the mesh the solver converged. The surface is colored face by face, and the
-                          number of faces alone sets the drawing cost: a 150 by 360
-                          grid is 53,640 faces, on a canvas about four hundred pixels across. That is
-                          more than one face per pixel in both directions, so the extra faces cost time
-                          and cannot appear in the image.</p>
+                                                <p><b>Drawing resolution.</b> Preview resolution controls display detail and interaction speed only. It does not change the analysis mesh or numerical results. Use a lower preview resolution for faster interaction and increase it only when finer visual detail is needed.</p>
 
                         <p>The first and last radial station and the first and last azimuth are always
                           kept, so the disk still reaches the tip and still closes on itself. The program
@@ -8638,7 +8576,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><b>Integrity and reuse.</b> Every row is validated before a run starts: a chord
                           table that is not finite and positive, a cutout at or beyond the tip, or any
                           project-level error stops the comparison naming the offending label. A base whose
-                          planform reads ONE chord quantity keeps the table honest too. A rectangular
+                          planform reads one chord quantity keeps the table honest too. A rectangular
                           base renames the first column to <i>Chord c/R</i> and an elliptic one to <i>Max chord
                           c/R</i>, disabling the tip cell in both cases instead of accepting a value that would
                           be ignored. Two rows resolving to the same radial table warn
@@ -9136,7 +9074,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           the swept conditions that ordering reads. Both change the view alone: every
                           variant was already solved at every condition, so re-ordering runs nothing.</p>
 
-                        <p>The ordering is on ONE quantity at ONE condition. A variant that wins on the
+                        <p>The ordering is on one quantity at ONE condition. A variant that wins on the
                           figure of merit may lose on torque. A blade that is best in hover is
                           frequently not the one that is best in cruise. That reversal is usually the
                           finding, which is why the full table stays beside the ranking.</p>
@@ -9144,7 +9082,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 <h3 id="designer-damping">13.4 Damping comparison</h3>
                         <p><b>What it answers.</b> The ranking above compares variants on performance:
                           thrust, torque, efficiency. A rotor that wins on performance can still be the
-                          worse aircraft, because how strongly it RESISTS a disturbance is a separate
+                          worse aircraft, because how strongly it resists a disturbance is a separate
                           property from how much it lifts. This table puts the two side by side, so a
                           planform is not chosen on hover figure of merit alone.</p>
 
@@ -9399,8 +9337,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>Pressing <i>Run optimization</i> first checks the study and names every
                           problem it finds &mdash; an unknown summary key, bounds that do not increase,
                           a genetic algorithm with too few designs, two objectives given to a
-                          single-result method. Errors block the start, warnings only inform. Nothing
-                          pays solver time to learn about a bad definition. When the check passes, the
+                          single-result method. Errors block the start, warnings only inform. Invalid definitions are rejected before analysis begins. When the check passes, the
                           search runs outside the interface thread, so the window stays responsive,
                           reports progress in evaluations completed, and answers <i>Cancel</i> between
                           evaluations. A cancelled run is not a lost run: the front built from every
@@ -9452,8 +9389,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <h3 id="cap-opt-workers">14.9 Parallel workers</h3>
                         <p><b>What it is.</b> How many designs are solved at the same time. Every design
                           in a generation is an independent solve &mdash; a variant geometry evaluated at
-                          one flight condition, reading nothing the other designs write &mdash; so the
-                          generation can be spread over several processes and reassembled afterwards.</p>
+                          one flight condition, reading independent of the other designs. Multiple workers can therefore evaluate designs concurrently.</p>
 
                         <p><b>The mathematics.</b> There is none to speak of, and that is the point: the
                           answer must not depend on this setting. A generational search is reproducible
@@ -9581,7 +9517,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           thousands of sub-steps to survive. The exponential form has no such limit. It is the exact
                           solution of the frozen system, so a single sub-step already relaxes smoothly toward
                           equilibrium when the sample is long compared with the delay. This is the physically
-                          correct behavior, not an approximation of it. Where the sample is SHORT compared with
+                          correct behavior, not an approximation of it. Where the sample is short compared with
                           the delay, the sub-steps are what resolve the shape of the response.</p>
 
                         <h3 id="cap-transiente-2">15.2 The trajectory</h3>
@@ -9640,7 +9576,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                         <p><b>The physics.</b> Two intervals decide the run and they are not the same thing. The
                           SAMPLE interval is how often the answer is written down: one sample is one row of the time
-                          history and one disk map. The SUB-STEP is how finely the inflow equation is marched between
+                          history and one disk map. The sub-step is how finely the inflow equation is marched between
                           two samples. Refining the sample interval makes the recorded curve smoother. Refining the
                           sub-steps makes the marched state more accurate without adding a single row to the table.
                           The distinction matters because the inflow delay is short: a sample interval chosen for a
@@ -9840,7 +9776,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 <h3 id="cap-stability-yaw">16.3 Why there is no yaw rate</h3>
                         <p>An isolated rotor with a vertical shaft feels no first-order moment from yawing:
                           rotating about its own shaft changes no blade incidence. The yaw rate therefore stays
-                          out of the perturbation set on purpose. What remains is the yaw DAMPING
+                          out of the perturbation set on purpose. What remains is the yaw damping
                           ($\partial Q/\partial \Omega$): torque does change with rotor speed. The vehicle model
                           below keeps a yaw row so the bookkeeping closes, fed by that damping alone.</p>
 
@@ -9864,11 +9800,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           exported table.</p>
 
 <h3 id="cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</h3>
-                        <p>The matrix lists outputs down the rows and variables across the columns, switchable
-                          between dimensional and non-dimensional form without rerunning: forces divided by
-                          $\rho A(\Omega R)^2$, moments by $\rho A(\Omega R)^2 R$, speeds by $\Omega R$ and rates
-                          by $\Omega$. The bar chart draws one output across all variables so the dominant term
-                          is visible at a glance. The SIGN CHECKS panel is the window's conscience: heave damping
+                        <p>The matrix lists outputs down the rows and variables across the columns. The display can switch between dimensional and non-dimensional derivatives without rerunning. Forces are divided by $\rho A(\Omega R)^2$, moments by $\rho A(\Omega R)^2 R$, speeds by $\Omega R$, and rates by $\Omega$. The bar chart compares one output across all variables. The <i>Sign checks</i> panel verifies basic expected trends: heave damping
                           must be negative, pitch damping must be negative, thrust must rise with collective. A
                           FAIL there means a sign flipped somewhere in the engine chain &mdash; do not fly the
                           numbers.</p>
@@ -9893,7 +9825,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           column headings of the exported table.</p>
 
 <h3 id="cap-stability-vehicle">16.6 The vehicle: mass, inertia and the hub arm</h3>
-                        <p><b>What these are.</b> The derivatives above belong to the ROTOR. Turning them
+                        <p><b>What these are.</b> The derivatives above belong to the rotor. Turning them
                           into aircraft motion needs the aircraft, and the aircraft is not derivable from
                           the blade: its mass, its three moments of inertia and where the hub sits relative
                           to the center of gravity have to be stated. That is what this block asks for, and
@@ -9952,23 +9884,18 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>This chapter is the concise reference for automation. It lists the supported
                           <span class="cli">CLI</span> commands and flags, the corresponding <code>.bemt</code> files,
                           validation
-                          rules, and common option combinations. Every editable project field remains reachable through
-                          the serialized project representation, including fields without a dedicated
+                          rules, and common option combinations. Project files include all configurable analysis fields, including fields without a dedicated
                           <span class="gui">GUI</span> control.
                         </p>
 
                         <h3 id="cap-8-1">17.1 Running from the command line</h3>
 
-                        <p>The <span class="cli">CLI</span> points at a project folder, runs the requested condition or
-                          sweep, and writes the results. It goes through the same code as the <span
-                            class="gui">GUI</span>
-                          and applies the same validation. Therefore, a project run either way gives the same numbers.</p>
+                        <p>The <span class="cli">CLI</span> opens a project folder, runs the requested condition or sweep, and writes the results. It uses the same project definition and validation rules as the <span class="gui">GUI</span>. Equivalent inputs therefore produce equivalent numerical results.</p>
 
                         <p>Every flag sets a field the <span class="gui">GUI</span> can also edit. The other two interfaces
                           read a <span class="bemt">.bemt</span> written by
                           any of the three back identically. After installing, the command
-                          <code>zbemt</code> is available. Without installing, <code>python -m zbemt.cli</code> is the
-                          equivalent.
+                          <code>zbemt</code> is available from the active environment.
                         </p>
 
                         <pre><code># Run an existing project
@@ -10141,7 +10068,7 @@ zbemt --project projects/MyProject \
                           setting it in the window and saving.</p>
 
                         <h3 id="cap-8-3">17.2 Validation rules</h3>
-                        <p>Every configuration is checked before the solver is called, and the same checks apply to the
+                        <p>Every configuration is checked before analysis begins. The same checks apply to the
                           <span class="gui">GUI</span>, the <span class="cli">CLI</span> and a project run from a saved
                           file. They flag combinations that are physically inconsistent or not implemented. A finding
                           either reports only, as <code>info</code> or <code>warning</code>, or blocks execution, as

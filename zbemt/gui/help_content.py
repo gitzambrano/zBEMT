@@ -11,9 +11,9 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Saved batch",
         "definition": (
             "The named queue of conditions stored with the project.\n\n"
-            "A batch is what makes a set of runs repeatable: the same "
-            "queue, re-run after a change to the blade, is the only way "
-            "to say the change did anything."),
+            "A saved batch makes a set of runs repeatable. Re-running the same "
+            "queue after a blade change provides a consistent basis "
+            "for comparison."),
         "unit": "—",
         "equation": None,
         "effect": "Selecting one replaces the queue on screen. Saving under an existing name overwrites that batch.",
@@ -55,11 +55,11 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "Which flight-condition quantity this axis of the factorial "
             "sweeps.\n\n"
-            "A factorial builds the FULL CROSS PRODUCT: every value of "
+            "A factorial builds the full Cartesian product: every value of "
             "this axis is combined with every value of the others."),
         "unit": "that of the chosen quantity",
         "equation": r"N_{cases} = \prod_i N_i",
-        "effect": "Two axes of ten values each is a hundred cases, not twenty. Adding a third axis of five makes it five hundred. The queue below shows what was actually built, and it is worth reading before running.",
+        "effect": "Two axes of ten values each is a hundred cases, not twenty. Adding a third axis of five makes it five hundred. The queue below shows what was actually built, and should be checked before running.",
         "range": "each axis must name a different quantity",
         "options": None,
         "anchor": "cap-6-1",
@@ -83,7 +83,7 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "The values this axis takes, separated by commas.\n\n"
             "This list is what the factorial actually uses. The range "
-            "controls beside it are a convenience that WRITES into this "
+            "controls beside it are a convenience that writes into this "
             "list. They are not read directly."),
         "unit": "that of the axis unit",
         "equation": None,
@@ -152,7 +152,7 @@ FIELD_HELP: dict[str, dict] = {
             "under the axis letters of the project's mode."),
         "unit": "—",
         "equation": None,
-        "effect": "It is the export the results are usually read from outside the program. The figures are a view of the same numbers. The CSV is the numbers.",
+        "effect": "It is the export the results are usually read from outside the program. The figures are a view of the same numbers. The CSV contains the numerical data used by the figures.",
         "range": "on for any batch whose results will be used elsewhere",
         "options": None,
         "anchor": "cap-6-5",
@@ -167,7 +167,7 @@ FIELD_HELP: dict[str, dict] = {
             "solved for."),
         "unit": "—",
         "equation": r"\text{solve}\;\theta_0\;\text{such that}\;T(\theta_0)=T_{target}",
-        "effect": "It changes what a comparison MEANS. Two rotors at the same collective are compared at two different thrusts. At the same thrust they are compared at two different collectives, which is nearly always the intended question.",
+        "effect": "It changes the basis of the comparison. Two rotors at the same collective are compared at two different thrusts. At the same thrust they are compared at two different collectives, which is appropriate when equal thrust is the required comparison basis.",
         "range": "off | thrust | a coefficient",
         "options": None,
         "anchor": "cap-5-5",
@@ -181,7 +181,7 @@ FIELD_HELP: dict[str, dict] = {
             "makes two rotors of different size comparable at all."),
         "unit": "—",
         "equation": r"C_T=\dfrac{T}{\rho A(\Omega R)^2}",
-        "effect": "Trimming to a thrust in newtons compares rotors carrying the same weight. Trimming to a thrust coefficient compares them at the same blade loading, which is the fairer comparison between different diameters.",
+        "effect": "Trimming to a thrust in newtons compares rotors carrying the same weight. Trimming to a thrust coefficient compares them at the same blade loading, which supports comparison at equal non-dimensional loading across different diameters.",
         "range": "thrust [N] | thrust coefficient",
         "options": None,
         "anchor": "cap-5-5",
@@ -206,8 +206,8 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "Which property of the blade is varied across the generated "
             "variants.\n\n"
-            "A variation study answers one question at a time: what "
-            "happens when THIS changes and nothing else does."),
+            "A variation study changes one parameter at a time so the "
+            "effect of that parameter can be isolated."),
         "unit": "that of the chosen parameter",
         "equation": None,
         "effect": "Every generated row differs from the base geometry in this parameter alone, so any difference in the result belongs to it and not to a second change made at the same time.",
@@ -476,7 +476,7 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Ω — rotor speed",
         "definition": (
             "Perturbation of the rotational speed.\n\n"
-            "Unlike the others it rescales EVERYTHING at once: the tip "
+            "This variable changes the reference tip speed and therefore rescales several quantities at once: the tip "
             "speed, the dynamic pressure at every station, and the "
             "advance ratio the condition is stated at."),
         "unit": "rpm",
@@ -611,7 +611,7 @@ FIELD_HELP: dict[str, dict] = {
             "compares nothing."),
         "unit": "—",
         "equation": None,
-        "effect": "Every number the study reports belongs to this condition and to no other. It must carry an rpm, because the engine needs one to form the tip speed.",
+        "effect": "Every number the study reports belongs to this condition and to no other. It must carry an rpm, because rotational speed is required to determine tip speed.",
         "range": "any case saved in the project",
         "options": None,
         "anchor": "cap-opt-condition",
@@ -678,9 +678,9 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Direction of the objective",
         "definition": (
             "Whether the quantity is to be made larger or smaller.\n\n"
-            "The search minimizes internally, so a maximization is "
-            "carried as its negative. Getting the direction wrong does "
-            "not fail: it converges, on the worst design it can find."),
+            "Choose Maximize when larger objective values are preferred and "
+            "Minimize when smaller values are preferred. The selection changes "
+            "the optimization direction, not the objective definition."),
         "unit": "—",
         "equation": None,
         "effect": "Maximize for a figure of merit or an efficiency; minimize for torque, power or a loading.",
@@ -966,7 +966,7 @@ FIELD_HELP: dict[str, dict] = {
             "inertias and where the hub sits have to be stated."),
         "unit": "—",
         "equation": r"\dot{x}=Ax+Bu",
-        "effect": "Off, the window reports the derivative matrix alone. On, it also builds A and B and draws their eigenvalues. It models ONE ROTOR: no fuselage, no tail rotor, no stabiliser, no engine or governor dynamics.",
+        "effect": "Off, the window reports the derivative matrix alone. On, it also builds A and B and draws their eigenvalues. It models one rotor: no fuselage, no tail rotor, no stabiliser, no engine or governor dynamics.",
         "range": "needs u, v, w and p, q among the states",
         "options": None,
         "anchor": "cap-stability-vehicle",
@@ -1559,9 +1559,9 @@ FIELD_HELP: dict[str, dict] = {
             "contour from these numbers and stores them with it, so a saved "
             "section can be regenerated and edited again without the "
             "coordinates.\n\n"
-            "Note: the contour reaches the engine only through the polar "
-            "generated from it. Changing the numbers changes nothing until "
-            "polar generation runs again."),
+            "Aerodynamic results use the polar generated from the contour. "
+            "Changing these geometry parameters does not affect aerodynamic results until "
+            "the polar is regenerated."),
         "range": (
             "PARSEC: nine finite numbers (defaults 0.0158, 0.30, 0.0593, "
             "-0.475, 0.35, -0.047, 0.530, 0.0025, 8.0). Joukowski: epsilon and "
@@ -1585,9 +1585,9 @@ FIELD_HELP: dict[str, dict] = {
             "Camber shifts the zero-lift angle negative and raises Cl at a given "
             "angle. Thickness governs how gently the section stalls and how much "
             "profile drag it carries.\n\n"
-            "Note: the contour reaches the engine only through the polar "
-            "generated from it. Changing the code changes nothing until polar "
-            "generation runs again."),
+            "Aerodynamic results use the polar generated from the contour. "
+            "Changing the NACA code does not affect aerodynamic results until the polar "
+            "is regenerated."),
         "range": (
             "4 or 5 digits.\n\n"
             "Sections in common rotor use: 0009 (thin symmetric, high-speed tip), "
@@ -1830,7 +1830,7 @@ FIELD_HELP: dict[str, dict] = {
         "title": "XFOIL Ncrit",
         "definition": (
             "Critical amplification factor N of the e<sup>N</sup> transition "
-            "criterion, used only by the XFOIL engine.\n\n"
+            "criterion, used only by XFOIL polar generation.\n\n"
             "The boundary layer turns turbulent where small disturbances inside "
             "it have grown by the factor e<sup>N</sup>. A lower N describes a "
             "flow with many disturbances and predicts earlier transition with "
@@ -1842,7 +1842,7 @@ FIELD_HELP: dict[str, dict] = {
             "Lowering Ncrit predicts earlier transition and a drag level nearer "
             "the fully turbulent one. Raising it extends laminar flow and lowers "
             "predicted skin friction.\n\n"
-            "The value reaches only the XFOIL binary; other engines ignore it."),
+            "Other polar-generation methods ignore this setting."),
         "range": "1–15 (default 9, a clean flow)",
         "options": None
     },
@@ -1850,7 +1850,7 @@ FIELD_HELP: dict[str, dict] = {
         "title": "XFOIL Xtr Top",
         "definition": (
             "Chord fraction x/c where transition is forced on the upper "
-            "surface, used only by the XFOIL engine.\n\n"
+            "surface, used only by XFOIL polar generation.\n\n"
             "XFOIL fixes the laminar-to-turbulent transition at that station "
             "instead of predicting it. The default 1 leaves free transition on "
             "the whole surface.\n\n"
@@ -1869,7 +1869,7 @@ FIELD_HELP: dict[str, dict] = {
         "title": "XFOIL Xtr Bottom",
         "definition": (
             "Chord fraction x/c where transition is forced on the lower "
-            "surface, used only by the XFOIL engine.\n\n"
+            "surface, used only by XFOIL polar generation.\n\n"
             "XFOIL fixes the laminar-to-turbulent transition at that station "
             "instead of predicting it. The default 1 leaves free transition on "
             "the whole surface.\n\n"
@@ -2743,11 +2743,11 @@ FIELD_HELP: dict[str, dict] = {
             "first one, and this field gives the second, so the stream can "
             "arrive from the side: sideward flight for a rotor, a propeller "
             "flying with its shaft out of the wind.\n\n"
-            "The engine reads the pair as one in-plane speed and one "
-            "direction, V = √(V<sub>x</sub>² + V<sub>y</sub>²) at "
-            "ψ<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>). Zero "
-            "reproduces the plain edgewise case, so every condition saved "
-            "before this field existed keeps its exact behavior."),
+            "Together, the two components define the in-plane speed and "
+            "direction: V = √(V<sub>x</sub>² + V<sub>y</sub>²) and "
+            "ψ<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>). A zero value "
+            "gives the standard edgewise case. Conditions saved "
+            "without this field therefore retain the same behavior."),
         "unit": "m/s",
         "equation": (
             r"U_T = \Omega r + V\sin(\psi-\psi_w),\qquad "
@@ -2792,8 +2792,8 @@ FIELD_HELP: dict[str, dict] = {
             "U<sub>T</sub> = Ωr + V·sin(ψ − ψ<sub>w</sub>), and the spanwise component "
             "becomes U<sub>R</sub> = V·cos(ψ − ψ<sub>w</sub>). The along-shaft flow is "
             "untouched.\n\n"
-            "Zero reproduces the plain edgewise case, so every condition saved "
-            "before this field existed keeps its exact behavior."),
+            "Zero gives the standard edgewise case. Conditions saved "
+            "without this field therefore retain the same behavior."),
         "unit": "deg",
         "equation": r"U_T = \Omega r + V\sin(\psi-\psi_w),\qquad U_R = V\cos(\psi-\psi_w)",
         "effect": (
