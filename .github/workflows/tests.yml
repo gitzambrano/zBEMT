@@ -44,7 +44,14 @@ jobs:
           PY
 
       - name: Tests (the GUI ones skip themselves without Qt; one process per file)
-        run: python tests/run_all_tests.py
+        run: |
+          if ! python tests/run_all_tests.py; then
+            status=$?
+            echo "::group::Full failed-test report"
+            cat tests/test_results.txt || true
+            echo "::endgroup::"
+            exit ${status:-1}
+          fi
 
   gui:
     name: complete suite with the GUI (headless)
