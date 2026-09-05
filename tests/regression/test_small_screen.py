@@ -146,6 +146,24 @@ class TestScrollingIsWhatMakesItFit(SmallScreenBase):
             with self.subTest(page=pages.tabText(index)):
                 self.assertIsInstance(pages.widget(index), QScrollArea)
 
+    def test_the_optimizer_pages_are_scrollable(self):
+        from PyQt6.QtWidgets import QScrollArea, QTabWidget
+
+        pages = self.window.optimizer_window.findChild(QTabWidget)
+        self.assertIsNotNone(pages)
+        for index in range(pages.count()):
+            with self.subTest(page=pages.tabText(index)):
+                self.assertIsInstance(pages.widget(index), QScrollArea)
+
+    def test_the_transient_pages_are_scrollable(self):
+        from PyQt6.QtWidgets import QScrollArea, QTabWidget
+
+        pages = self.window.transient_window.findChild(QTabWidget)
+        self.assertIsNotNone(pages)
+        for index in range(pages.count()):
+            with self.subTest(page=pages.tabText(index)):
+                self.assertIsInstance(pages.widget(index), QScrollArea)
+
     def test_a_scrolled_page_still_reports_its_natural_size(self):
         """The page inside keeps the size it wants; only the AREA around
         it is allowed to be small. If the page itself had been squeezed,

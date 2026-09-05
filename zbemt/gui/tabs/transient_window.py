@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ..common import (AppState, CanvasHost, equalize_button_widths,
-                      install_rich_text_headings, show_error)
+                      install_rich_text_headings, show_error, in_scroll_area)
 from ..workers import ManeuverWorker, launch_worker
 from ... import api, nomenclature
 from ...models import ManeuverDefinition, ManeuverPoint
@@ -89,8 +89,8 @@ class TransientWindow(QWidget):
         self._widths_reviewed = False
         self._study_buttons: list = []
         tabs = QTabWidget(self)
-        tabs.addTab(self._build_trajectory_page(), "Trajectory")
-        tabs.addTab(self._build_run_page(), "Run and results")
+        tabs.addTab(in_scroll_area(self._build_trajectory_page()), "Trajectory")
+        tabs.addTab(in_scroll_area(self._build_run_page()), "Run and results")
         outer = QVBoxLayout(self)
         outer.addWidget(tabs)
 

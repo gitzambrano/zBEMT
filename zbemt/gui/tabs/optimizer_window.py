@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ..common import (AppState, CanvasHost, equalize_button_widths,
-                      show_error, show_all_options_in)
+                      show_error, show_all_options_in, in_scroll_area)
 from ..workers import OptimizeMultiWorker, launch_worker
 from ... import api, nomenclature
 from ...models import (
@@ -90,8 +90,8 @@ class OptimizerWindow(QWidget):
         self._study_buttons: list = []
 
         tabs = QTabWidget(self)
-        tabs.addTab(self._build_definition_page(), "Study")
-        tabs.addTab(self._build_run_page(), "Run and results")
+        tabs.addTab(in_scroll_area(self._build_definition_page()), "Study")
+        tabs.addTab(in_scroll_area(self._build_run_page()), "Run and results")
         outer = QVBoxLayout(self)
         outer.addWidget(tabs)
         show_all_options_in(self)

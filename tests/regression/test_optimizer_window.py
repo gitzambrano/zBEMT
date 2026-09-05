@@ -84,6 +84,30 @@ class TestConstruction(OptimizerWindowBase):
         self.assertEqual(definition.condition.rpm, 800.0)
 
 
+class TestNotebookLayout(OptimizerWindowBase):
+    def test_study_cost_estimate_is_reachable_on_notebook_screen(self):
+        """The Study page must scroll instead of clipping its last block."""
+        from PyQt6.QtWidgets import QScrollArea, QTabWidget
+
+        self.window.resize(1100, 650)
+        self.window.show()
+        QApplication.processEvents()
+        tabs = self.window.findChild(QTabWidget)
+        self.assertIsNotNone(tabs)
+        area = tabs.widget(0)
+        self.assertIsInstance(area, QScrollArea)
+        bar = area.verticalScrollBar()
+        self.assertGreater(bar.maximum(), 0,
+                           "the Study page must scroll at 1100x650")
+        bar.setValue(bar.maximum())
+        QApplication.processEvents()
+        top = self.window.cost_label.mapTo(
+            area.viewport(), self.window.cost_label.rect().topLeft()).y()
+        bottom = top + self.window.cost_label.height()
+        self.assertGreaterEqual(top, 0)
+        self.assertLessEqual(bottom, area.viewport().height() + 2)
+
+
 class TestAlgorithmGating(OptimizerWindowBase):
     def test_de_disables_the_sbx_controls_but_keeps_them_visible(self):
         """PR-2: a control that has nothing to say in a configuration
