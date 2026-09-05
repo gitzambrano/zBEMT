@@ -1,0 +1,49 @@
+name: documentation user audit
+
+on:
+  push:
+    branches: [documentation-user-audit]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-check:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: documentation-user-audit
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply documentation audit
+        run: python tools/_apply_documentation_user_audit.py
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[all]'
+
+      - name: Run documentation and help architecture tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m unittest tests.architecture.test_documentation
+          python -m unittest tests.architecture.test_help_content
+          python -m unittest tests.architecture.test_every_field_has_a_popup
+          python -m unittest tests.architecture.test_user_facing_documentation
+
+      - name: Commit audited documentation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/documentation.html docs/software_requirements.md zbemt/gui/help_content.py zbemt/gui/help_blocks.py tests/architecture/test_user_facing_documentation.py
+          git diff --cached --check
+          git commit -m 'docs: audit user-facing documentation and help' || exit 0
+          git push origin HEAD:documentation-user-audit
