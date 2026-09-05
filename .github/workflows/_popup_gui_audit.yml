@@ -1,4 +1,4 @@
-name: optimizer responsive audit
+name: notebook GUI responsive audit
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[all]'
 
-      - name: Apply optimizer notebook fix
+      - name: Apply notebook layout fixes
         run: |
           python tools/_optimizer_responsive_audit.py
           git diff --check
@@ -43,8 +43,8 @@ jobs:
         run: |
           git config user.name 'OpenAI'
           git config user.email 'noreply@openai.com'
-          git add zbemt/gui/tabs/optimizer_window.py tests/regression/test_optimizer_window.py
-          git commit -m 'fix: make optimizer responsive on notebook screens'
+          git add zbemt/gui/tabs/optimizer_window.py zbemt/gui/tabs/transient_window.py tests/regression/test_optimizer_window.py tests/regression/test_small_screen.py
+          git commit -m 'fix: keep tool pages accessible on notebook screens'
           git fetch origin main
           git rebase origin/main
 
@@ -98,5 +98,5 @@ jobs:
       - name: Run full suite
         run: python tests/run_all_tests.py
 
-      - name: Push validated optimizer fix
+      - name: Push validated notebook fixes
         run: git push origin HEAD:main
