@@ -1,0 +1,58 @@
+name: GUI hardening patch
+
+on:
+  push:
+    branches: [gui-responsive-hardening]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-24.04
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gui-responsive-hardening
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Qt system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
+      - name: Apply deterministic hardening patch
+        run: python tools/apply_gui_responsive_hardening.py
+      - name: Install targeted test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[gui,dev]"
+      - name: Targeted GUI and plotting regression tests
+        run: |
+          pytest -q tests/regression/test_plot_scaling.py \
+                    tests/regression/test_plots.py \
+                    tests/regression/test_small_screen.py \
+                    tests/regression/test_gui_layout.py \
+                    tests/regression/test_tools_window_layout.py \
+                    tests/regression/test_designer_window.py
+      - name: Commit patch when tests pass
+        run: |
+          if git diff --quiet; then
+            echo "No patch changes to commit."
+            exit 0
+          fi
+          git config user.name "OpenAI"
+          git config user.email "noreply@openai.com"
+          git add zbemt/viz/plots.py \
+                  zbemt/gui/tools/geometry_designer.py \
+                  tests/regression/test_plots.py \
+                  tests/regression/test_plot_scaling.py \
+                  tools/gui_screenshots.py \
+                  .github/workflows/tests.yml
+          git commit -m "Harden GUI plots for small screens"
+          git push origin HEAD:gui-responsive-hardening
