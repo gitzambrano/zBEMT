@@ -39,6 +39,10 @@ jobs:
               'out, count = re.subn(pattern, replacement, text, count=1, flags=re.S)',
               'out, count = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)',
           )
+          text = text.replace(
+              r"r'<p>Given a trial field \$\\lambda_i\$, the function executes, vectorized over the entire \$N_e\\times N_\\psi\$ mesh,\s*the following sequence:</p>'",
+              r"r'<p>Given a trial field \$\\lambda_i\$, the function executes, vectorized over the entire mesh\s*\$\(N_e,N_\\psi\)\$:</p>'",
+          )
           p.write_text(text, encoding='utf-8')
           PY
           python tools/_apply_documentation_user_audit.py
