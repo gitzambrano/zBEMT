@@ -30,18 +30,49 @@ jobs:
         run: |
           sed -i 's#zbemt/gui/tools/geometry_designer.py#zbemt/gui/tabs/designer_window.py#g' tools/apply_gui_responsive_hardening.py
           python tools/apply_gui_responsive_hardening.py
+          python - <<'PY'
+          from pathlib import Path
+
+          plots = Path('zbemt/viz/plots.py')
+          text = plots.read_text(encoding='utf-8')
+          old = '''def _finish(ax, fig, fname):\n    if fname is not None and fig is not None:\n        fig.tight_layout()\n        fig.savefig(fname, dpi=_EXPORT_DPI)\n    return ax\n'''
+          new = '''def _finish(ax, fig, fname):\n    if fname is not None and fig is not None:\n        # Preserve a draw-time layout engine (especially constrained layout).\n        # Switching back to one-shot tight_layout at export time can move\n        # artists again and defeats the same resize protection used in GUI.\n        if fig.get_layout_engine() is None:\n            fig.tight_layout()\n        fig.savefig(fname, dpi=_EXPORT_DPI)\n    return ax\n'''
+          assert text.count(old) == 1, text.count(old)
+          text = text.replace(old, new, 1)
+          old = '    fig, ax = _resolve_ax(ax, fname, figsize=(6.4, 4))\n    n_rev = history.shape[0]\n'
+          new = '    ax, fig = _resolve_ax(ax, fname, figsize=(6.4, 4))\n    n_rev = history.shape[0]\n'
+          assert text.count(old) == 1, text.count(old)
+          text = text.replace(old, new, 1)
+          plots.write_text(text, encoding='utf-8')
+
+          quality = Path('tests/architecture/test_quality_orchestrator.py')
+          text = quality.read_text(encoding='utf-8')
+          old = '''        self.assertEqual(displayed, expected)\n        self.assertIn(r'\"C:\\Quality Checks\\run.py\"', displayed)\n'''
+          new = '''        self.assertEqual(displayed, expected)\n        # Windows list2cmdline uses double quotes; POSIX shlex.join uses\n        # single quotes. The old assertion required Windows quoting even\n        # on Linux CI, contradicting the expected value above.\n        quoted_path = (r'\"C:\\Quality Checks\\run.py\"' if os.name == \"nt\"\n                       else r\"'C:\\Quality Checks\\run.py'\")\n        self.assertIn(quoted_path, displayed)\n'''
+          assert text.count(old) == 1, text.count(old)
+          quality.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Install targeted test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[gui,dev]"
-      - name: Targeted GUI and plotting regression tests
+          pip install -e ".[all]"
+      - name: Targeted GUI and baseline regression tests, isolated by file
         run: |
-          pytest -q tests/regression/test_plot_scaling.py \
-                    tests/regression/test_plots.py \
-                    tests/regression/test_small_screen.py \
-                    tests/regression/test_gui_layout.py \
-                    tests/regression/test_tools_window_layout.py \
-                    tests/regression/test_designer_window.py
+          set -e
+          for file in \
+            tests/regression/test_plot_scaling.py \
+            tests/regression/test_plots.py \
+            tests/regression/test_small_screen.py \
+            tests/regression/test_gui_layout.py \
+            tests/regression/test_tools_window_layout.py \
+            tests/regression/test_designer_window.py \
+            tests/architecture/test_documentation.py \
+            tests/architecture/test_quality_orchestrator.py \
+            tests/regression/test_flapping.py
+          do
+            echo "===== $file ====="
+            pytest -q "$file"
+          done
       - name: Commit patch when tests pass
         run: |
           if git diff --quiet; then
@@ -54,6 +85,7 @@ jobs:
                   zbemt/gui/tabs/designer_window.py \
                   tests/regression/test_plots.py \
                   tests/regression/test_plot_scaling.py \
+                  tests/architecture/test_quality_orchestrator.py \
                   tools/gui_screenshots.py \
                   .github/workflows/tests.yml
           git commit -m "Harden GUI plots for small screens"
