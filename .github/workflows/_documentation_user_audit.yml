@@ -33,17 +33,20 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+
           p = Path('tools/_apply_documentation_user_audit_extra.py')
           text = p.read_text(encoding='utf-8')
           text = text.replace(
               'out, count = re.subn(pattern, replacement, text, count=1, flags=re.S)',
               'out, count = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)',
           )
-          text = text.replace(
-              r"r'<p>Given a trial field \$\\lambda_i\$, the function executes, vectorized over the entire \$N_e\\times N_\\psi\$ mesh,\s*the following sequence:</p>'",
-              r"r'<p>Given a trial field \$\\lambda_i\$, the function executes, vectorized over the entire mesh\s*\$\(N_e,N_\\psi\)\$:</p>'",
-          )
-          p.write_text(text, encoding='utf-8')
+
+          lines = text.splitlines()
+          matches = [i for i, line in enumerate(lines) if "r'<p>Given a trial field" in line]
+          if len(matches) != 1:
+              raise SystemExit(f'expected one element-evaluation regex, found {len(matches)}')
+          lines[matches[0]] = "        r'<p>Given a trial field \\$\\\\lambda_i\\\$,.*?</p>',"
+          p.write_text('\n'.join(lines) + '\n', encoding='utf-8')
           PY
           python tools/_apply_documentation_user_audit.py
           python tools/_apply_documentation_user_audit_extra.py
