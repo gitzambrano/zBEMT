@@ -6,7 +6,14 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Keep numerical reductions deterministic across the parallel CI jobs.  The
+# Only the newest run for a branch is useful. Cancel superseded runs so stale
+# commits do not occupy all hosted runners or send failure notifications after
+# a newer fix has already replaced them.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+# Keep numerical reductions deterministic across the parallel CI jobs. The
 # GitHub runner otherwise lets BLAS/OpenMP choose multiple worker threads per
 # process, so several test jobs compete for the same CPUs and floating-point
 # reduction order can vary at tight convergence thresholds.
@@ -78,7 +85,7 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      # PyQt6 needs these system libraries even in offscreen mode
+      # PyQt6 needs these system libraries even in offscreen mode.
       - name: Qt system dependencies
         run: |
           sudo apt-get update
