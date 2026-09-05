@@ -1,0 +1,186 @@
+[
+  {
+    "plot": "coefficients",
+    "full_floor": [
+      1969,
+      1108
+    ]
+  },
+  {
+    "plot": "coefficients",
+    "viewport": [
+      700,
+      420
+    ],
+    "hscroll_max": 1283,
+    "vscroll_max": 702,
+    "canvas_min": [
+      1969,
+      1108
+    ]
+  },
+  {
+    "plot": "coefficients",
+    "viewport": [
+      1000,
+      600
+    ],
+    "hscroll_max": 983,
+    "vscroll_max": 522,
+    "canvas_min": [
+      1969,
+      1108
+    ]
+  },
+  {
+    "plot": "coefficients",
+    "viewport": [
+      1400,
+      820
+    ],
+    "hscroll_max": 583,
+    "vscroll_max": 302,
+    "canvas_min": [
+      1969,
+      1108
+    ]
+  },
+  {
+    "plot": "convergence",
+    "full_floor": [
+      1969,
+      788
+    ]
+  },
+  {
+    "plot": "convergence",
+    "viewport": [
+      700,
+      420
+    ],
+    "hscroll_max": 1283,
+    "vscroll_max": 382,
+    "canvas_min": [
+      1969,
+      788
+    ]
+  },
+  {
+    "plot": "convergence",
+    "viewport": [
+      1000,
+      600
+    ],
+    "hscroll_max": 983,
+    "vscroll_max": 202,
+    "canvas_min": [
+      1969,
+      788
+    ]
+  },
+  {
+    "plot": "convergence",
+    "viewport": [
+      1400,
+      820
+    ],
+    "hscroll_max": 569,
+    "vscroll_max": 0,
+    "canvas_min": [
+      1969,
+      788
+    ]
+  },
+  {
+    "plot": "disk-grid-4x4",
+    "full_floor": [
+      1342,
+      1154
+    ]
+  },
+  {
+    "plot": "disk-grid-4x4",
+    "viewport": [
+      700,
+      420
+    ],
+    "hscroll_max": 656,
+    "vscroll_max": 748,
+    "canvas_min": [
+      1342,
+      1154
+    ]
+  },
+  {
+    "plot": "disk-grid-4x4",
+    "viewport": [
+      1000,
+      600
+    ],
+    "hscroll_max": 356,
+    "vscroll_max": 568,
+    "canvas_min": [
+      1342,
+      1154
+    ]
+  },
+  {
+    "plot": "disk-grid-4x4",
+    "viewport": [
+      1400,
+      820
+    ],
+    "hscroll_max": 0,
+    "vscroll_max": 334,
+    "canvas_min": [
+      1342,
+      1154
+    ]
+  },
+  {
+    "plot": "dense-xy-30-series",
+    "full_floor": [
+      1320,
+      520
+    ]
+  },
+  {
+    "plot": "dense-xy-30-series",
+    "viewport": [
+      700,
+      420
+    ],
+    "hscroll_max": 634,
+    "vscroll_max": 114,
+    "canvas_min": [
+      1320,
+      520
+    ]
+  },
+  {
+    "plot": "dense-xy-30-series",
+    "viewport": [
+      1000,
+      600
+    ],
+    "hscroll_max": 320,
+    "vscroll_max": 0,
+    "canvas_min": [
+      1320,
+      520
+    ]
+  },
+  {
+    "plot": "dense-xy-30-series",
+    "viewport": [
+      1400,
+      820
+    ],
+    "hscroll_max": 0,
+    "vscroll_max": 0,
+    "canvas_min": [
+      1320,
+      520
+    ]
+  }
+]
