@@ -440,7 +440,7 @@ BLOCK_HELP: dict[str, dict] = {
             "The label is what names the geometry in the verdict chips, in the figures and in the exports, so give every variant a name that states its design idea.",
             "The <b>Conditions</b> page decides what every variant runs: the project's saved cases, one single condition built from four fields, or a sweep of one quantity. The estimate line states variants × cases = solves before anything runs.",
             "<b>Run comparison</b> evaluates every condition for every geometry, reports progress, and can be canceled. The verdict strip reads the first condition of each geometry. The ranking figure draws the chosen summary quantity for every geometry at the reference case. The overlay figure draws every curve across all conditions. <b>Export report</b> writes a self-contained HTML file with the full summary, and <b>Export CSV</b> writes one row per geometry per condition, both into the project's outputs folder.",
-            "Comparison variants are not persisted. The table is rebuilt from the project's own geometry on every load, so a comparison worth keeping should be re-created deliberately or exported before closing. Design optimization is not part of this window: it runs as an outer loop from the command line or the library.",
+            "Comparison variants are not persisted. Export a comparison that must be retained. Use the Optimization window for persistent design-optimization studies.",
         ],
         "anchor": "designer-variants",
     },
@@ -456,7 +456,7 @@ BLOCK_HELP: dict[str, dict] = {
     "optimization_objectives": {
         "title": "Objectives: what better means",
         "body": [
-            "An objective names one summary quantity and states its good direction. The first row is required; the second row is the switch between the two regimes of this window: an empty second box drives ONE quantity with the global search, a filled one evolves a whole <b>Pareto front</b> of designs no member of which dominates another.",
+            "An objective names one summary quantity and states its good direction. The first row is required; the second row is the switch between the two regimes of this window: an empty second box drives one quantity with the global search, a filled one evolves a whole <b>Pareto front</b> of designs no member of which dominates another.",
             "Domination rule: design A dominates B when A is at least as good on every objective and strictly better on one. The front is the set dominated by nobody. With constraints, any feasible design beats any infeasible one first.",
             "Usual pairs trade thrust against efficiency: FM against CT, or CP against CT. When both objectives agree on the same optimum, the honest answer is a single-point front — there is no trade-off on that rotor at that condition.",
         ],
@@ -483,7 +483,7 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Search settings: condition, algorithm and budget",
         "body": [
             "<b>Condition</b> is the saved case used to evaluate every candidate. Rotational speed is required because advance ratios and several coefficients use &Omega;R as a reference velocity.",
-            "<b>Algorithm</b>: NSGA-II evolves the whole front (tournament by the domination rules, then crossover and mutation); differential evolution drives the FIRST objective only through global difference vectors. The SBX crossover index &eta;<sub>c</sub>, the mutation index &eta;<sub>m</sub> and the mutation rate belong to NSGA-II and disable under DE. A rate of 0 means one over the variable count — the classic default, and the reason the population does not contract into a corner.",
+            "<b>Algorithm</b>: NSGA-II evolves the whole front (tournament by the domination rules, then crossover and mutation); differential evolution drives the first objective only through global difference vectors. The SBX crossover index &eta;<sub>c</sub>, the mutation index &eta;<sub>m</sub> and the mutation rate belong to NSGA-II and disable under DE. A rate of 0 means one over the variable count — the classic default, and the reason the population does not contract into a corner.",
             "<b>Population &times; (generations + 1)</b> is almost exactly the solver-call count; the estimate line states it before anything runs. The seed drives every random choice, so the same seed reproduces the same search exactly.",
         ],
         "anchor": "cap-opt-algorithm",
@@ -500,7 +500,7 @@ BLOCK_HELP: dict[str, dict] = {
     "stability_studies": {
         "title": "Derivative studies stored in this project",
         "body": [
-            "A derivative study is a persisted perturbation plan (SC-14): which states and controls to nudge, about which trim point, with which finite-difference steps. It lives in inputs/derivatives.bemt beside the project.",
+            "A derivative study stores the perturbation plan: which states and controls to vary, the reference trim point, and the finite-difference steps. It is saved with the project in inputs/derivatives.bemt.",
             "New/Duplicate/Rename/Delete behave exactly as on the Design Optimization window: Duplicate provides a convenient way to rerun the same plan with another step size or another trim.",
         ],
         "anchor": "cap-stability",
@@ -509,7 +509,7 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Trim point: the state everything is measured about",
         "body": [
             "A derivative is only meaningful once the reference state is fixed. Zero flapping solves both cyclic harmonics so the tip-path plane sits level at the trim point; Thrust solves collective to a target thrust; None keeps the controls exactly as saved.",
-            "Run the trim ALONE first and read its controls and loads. A trim that surprises you will surprise every derivative built on top of it.",
+            "Run the trim first and check its controls and loads. Every derivative is referenced to this state.",
             "A rotor whose blade has no flap freedom cannot use the zero-flapping trim — there is no flap angle to zero.",
         ],
         "anchor": "cap-stability-trim",
@@ -517,7 +517,7 @@ BLOCK_HELP: dict[str, dict] = {
     "stability_perturbations": {
         "title": "Perturbations: what is nudged, and by how much",
         "body": [
-            "Each selected variable gets TWO solves per derivative (plus/minus the step), or FOUR when the Richardson half-step check is on: nine variables with the check cost thirty-six solves plus the trim. The estimate line states it before anything runs.",
+            "Each selected variable requires two evaluations per derivative (plus and minus the step), or four when the Richardson half-step check is enabled: nine variables with the check cost thirty-six solves plus the trim. The estimate line states it before anything runs.",
             "Steps are stated per quantity in its own unit — 0.5 m/s for speeds, 0.02 rad/s for rates, 0.1 deg for pitch controls, half a percent of the trim rpm for &Omega; — because truncation error grows as h<sup>2</sup> while round-off shrinks as 1/h.",
             "With no flap freedom the rate and cyclic controls stay visible but disabled: they cannot act on a rigid blade.",
         ],
@@ -527,7 +527,7 @@ BLOCK_HELP: dict[str, dict] = {
         "title": "Matrix, sign checks and the optional vehicle model",
         "body": [
             "Outputs run down the rows, variables across the columns; hover a cell for its step and step-size error, and any cell whose two estimates differ by more than five percent turns red — trust its trend, not its digits.",
-            "The SIGN CHECKS panel is why the window can be trusted: heave damping must be negative, pitch damping must be negative, thrust must rise with collective. A FAIL indicates an inconsistency in the sign convention, derivative calculation, or model setup. Investigate it before using the derivatives.",
+            "The <b>Sign checks</b> panel verifies basic expected trends: heave damping should be negative, pitch damping should be negative, and thrust should increase with collective. A FAIL indicates an inconsistency in the sign convention, derivative calculation, or model setup. Investigate it before using the derivatives.",
             "The optional vehicle block turns hub derivatives into rigid-body A/B matrices and draws their eigenvalues (one rotor only: no fuselage, tail or engine dynamics). Poles left of the axis are damped; red poles are unstable.",
         ],
         "anchor": "cap-stability-run",

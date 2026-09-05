@@ -1462,7 +1462,7 @@ FIELD_HELP: dict[str, dict] = {
             "march reproduces the same periodic regime and reports how far "
             "the last two revolutions still differ (the periodic residual).\n\n"
             "Neither is a transient model: when the flight condition itself "
-            "changes with time, use a maneuver (SC-12)."),
+            "changes with time, use a maneuver."),
         "range": "frequency | time_march",
         "options": {
             "frequency": "Algebraic Fourier solve; Npsi-independent cost.",
