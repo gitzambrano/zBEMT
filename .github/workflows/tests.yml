@@ -45,12 +45,15 @@ jobs:
 
       - name: Tests (the GUI ones skip themselves without Qt; one process per file)
         run: |
-          if ! python tests/run_all_tests.py; then
-            status=$?
+          set +e
+          python tests/run_all_tests.py
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
             echo "::group::Full failed-test report"
             cat tests/test_results.txt || true
             echo "::endgroup::"
-            exit ${status:-1}
+            exit "$status"
           fi
 
   gui:
