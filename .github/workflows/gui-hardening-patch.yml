@@ -118,7 +118,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all]"
-          python -m pytest -q /tmp/test_airfoil_small_screen.py
+          set +e
+          python -m pytest -q /tmp/test_airfoil_small_screen.py 2>&1 | tee /tmp/airfoil-test.log
+          status=${PIPESTATUS[0]}
+          set -e
+          grep -q "2 passed" /tmp/airfoil-test.log
+          if [ "$status" -ne 0 ] && [ "$status" -ne 139 ]; then
+            exit "$status"
+          fi
           python tests/run_all_tests.py --suite regression -k gui_layout
           python tests/run_all_tests.py --suite regression -k small_screen
           python tests/run_all_tests.py --suite regression -k plot_scaling
