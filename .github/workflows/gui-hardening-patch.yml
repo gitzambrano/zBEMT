@@ -1,32 +1,166 @@
-name: GUI full-resolution review artifact
+name: Airfoil small-screen visual fix
 
 on:
   push:
     branches: [gui-responsive-hardening]
 
+permissions:
+  contents: write
+
 jobs:
-  review-artifact:
-    if: ${{ !contains(github.event.head_commit.message, '[full-review-artifact]') }}
+  patch-test-capture:
+    if: ${{ !contains(github.event.head_commit.message, '[airfoil-fix]') }}
     runs-on: ubuntu-24.04
+    env:
+      QT_QPA_PLATFORM: offscreen
     steps:
       - uses: actions/checkout@v4
         with:
           ref: gui-responsive-hardening
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Qt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
+      - name: Patch Airfoil toolbar and add regression test
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('zbemt/gui/tabs/airfoil.py')
+          s = p.read_text(encoding='utf-8')
+          old = "    QHBoxLayout,\n    QFormLayout,"
+          new = "    QHBoxLayout,\n    QGridLayout,\n    QFormLayout,"
+          assert s.count(old) == 1, s.count(old)
+          s = s.replace(old, new, 1)
+
+          replacements = [
+              ("        row = QHBoxLayout(bar)\n        row.setContentsMargins(0, 0, 0, 4)\n        row.setSpacing(8)\n",
+               "        # Two compact rows are deliberate. At ~1100 px the preview pane is\n"
+               "        # only about 480 px wide; a single row compresses checkbox labels\n"
+               "        # and the Mach list until text visually collides. Keep the canvas\n"
+               "        # readable and spend a few vertical pixels instead of hiding controls.\n"
+               "        grid = QGridLayout(bar)\n        grid.setContentsMargins(0, 0, 0, 4)\n"
+               "        grid.setHorizontalSpacing(8)\n        grid.setVerticalSpacing(4)\n"),
+              ("        row.addWidget(alpha_lbl)\n", "        grid.addWidget(alpha_lbl, 0, 0)\n"),
+              ("        row.addWidget(self.alpha_range_combo)\n", "        grid.addWidget(self.alpha_range_combo, 0, 1)\n"),
+              ("        row.addWidget(self.autoscale_y_check)\n", "        grid.addWidget(self.autoscale_y_check, 0, 2)\n"),
+              ("        row.addWidget(self.show_reverse_branch_check)\n", "        grid.addWidget(self.show_reverse_branch_check, 1, 0, 1, 2)\n"),
+              ("        row.addWidget(mach_lbl)\n", "        grid.addWidget(mach_lbl, 1, 2)\n"),
+              ("        self.mach_compare_edit.setMaximumWidth(170)\n        row.addWidget(self.mach_compare_edit)\n        row.addStretch(1)\n",
+               "        self.mach_compare_edit.setMinimumWidth(130)\n        self.mach_compare_edit.setMaximumWidth(170)\n"
+               "        grid.addWidget(self.mach_compare_edit, 1, 3)\n"
+               "        grid.setColumnStretch(1, 1)\n        grid.setColumnStretch(3, 1)\n"),
+          ]
+          for old, new in replacements:
+              assert s.count(old) == 1, (old, s.count(old))
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+
+          test = Path('tests/regression/test_airfoil_small_screen.py')
+          test.write_text(r'''"""Regression for the Airfoil preview toolbar on a small notebook viewport."""
+          from __future__ import annotations
+          import unittest
+
+          try:
+              from PyQt6.QtWidgets import QApplication
+              _HAS_QT = True
+          except Exception:
+              _HAS_QT = False
+
+          def _settle(app, cycles=30):
+              for _ in range(cycles):
+                  app.processEvents()
+
+          @unittest.skipUnless(_HAS_QT, "PyQt6 not available")
+          class TestAirfoilToolbarAt1100(unittest.TestCase):
+              @classmethod
+              def setUpClass(cls):
+                  from zbemt.gui import styles
+                  from zbemt.gui.app import MainWindow
+                  cls.app = QApplication.instance() or QApplication([])
+                  cls.app.setStyle("Fusion")
+                  cls.app.setStyleSheet(styles.APP_QSS)
+                  cls.win = MainWindow()
+                  cls.win.resize(1100, 650)
+                  cls.win.show()
+                  for i in range(cls.win.tabs.count()):
+                      tab = cls.win.tabs.widget(i)
+                      if hasattr(tab, "alpha_range_combo"):
+                          cls.win.tabs.setCurrentIndex(i)
+                          cls.tab = tab
+                          break
+                  else:
+                      raise AssertionError("Airfoil tab not found")
+                  _settle(cls.app)
+
+              @classmethod
+              def tearDownClass(cls):
+                  cls.win.close()
+
+              def test_display_controls_keep_their_text_width(self):
+                  t = self.tab
+                  for widget in (t.autoscale_y_check, t.show_reverse_branch_check):
+                      self.assertGreaterEqual(
+                          widget.width(), widget.sizeHint().width(),
+                          f"{widget.text()!r} is compressed at 1100 px")
+                  self.assertGreaterEqual(t.mach_compare_edit.width(), 130)
+                  self.assertGreaterEqual(t.alpha_range_combo.width(),
+                                          t.alpha_range_combo.minimumSizeHint().width())
+
+              def test_display_controls_do_not_overlap(self):
+                  t = self.tab
+                  widgets = (t.alpha_range_combo, t.autoscale_y_check,
+                             t.show_reverse_branch_check, t.mach_compare_edit)
+                  for i, first in enumerate(widgets):
+                      for second in widgets[i + 1:]:
+                          a = first.mapTo(self.tab, first.rect().topLeft())
+                          b = second.mapTo(self.tab, second.rect().topLeft())
+                          ar = first.rect().translated(a)
+                          br = second.rect().translated(b)
+                          self.assertFalse(ar.intersects(br),
+                                           f"{first} overlaps {second} at 1100 px")
+          ''').replace('          ', ''), encoding='utf-8')
+          PY
+      - name: Install and test
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+          python tests/run_all_tests.py --suite regression -k airfoil_small_screen
+          python tests/run_all_tests.py --suite regression -k gui_layout
+          python tests/run_all_tests.py --suite regression -k small_screen
+          python tests/run_all_tests.py --suite regression -k plot_scaling
+      - name: Capture corrected Airfoil screenshots
+        run: |
+          rm -rf airfoil-review && mkdir -p airfoil-review
+          for spec in 1100x650 1366x700; do
+            export W=${spec%x*}; export H=${spec#*x}; export OUT=airfoil-review/$spec
+            mkdir -p "$OUT"
+            python - <<'PY'
+          import os, sys
+          from pathlib import Path
+          import tools.gui_screenshots as shots
+          shots.WIDTH=int(os.environ['W']); shots.HEIGHT=int(os.environ['H'])
+          shots.generate(Path(os.environ['OUT']))
+          sys.stdout.flush(); sys.stderr.flush(); os._exit(0)
+          PY
+            test -s "$OUT/airfoil.png"
+          done
       - uses: actions/upload-artifact@v4
         with:
-          name: gui-full-resolution-review
-          path: |
-            visual-artifacts/ui/1100x650/airfoil.png
-            visual-artifacts/ui/1366x700/airfoil.png
-            visual-artifacts/ui/1100x650/designer.png
-            visual-artifacts/ui/1100x650/run-batch.png
-            visual-artifacts/plots/full-coefficients.png
-            visual-artifacts/plots/host-coefficients-700x420.png
-            visual-artifacts/plots/full-convergence.png
-            visual-artifacts/plots/host-convergence-700x420.png
-            visual-artifacts/plots/full-disk-grid-4x4.png
-            visual-artifacts/plots/host-disk-grid-4x4-700x420.png
-            visual-artifacts/plots/full-dense-xy-30-series.png
-            visual-artifacts/plots/host-dense-xy-30-series-700x420.png
+          name: airfoil-toolbar-review
+          path: airfoil-review/*/airfoil.png
           if-no-files-found: error
           retention-days: 1
+      - name: Commit validated fix
+        run: |
+          git config user.name "OpenAI"
+          git config user.email "noreply@openai.com"
+          git add zbemt/gui/tabs/airfoil.py tests/regression/test_airfoil_small_screen.py
+          git commit -m "[airfoil-fix] Keep Airfoil plot controls readable on small screens"
+          git push origin HEAD:gui-responsive-hardening
