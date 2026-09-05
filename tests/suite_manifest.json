@@ -77,6 +77,7 @@
     "tests/regression/test_stability_window.py",
     "tests/regression/test_studies.py",
     "tests/regression/test_styles.py",
+    "tests/regression/test_tools_guided_workflow.py",
     "tests/regression/test_tools_window_layout.py",
     "tests/regression/test_transient.py",
     "tests/regression/test_transient_window.py",
