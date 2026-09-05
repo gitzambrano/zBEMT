@@ -39,19 +39,36 @@ jobs:
             export W=${spec%x*}
             export H=${spec#*x}
             export OUT=visual-artifacts/ui/$spec
-            python - <<'PY'
-          import os
+            ok=0
+            for attempt in 1 2 3; do
+              rm -rf "$OUT"
+              mkdir -p "$OUT"
+              set +e
+              python - <<'PY'
+          import os, sys
           from pathlib import Path
           import tools.gui_screenshots as shots
           shots.WIDTH = int(os.environ['W'])
           shots.HEIGHT = int(os.environ['H'])
           shots.generate(Path(os.environ['OUT']))
+          sys.stdout.flush(); sys.stderr.flush()
+          # PyQt/Matplotlib can crash during interpreter teardown after every
+          # QWidget has already been captured. Exit without destructors once
+          # the complete screenshot set exists.
+          os._exit(0)
           PY
+              rc=$?
+              set -e
+              count=$(find "$OUT" -maxdepth 1 -name '*.png' | wc -l)
+              if [ "$rc" -eq 0 ] && [ "$count" -eq 12 ]; then ok=1; break; fi
+              echo "capture $spec attempt $attempt incomplete: rc=$rc pngs=$count"
+            done
+            test "$ok" -eq 1
           done
       - name: Capture real plot canvases and scrollbars
         run: |
           python - <<'PY'
-          import json
+          import json, os, sys
           from pathlib import Path
           import numpy as np
           from matplotlib.figure import Figure
@@ -66,8 +83,7 @@ jobs:
           manifest = []
 
           def settle():
-              for _ in range(40):
-                  app.processEvents()
+              for _ in range(40): app.processEvents()
 
           def save_full(fig, name):
               w, h = plots.figure_minimum_pixels(fig)
@@ -80,99 +96,63 @@ jobs:
           def save_host(factory, name, width, height):
               fig = factory()
               host = CanvasHost()
-              host.resize(width, height)
-              host.show()
-              host.show_figure(fig)
-              settle()
+              host.resize(width, height); host.show(); host.show_figure(fig); settle()
               hmax = host._scroll.horizontalScrollBar().maximum()
               vmax = host._scroll.verticalScrollBar().maximum()
               path = out / f'host-{name}-{width}x{height}.png'
               host.grab().save(str(path))
               manifest.append({'plot': name, 'viewport': [width, height],
                                'hscroll_max': hmax, 'vscroll_max': vmax,
-                               'canvas_min': [host._current.minimumWidth(),
-                                              host._current.minimumHeight()]})
-              host.close()
+                               'canvas_min': [host._current.minimumWidth(), host._current.minimumHeight()]})
+              host.hide()
 
           def fake_result(mu, rpm, scale=1.0):
-              summary = dict(mu_x=mu, alpha_rotor_deg=0.0,
-                             collective_deg=8.0, rpm=rpm,
-                             CT=scale * (0.008 + 0.015 * mu),
-                             CQ=scale * (0.0008 + 0.001 * mu),
-                             FM=0.70 - 0.08 * mu,
-                             CY=0.002 * np.sin(5 * mu),
-                             CMx=0.001 * np.sin(3 * mu),
-                             CMy=-0.002 * mu,
-                             CH=0.003 * mu,
-                             CHp=0.0015 * mu,
-                             CHi=0.0015 * mu,
-                             CPp=0.0005 + 0.0007 * mu,
-                             CPi=0.0006 + 0.0009 * mu)
-              return Results(summary=summary, maps={},
-                             condition_name=f'mu={mu:.2f}, rpm={rpm:.0f}')
+              summary = dict(mu_x=mu, alpha_rotor_deg=0.0, collective_deg=8.0, rpm=rpm,
+                             CT=scale*(0.008+0.015*mu), CQ=scale*(0.0008+0.001*mu),
+                             FM=0.70-0.08*mu, CY=0.002*np.sin(5*mu), CMx=0.001*np.sin(3*mu),
+                             CMy=-0.002*mu, CH=0.003*mu, CHp=0.0015*mu, CHi=0.0015*mu,
+                             CPp=0.0005+0.0007*mu, CPi=0.0006+0.0009*mu)
+              return Results(summary=summary, maps={}, condition_name=f'mu={mu:.2f}, rpm={rpm:.0f}')
 
           coeff_results = [fake_result(mu, rpm, scale)
-                           for rpm, scale in ((550.0, 0.95), (650.0, 1.05))
-                           for mu in np.linspace(0.0, 0.6, 7)]
-          def coefficients():
-              return plots.plot_coefficients_vs_axis(coeff_results, axis='mu_x')
+                           for rpm, scale in ((550.0,0.95),(650.0,1.05))
+                           for mu in np.linspace(0.0,0.6,7)]
+          def coefficients(): return plots.plot_coefficients_vs_axis(coeff_results, axis='mu_x')
 
           def convergence():
-              Ne, Npsi = 6, 12
-              r_norm = np.linspace(0.2, 1.0, Ne)
-              psi = np.linspace(0, 2*np.pi*(1-1/Npsi), Npsi)
-              R, PSI = np.meshgrid(r_norm, psi, indexing='ij')
-              n_iter = np.full((Ne, Npsi), 4)
-              n_iter[0, 0] = 10
-              conv = np.ones((Ne, Npsi), dtype=bool)
-              conv[0, 0] = False
-              result = Results(
-                  summary={'convergence_pct': 98.6, 'mean_iter': 4.2,
-                           'solver': 'newton', 'elapsed_s': 0.42},
-                  maps={'R_NORM': R, 'PSI': PSI,
-                        'Ut': np.abs(np.cos(PSI)) + 0.1,
-                        'n_iter': n_iter, 'converged': conv,
-                        'total_iterations': 10,
-                        'frac_converged_history': [0.15, 0.55, 0.88, 0.986],
-                        'residual_history': [1e-1, 1e-2, 1e-4, 1e-7],
-                        'mu_x': 0.3})
+              Ne,Npsi=6,12
+              r=np.linspace(0.2,1.0,Ne); psi=np.linspace(0,2*np.pi*(1-1/Npsi),Npsi)
+              R,PSI=np.meshgrid(r,psi,indexing='ij')
+              n_iter=np.full((Ne,Npsi),4); n_iter[0,0]=10
+              conv=np.ones((Ne,Npsi),dtype=bool); conv[0,0]=False
+              result=Results(summary={'convergence_pct':98.6,'mean_iter':4.2,'solver':'newton','elapsed_s':0.42},
+                  maps={'R_NORM':R,'PSI':PSI,'Ut':np.abs(np.cos(PSI))+0.1,'n_iter':n_iter,
+                        'converged':conv,'total_iterations':10,
+                        'frac_converged_history':[0.15,0.55,0.88,0.986],
+                        'residual_history':[1e-1,1e-2,1e-4,1e-7],'mu_x':0.3})
               return plots.plot_convergence(result)
 
           def diskgrid():
-              r = np.linspace(0.2, 1.0, 10)
-              psi = np.linspace(0, 2*np.pi, 36, endpoint=False)
-              R, PSI = np.meshgrid(r, psi, indexing='ij')
-              field = R * (1 + 0.25*np.sin(PSI))
-              maps = {'R_NORM': R, 'PSI': PSI, 'Fn': field,
-                      'reverse': np.cos(PSI) < -0.65, 'mu_x': 0.3}
-              return plots.plot_disk_map_grid(maps, fields=['Fn'] * 16)
+              r=np.linspace(0.2,1.0,10); psi=np.linspace(0,2*np.pi,36,endpoint=False)
+              R,PSI=np.meshgrid(r,psi,indexing='ij'); field=R*(1+0.25*np.sin(PSI))
+              maps={'R_NORM':R,'PSI':PSI,'Fn':field,'reverse':np.cos(PSI)<-0.65,'mu_x':0.3}
+              return plots.plot_disk_map_grid(maps, fields=['Fn']*16)
 
           def dense_xy():
-              fig = Figure(figsize=(7, 5))
-              ax = fig.add_subplot(111)
-              x = np.linspace(0, 1, 60)
-              for i in range(30):
-                  ax.plot(x, np.sin((i + 1) * x) + i * 0.06,
-                          label=f'configuration {i + 1:02d}')
-              ax.set_title('Custom X-Y: 30 overlaid configurations')
-              ax.set_xlabel('sweep variable')
-              ax.set_ylabel('response')
-              plots.adaptive_legend(ax)
-              return fig
+              fig=Figure(figsize=(7,5)); ax=fig.add_subplot(111); x=np.linspace(0,1,60)
+              for i in range(30): ax.plot(x,np.sin((i+1)*x)+i*0.06,label=f'configuration {i+1:02d}')
+              ax.set_title('Custom X-Y: 30 overlaid configurations'); ax.set_xlabel('sweep variable'); ax.set_ylabel('response')
+              plots.adaptive_legend(ax); return fig
 
-          for name, factory in [('coefficients', coefficients),
-                                ('convergence', convergence),
-                                ('disk-grid-4x4', diskgrid),
-                                ('dense-xy-30-series', dense_xy)]:
-              fig = factory()
-              floor = save_full(fig, name)
-              manifest.append({'plot': name, 'full_floor': list(floor)})
-              for width, height in ((700, 420), (1000, 600), (1400, 820)):
-                  save_host(factory, name, width, height)
-
-          (out / 'manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
-          print(json.dumps(manifest, indent=2))
+          for name,factory in [('coefficients',coefficients),('convergence',convergence),
+                               ('disk-grid-4x4',diskgrid),('dense-xy-30-series',dense_xy)]:
+              fig=factory(); floor=save_full(fig,name); manifest.append({'plot':name,'full_floor':list(floor)})
+              for width,height in ((700,420),(1000,600),(1400,820)): save_host(factory,name,width,height)
+          (out/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
+          print(json.dumps(manifest,indent=2)); sys.stdout.flush(); sys.stderr.flush(); os._exit(0)
           PY
+          test "$(find visual-artifacts/plots -name '*.png' | wc -l)" -eq 16
+          test -s visual-artifacts/plots/manifest.json
       - name: Commit screenshots for visual inspection
         run: |
           git config user.name "OpenAI"
