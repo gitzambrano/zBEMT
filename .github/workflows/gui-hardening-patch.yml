@@ -27,7 +27,9 @@ jobs:
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
             libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
       - name: Apply deterministic hardening patch
-        run: python tools/apply_gui_responsive_hardening.py
+        run: |
+          sed -i 's#zbemt/gui/tools/geometry_designer.py#zbemt/gui/tabs/designer_window.py#g' tools/apply_gui_responsive_hardening.py
+          python tools/apply_gui_responsive_hardening.py
       - name: Install targeted test dependencies
         run: |
           python -m pip install --upgrade pip
@@ -49,7 +51,7 @@ jobs:
           git config user.name "OpenAI"
           git config user.email "noreply@openai.com"
           git add zbemt/viz/plots.py \
-                  zbemt/gui/tools/geometry_designer.py \
+                  zbemt/gui/tabs/designer_window.py \
                   tests/regression/test_plots.py \
                   tests/regression/test_plot_scaling.py \
                   tools/gui_screenshots.py \
