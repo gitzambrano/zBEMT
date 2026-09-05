@@ -32,6 +32,34 @@ jobs:
       - name: Apply documentation audit
         run: python tools/_apply_documentation_user_audit.py
 
+      - name: Finish user-facing wording cleanup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          doc = Path('docs/documentation.html')
+          text = doc.read_text(encoding='utf-8')
+          old = '''    <p><b>Axis conventions in rotor and propeller mode.</b> In rotor mode, $\\mu_x$ denotes the in-plane advance
+              ratio and $\\mu_z$ denotes axial inflow along the shaft. In propeller mode, the shaft is aligned
+              longitudinally, so the displayed labels rotate: axial flight speed corresponds to $\\mu_x$ (or $J_x$), while
+              vertical cross-flow corresponds to $\\mu_z$ (or $J_z$). Internal solver variables maintain
+              disk-aligned coordinates (axial flow stored under <code>mu_z</code>, <code>J_z</code> and <code>Vz</code>),
+              while the user interface adjusts the input labels according to the operating mode (<a class="xref"
+                href="#cap-5-1" title="10.1 In-plane flow — the first row">Section 10.1</a>).</p>'''
+          new = '''    <p><b>Axis conventions in rotor and propeller mode.</b> Rotor mode uses $\\mu_x$ for in-plane advance ratio and $\\mu_z$ for axial inflow along the shaft. Propeller mode uses shaft-oriented labels: axial flight speed is shown as $\\mu_x$ (or $J_x$), while vertical cross-flow is shown as $\\mu_z$ (or $J_z$). The selected operating mode therefore changes the displayed convention, not the physical direction of the flow (<a class="xref" href="#cap-5-1" title="10.1 In-plane flow — the first row">Section 10.1</a>).</p>'''
+          if old not in text:
+              raise SystemExit('axis-convention paragraph was not found')
+          doc.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          blocks = Path('zbemt/gui/help_blocks.py')
+          text = blocks.read_text(encoding='utf-8')
+          old = 'Instead of Cl = Cl_α(α − α₀) with a stall closure, the engine interpolates directly between the tabulated points.'
+          new = 'Instead of Cl = Cl_α(α − α₀) with a stall closure, the tabulated coefficients are interpolated directly between the supplied points.'
+          if old not in text:
+              raise SystemExit('tabulated-polar implementation wording was not found')
+          blocks.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
