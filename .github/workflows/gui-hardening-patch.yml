@@ -127,7 +127,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all]"
-          python tests/run_all_tests.py --suite regression -k airfoil_small_screen
+          python -m pytest -q tests/regression/test_airfoil_small_screen.py
           python tests/run_all_tests.py --suite regression -k gui_layout
           python tests/run_all_tests.py --suite regression -k small_screen
           python tests/run_all_tests.py --suite regression -k plot_scaling
