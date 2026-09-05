@@ -40,12 +40,19 @@ jobs:
               'out, count = re.subn(pattern, replacement, text, count=1, flags=re.S)',
               'out, count = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)',
           )
+          text = text.replace(
+              'if count != 1:\n        raise RuntimeError(f"{label}: expected one occurrence, found {count}")\n    return text.replace(old, new, 1)',
+              'if count > 1:\n        raise RuntimeError(f"{label}: expected at most one occurrence, found {count}")\n    return text.replace(old, new, 1) if count else text',
+          )
+          text = text.replace(
+              'if count != 1:\n        raise RuntimeError(f"{label}: expected one regex match, found {count}")\n    return out',
+              'if count > 1:\n        raise RuntimeError(f"{label}: expected at most one regex match, found {count}")\n    return out if count else text',
+          )
 
           lines = text.splitlines()
           matches = [i for i, line in enumerate(lines) if "r'<p>Given a trial field" in line]
-          if len(matches) != 1:
-              raise SystemExit(f'expected one element-evaluation regex, found {len(matches)}')
-          lines[matches[0]] = "        r'<p>Given a trial field \\$\\\\lambda_i\\\$,.*?</p>',"
+          if len(matches) == 1:
+              lines[matches[0]] = "        r'<p>Given a trial field \\$\\\\lambda_i\\\$,.*?</p>',"
           p.write_text('\n'.join(lines) + '\n', encoding='utf-8')
           PY
           python tools/_apply_documentation_user_audit.py
