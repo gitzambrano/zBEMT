@@ -53,7 +53,7 @@ jobs:
               '            "by those quantities."),',
 
               '        "effect": "Trimming to a thrust in newtons compares rotors carrying the same weight. Trimming to a thrust coefficient compares them at the same blade loading, which supports comparison at equal non-dimensional loading across different diameters.",':
-              '        "effect": "Trimming to thrust in newtons compares rotors at the same dimensional thrust. Trimming to a thrust coefficient compares them at the same non-dimensional rotor thrust loading. Equal thrust coefficient does not imply equal blade loading when solidity differs. The ratio C_T/sigma accounts for solidity.",',
+              '        "effect": "Trimming to thrust in newtons compares rotors at the same dimensional thrust. Trimming to a thrust coefficient compares them at the same non-dimensional rotor thrust loading. Equal thrust coefficient does not imply equal blade loading when solidity differs. A blade-loading comparison must also account for solidity.",',
 
               '            "It has to be reachable: a target above what the blade can "\n'
               '            "produce before it stalls has no collective that satisfies "\n'
@@ -161,6 +161,8 @@ jobs:
           git add zbemt/gui/help_content.py
           git diff --cached --check
           git commit -m 'docs: correct popup helper physics and wording'
+          git fetch origin main
+          git rebase origin/main
           git push origin HEAD:main
 
       - name: Run responsive regression tests
