@@ -46,6 +46,6 @@ jobs:
         run: |
           git config user.name "Gustavo Zambrano"
           git config user.email "gustavozambrano@gmail.com"
-          git add .github/workflows/tools-ux-refactor.yml
+          git add -f .github/workflows/tools-ux-refactor.yml
           git commit -m "Keep contextual help on guided Tools blocks"
           git push origin HEAD:tools-ux-refactor
