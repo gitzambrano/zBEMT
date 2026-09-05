@@ -71,12 +71,8 @@ jobs:
           python tests/run_all_tests.py --suite regression -k gui_layout || { cat tests/test_results.txt; exit 1; }
           python tests/run_all_tests.py --suite regression -k tools_window_layout || { cat tests/test_results.txt; exit 1; }
           python tests/run_all_tests.py --suite regression -k designer_window || { cat tests/test_results.txt; exit 1; }
-      - name: Commit patch when tests pass
+      - name: Commit validated patch and remove temporary harness
         run: |
-          if git diff --quiet; then
-            echo "No patch changes to commit."
-            exit 0
-          fi
           git config user.name "OpenAI"
           git config user.email "noreply@openai.com"
           git add zbemt/viz/plots.py \
@@ -85,7 +81,8 @@ jobs:
                   tests/regression/test_plot_scaling.py \
                   tests/architecture/test_quality_orchestrator.py \
                   tools/gui_screenshots.py \
-                  docs/documentation.html \
-                  .github/workflows/tests.yml
+                  docs/documentation.html
+          git add -f .github/workflows/tests.yml
+          git rm -f .github/workflows/gui-hardening-patch.yml tools/apply_gui_responsive_hardening.py
           git commit -m "Harden GUI plots for small screens"
           git push origin HEAD:gui-responsive-hardening
