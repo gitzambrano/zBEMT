@@ -1,0 +1,495 @@
+name: Tools UX refactor validation
+
+on:
+  push:
+    branches: [tools-ux-refactor]
+
+permissions:
+  contents: write
+
+env:
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  refactor:
+    if: ${{ !contains(github.event.head_commit.message, '[tools-ux-refactor]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Qt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+      - name: Apply guided Tools UX refactor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8-sig')
+              if new in text:
+                  return
+              if old not in text:
+                  raise SystemExit(f'Expected block not found in {path}: {old[:100]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          tool_ux = r'''"""Shared UX components for the dedicated engineering Tools windows.
+
+          The main GUI is a sequential workflow.  The Tools are not: they answer
+          separate engineering questions and previously opened directly into dense
+          parameter editors.  This module gives them a task-oriented launcher and a
+          small workflow header without moving solver logic into the GUI.
+          """
+          from __future__ import annotations
+
+          from PyQt6.QtCore import Qt, pyqtSignal
+          from PyQt6.QtWidgets import (
+              QDialog, QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
+              QVBoxLayout, QWidget,
+          )
+
+
+          _TOOLS = (
+              (
+                  "Compare blade geometries",
+                  "geometry_designer",
+                  "Change one geometry parameter or compare planform concepts at the same operating conditions.",
+                  "Start with: a loaded project and blade geometry.",
+                  "Produces: ranked geometry comparisons, deltas and overlays.",
+              ),
+              (
+                  "Simulate a transient maneuver",
+                  "transient_simulation",
+                  "March inflow, dynamic stall and flapping through a time-varying flight condition.",
+                  "Start with: preferably two saved Run Case conditions.",
+                  "Produces: time histories and maneuver reports.",
+              ),
+              (
+                  "Optimize a blade design",
+                  "design_optimization",
+                  "Search geometry variables against one or two engineering objectives and constraints.",
+                  "Start with: at least one saved Run Case condition.",
+                  "Produces: the best design or a Pareto front.",
+              ),
+              (
+                  "Compute stability derivatives",
+                  "stability_derivatives",
+                  "Linearize rotor forces and moments around a selected operating point.",
+                  "Start with: a saved Run Case condition; trim it first when appropriate.",
+                  "Produces: dimensional/non-dimensional derivative matrices and sign checks.",
+              ),
+          )
+
+
+          class ToolsLauncher(QDialog):
+              """Task-oriented replacement for the old four-name Tools menu."""
+
+              tool_requested = pyqtSignal(str)
+
+              def __init__(self, state=None, parent=None):
+                  super().__init__(parent)
+                  self.state = state
+                  self.setWindowTitle("Engineering Tools")
+                  self.setWindowFlag(Qt.WindowType.Tool, True)
+                  self.resize(650, 560)
+
+                  outer = QVBoxLayout(self)
+                  title = QLabel("Engineering Tools")
+                  title.setStyleSheet("font-size: 18px; font-weight: 700;")
+                  outer.addWidget(title)
+                  intro = QLabel(
+                      "Start from the engineering question, not from a parameter editor. "
+                      "Each tool uses the project currently open in zBEMT."
+                  )
+                  intro.setWordWrap(True)
+                  intro.setStyleSheet("color: #777; margin-bottom: 6px;")
+                  outer.addWidget(intro)
+
+                  self.tool_buttons: dict[str, QPushButton] = {}
+                  for title_text, key, purpose, requires, produces in _TOOLS:
+                      card = QFrame()
+                      card.setFrameShape(QFrame.Shape.StyledPanel)
+                      row = QHBoxLayout(card)
+                      copy = QVBoxLayout()
+                      heading = QLabel(f"<b>{title_text}</b>")
+                      purpose_label = QLabel(purpose)
+                      purpose_label.setWordWrap(True)
+                      meta = QLabel(f"{requires}<br>{produces}")
+                      meta.setWordWrap(True)
+                      meta.setStyleSheet("color: #777; font-size: 11px;")
+                      copy.addWidget(heading)
+                      copy.addWidget(purpose_label)
+                      copy.addWidget(meta)
+                      row.addLayout(copy, 1)
+                      button = QPushButton("Open")
+                      button.setMinimumWidth(82)
+                      button.setSizePolicy(QSizePolicy.Policy.Fixed,
+                                           QSizePolicy.Policy.Fixed)
+                      button.clicked.connect(
+                          lambda _checked=False, k=key: self._choose(k))
+                      row.addWidget(button, 0, Qt.AlignmentFlag.AlignVCenter)
+                      outer.addWidget(card)
+                      self.tool_buttons[key] = button
+                  outer.addStretch(1)
+
+              def _choose(self, key: str):
+                  self.tool_requested.emit(key)
+                  self.hide()
+
+
+          class ToolWorkflowHeader(QFrame):
+              """Numbered task steps with explicit current-action guidance.
+
+              The native tab bar is hidden: the numbered buttons below are the
+              navigation, so a Tool no longer shows two competing navigation systems.
+              """
+
+              def __init__(self, tabs, steps, parent: QWidget | None = None):
+                  super().__init__(parent)
+                  self.tabs = tabs
+                  self.steps = list(steps)
+                  self.setFrameShape(QFrame.Shape.StyledPanel)
+                  outer = QVBoxLayout(self)
+                  outer.setContentsMargins(10, 8, 10, 8)
+                  outer.setSpacing(5)
+
+                  row = QHBoxLayout()
+                  self._step_buttons = []
+                  for i, (title, _guidance) in enumerate(self.steps):
+                      button = QPushButton(f"{i + 1}. {title}")
+                      button.setFlat(True)
+                      button.clicked.connect(
+                          lambda _checked=False, index=i: self.tabs.setCurrentIndex(index))
+                      row.addWidget(button)
+                      self._step_buttons.append(button)
+                  row.addStretch(1)
+                  self.back_button = QPushButton("Back")
+                  self.next_button = QPushButton("Next")
+                  self.back_button.clicked.connect(self._back)
+                  self.next_button.clicked.connect(self._next)
+                  row.addWidget(self.back_button)
+                  row.addWidget(self.next_button)
+                  outer.addLayout(row)
+
+                  self.guidance = QLabel()
+                  self.guidance.setWordWrap(True)
+                  outer.addWidget(self.guidance)
+
+                  self.tabs.tabBar().setVisible(False)
+                  self.tabs.currentChanged.connect(self._sync)
+                  self._sync(self.tabs.currentIndex())
+
+              def _sync(self, index: int):
+                  if not self.steps:
+                      return
+                  index = max(0, min(index, len(self.steps) - 1))
+                  for i, button in enumerate(self._step_buttons):
+                      if i == index:
+                          button.setStyleSheet(
+                              "font-weight: 700; border: 1px solid #888; border-radius: 4px; padding: 4px 8px;")
+                      else:
+                          button.setStyleSheet(
+                              "font-weight: 400; border: 1px solid transparent; padding: 4px 8px;")
+                  title, guidance = self.steps[index]
+                  self.guidance.setText(f"<b>Do this now:</b> {guidance}")
+                  self.back_button.setEnabled(index > 0)
+                  self.next_button.setVisible(index < len(self.steps) - 1)
+                  if index < len(self.steps) - 1:
+                      self.next_button.setText(f"Next: {self.steps[index + 1][0]}")
+
+              def _back(self):
+                  self.tabs.setCurrentIndex(max(0, self.tabs.currentIndex() - 1))
+
+              def _next(self):
+                  self.tabs.setCurrentIndex(
+                      min(self.tabs.count() - 1, self.tabs.currentIndex() + 1))
+          '''
+          Path('zbemt/gui/tool_ux.py').write_text(tool_ux, encoding='utf-8')
+
+          # Main Tools entry point: replace a name-only menu with a task launcher.
+          replace_once(
+              'zbemt/gui/app.py',
+              'from .common import AppState, open_help\nfrom .wheel_guard import install_wheel_guard, adjust_focus_policy\n',
+              'from .common import AppState, open_help\nfrom .tool_ux import ToolsLauncher\nfrom .wheel_guard import install_wheel_guard, adjust_focus_policy\n')
+          replace_once(
+              'zbemt/gui/app.py',
+              '''        tools_menu = QMenu(self.btn_tools)\n        for label, key in self.TOOLS_MENU:\n            action = tools_menu.addAction(label)\n            action.triggered.connect(\n                lambda _checked=False, k=key: self.tools_requested.emit(k))\n        self.btn_tools.setMenu(tools_menu)\n        # The button's tooltip stays up while the menu opens over it, and\n        # under the dark strip it reads as an empty black rectangle above\n        # the entries. The menu itself says what each entry does, so the\n        # tooltip has nothing left to add once it is open.\n        # A lambda, not `connect(QToolTip.hideText)`: connecting a signal\n        # straight to a static C++ method leaves the connection with no\n        # receiver object to own it.\n        from PyQt6.QtWidgets import QToolTip\n        tools_menu.aboutToShow.connect(lambda: QToolTip.hideText())\n        layout.addWidget(self.btn_tools)\n''',
+              '''        self._tools_launcher = ToolsLauncher(self.state, self)\n        self._tools_launcher.tool_requested.connect(self.tools_requested.emit)\n        self.btn_tools.clicked.connect(self._tools_launcher.show)\n        layout.addWidget(self.btn_tools)\n''')
+          replace_once(
+              'zbemt/gui/app.py',
+              '''        self.btn_tools.setToolTip(\n            "Tools: opens the dedicated windows - Geometry Designer, "\n            "Transient Simulation, Design Optimization and Stability "\n            "Derivatives")\n''',
+              '''        self.btn_tools.setToolTip(\n            "Engineering Tools: choose a task, see its prerequisites and open its guided workflow.")\n''')
+
+          # Geometry Designer: explicit 3-step workflow and a recommended start.
+          replace_once(
+              'zbemt/gui/tabs/designer_window.py',
+              'from ..workers import CompareWorker, FnWorker, launch_worker\n',
+              'from ..tool_ux import ToolWorkflowHeader\nfrom ..workers import CompareWorker, FnWorker, launch_worker\n')
+          replace_once(
+              'zbemt/gui/tabs/designer_window.py',
+              '''        self.pages.addTab(in_scroll_area(self._build_run_page()), "Run && results")\n        layout.addWidget(self.pages)\n''',
+              '''        self.pages.addTab(in_scroll_area(self._build_run_page()), "Run && results")\n        self.workflow_header = ToolWorkflowHeader(self.pages, [\n            ("Define variants",\n             "Start with Variation sweep to change one geometry parameter at a time. Use Generate or the manual table only when that is the engineering question."),\n            ("Set conditions",\n             "Choose saved cases, define one operating point, or create a condition sweep. Every geometry is evaluated at exactly these conditions."),\n            ("Review and run",\n             "Read the study summary and case count, then run the comparison and inspect ranking, deltas and overlays."),\n        ])\n        layout.addWidget(self.workflow_header)\n        layout.addWidget(self.pages)\n''')
+          replace_once(
+              'zbemt/gui/tabs/designer_window.py',
+              '        heading = QLabel("Variation sweep")\n',
+              '        heading = QLabel("Variation sweep — recommended start")\n')
+          replace_once(
+              'zbemt/gui/tabs/designer_window.py',
+              '''        vbox = QVBoxLayout(page)\n\n        mode_row = QHBoxLayout()\n''',
+              '''        vbox = QVBoxLayout(page)\n        intro = QLabel(\n            "Choose how every geometry will be evaluated. For repeatable engineering comparisons, saved Run Case conditions are usually the clearest starting point.")\n        intro.setWordWrap(True)\n        intro.setStyleSheet("color: gray; margin-bottom: 6px;")\n        vbox.addWidget(intro)\n\n        mode_row = QHBoxLayout()\n''')
+          replace_once('zbemt/gui/tabs/designer_window.py',
+                       'QRadioButton("Saved cases")',
+                       'QRadioButton("Use saved cases")')
+          replace_once('zbemt/gui/tabs/designer_window.py',
+                       'QRadioButton("Single condition")',
+                       'QRadioButton("Define one condition")')
+          replace_once('zbemt/gui/tabs/designer_window.py',
+                       'QRadioButton("Sweep")',
+                       'QRadioButton("Create condition sweep")')
+
+          # Transient: quick-start first, custom table second, neutral empty state.
+          replace_once(
+              'zbemt/gui/tabs/transient_window.py',
+              'from ..workers import ManeuverWorker, launch_worker\n',
+              'from ..tool_ux import ToolWorkflowHeader\nfrom ..workers import ManeuverWorker, launch_worker\n')
+          replace_once(
+              'zbemt/gui/tabs/transient_window.py',
+              '''        tabs = QTabWidget(self)\n        tabs.addTab(self._build_trajectory_page(), "Trajectory")\n        tabs.addTab(self._build_run_page(), "Run and results")\n        outer = QVBoxLayout(self)\n        outer.addWidget(tabs)\n''',
+              '''        self.pages = QTabWidget(self)\n        self.pages.addTab(self._build_trajectory_page(), "Trajectory")\n        self.pages.addTab(self._build_run_page(), "Run and results")\n        outer = QVBoxLayout(self)\n        self.workflow_header = ToolWorkflowHeader(self.pages, [\n            ("Define maneuver",\n             "Quick start: build a ramp from two saved Run Case conditions. Use the point table only for a custom time history."),\n            ("Review and run",\n             "Check the sampled trajectory and cost, then run the unsteady march and inspect the time histories."),\n        ])\n        outer.addWidget(self.workflow_header)\n        outer.addWidget(self.pages)\n''')
+          replace_once('zbemt/gui/tabs/transient_window.py',
+                       'QGroupBox("Trajectory points")',
+                       'QGroupBox("Custom trajectory points")')
+          replace_once('zbemt/gui/tabs/transient_window.py',
+                       'QGroupBox("Build from two saved cases")',
+                       'QGroupBox("Quick start — ramp between two saved cases")')
+          replace_once(
+              'zbemt/gui/tabs/transient_window.py',
+              '''        left.addWidget(points_box)\n        left.addWidget(build_box)\n''',
+              '''        left.addWidget(build_box)\n        left.addWidget(points_box)\n''')
+          replace_once(
+              'zbemt/gui/tabs/transient_window.py',
+              '''        issues = validate_maneuver(definition, cfg)\n        self.validation_panel.setPlainText(\n            "\\n".join(str(i) for i in issues) if issues\n            else "No findings.")\n''',
+              '''        if not definition.points:\n            self.validation_panel.setPlainText(\n                "Start by building a ramp from two saved cases or add at least two custom trajectory points.")\n            return\n        issues = validate_maneuver(definition, cfg)\n        self.validation_panel.setPlainText(\n            "\\n".join(str(i) for i in issues) if issues\n            else "Ready — no validation findings.")\n''')
+
+          # Optimizer: engineering objective first; numerical tuning is Advanced.
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              'from ..workers import OptimizeMultiWorker, launch_worker\n',
+              'from ..tool_ux import ToolWorkflowHeader\nfrom ..workers import OptimizeMultiWorker, launch_worker\n')
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              '''        tabs = QTabWidget(self)\n        tabs.addTab(self._build_definition_page(), "Study")\n        tabs.addTab(self._build_run_page(), "Run and results")\n        outer = QVBoxLayout(self)\n        outer.addWidget(tabs)\n''',
+              '''        self.pages = QTabWidget(self)\n        self.pages.addTab(self._build_definition_page(), "Study")\n        self.pages.addTab(self._build_run_page(), "Run and results")\n        outer = QVBoxLayout(self)\n        self.workflow_header = ToolWorkflowHeader(self.pages, [\n            ("Define engineering problem",\n             "Choose objective(s), design variables, constraints and the operating condition. Leave numerical search tuning at its defaults unless you need it."),\n            ("Review and run",\n             "Confirm the evaluation cost, run the search and inspect the optimum or Pareto trade-off before applying a design."),\n        ])\n        outer.addWidget(self.workflow_header)\n        outer.addWidget(self.pages)\n''')
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              '''            key_combo = QComboBox()\n            key_combo.setEditable(True)\n            for key in _COMMON_OBJECTIVE_KEYS:\n''',
+              '''            key_combo = QComboBox()\n            key_combo.setEditable(False)\n            if i == 2:\n                key_combo.addItem("(none — single objective)", "")\n            for key in _COMMON_OBJECTIVE_KEYS:\n''')
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              '''            tip = ('"objectives" — any quantity of the results summary '\n                   "(for example FM, CT, CP). The box suggests the usual "\n                   "ones; type any other summary key.")\n''',
+              '''            tip = ("Choose the engineering result quantity to optimize. "\n                   "The GUI keeps engine summary keys internal; advanced custom keys remain available through the Python/CLI interfaces.")\n''')
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              '''        self.cons_table.setHorizontalHeaderLabels(["Summary key",\n                                                    "Operator", "Value"])\n''',
+              '''        self.cons_table.setHorizontalHeaderLabels(["Result quantity",\n                                                    "Operator", "Value"])\n''')
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              '''        self.var_table.setHorizontalHeaderLabels(["Parameter", "Lower",\n                                                   "Upper"])\n''',
+              '''        self.var_table.setHorizontalHeaderLabels(["Geometry parameter", "Lower",\n                                                   "Upper"])\n''')
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              '''        search_box = QGroupBox("Search settings")\n        grid = QGridLayout(search_box)\n        self.condition_combo = QComboBox()\n        self.condition_combo.setToolTip(\n            '"condition" — the saved case whose flight state every design '\n            "is solved at. It must carry an RPM: the solver "\n            "adimensionalizes by ΩR.")\n        self.algorithm_combo = QComboBox()\n''',
+              '''        condition_box = QGroupBox("Operating condition")\n        condition_form = QFormLayout(condition_box)\n        self.condition_combo = QComboBox()\n        self.condition_combo.setToolTip(\n            "Saved Run Case condition used for every design evaluation. It must include RPM.")\n        condition_form.addRow("Saved case:", self.condition_combo)\n        right.addWidget(condition_box)\n\n        search_box = QGroupBox("Advanced search settings")\n        search_box.setCheckable(True)\n        search_box.setChecked(False)\n        self.advanced_search_box = search_box\n        grid = QGridLayout(search_box)\n        self.algorithm_combo = QComboBox()\n''')
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              '''        rows = [\n            ("Condition:", self.condition_combo),\n            ("Algorithm:", self.algorithm_combo),\n''',
+              '''        rows = [\n            ("Algorithm:", self.algorithm_combo),\n''')
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              '''        for key_combo, kind_combo in zip(self.obj_keys, self.obj_kinds):\n            key = key_combo.currentText().strip()\n            if key:\n''',
+              '''        for key_combo, kind_combo in zip(self.obj_keys, self.obj_kinds):\n            key = key_combo.currentData()\n            if key is None:\n                key = key_combo.currentText().strip()\n            if key:\n''')
+          replace_once(
+              'zbemt/gui/tabs/optimizer_window.py',
+              '''        for i, obj in enumerate(objectives[:2]):\n            self.obj_keys[i].setCurrentText("" if obj.key == "" else str(obj.key))\n            idx = self.obj_kinds[i].findData(obj.kind)\n''',
+              '''        for i, obj in enumerate(objectives[:2]):\n            key_combo = self.obj_keys[i]\n            key_index = key_combo.findData(obj.key)\n            if key_index < 0 and obj.key:\n                key_combo.addItem(_key_label(str(obj.key)), str(obj.key))\n                key_index = key_combo.findData(obj.key)\n            if key_index < 0:\n                key_index = key_combo.findData("")\n            key_combo.setCurrentIndex(max(key_index, 0))\n            idx = self.obj_kinds[i].findData(obj.kind)\n''')
+
+          # Stability: explicit analysis presets; remove the non-functional workers control.
+          replace_once(
+              'zbemt/gui/tabs/stability_window.py',
+              'from ..workers import DerivativeWorker, launch_worker\n',
+              'from ..tool_ux import ToolWorkflowHeader\nfrom ..workers import DerivativeWorker, launch_worker\n')
+          replace_once(
+              'zbemt/gui/tabs/stability_window.py',
+              '''        tabs = QTabWidget(self)\n        tabs.addTab(in_scroll_area(self._build_trim_page()), "Trim point")\n        tabs.addTab(in_scroll_area(self._build_perturbations_page()), "Perturbations")\n        tabs.addTab(in_scroll_area(self._build_run_page()), "Run and results")\n        outer = QVBoxLayout(self)\n        outer.addWidget(tabs)\n''',
+              '''        self.pages = QTabWidget(self)\n        self.pages.addTab(in_scroll_area(self._build_trim_page()), "Trim point")\n        self.pages.addTab(in_scroll_area(self._build_perturbations_page()), "Perturbations")\n        self.pages.addTab(in_scroll_area(self._build_run_page()), "Run and results")\n        outer = QVBoxLayout(self)\n        self.workflow_header = ToolWorkflowHeader(self.pages, [\n            ("Set operating point",\n             "Select the saved case and trim strategy. Run trim only first when the reference controls should be solved rather than prescribed."),\n            ("Choose derivatives",\n             "Start from a longitudinal, lateral-directional or control preset, then adjust variables, outputs and finite-difference steps only if needed."),\n            ("Review and run",\n             "Check the evaluation cost, run the derivative sweep and inspect matrix units, signs and convergence diagnostics."),\n        ])\n        outer.addWidget(self.workflow_header)\n        outer.addWidget(self.pages)\n''')
+          replace_once(
+              'zbemt/gui/tabs/stability_window.py',
+              '''        right = QVBoxLayout()\n        steps_box = QGroupBox("Steps (per variable, its own unit)")\n''',
+              '''        right = QVBoxLayout()\n        preset_box = QGroupBox("Quick setup")\n        preset_form = QFormLayout(preset_box)\n        self.preset_combo = QComboBox()\n        self.preset_combo.addItem("Longitudinal", "longitudinal")\n        self.preset_combo.addItem("Lateral-directional", "lateral")\n        self.preset_combo.addItem("Control derivatives", "controls")\n        self.preset_combo.addItem("Full set", "full")\n        self.preset_combo.addItem("Custom", "custom")\n        self.preset_combo.setToolTip(\n            "Selects a practical starting set of perturbation variables and outputs. Custom keeps the current manual selection.")\n        self.preset_combo.currentIndexChanged.connect(self._apply_analysis_preset)\n        preset_form.addRow("Analysis:", self.preset_combo)\n        right.addWidget(preset_box)\n\n        steps_box = QGroupBox("Finite-difference steps")\n''')
+          replace_once(
+              'zbemt/gui/tabs/stability_window.py',
+              '''        self.workers_spin.setToolTip(\n            '"parallel_workers" — requested evaluation processes, '\n            "stored on the study. This build evaluates the derivatives "\n            "SERIALLY, so the value travels with the file and does not "\n            "yet change the run time.")\n        options_form.addRow("Parallel workers:", self.workers_spin)\n        right.addWidget(options_box)\n''',
+              '''        # Kept as a persisted compatibility field, but deliberately not\n        # exposed in the GUI until derivative evaluation is actually parallel.\n        self.workers_spin.setToolTip("Reserved for future parallel derivative evaluation.")\n        right.addWidget(options_box)\n''')
+          replace_once(
+              'zbemt/gui/tabs/stability_window.py',
+              '''        layout.addLayout(right, 1)\n        return page\n\n    # ------------------------------------------------------------------\n    # Page 3: Run and results\n''',
+              '''        layout.addLayout(right, 1)\n        return page\n\n    def _apply_analysis_preset(self, *_args):\n        """Select a useful engineering subset without hiding Custom control."""\n        preset = self.preset_combo.currentData() if hasattr(self, "preset_combo") else "custom"\n        if preset == "custom":\n            return\n        variable_sets = {\n            "longitudinal": {"u", "w", "q", "theta_0", "theta_1c"},\n            "lateral": {"v", "p", "theta_1s"},\n            "controls": {"theta_0", "theta_1c", "theta_1s"},\n            "full": set(_STATE_NAMES) | set(_CONTROL_NAMES),\n        }\n        output_sets = {\n            "longitudinal": {"Thrust", "H", "Mx_total", "Torque"},\n            "lateral": {"Y", "My_total", "Torque"},\n            "controls": set(_OUTPUT_NAMES),\n            "full": set(_OUTPUT_NAMES),\n        }\n        wanted_vars = variable_sets[preset]\n        wanted_outputs = output_sets[preset]\n        for name, check in self.var_checks.items():\n            check.blockSignals(True)\n            check.setChecked(check.isEnabled() and name in wanted_vars)\n            check.blockSignals(False)\n        for name, check in self.output_checks.items():\n            check.setChecked(name in wanted_outputs)\n        self._refresh_step_table()\n        self._update_cost_estimate()\n\n    # ------------------------------------------------------------------\n    # Page 3: Run and results\n''')
+
+          # Regression tests for the guidance layer itself.
+          test_text = r'''from __future__ import annotations
+          import unittest
+
+          try:
+              from PyQt6.QtWidgets import QApplication
+              _HAS_QT = True
+          except Exception:
+              _HAS_QT = False
+
+          if _HAS_QT:
+              from zbemt.gui.common import AppState
+              from zbemt.gui.tool_ux import ToolWorkflowHeader, ToolsLauncher
+              from zbemt.gui.tabs.designer_window import GeometryDesignerWindow
+              from zbemt.gui.tabs.transient_window import TransientWindow
+              from zbemt.gui.tabs.optimizer_window import OptimizerWindow
+              from zbemt.gui.tabs.stability_window import StabilityWindow
+
+
+          @unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+          class TestGuidedToolsUX(unittest.TestCase):
+              @classmethod
+              def setUpClass(cls):
+                  cls.app = QApplication.instance() or QApplication([])
+
+              def test_launcher_is_task_oriented(self):
+                  launcher = ToolsLauncher(AppState())
+                  self.addCleanup(launcher.deleteLater)
+                  self.assertEqual(set(launcher.tool_buttons), {
+                      "geometry_designer", "transient_simulation",
+                      "design_optimization", "stability_derivatives"})
+                  visible_copy = " ".join(
+                      w.text() for w in launcher.findChildren(__import__('PyQt6.QtWidgets', fromlist=['QLabel']).QLabel))
+                  self.assertIn("engineering question", visible_copy.lower())
+                  self.assertIn("Produces:", visible_copy)
+
+              def _assert_guided(self, window, expected_steps):
+                  self.addCleanup(window.deleteLater)
+                  self.assertIsInstance(window.workflow_header, ToolWorkflowHeader)
+                  self.assertEqual(len(window.workflow_header.steps), expected_steps)
+                  self.assertFalse(window.pages.tabBar().isVisible())
+                  if expected_steps > 1:
+                      window.workflow_header.next_button.click()
+                      self.assertEqual(window.pages.currentIndex(), 1)
+                      window.workflow_header.back_button.click()
+                      self.assertEqual(window.pages.currentIndex(), 0)
+
+              def test_all_tools_have_guided_workflows(self):
+                  state = AppState()
+                  self._assert_guided(GeometryDesignerWindow(state), 3)
+                  self._assert_guided(TransientWindow(state), 2)
+                  self._assert_guided(OptimizerWindow(state), 2)
+                  self._assert_guided(StabilityWindow(state), 3)
+
+              def test_optimizer_hides_numerical_tuning_by_default(self):
+                  window = OptimizerWindow(AppState())
+                  self.addCleanup(window.deleteLater)
+                  self.assertTrue(window.advanced_search_box.isCheckable())
+                  self.assertFalse(window.advanced_search_box.isChecked())
+                  self.assertEqual(window.obj_keys[1].itemData(0), "")
+
+              def test_stability_does_not_expose_placeholder_workers(self):
+                  window = StabilityWindow(AppState())
+                  self.addCleanup(window.deleteLater)
+                  self.assertIsNone(window.workers_spin.parentWidget())
+
+              def test_transient_empty_state_is_instructive(self):
+                  window = TransientWindow(AppState())
+                  self.addCleanup(window.deleteLater)
+                  window._update_validation_panel()
+                  self.assertIn("Start by", window.validation_panel.toPlainText())
+          '''
+          Path('tests/regression/test_tools_guided_workflow.py').write_text(test_text, encoding='utf-8')
+          PY
+      - name: Compile and focused regression tests
+        run: |
+          python -m compileall -q zbemt/gui
+          python -m pytest -q tests/regression/test_tools_guided_workflow.py
+          python tests/run_all_tests.py --suite regression -k tools_window_layout
+          python tests/run_all_tests.py --suite regression -k designer_window
+          python tests/run_all_tests.py --suite regression -k optimizer_window
+          python tests/run_all_tests.py --suite regression -k stability_window
+          python tests/run_all_tests.py --suite regression -k transient_window
+      - name: Capture refactored Tools at notebook and desktop sizes
+        run: |
+          python - <<'PY'
+          import os, sys
+          from pathlib import Path
+          os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+          from PyQt6.QtWidgets import QApplication, QTabWidget
+          from zbemt import api
+          from zbemt.gui import app as gui
+          from zbemt.gui import styles
+
+          out = Path('tools-ux-refactor-artifacts')
+          out.mkdir(exist_ok=True)
+          app = QApplication.instance() or QApplication([])
+          app.setStyle('Fusion')
+          app.setStyleSheet(styles.APP_QSS)
+          def settle(n=35):
+              for _ in range(n): app.processEvents()
+
+          main = gui.MainWindow()
+          main.state.set_project(api.open_project('projects/starter_rotor'))
+          main.show(); settle()
+          # Launcher itself.
+          main.flow_bar.btn_tools.click(); settle()
+          main.flow_bar._tools_launcher.grab().save(str(out / 'tools-launcher.png'))
+          main.flow_bar._tools_launcher.hide()
+
+          windows = [
+              ('designer', main.geometry_designer),
+              ('transient', main.transient_window),
+              ('optimizer', main.optimizer_window),
+              ('stability', main.stability_window),
+          ]
+          for width, height in ((1366, 768), (1100, 700)):
+              d = out / f'{width}x{height}'; d.mkdir(exist_ok=True)
+              for slug, window in windows:
+                  window.resize(width, height); window.show(); settle()
+                  tabs = window.pages
+                  for i in range(tabs.count()):
+                      tabs.setCurrentIndex(i); settle()
+                      name = tabs.tabText(i).replace(' ', '-').replace('&', 'and').lower()
+                      target = d / f'{slug}-{i+1}-{name}.png'
+                      window.grab().save(str(target))
+                      assert target.stat().st_size > 0
+                  window.hide()
+          sys.stdout.flush(); sys.stderr.flush(); os._exit(0)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-ux-refactor-review
+          path: tools-ux-refactor-artifacts
+          retention-days: 3
+      - name: Commit validated refactor
+        run: |
+          git config user.name "Gustavo Zambrano"
+          git config user.email "gustavozambrano@gmail.com"
+          git add zbemt/gui/tool_ux.py zbemt/gui/app.py \
+            zbemt/gui/tabs/designer_window.py zbemt/gui/tabs/transient_window.py \
+            zbemt/gui/tabs/optimizer_window.py zbemt/gui/tabs/stability_window.py \
+            tests/regression/test_tools_guided_workflow.py
+          git commit -m "[tools-ux-refactor] Guide engineering workflows in Tools"
+          git push origin HEAD:tools-ux-refactor
