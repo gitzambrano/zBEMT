@@ -1314,6 +1314,15 @@ def plot_convergence(results: "Results", ax=None, fname=None):
                             linewidth=1.4, label=r"max $|g(\lambda)-\lambda|$")
             ax_res.set_ylabel(r"max $|g(\lambda_i)-\lambda_i|$", color="tab:red", fontsize=8)
             ax_res.tick_params(axis="y", labelcolor="tab:red", labelsize=8)
+            # LogLocator creates major ticks outside the visible limits.
+            # Their labels are not clipped by the axes, so keep only full
+            # decades that are actually inside the displayed residual range.
+            y_min, y_max = ax_res.get_ylim()
+            if np.isfinite(y_min) and np.isfinite(y_max) and y_min > 0.0 and y_max > 0.0:
+                first_decade = int(np.ceil(np.log10(y_min)))
+                last_decade = int(np.floor(np.log10(y_max)))
+                if first_decade <= last_decade:
+                    ax_res.set_yticks(10.0 ** np.arange(first_decade, last_decade + 1))
             lines = (ax_hist.get_lines() if hist else []) + ax_res.get_lines()
             ax_hist.legend(lines, [l.get_label() for l in lines],
                            loc="center right", fontsize=7.5)
