@@ -1,0 +1,54 @@
+name: flap-convergence-tuning
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    env:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Probe outer-loop convergence
+        run: |
+          python - <<'PY'
+          import os
+          from zbemt import api, studies
+          from zbemt.models import BladeDynamicsDef, FlightCondition
+
+          repo = os.getcwd()
+          for relax in (0.5, 0.65, 0.8, 1.0):
+              for max_iter in (40, 60, 80):
+                  rows = []
+                  for mu in (0.20, 0.25):
+                      project = api.open_project(os.path.join(repo, "projects", "starter_rotor"))
+                      dynamics = BladeDynamicsDef(
+                          flap_model="offset", hinge_offset_norm=0.05,
+                          inertia_source="lock", lock_number=8.0, harmonics=2,
+                          outer_tol_deg=1e-4, outer_max_iter=max_iter,
+                          outer_relax=relax,
+                      )
+                      project.geometry.dynamics = dynamics
+                      project.config.update(Ne=32, Npsi=48, solver="newton", max_iter=300)
+                      result = studies.run_single_case(
+                          project,
+                          FlightCondition(name="probe", mu_x=mu,
+                                          collective_deg=10.0, rpm=600.0),
+                      )
+                      s = result.summary
+                      hist = result.maps.get("flap_outer_history", [])
+                      rows.append((mu, s["flap_outer_converged"],
+                                   s["flap_outer_residual_deg"],
+                                   s["flap_outer_iterations"], hist[-5:]))
+                  print(f"relax={relax:.2f} max={max_iter}: {rows}")
+          PY
