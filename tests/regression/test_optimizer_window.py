@@ -130,14 +130,18 @@ class TestRunFillsTheFrontTable(OptimizerWindowBase):
                           ["CT", "CP"])
 
     def test_run_is_blocked_while_the_study_has_errors(self):
-        """Phase 3.1: static findings surface BEFORE solver time."""
+        """Phase 3.1: static findings surface BEFORE solver time.
+
+        The GUI now offers curated engineering result quantities instead of
+        accepting arbitrary internal summary keys.  Build an invalid study
+        through a user-reachable error (no design variables) rather than by
+        typing an engine key the GUI deliberately no longer exposes.
+        """
         from unittest.mock import patch as mock_patch
         from zbemt.gui.workers import OptimizeMultiWorker
 
         self._load_project_with_study()
-        # An unknown summary key is the easiest way to make the study
-        # invalid while everything else stays well-formed.
-        self.window.obj_keys[0].setCurrentText("NOT_A_SUMMARY_KEY")
+        self.window.var_table.setRowCount(0)
         self.window._apply_settings()
         launched = []
         with mock_patch("zbemt.gui.tabs.optimizer_window."
