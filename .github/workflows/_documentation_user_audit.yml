@@ -41,10 +41,30 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          python -m unittest tests.architecture.test_documentation
-          python -m unittest tests.architecture.test_help_content
-          python -m unittest tests.architecture.test_every_field_has_a_popup
-          python -m unittest tests.architecture.test_user_facing_documentation
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from tests.run_all_tests import _run_one
+
+          root = Path.cwd()
+          env = os.environ.copy()
+          env.setdefault("QT_QPA_PLATFORM", "offscreen")
+          files = [
+              root / "tests/architecture/test_documentation.py",
+              root / "tests/architecture/test_help_content.py",
+              root / "tests/architecture/test_every_field_has_a_popup.py",
+              root / "tests/architecture/test_user_facing_documentation.py",
+          ]
+          failed = []
+          for path in files:
+              ok, summary, output = _run_one(path, env)
+              print(f"{path.name}: {summary}")
+              if not ok:
+                  failed.append(path.name)
+                  print(output)
+          if failed:
+              raise SystemExit("Failed: " + ", ".join(failed))
+          PY
 
       - name: Commit audited documentation
         run: |
