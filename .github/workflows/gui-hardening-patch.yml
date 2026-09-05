@@ -1,4 +1,4 @@
-name: GUI visual review artifact
+name: GUI full-resolution review artifact
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   review-artifact:
-    if: ${{ !contains(github.event.head_commit.message, '[review-artifact]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[full-review-artifact]') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -14,10 +14,19 @@ jobs:
           ref: gui-responsive-hardening
       - uses: actions/upload-artifact@v4
         with:
-          name: gui-visual-review
+          name: gui-full-resolution-review
           path: |
-            visual-artifacts/review-small/*.jpg
-            visual-artifacts/previews/*.jpg
-            visual-artifacts/plots/manifest.json
+            visual-artifacts/ui/1100x650/airfoil.png
+            visual-artifacts/ui/1366x700/airfoil.png
+            visual-artifacts/ui/1100x650/designer.png
+            visual-artifacts/ui/1100x650/run-batch.png
+            visual-artifacts/plots/full-coefficients.png
+            visual-artifacts/plots/host-coefficients-700x420.png
+            visual-artifacts/plots/full-convergence.png
+            visual-artifacts/plots/host-convergence-700x420.png
+            visual-artifacts/plots/full-disk-grid-4x4.png
+            visual-artifacts/plots/host-disk-grid-4x4-700x420.png
+            visual-artifacts/plots/full-dense-xy-30-series.png
+            visual-artifacts/plots/host-dense-xy-30-series-700x420.png
           if-no-files-found: error
           retention-days: 1
