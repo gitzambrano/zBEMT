@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QFormLayout,
     QGroupBox,
     QLabel,
@@ -896,9 +897,11 @@ class AirfoilTab(QWidget):
         connections don't reach them: each signal is wired explicitly in
         `_wire_plot_toolbar`."""
         bar = QWidget()
-        row = QHBoxLayout(bar)
-        row.setContentsMargins(0, 0, 0, 4)
-        row.setSpacing(8)
+        # Two compact rows keep all display controls readable on narrow notebook panes.
+        grid = QGridLayout(bar)
+        grid.setContentsMargins(0, 0, 0, 4)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(4)
 
         alpha_lbl = QLabel("Alpha:")
         alpha_lbl.setToolTip("Polar angle-of-attack range shown in the preview")
@@ -906,19 +909,20 @@ class AirfoilTab(QWidget):
             "Angle-of-attack span drawn in the polar preview. Pick 'Full range' to actually see "
             "the Viterna / full-range extrapolation — in the typical span it lies entirely off-axis. "
             "Zooming the axes with the toolbar does NOT recompute the curves; this control does.")
-        row.addWidget(alpha_lbl)
+        grid.addWidget(alpha_lbl, 0, 0)
         self.alpha_range_combo = QComboBox()
         self.alpha_range_combo.addItems(list(self._ALPHA_RANGES))
         self.alpha_range_combo.setToolTip(alpha_lbl.toolTip())
         adjust_combo_width(self.alpha_range_combo)
-        row.addWidget(self.alpha_range_combo)
+        self.alpha_range_combo.setMinimumWidth(self.alpha_range_combo.minimumSizeHint().width())
+        grid.addWidget(self.alpha_range_combo, 0, 1)
 
         self.autoscale_y_check = QCheckBox("Auto-fit Y")
         self.autoscale_y_check.setChecked(True)
         self.autoscale_y_check.setToolTip(
             "On: each axis fits its own curves. Off: Cl/Cd keep a fixed span, so curves stay "
             "comparable between two different airfoils/settings instead of both filling the frame.")
-        row.addWidget(self.autoscale_y_check)
+        grid.addWidget(self.autoscale_y_check, 0, 2)
 
         self.show_reverse_branch_check = QCheckBox("Reverse-flow branch")
         self.show_reverse_branch_check.setChecked(True)
@@ -926,16 +930,18 @@ class AirfoilTab(QWidget):
             "Overlays the curve the engine actually uses where the section sees reverse flow "
             "(U<sub>t</sub> &lt; 0), per the Reverse flow model in the form. For 'thin_plate_blend' both branches "
             "coincide by construction — its blend depends on |&alpha;| only, not on the sign of U<sub>t</sub>.")
-        row.addWidget(self.show_reverse_branch_check)
+        grid.addWidget(self.show_reverse_branch_check, 1, 0, 1, 2)
 
         mach_lbl = QLabel("Machs:")
         mach_lbl.setToolTip("List of Mach values (comma-separated) to overlay curves in the preview")
-        row.addWidget(mach_lbl)
+        grid.addWidget(mach_lbl, 1, 2)
         self.mach_compare_edit = QLineEdit("0.0, 0.3, 0.5, 0.7")
         self.mach_compare_edit.setToolTip("E.g.: 0.0, 0.3, 0.5, 0.7 — adds one curve per Mach to the chart")
+        self.mach_compare_edit.setMinimumWidth(130)
         self.mach_compare_edit.setMaximumWidth(170)
-        row.addWidget(self.mach_compare_edit)
-        row.addStretch(1)
+        grid.addWidget(self.mach_compare_edit, 1, 3)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
         return bar
 
     def _wire_plot_toolbar(self):
