@@ -57,6 +57,19 @@ jobs:
           PY
           python tools/_apply_documentation_user_audit.py
           python tools/_apply_documentation_user_audit_extra.py
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('docs/documentation.html')
+          text = p.read_text(encoding='utf-8')
+          needle = 'the function executes, vectorized over'
+          count = text.count(needle)
+          if count > 1:
+              raise SystemExit(f'expected at most one implementation phrase, found {count}')
+          if count == 1:
+              text = text.replace(needle, 'the blade elements are evaluated over', 1)
+          p.write_text(text, encoding='utf-8')
+          PY
 
       - name: Install test dependencies
         run: |
