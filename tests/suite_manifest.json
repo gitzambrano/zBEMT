@@ -2,6 +2,7 @@
   "architecture": [
     "tests/architecture/test_agent_instructions.py",
     "tests/architecture/test_documentation.py",
+    "tests/architecture/test_user_facing_documentation.py",
     "tests/architecture/test_every_field_has_a_popup.py",
     "tests/architecture/test_gui_cli_parity.py",
     "tests/architecture/test_help_content.py",
