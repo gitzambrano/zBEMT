@@ -5,120 +5,44 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  isolate-flapping-order:
-    if: github.actor != 'github-actions[bot]'
+  flapping-stability-diagnostic:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: main
-          fetch-depth: 0
-
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
-
       - name: Qt system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
             libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
-
       - name: Install with every extra
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all]"
-
-      - name: Isolate order-dependent flapping failure
+      - name: Measure repeated flapping convergence
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          set -u
-          REPORT=.github/flapping_diagnosis.txt
-          : > "$REPORT"
-
-          run_probe() {
-            label="$1"
-            predecessor="$2"
-            home_dir="/tmp/zbemt-home-$label"
-            rm -rf "$home_dir"
-            mkdir -p "$home_dir"
-
-            # Restore every versioned project before each independent probe.
-            git checkout "$GITHUB_SHA" -- projects
-            git clean -fd projects >/dev/null
-
-            echo "===== $label =====" >> "$REPORT"
-            echo "predecessor=$predecessor" >> "$REPORT"
-
-            set +e
-            HOME="$home_dir" python -m pytest "$predecessor" -q --tb=short \
-              > "/tmp/${label}_predecessor.txt" 2>&1
-            predecessor_status=$?
-            set -e
-            echo "predecessor_exit=$predecessor_status" >> "$REPORT"
-            echo "project_status_after_predecessor:" >> "$REPORT"
-            git status --short -- projects >> "$REPORT" || true
-            echo "project_diff_after_predecessor:" >> "$REPORT"
-            git diff -- projects >> "$REPORT" || true
-
-            set +e
-            HOME="$home_dir" python -m pytest \
-              tests/regression/test_flapping.py::TestForwardFlapConvergence::test_reference_rotor_converges_at_moderate_advance_ratio \
-              -vv --tb=long > "/tmp/${label}_flap.txt" 2>&1
-            flap_status=$?
-            set -e
-            echo "flapping_exit=$flap_status" >> "$REPORT"
-            cat "/tmp/${label}_flap.txt" >> "$REPORT"
-            echo >> "$REPORT"
-          }
-
-          run_probe gui_e2e tests/regression/test_gui_e2e.py
-          run_probe gui_smoke tests/regression/test_gui_smoke.py
-
-          # Also reproduce the exact five-file slow prefix used by run_all_tests.py.
-          label=slow_prefix
-          home_dir=/tmp/zbemt-home-slow-prefix
-          rm -rf "$home_dir" && mkdir -p "$home_dir"
-          git checkout "$GITHUB_SHA" -- projects
-          git clean -fd projects >/dev/null
-          echo "===== slow_prefix =====" >> "$REPORT"
-          for predecessor in \
-            tests/regression/test_api.py \
-            tests/regression/test_bemt.py \
-            tests/regression/test_golden_results.py \
-            tests/regression/test_gui_e2e.py \
-            tests/regression/test_gui_smoke.py; do
-            set +e
-            HOME="$home_dir" python -m pytest "$predecessor" -q --tb=short \
-              > /tmp/slow_prefix_last.txt 2>&1
-            code=$?
-            set -e
-            echo "$predecessor exit=$code" >> "$REPORT"
-          done
-          echo "project_status_after_slow_prefix:" >> "$REPORT"
-          git status --short -- projects >> "$REPORT" || true
-          echo "project_diff_after_slow_prefix:" >> "$REPORT"
-          git diff -- projects >> "$REPORT" || true
           set +e
-          HOME="$home_dir" python -m pytest \
-            tests/regression/test_flapping.py::TestForwardFlapConvergence::test_reference_rotor_converges_at_moderate_advance_ratio \
-            -vv --tb=long > /tmp/slow_prefix_flap.txt 2>&1
-          code=$?
-          set -e
-          echo "flapping_exit=$code" >> "$REPORT"
-          cat /tmp/slow_prefix_flap.txt >> "$REPORT"
-
-      - name: Commit diagnosis
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/flapping_diagnosis.txt
-          git commit -m 'ci: record flapping order diagnosis'
-          git push origin HEAD:main
+          echo '=== forward convergence: 12 fresh pytest processes ==='
+          for i in $(seq 1 12); do
+            echo "--- forward run $i ---"
+            python -m pytest \
+              tests/regression/test_flapping.py::TestForwardFlapConvergence::test_reference_rotor_converges_at_moderate_advance_ratio \
+              -vv --tb=long
+            echo "exit=$?"
+          done
+          echo '=== pitch-rate closed form: 12 fresh pytest processes ==='
+          for i in $(seq 1 12); do
+            echo "--- pitch run $i ---"
+            python -m pytest \
+              tests/regression/test_flapping.py::TestTheHubRateForcingMatchesItsClosedForm::test_the_pitch_rate_response_matches_the_closed_form \
+              -vv --tb=long
+            echo "exit=$?"
+          done
+          exit 0
