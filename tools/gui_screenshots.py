@@ -64,6 +64,9 @@ OPTIMIZER_SHOT = "optimizer.png"
 #: The Stability Derivatives window (Tools button, SC-14).
 STABILITY_SHOT = "stability.png"
 
+#: The Transient Simulation window (Tools button, SC-12).
+TRANSIENT_SHOT = "transient.png"
+
 
 #: Where to look for fonts when the offscreen plugin ships without a font
 #: backend. Qt's basic font database reads ``QT_QPA_FONTDIR``; without it
@@ -172,6 +175,9 @@ def generate(destination: Path = OUTPUT_DIR) -> list:
     written.append(_capture_stability(app, window,
                                        api.open_project(str(PROJECT)),
                                        destination))
+    written.append(_capture_transient(app, window,
+                                      api.open_project(str(PROJECT)),
+                                      destination))
 
     window.close()
     return written
@@ -238,8 +244,28 @@ def _capture_stability(app, window, project, destination: Path) -> Path:
     return target
 
 
+def _capture_transient(app, window, project, destination: Path) -> Path:
+    """Captures Transient Simulation, which was the only Tools window
+    absent from the generated documentation screenshots."""
+    window.state.set_project(project)
+    transient = window.transient_window
+    transient.resize(WIDTH, HEIGHT)
+    transient.show()
+    transient.raise_()
+    transient.activateWindow()
+    _settle(app)
+
+    target = destination / TRANSIENT_SHOT
+    _crop(transient.grab(), transient).save(str(target))
+    if not target.exists() or target.stat().st_size == 0:
+        raise SystemExit(f"gui_screenshots: failed to write {target}")
+    print(f"  {TRANSIENT_SHOT:<26} {target.stat().st_size // 1024:>5} KB")
+    return target
+
+
 def check_existing(destination: Path = OUTPUT_DIR) -> int:
-    names = [f for f, _i, _h in SHOTS] + [DESIGNER_SHOT, OPTIMIZER_SHOT, STABILITY_SHOT]
+    names = [f for f, _i, _h in SHOTS] + [DESIGNER_SHOT, OPTIMIZER_SHOT,
+                                          STABILITY_SHOT, TRANSIENT_SHOT]
     missing = [f for f in names if not (destination / f).exists()]
     if missing:
         print("missing screenshots: " + ", ".join(missing))

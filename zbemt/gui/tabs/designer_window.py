@@ -72,6 +72,7 @@ from ..common import (
     in_scroll_area,
     AppState,
     CanvasHost,
+    apply_figure_minimum_size,
     equalize_button_widths,
     parse_list,
     require_project,
@@ -1539,13 +1540,19 @@ class GeometryDesignerWindow(QWidget):
             ax.set_title("Planform overlay "
                          f"({n_rows} variant{'' if n_rows == 1 else 's'})")
             if proxies:
-                ax.legend(handles=proxies, fontsize=7, loc="upper right")
+                plots.adaptive_legend(ax, handles=proxies,
+                                      labels=[p.get_label() for p in proxies],
+                                      fontsize=7, title="Variant")
         except Exception as exc:
             ax.clear()
             ax.set_axis_off()
             ax.text(0.5, 0.5, f"Could not draw the preview: {exc}",
                     ha="center", va="center", transform=ax.transAxes,
                     wrap=True)
+        # A dense variant legend can give this otherwise single-panel
+        # preview a readability floor. Keep that floor inside the plot's
+        # own scroll area, exactly like the Results grids.
+        apply_figure_minimum_size(canvas, canvas.fig)
         canvas.draw()
 
     # =====================================================================

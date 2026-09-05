@@ -177,6 +177,35 @@ class TestTheFloorStaysInsideTheDrawingArea(unittest.TestCase):
         self.assertEqual(host.width(), 320)
         self.assertEqual(host.height(), 240)
 
+    def test_a_small_viewport_scrolls_both_directions_instead_of_squeezing(self):
+        host = CanvasHost()
+        grid, _axes = plots._new_figure((12.8, 11.0), 4, 4)
+        host.resize(320, 240)
+        host.show()
+        host.show_figure(grid)
+        self.app.processEvents()
+        self.assertGreater(host._scroll.horizontalScrollBar().maximum(), 0)
+        self.assertGreater(host._scroll.verticalScrollBar().maximum(), 0)
+        host.hide()
+
+    def test_dense_single_panel_can_opt_into_the_same_scroll_policy(self):
+        host = CanvasHost()
+        fig = Figure(figsize=(6, 5))
+        ax = fig.add_subplot(111)
+        for i in range(30):
+            ax.plot([0, 1], [i, i + 1], label=f"series {i + 1}")
+        plots.adaptive_legend(ax)
+        width, height = plots.figure_minimum_pixels(fig)
+        self.assertGreater(width, 0)
+        self.assertGreater(height, 0)
+        host.resize(320, 240)
+        host.show()
+        host.show_figure(fig)
+        self.app.processEvents()
+        self.assertGreater(host._scroll.horizontalScrollBar().maximum(), 0)
+        self.assertGreater(host._scroll.verticalScrollBar().maximum(), 0)
+        host.hide()
+
 
 if __name__ == "__main__":
     unittest.main()

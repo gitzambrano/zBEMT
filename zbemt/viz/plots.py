@@ -79,9 +79,81 @@ def _resolve_ax(ax, fname, figsize=(6, 4)):
 
 def _finish(ax, fig, fname):
     if fname is not None and fig is not None:
-        fig.tight_layout()
+        # Preserve a draw-time layout engine (especially constrained layout).
+        # Switching back to one-shot tight_layout at export time can move
+        # artists again and defeats the same resize protection used in GUI.
+        if fig.get_layout_engine() is None:
+            fig.tight_layout()
         fig.savefig(fname, dpi=_EXPORT_DPI)
     return ax
+
+
+#: Dense legends are information, not decoration. Once a single-panel
+#: figure carries many series, squeezing it to the current viewport makes
+#: the legend unreadable even though the data axis itself could shrink.
+#: The figure may therefore declare an explicit pixel floor, consumed by
+#: `figure_minimum_pixels`/`CanvasHost` exactly like a multi-panel grid.
+_DENSE_LEGEND_MAX_ROWS = 10
+_DENSE_LEGEND_BASE_WIDTH_PX = 780
+_DENSE_LEGEND_COLUMN_WIDTH_PX = 180
+_DENSE_LEGEND_MIN_HEIGHT_PX = 520
+_DENSE_LEGEND_ROW_HEIGHT_PX = 24
+
+
+def set_figure_minimum_pixels(figure, width: int = 0, height: int = 0) -> tuple[int, int]:
+    """Adds an explicit readability floor to a figure.
+
+    Multi-panel figures already derive one from their axes. This hook is
+    for a single plot whose non-data artists need space -- most notably a
+    legend with dozens of series. It is monotonic: independent callers can
+    only increase the floor, never accidentally remove another need.
+    """
+    old = getattr(figure, "_zbemt_minimum_pixels", (0, 0))
+    floor = (max(int(old[0]), max(0, int(width))),
+             max(int(old[1]), max(0, int(height))))
+    figure._zbemt_minimum_pixels = floor
+    return floor
+
+
+def adaptive_legend(ax, handles=None, labels=None, *, fontsize: float = 8,
+                    title: str | None = None, loc: str = "best"):
+    """Draws a legend that stays readable as the number of series grows.
+
+    Small legends keep the familiar in-plot placement. Dense legends move
+    to the right, split into enough columns to cap the row count, and give
+    the figure an explicit minimum size. In a small Results/Tools viewport
+    that minimum is handled by the existing scroll area -- horizontal and
+    vertical scroll are preferable to tiny text or clipped entries.
+    """
+    if handles is None or labels is None:
+        handles, labels = ax.get_legend_handles_labels()
+    pairs = [(handle, label) for handle, label in zip(handles, labels)
+             if label and not str(label).startswith("_")]
+    if not pairs:
+        return None
+    handles = [pair[0] for pair in pairs]
+    labels = [pair[1] for pair in pairs]
+    n_items = len(labels)
+    if n_items <= _DENSE_LEGEND_MAX_ROWS:
+        return ax.legend(handles, labels, fontsize=fontsize, title=title, loc=loc)
+
+    ncols = min(4, int(np.ceil(n_items / _DENSE_LEGEND_MAX_ROWS)))
+    nrows = int(np.ceil(n_items / ncols))
+    width = (_DENSE_LEGEND_BASE_WIDTH_PX
+             + ncols * _DENSE_LEGEND_COLUMN_WIDTH_PX)
+    height = max(_DENSE_LEGEND_MIN_HEIGHT_PX,
+                 150 + nrows * _DENSE_LEGEND_ROW_HEIGHT_PX)
+    set_figure_minimum_pixels(ax.figure, width, height)
+
+    # A layout engine that runs at draw time can reserve the right margin
+    # again after the Qt canvas is resized. Do not replace an engine the
+    # caller already chose (for example MplCanvas' TightLayoutEngine).
+    if ax.figure.get_layout_engine() is None:
+        ax.figure.set_layout_engine("constrained")
+    return ax.legend(handles, labels, fontsize=max(6.5, fontsize - 0.5),
+                     title=title, loc="upper left", bbox_to_anchor=(1.02, 1.0),
+                     borderaxespad=0.0, ncols=ncols, columnspacing=0.8,
+                     handletextpad=0.4)
 
 
 def plot_geometry(geom, ax=None, fname=None):
@@ -891,9 +963,14 @@ def figure_minimum_pixels(figure, panel_px: int = PANEL_MINIMUM_PX) -> tuple:
     a figure title.  The visible plotting area of every active panel is what
     must remain readable.
     """
+    explicit_width, explicit_height = getattr(
+        figure, "_zbemt_minimum_pixels", (0, 0))
+    explicit_width = max(0, int(explicit_width))
+    explicit_height = max(0, int(explicit_height))
+
     nrows, ncols = figure_grid_shape(figure)
     if nrows * ncols <= 1:
-        return (0, 0)
+        return (explicit_width, explicit_height)
     width_in, height_in = figure.get_size_inches()
     if width_in <= 0 or height_in <= 0:
         return (int(ncols * panel_px), int(nrows * panel_px))
@@ -915,7 +992,9 @@ def figure_minimum_pixels(figure, panel_px: int = PANEL_MINIMUM_PX) -> tuple:
             required_height = max(required_height, panel_px / bounds.height)
 
     scale = max(required_width / width_in, required_height / height_in)
-    return (int(np.ceil(width_in * scale)), int(np.ceil(height_in * scale)))
+    width = int(np.ceil(width_in * scale))
+    height = int(np.ceil(height_in * scale))
+    return (max(width, explicit_width), max(height, explicit_height))
 
 
 def plot_disk_map_grid(maps: dict, fields=None, fname=None, ncols: int = 4,
@@ -1796,7 +1875,7 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
             ax.yaxis.set_major_formatter(
                 FuncFormatter(lambda value, _pos: f"{value:.1e}"))
     if overlay:
-        axes[0].legend(fontsize=7)
+        adaptive_legend(axes[0], fontsize=7)
     for j in range(n, len(axes)):
         axes[j].axis("off")
 
@@ -1889,7 +1968,7 @@ def plot_xy(results_list, x_key: str, y_key: str, group_by: str | None = None,
     title_x = _summary_axis_label(x_key, is_propeller).split(" [")[0]
     ax.set_title(f"{title_y} vs {title_x}")
     if overlay:
-        ax.legend(fontsize=8)
+        adaptive_legend(ax, fontsize=8)
     if not any_point:
         ax.text(0.5, 0.5, "No valid data points\n(x/y missing or NaN for all results)",
                 ha="center", va="center", fontsize=10, color="0.35", transform=ax.transAxes)
@@ -2210,8 +2289,8 @@ def plot_geometry_comparison(results_list, fields=None, *,
                 seen_labels.add(label_text)
                 handles.append(handle)
     if handles:
-        axes_grid[0].legend(handles, [h.get_label() for h in handles],
-                            fontsize=7, title="Geometry", loc="best")
+        adaptive_legend(axes_grid[0], handles, [h.get_label() for h in handles],
+                        fontsize=7, title="Geometry")
     if not any_point:
         message = ("No geometry-labeled results to compare" if not groups
                    else "No valid data points for the selected fields")
@@ -2225,8 +2304,14 @@ def plot_geometry_comparison(results_list, fields=None, *,
     n_conditions = len(condition_names) or n_positions
     fig.suptitle(f"Geometry comparison ({len(groups)} variants, "
                  f"{n_conditions} conditions)", fontsize=12, fontweight="bold")
-    if owned_fig is not None:
-        fig.tight_layout(rect=[0, 0, 1, 0.94], h_pad=2.0, w_pad=1.2)
+    # Recompute margins whenever an embedded canvas changes size. Dense
+    # legends can also sit outside the first axis; constrained layout keeps
+    # them inside the figure while the CanvasHost scrolls if necessary.
+    if fig.get_layout_engine() is None:
+        fig.set_layout_engine("constrained")
+    if hasattr(fig.get_layout_engine(), "set"):
+        fig.get_layout_engine().set(h_pad=0.14, w_pad=0.18,
+                                    hspace=0.10, wspace=0.10)
 
     result_axes = axes_grid[0] if n_panels == 1 else axes_grid
     return _finish(result_axes, owned_fig, fname)
@@ -2380,7 +2465,7 @@ def plot_geometry_delta(results_list, field: str, *, ax=None, fname=None,
     ax.set_ylabel(rf"{_summary_axis_label(field)} $\Delta$ vs base [%]"
                   f"{suffix}")
     ax.grid(True, axis="y", alpha=0.3)
-    ax.legend(fontsize=7, title="Geometry", loc="best")
+    adaptive_legend(ax, fontsize=7, title="Geometry")
 
     condition_names = {str(getattr(r, "condition_name", "") or "")
                        for r in results_list}
@@ -2390,8 +2475,8 @@ def plot_geometry_delta(results_list, field: str, *, ax=None, fname=None,
                  f"relative to {base_label} ({n_conditions} conditions)"
                  f"{suffix}",
                  fontsize=12, fontweight="bold")
-    if owned_fig is not None:
-        fig.tight_layout(rect=[0, 0, 1, 0.92])
+    if fig.get_layout_engine() is None:
+        fig.set_layout_engine("constrained")
     return _finish(ax, owned_fig, fname)
 
 
@@ -2766,7 +2851,8 @@ def plot_flap_effect_map(maps_on: dict, maps_off: dict, field: str = "alpha_eff"
     fig.suptitle((f"Effect of flapping on {disk_field_label(field)} — "
                   + condition) if condition else "Effect of flapping",
                  fontsize=12, fontweight="bold")
-    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    fig.set_layout_engine("constrained")
+    fig.get_layout_engine().set(h_pad=0.16, w_pad=0.18, hspace=0.08, wspace=0.08)
     return _finish_fig(fig, fname)
 
 
@@ -2818,7 +2904,7 @@ def plot_dynamic_stall_history(maps: dict, r_norm: float = 0.75,
     idx = int(np.argmin(np.abs(r_nodes - float(r_norm))))
     actual_r = float(r_nodes[idx])
 
-    fig, ax = _resolve_ax(ax, fname, figsize=(6.4, 4))
+    ax, fig = _resolve_ax(ax, fname, figsize=(6.4, 4))
     n_rev = history.shape[0]
     psi_closed = np.linspace(0.0, 2.0 * np.pi, history.shape[2] + 1)
     cmap = plt.get_cmap("viridis")
@@ -2826,15 +2912,17 @@ def plot_dynamic_stall_history(maps: dict, r_norm: float = 0.75,
         f_k = history[k, idx]
         f_closed = np.concatenate([f_k, f_k[:1]])
         color = cmap((k + 1) / n_rev)
+        # The color progression shows the intermediate revolutions. Only
+        # the first and last need legend entries: one entry per revolution
+        # becomes a wall of text and can cover the entire plot.
+        label = f"rev {k + 1}" if k in {0, n_rev - 1} else "_nolegend_"
         ax.plot(np.degrees(psi_closed), f_closed, linewidth=1.3,
-                color=color, label=f"rev {k + 1}")
+                color=color, label=label)
         if k == n_rev - 1:
-            # Label only the ends: one legend entry per revolution turns
-            # into a wall of text for long marches.
             ax.annotate(f"rev {k + 1}", xy=(360, float(f_closed[-1])),
                         fontsize=7, color=color, xytext=(3, 0),
                         textcoords="offset points", va="center")
-    ax.legend(fontsize=7, loc="best")
+    adaptive_legend(ax, fontsize=7)
     ax.set_xlabel("Azimuth [deg]")
     ax.set_ylabel(r"$f$ (separation function)")
     ax.set_ylim(-0.05, 1.1)
@@ -2889,5 +2977,6 @@ def plot_maneuver_history(history: "pd.DataFrame", fname=None):
         axes[3].grid(True, alpha=0.3)
 
     fig.suptitle("Maneuver time history", fontsize=12, fontweight="bold")
-    fig.tight_layout(rect=[0, 0, 1, 0.97])
+    fig.set_layout_engine("constrained")
+    fig.get_layout_engine().set(h_pad=0.14, w_pad=0.16, hspace=0.08, wspace=0.08)
     return _finish_fig(fig, fname)
