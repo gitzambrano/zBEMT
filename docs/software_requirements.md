@@ -342,8 +342,9 @@ different rule.
 - **DC-1** — `docs/documentation.html` is the single physics reference and the embedded
   help source, written in English. Every flag, module, project, batch and
   anchor it cites must exist.
-- **DC-2** — Structure: introduction (chapters 0-5), one chapter per GUI tab in tab order
-  (6-12), the Geometry Designer window chapter (13), reference (14-15).
+- **DC-2** — Structure: introduction and physical method (chapters 0-5); one chapter per GUI tab in tab order
+  (6-12); Geometry Designer (13); Optimization, Transient, and Stability tool windows (14-16);
+  CLI and limitations (17-18); then symbols and references.
 - **DC-3** — A GUI page gets a chapter of its own. Its sections follow the order of the
   blocks and fields on screen. A page is never documented inside a physics
   chapter.
