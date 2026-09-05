@@ -56,23 +56,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all]"
-      - name: Targeted GUI and baseline regression tests, isolated by file
+      - name: Baseline failures first
         run: |
-          set -e
-          for file in \
-            tests/regression/test_plot_scaling.py \
-            tests/regression/test_plots.py \
-            tests/regression/test_small_screen.py \
-            tests/regression/test_gui_layout.py \
-            tests/regression/test_tools_window_layout.py \
-            tests/regression/test_designer_window.py \
-            tests/architecture/test_documentation.py \
-            tests/architecture/test_quality_orchestrator.py \
-            tests/regression/test_flapping.py
-          do
-            echo "===== $file ====="
-            pytest -q "$file"
-          done
+          python tests/run_all_tests.py --suite architecture -k documentation
+          python tests/run_all_tests.py --suite architecture -k quality_orchestrator
+          python tests/run_all_tests.py --suite regression -k flapping
+      - name: Responsive GUI and plot regressions
+        run: |
+          python tests/run_all_tests.py --suite regression -k plot_scaling
+          python tests/run_all_tests.py --suite regression -k plots.py
+          python tests/run_all_tests.py --suite regression -k small_screen
+          python tests/run_all_tests.py --suite regression -k gui_layout
+          python tests/run_all_tests.py --suite regression -k tools_window_layout
+          python tests/run_all_tests.py --suite regression -k designer_window
       - name: Commit patch when tests pass
         run: |
           if git diff --quiet; then
