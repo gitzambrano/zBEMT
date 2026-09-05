@@ -1,0 +1,51 @@
+name: Tools UX refactor help-title fix
+
+on:
+  push:
+    branches: [tools-ux-refactor]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-validation-script:
+    if: ${{ contains(github.event.head_commit.message, '[tools-ux-help]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Keep renamed blocks connected to existing help
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/workflows/tools-ux-refactor.yml')
+          text = p.read_text(encoding='utf-8')
+          replacements = {
+              'QGroupBox("Custom trajectory points")':
+                  'QGroupBox("Trajectory points (custom)")',
+              'QGroupBox("Quick start — ramp between two saved cases")':
+                  'QGroupBox("Build from two saved cases (quick start)")',
+              'QGroupBox("Operating condition")':
+                  'QGroupBox("Search settings (operating condition)")',
+              'QGroupBox("Advanced search settings")':
+                  'QGroupBox("Search settings (advanced)")',
+              'QGroupBox("Quick setup")':
+                  'QGroupBox("Options (quick setup)")',
+              'QGroupBox("Finite-difference steps")':
+                  'QGroupBox("Steps (per variable, its own unit)")',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'Expected validation-script text not found: {old}')
+              text = text.replace(old, new)
+          p.write_text(text, encoding='utf-8')
+          PY
+          git diff --check
+      - name: Commit validation-script correction
+        run: |
+          git config user.name "Gustavo Zambrano"
+          git config user.email "gustavozambrano@gmail.com"
+          git add .github/workflows/tools-ux-refactor.yml
+          git commit -m "Keep contextual help on guided Tools blocks"
+          git push origin HEAD:tools-ux-refactor
