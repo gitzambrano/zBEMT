@@ -39,14 +39,14 @@ jobs:
           s = s.replace(old, new, 1)
           replacements = [
               ("        row = QHBoxLayout(bar)\n        row.setContentsMargins(0, 0, 0, 4)\n        row.setSpacing(8)\n",
-               "        # Two compact rows are deliberate. At ~1100 px the preview pane is\n"
-               "        # only about 480 px wide; a single row compresses checkbox labels\n"
-               "        # and the Mach list until text visually collides. Keep the canvas\n"
-               "        # readable and spend a few vertical pixels instead of hiding controls.\n"
+               "        # Two compact rows keep all display controls readable on narrow notebook panes.\n"
                "        grid = QGridLayout(bar)\n        grid.setContentsMargins(0, 0, 0, 4)\n"
                "        grid.setHorizontalSpacing(8)\n        grid.setVerticalSpacing(4)\n"),
               ("        row.addWidget(alpha_lbl)\n", "        grid.addWidget(alpha_lbl, 0, 0)\n"),
-              ("        row.addWidget(self.alpha_range_combo)\n", "        grid.addWidget(self.alpha_range_combo, 0, 1)\n"),
+              ("        adjust_combo_width(self.alpha_range_combo)\n        row.addWidget(self.alpha_range_combo)\n",
+               "        adjust_combo_width(self.alpha_range_combo)\n"
+               "        self.alpha_range_combo.setMinimumWidth(self.alpha_range_combo.minimumSizeHint().width())\n"
+               "        grid.addWidget(self.alpha_range_combo, 0, 1)\n"),
               ("        row.addWidget(self.autoscale_y_check)\n", "        grid.addWidget(self.autoscale_y_check, 0, 2)\n"),
               ("        row.addWidget(self.show_reverse_branch_check)\n", "        grid.addWidget(self.show_reverse_branch_check, 1, 0, 1, 2)\n"),
               ("        row.addWidget(mach_lbl)\n", "        grid.addWidget(mach_lbl, 1, 2)\n"),
@@ -60,22 +60,15 @@ jobs:
               s = s.replace(old, new, 1)
           p.write_text(s, encoding='utf-8')
           PY
-          cat > tests/regression/test_airfoil_small_screen.py <<'PYTEST'
-          """Regression for the Airfoil preview toolbar on a small notebook viewport."""
+          cat > /tmp/test_airfoil_small_screen.py <<'PYTEST'
           from __future__ import annotations
           import unittest
-
-          try:
-              from PyQt6.QtWidgets import QApplication
-              _HAS_QT = True
-          except Exception:
-              _HAS_QT = False
+          from PyQt6.QtWidgets import QApplication
 
           def _settle(app, cycles=30):
               for _ in range(cycles):
                   app.processEvents()
 
-          @unittest.skipUnless(_HAS_QT, "PyQt6 not available")
           class TestAirfoilToolbarAt1100(unittest.TestCase):
               @classmethod
               def setUpClass(cls):
@@ -104,8 +97,7 @@ jobs:
               def test_display_controls_keep_their_text_width(self):
                   t = self.tab
                   for widget in (t.autoscale_y_check, t.show_reverse_branch_check):
-                      self.assertGreaterEqual(widget.width(), widget.sizeHint().width(),
-                                              f"{widget.text()!r} is compressed at 1100 px")
+                      self.assertGreaterEqual(widget.width(), widget.sizeHint().width())
                   self.assertGreaterEqual(t.mach_compare_edit.width(), 130)
                   self.assertGreaterEqual(t.alpha_range_combo.width(),
                                           t.alpha_range_combo.minimumSizeHint().width())
@@ -120,14 +112,13 @@ jobs:
                           b = second.mapTo(t, second.rect().topLeft())
                           ar = first.rect().translated(a)
                           br = second.rect().translated(b)
-                          self.assertFalse(ar.intersects(br),
-                                           f"{first} overlaps {second} at 1100 px")
+                          self.assertFalse(ar.intersects(br))
           PYTEST
       - name: Install and test
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[all]"
-          python -m pytest -q tests/regression/test_airfoil_small_screen.py
+          python -m pytest -q /tmp/test_airfoil_small_screen.py
           python tests/run_all_tests.py --suite regression -k gui_layout
           python tests/run_all_tests.py --suite regression -k small_screen
           python tests/run_all_tests.py --suite regression -k plot_scaling
@@ -157,6 +148,6 @@ jobs:
         run: |
           git config user.name "OpenAI"
           git config user.email "noreply@openai.com"
-          git add zbemt/gui/tabs/airfoil.py tests/regression/test_airfoil_small_screen.py
+          git add zbemt/gui/tabs/airfoil.py
           git commit -m "[airfoil-fix] Keep Airfoil plot controls readable on small screens"
           git push origin HEAD:gui-responsive-hardening
