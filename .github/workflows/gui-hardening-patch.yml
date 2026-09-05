@@ -27,18 +27,16 @@ jobs:
           sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
             libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
-      - name: Patch Airfoil toolbar and add regression test
+      - name: Patch Airfoil toolbar
         run: |
           python - <<'PY'
           from pathlib import Path
-
           p = Path('zbemt/gui/tabs/airfoil.py')
           s = p.read_text(encoding='utf-8')
           old = "    QHBoxLayout,\n    QFormLayout,"
           new = "    QHBoxLayout,\n    QGridLayout,\n    QFormLayout,"
           assert s.count(old) == 1, s.count(old)
           s = s.replace(old, new, 1)
-
           replacements = [
               ("        row = QHBoxLayout(bar)\n        row.setContentsMargins(0, 0, 0, 4)\n        row.setSpacing(8)\n",
                "        # Two compact rows are deliberate. At ~1100 px the preview pane is\n"
@@ -61,9 +59,9 @@ jobs:
               assert s.count(old) == 1, (old, s.count(old))
               s = s.replace(old, new, 1)
           p.write_text(s, encoding='utf-8')
-
-          test = Path('tests/regression/test_airfoil_small_screen.py')
-          test.write_text(r'''"""Regression for the Airfoil preview toolbar on a small notebook viewport."""
+          PY
+          cat > tests/regression/test_airfoil_small_screen.py <<'PYTEST'
+          """Regression for the Airfoil preview toolbar on a small notebook viewport."""
           from __future__ import annotations
           import unittest
 
@@ -106,9 +104,8 @@ jobs:
               def test_display_controls_keep_their_text_width(self):
                   t = self.tab
                   for widget in (t.autoscale_y_check, t.show_reverse_branch_check):
-                      self.assertGreaterEqual(
-                          widget.width(), widget.sizeHint().width(),
-                          f"{widget.text()!r} is compressed at 1100 px")
+                      self.assertGreaterEqual(widget.width(), widget.sizeHint().width(),
+                                              f"{widget.text()!r} is compressed at 1100 px")
                   self.assertGreaterEqual(t.mach_compare_edit.width(), 130)
                   self.assertGreaterEqual(t.alpha_range_combo.width(),
                                           t.alpha_range_combo.minimumSizeHint().width())
@@ -119,14 +116,13 @@ jobs:
                              t.show_reverse_branch_check, t.mach_compare_edit)
                   for i, first in enumerate(widgets):
                       for second in widgets[i + 1:]:
-                          a = first.mapTo(self.tab, first.rect().topLeft())
-                          b = second.mapTo(self.tab, second.rect().topLeft())
+                          a = first.mapTo(t, first.rect().topLeft())
+                          b = second.mapTo(t, second.rect().topLeft())
                           ar = first.rect().translated(a)
                           br = second.rect().translated(b)
                           self.assertFalse(ar.intersects(br),
                                            f"{first} overlaps {second} at 1100 px")
-          ''').replace('          ', ''), encoding='utf-8')
-          PY
+          PYTEST
       - name: Install and test
         run: |
           python -m pip install --upgrade pip
