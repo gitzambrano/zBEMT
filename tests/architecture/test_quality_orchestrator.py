@@ -122,7 +122,12 @@ class TestQualityCommandOrchestrator(unittest.TestCase):
                     if os.name == "nt" else shlex.join(command))
         displayed = self.orchestrator._command_text(command)
         self.assertEqual(displayed, expected)
-        self.assertIn(r'"C:\Quality Checks\run.py"', displayed)
+        # Windows list2cmdline uses double quotes; POSIX shlex.join uses
+        # single quotes. The old assertion required Windows quoting even
+        # on Linux CI, contradicting the expected value above.
+        quoted_path = (r'"C:\Quality Checks\run.py"' if os.name == "nt"
+                       else r"'C:\Quality Checks\run.py'")
+        self.assertIn(quoted_path, displayed)
 
     def test_dry_run_writes_report_without_starting_subprocesses(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

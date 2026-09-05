@@ -18,14 +18,23 @@ from zbemt import geometry
 from zbemt.viz import plots
 
 
-def _visible_labels_outside_figure(fig):
-    """Returns visible tick labels that would clip in an embedded canvas."""
+def _render_at_readable_floor(fig):
+    """Draws at the GUI readability floor (or nominal size for a single plot)."""
     width, height = plots.figure_minimum_pixels(fig)
     fig.set_dpi(100)
+    if width <= 0:
+        width = int(round(fig.get_figwidth() * 100))
+    if height <= 0:
+        height = int(round(fig.get_figheight() * 100))
     fig.set_size_inches(width / 100, height / 100, forward=True)
     canvas = FigureCanvasAgg(fig)
     canvas.draw()
-    renderer = canvas.get_renderer()
+    return width, height, canvas.get_renderer()
+
+
+def _visible_labels_outside_figure(fig):
+    """Returns visible tick labels that would clip in an embedded canvas."""
+    width, height, renderer = _render_at_readable_floor(fig)
     outside = []
     for axis in fig.axes:
         if not axis.axison:
@@ -36,6 +45,43 @@ def _visible_labels_outside_figure(fig):
             box = label.get_window_extent(renderer)
             if box.x0 < 0 or box.y0 < 0 or box.x1 > width or box.y1 > height:
                 outside.append((axis.get_title(), label.get_text()))
+    return outside
+
+
+def _visible_non_tick_artists_outside_figure(fig):
+    """Checks titles, axis labels, annotations, color-bar text and legends.
+
+    Tick labels have their own helper above. The old clipping regression
+    test inspected only ticks, so a title, legend or annotation could leave
+    the canvas while the test still reported a perfect figure.
+    """
+    width, height, renderer = _render_at_readable_floor(fig)
+    outside = []
+
+    def check(name, artist):
+        if artist is None or not artist.get_visible():
+            return
+        text = getattr(artist, "get_text", lambda: "")()
+        if hasattr(artist, "get_text") and not text:
+            return
+        box = artist.get_window_extent(renderer)
+        if box.width <= 0 or box.height <= 0:
+            return
+        if box.x0 < -1 or box.y0 < -1 or box.x1 > width + 1 or box.y1 > height + 1:
+            outside.append((name, text or type(artist).__name__))
+
+    check("suptitle", getattr(fig, "_suptitle", None))
+    for axis in fig.axes:
+        if not axis.get_visible():
+            continue
+        check("title", axis.title)
+        check("xlabel", axis.xaxis.label)
+        check("ylabel", axis.yaxis.label)
+        check("xoffset", axis.xaxis.get_offset_text())
+        check("yoffset", axis.yaxis.get_offset_text())
+        for text in axis.texts:
+            check("annotation", text)
+        check("legend", axis.get_legend())
     return outside
 
 
@@ -565,6 +611,11 @@ class TestPlotCoefficientsVsAxis(unittest.TestCase):
         outside = _visible_labels_outside_figure(fig)
         self.assertEqual(outside, [], f"labels outside figure: {outside}")
 
+    def test_titles_axis_labels_and_legends_stay_inside_the_figure(self):
+        fig = plots.plot_coefficients_vs_axis(self._results(), axis="mu_x")
+        outside = _visible_non_tick_artists_outside_figure(fig)
+        self.assertEqual(outside, [], f"artists outside figure: {outside}")
+
     def test_derived_alpha_does_not_split_axial_sweep_into_series(self):
         """`alpha_rotor_deg` is DERIVED from the pair (mu_x, Vz), not an
         independent axis: in an axial sweep (propeller) it jumps from 0 at
@@ -685,6 +736,55 @@ class TestPlotCoefficientsVsAxis(unittest.TestCase):
 # =============================================================================
 # plot_xy -- free X-Y plot (any summary key), "Custom X-Y" Part
 # =============================================================================
+
+class TestDensePlotLegends(unittest.TestCase):
+    def test_custom_xy_many_groups_gets_a_scroll_floor(self):
+        results = []
+        for group in range(30):
+            for mu_x in (0.10, 0.20):
+                results.append(_fake_result(
+                    mu_x=mu_x, alpha_rotor_deg=0.0,
+                    collective_deg=float(group), rpm=600.0,
+                    CT=0.01 + 0.0001 * group + 0.001 * mu_x))
+        ax = plots.plot_xy(results, x_key="mu_x", y_key="CT",
+                           group_by="collective_deg")
+        fig = ax.figure
+        width, height = plots.figure_minimum_pixels(fig)
+        self.assertGreaterEqual(width, 900)
+        self.assertGreaterEqual(height, 500)
+        outside = _visible_non_tick_artists_outside_figure(fig)
+        self.assertEqual(outside, [], f"dense X-Y artists outside: {outside}")
+
+    def test_geometry_comparison_many_variants_gets_a_scroll_floor(self):
+        results = []
+        for group in range(30):
+            result = _fake_result(mu_x=0.1, CT=0.01 + group * 1e-4)
+            result.summary["geometry_label"] = f"variant {group + 1}"
+            results.append(result)
+        ax = plots.plot_geometry_comparison(results, fields=["CT"])
+        fig = ax.figure
+        width, height = plots.figure_minimum_pixels(fig)
+        self.assertGreaterEqual(width, 900)
+        self.assertGreaterEqual(height, 500)
+        outside = _visible_non_tick_artists_outside_figure(fig)
+        self.assertEqual(outside, [], f"dense comparison artists outside: {outside}")
+
+    def test_dynamic_stall_history_labels_only_first_and_last_revolution(self):
+        import numpy as np
+        n_rev, n_r, n_psi = 30, 3, 24
+        base = np.linspace(0.2, 0.9, n_psi)
+        history = np.empty((n_rev, n_r, n_psi), dtype=float)
+        for k in range(n_rev):
+            history[k, :, :] = base + 0.001 * k
+        maps = {
+            "dynamic_stall_time_march_history": history,
+            "r_norm_nodes": np.array([0.25, 0.75, 0.95]),
+        }
+        fig = plots.plot_dynamic_stall_history(maps, r_norm=0.75)
+        legend = fig.axes[0].get_legend()
+        labels = [text.get_text() for text in legend.get_texts()]
+        self.assertEqual(labels, ["rev 1", "rev 30"])
+
 
 class TestPlotXY(unittest.TestCase):
     def _results(self):
