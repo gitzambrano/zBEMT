@@ -1,4 +1,4 @@
-name: popup and GUI audit
+name: optimizer responsive audit
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   audit:
-    if: ${{ github.actor != 'github-actions[bot]' && contains(github.event.head_commit.message, '[popup-gui-audit]') }}
+    if: ${{ github.actor != 'github-actions[bot]' && contains(github.event.head_commit.message, '[optimizer-responsive-audit]') }}
     runs-on: ubuntu-24.04
     env:
       QT_QPA_PLATFORM: offscreen
@@ -36,143 +36,103 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[all]'
 
-      - name: Correct popup helper text
+      - name: Harden Optimizer for notebook heights
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          path = Path('zbemt/gui/help_content.py')
-          text = path.read_text(encoding='utf-8')
-
+          src = Path('zbemt/gui/tabs/optimizer_window.py')
+          text = src.read_text(encoding='utf-8')
           replacements = {
-              '            "Thrust is dimensional and belongs to one rotor at one air "\n'
-              '            "density. The coefficient is non-dimensional and is what "\n'
-              '            "makes two rotors of different size comparable at all."),':
-              '            "Thrust is dimensional and depends on rotor size, tip speed, "\n'
-              '            "and air density. The thrust coefficient normalizes thrust "\n'
-              '            "by those quantities."),',
-
-              '        "effect": "Trimming to a thrust in newtons compares rotors carrying the same weight. Trimming to a thrust coefficient compares them at the same blade loading, which supports comparison at equal non-dimensional loading across different diameters.",':
-              '        "effect": "Trimming to thrust in newtons compares rotors at the same dimensional thrust. Trimming to a thrust coefficient compares them at the same non-dimensional rotor thrust loading. Equal thrust coefficient does not imply equal blade loading when solidity differs. A blade-loading comparison must also account for solidity.",',
-
-              '            "It has to be reachable: a target above what the blade can "\n'
-              '            "produce before it stalls has no collective that satisfies "\n'
-              '            "it."),':
-              '            "The target must lie inside the range that the selected "\n'
-              '            "aerodynamic models, geometry, operating condition, and "\n'
-              '            "control limits can reach."),',
-
-              '        "range": "within what the rotor can produce unstalled",':
-              '        "range": "within the reachable range for the selected model and operating condition",',
-
-              '        "effect": "Each variant is a full solve at every condition, so this multiplies the run time directly. Three points show a trend; they do not show a maximum, which needs at least five.",':
-              '        "effect": "Each variant requires a full solve at every condition, so run time grows approximately with the number of variants. Use a coarse sweep first. Refine the interval near extrema or regions of high curvature.",',
-
-              '            "A comma-separated list used INSTEAD of the evenly spaced "':
-              '            "A comma-separated list used instead of the evenly spaced "',
-
-              '            "study usually wants points clustered where the answer is "\n'
-              '            "changing fastest."),':
-              '            "study can cluster points where the result changes fastest."),',
-
-              '        "effect": "Rectangular keeps one chord throughout and is the reference case. Tapered moves area inboard, cutting the tip loading where the velocity is highest. Elliptic approaches the minimum induced power for a given thrust.",':
-              '        "effect": "Rectangular keeps one chord throughout and provides a reference planform. Tapered reduces chord toward the tip and shifts blade area inboard. Elliptic also reduces chord toward the tip with an approximately elliptical radial distribution. The loading and induced power still depend on twist, inflow, airfoil data, loss models, and operating condition.",',
-
-              '            "not change the total thrust much: it TILTS the disk."),':
-              '            "not change the total thrust much. It tilts the disk."),',
-
-              '            "Total moment about the reference in-plane axis, INCLUDING "':
-              '            "Total moment about the reference in-plane axis, including "',
-
-              '            "PARETO FRONT: a set of designs where nothing can be "':
-              '            "Pareto front: a set of designs where nothing can be "',
-
-              '            "ZERO IS NOT OFF: it selects the NSGA-II default of one over "\n'
-              '            "the number of variables, so on average one variable per "\n'
-              '            "child is perturbed."),':
-              '            "A value of zero does not disable mutation. It selects the "\n'
-              '            "NSGA-II default of one over the number of variables. Thus, "\n'
-              '            "one variable per child is perturbed on average."),',
-
-              '            "A maneuver is not a batch: each sample INHERITS the inflow "\n'
-              '            "state of the sample before it, which is the whole reason a "\n'
-              '            "transient differs from a sequence of steady solves."),':
-              '            "A maneuver is not a batch. Each sample uses the inflow "\n'
-              '            "state from the preceding sample. This state history makes "\n'
-              '            "a transient different from a sequence of steady solves."),',
-
-              '            "speed. Comparing designs across different conditions "\n'
-              '            "compares nothing."),':
-              '            "speed. Changing the operating condition together with the "\n'
-              '            "design prevents isolation of the design effect."),',
+              'from ..common import (AppState, CanvasHost, equalize_button_widths,\n'
+              '                      show_error, show_all_options_in)':
+              'from ..common import (AppState, CanvasHost, equalize_button_widths,\n'
+              '                      show_error, show_all_options_in, in_scroll_area)',
+              '        tabs = QTabWidget(self)\n'
+              '        tabs.addTab(self._build_definition_page(), "Study")\n'
+              '        tabs.addTab(self._build_run_page(), "Run and results")':
+              '        tabs = QTabWidget(self)\n'
+              '        tabs.addTab(in_scroll_area(self._build_definition_page()), "Study")\n'
+              '        tabs.addTab(in_scroll_area(self._build_run_page()), "Run and results")',
           }
-
           for old, new in replacements.items():
               count = text.count(old)
               if count != 1:
-                  raise SystemExit(f'Expected one popup match, found {count}: {old[:90]!r}')
+                  raise SystemExit(f'Expected one optimizer source match, found {count}: {old!r}')
               text = text.replace(old, new, 1)
+          src.write_text(text, encoding='utf-8')
 
-          path.write_text(text, encoding='utf-8')
+          test = Path('tests/regression/test_optimizer_window.py')
+          text = test.read_text(encoding='utf-8')
+          marker = '''    def test_a_project_populates_the_lists_and_enables_the_run(self):
+          self._load_project_with_study()
+          self.assertEqual(self.window.study_combo.count(), 1)
+          self.assertTrue(self.window.btn_run.isEnabled())
+          definition = self.window._current_definition()
+          self.assertEqual([o.key for o in definition.objectives],
+                           ["CT", "FM"])
+          self.assertEqual(definition.condition.rpm, 800.0)
+'''
+          addition = marker + '''
+    def test_study_cost_estimate_is_reachable_on_notebook_screen(self):
+        """The Study page must scroll instead of clipping its last block."""
+        from PyQt6.QtWidgets import QScrollArea, QTabWidget
+
+        self.window.resize(1100, 650)
+        self.window.show()
+        QApplication.processEvents()
+        tabs = self.window.findChild(QTabWidget)
+        self.assertIsNotNone(tabs)
+        area = tabs.widget(0)
+        self.assertIsInstance(area, QScrollArea)
+        bar = area.verticalScrollBar()
+        self.assertGreater(bar.maximum(), 0,
+                           "the Study page must scroll at 1100x650")
+        bar.setValue(bar.maximum())
+        QApplication.processEvents()
+        top = self.window.cost_label.mapTo(
+            area.viewport(), self.window.cost_label.rect().topLeft()).y()
+        bottom = top + self.window.cost_label.height()
+        self.assertGreaterEqual(top, 0)
+        self.assertLessEqual(bottom, area.viewport().height() + 2)
+'''
+          count = text.count(marker)
+          if count != 1:
+              raise SystemExit(f'Expected one optimizer test insertion point, found {count}')
+          text = text.replace(marker, addition, 1)
+          test.write_text(text, encoding='utf-8')
           PY
+          git diff --check
 
-      - name: Audit corrected popup copy
+      - name: Run targeted responsive tests before commit
         run: |
-          python - <<'PY'
-          from zbemt.gui.help_content import FIELD_HELP
-          from zbemt.gui.help_blocks import BLOCK_HELP
+          python tests/run_all_tests.py --suite regression -k optimizer_window
+          python tests/run_all_tests.py --suite regression -k tools_window_layout
+          python tests/run_all_tests.py --suite regression -k small_screen
+          python tests/run_all_tests.py --suite regression -k gui_layout
+          python tests/run_all_tests.py --suite regression -k plot_scaling
 
-          def flatten(value):
-              if isinstance(value, str):
-                  yield value
-              elif isinstance(value, dict):
-                  for item in value.values():
-                      yield from flatten(item)
-              elif isinstance(value, (list, tuple, set)):
-                  for item in value:
-                      yield from flatten(item)
-
-          visible = '\n'.join(flatten(FIELD_HELP)) + '\n' + '\n'.join(flatten(BLOCK_HELP))
-          forbidden = [
-              'same blade loading',
-              'before it stalls has no collective',
-              'maximum, which needs at least five',
-              'minimum induced power for a given thrust',
-              'INSTEAD', 'TILTS', 'INCLUDING', 'PARETO FRONT',
-              'ZERO IS NOT OFF', 'INHERITS', 'compares nothing',
-          ]
-          found = [item for item in forbidden if item in visible]
-          if found:
-              raise SystemExit('Residual popup defects: ' + ', '.join(found))
-          print('Popup helper audit: known technical and style defects are absent.')
-          PY
-
-      - name: Run popup and documentation tests
-        run: |
-          python tests/run_all_tests.py --suite architecture -k help_content
-          python tests/run_all_tests.py --suite architecture -k every_field_has_a_popup
-          python tests/run_all_tests.py --suite architecture -k user_facing_documentation
-          python tests/run_all_tests.py --suite regression -k field_help
-
-      - name: Commit popup fixes to main
+      - name: Prepare final commit and rebase onto latest main
         run: |
           git config user.name 'OpenAI'
           git config user.email 'noreply@openai.com'
-          git add zbemt/gui/help_content.py
+          git add zbemt/gui/tabs/optimizer_window.py tests/regression/test_optimizer_window.py
+          git rm .github/workflows/_popup_gui_audit.yml
           git diff --cached --check
-          git commit -m 'docs: correct popup helper physics and wording'
+          git commit -m 'fix: make optimizer responsive on notebook screens'
           git fetch origin main
           git rebase origin/main
-          git push origin HEAD:main
 
-      - name: Run responsive regression tests
+      - name: Re-run responsive tests after rebase
         run: |
-          python tests/run_all_tests.py --suite regression -k gui_layout
+          python tests/run_all_tests.py --suite regression -k optimizer_window
+          python tests/run_all_tests.py --suite regression -k tools_window_layout
           python tests/run_all_tests.py --suite regression -k small_screen
+          python tests/run_all_tests.py --suite regression -k gui_layout
           python tests/run_all_tests.py --suite regression -k plot_scaling
           python tests/run_all_tests.py --suite architecture
 
-      - name: Capture all GUI views at notebook sizes
+      - name: Capture final GUI matrix after rebase
         run: |
           rm -rf gui-review
           mkdir -p gui-review
@@ -198,18 +158,20 @@ jobs:
           os._exit(0)
           PY
           done
-          find gui-review -type f -name '*.png' -size 0 -print -quit | grep -q . && exit 1 || true
           count=$(find gui-review -type f -name '*.png' | wc -l)
           test "$count" -eq 72
-          echo "Captured $count screenshots."
+          find gui-review -type f -name '*.png' -size 0 -print -quit | grep -q . && exit 1 || true
+          echo "Captured $count final screenshots."
 
       - uses: actions/upload-artifact@v4
         with:
-          name: gui-notebook-matrix
+          name: gui-notebook-matrix-final
           path: gui-review
           if-no-files-found: error
           retention-days: 2
 
-      - name: Run full suite
-        run: |
-          python tests/run_all_tests.py
+      - name: Run full suite after rebase
+        run: python tests/run_all_tests.py
+
+      - name: Push validated final commit
+        run: git push origin HEAD:main
