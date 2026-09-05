@@ -124,20 +124,25 @@ class GuiE2ETestCase(unittest.TestCase):
         # their canvases pile up inside one process, and the interpreter
         # eventually faults while Qt tears them down -- a native crash with
         # no traceback, on whichever test happens to be running.
-        self.addCleanup(self._drain_deletions)
-        # Registered AFTER the drain, so `addCleanup`'s LIFO order runs it
-        # BEFORE it: every window is closed and every figure released
-        # first, and the drain then has something to collect.
-        self.addCleanup(self._release_windows_and_figures)
-        # Registered LAST, so LIFO runs it FIRST, before anything is
-        # deleted. The patched `QMessageBox.question` is called as
-        # `question(self, ...)` from `MainWindow.closeEvent`, and a
-        # `Mock` keeps every argument of every call. That call history
-        # held a Python reference to each main window; `deleteLater`
-        # then destroyed the C++ object underneath it and left a live
-        # wrapper pointing at freed memory, which is what the interpreter
-        # eventually faulted on -- a native abort with no traceback.
+        # `addCleanup` runs LIFO, so these three run in the REVERSE of the
+        # order they are registered: close, then drain, then forget. That
+        # order is the whole point.
+        #
+        # The patched `QMessageBox.question` is called as
+        # `question(self, ...)` from `MainWindow.closeEvent`, and a `Mock`
+        # keeps every argument of every call. So closing a window RECORDS
+        # it. Forgetting before the close therefore cleared the history and
+        # then immediately refilled it, and `deleteLater` went on to free
+        # the C++ underneath a wrapper the mock still held. That live
+        # wrapper over freed memory is what the interpreter eventually
+        # faulted on -- a native abort with no traceback, on whichever test
+        # happened to be running.
+        #
+        # Forgetting LAST is what makes the history empty when the next
+        # test starts.
         self.addCleanup(self._forget_recorded_widgets)
+        self.addCleanup(self._drain_deletions)
+        self.addCleanup(self._release_windows_and_figures)
 
     def _forget_recorded_widgets(self):
         """Drop the widgets the QMessageBox mock recorded as arguments."""
