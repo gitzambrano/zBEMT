@@ -1,0 +1,139 @@
+name: Tools UX audit screenshots
+
+on:
+  push:
+    branches: [tools-ux-audit]
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Qt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+      - name: Functional regression for Tools windows
+        run: |
+          python tests/run_all_tests.py --suite regression -k tools_window_layout
+          python tests/run_all_tests.py --suite regression -k designer_window
+          python tests/run_all_tests.py --suite regression -k optimizer_window
+          python tests/run_all_tests.py --suite regression -k stability_window
+          python tests/run_all_tests.py --suite regression -k transient_window
+      - name: Capture every Tools page at two viewport sizes
+        run: |
+          python - <<'PY'
+          import os, sys
+          from pathlib import Path
+          os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+          from PyQt6.QtWidgets import (QApplication, QTabWidget, QGroupBox, QPushButton,
+                                       QComboBox, QCheckBox, QLineEdit, QSpinBox, QDoubleSpinBox)
+          from zbemt import api
+          from zbemt.gui import app as gui
+          from zbemt.gui import styles
+
+          out = Path('tools-ux-audit-artifacts')
+          out.mkdir(exist_ok=True)
+          app = QApplication.instance() or QApplication([])
+          app.setStyle('Fusion')
+          app.setStyleSheet(styles.APP_QSS)
+
+          def settle(n=35):
+              for _ in range(n):
+                  app.processEvents()
+
+          main = gui.MainWindow()
+          project = api.open_project('projects/starter_rotor')
+          main.state.set_project(project)
+          main.show()
+          settle()
+
+          # Verify the real Tools menu dispatches to each dedicated window.
+          expected = {
+              'Geometry Designer': main.geometry_designer,
+              'Transient Simulation': main.transient_window,
+              'Design Optimization': main.optimizer_window,
+              'Stability Derivatives': main.stability_window,
+          }
+          menu = main.flow_bar.btn_tools.menu()
+          for action in menu.actions():
+              label = action.text()
+              assert label in expected, label
+              action.trigger()
+              settle(10)
+              assert expected[label].isVisible(), f'{label} did not open'
+              expected[label].hide()
+
+          def primary_tabs(window):
+              if hasattr(window, 'pages') and isinstance(window.pages, QTabWidget):
+                  return window.pages
+              tabs = window.findChildren(QTabWidget)
+              assert tabs, f'No QTabWidget in {window.windowTitle()}'
+              return max(tabs, key=lambda t: t.count())
+
+          tool_windows = [
+              ('designer', main.geometry_designer),
+              ('transient', main.transient_window),
+              ('optimizer', main.optimizer_window),
+              ('stability', main.stability_window),
+          ]
+
+          dump = []
+          for width, height in ((1366, 768), (1100, 700)):
+              main.resize(width, height)
+              main.show(); settle()
+              size_dir = out / f'{width}x{height}'
+              size_dir.mkdir(exist_ok=True)
+
+              # Grab the actual popup menu itself.
+              menu.popup(main.flow_bar.btn_tools.mapToGlobal(main.flow_bar.btn_tools.rect().bottomLeft()))
+              settle(10)
+              menu.grab().save(str(size_dir / 'tools-menu.png'))
+              menu.hide(); settle(5)
+
+              for slug, window in tool_windows:
+                  window.resize(width, height)
+                  window.show(); window.raise_(); window.activateWindow(); settle()
+                  tabs = primary_tabs(window)
+                  for i in range(tabs.count()):
+                      tabs.setCurrentIndex(i); settle()
+                      page_name = tabs.tabText(i).replace(' ', '-').replace('&', 'and').lower()
+                      target = size_dir / f'{slug}-{i+1}-{page_name}.png'
+                      window.grab().save(str(target))
+                      assert target.exists() and target.stat().st_size > 0, target
+
+                      groups = [g.title() for g in window.findChildren(QGroupBox)
+                                if g.isVisible() and g.title()]
+                      buttons = [(b.text(), b.isEnabled()) for b in window.findChildren(QPushButton)
+                                 if b.isVisible() and b.text()]
+                      combos = [(c.currentText(), c.count(), c.isEnabled())
+                                for c in window.findChildren(QComboBox) if c.isVisible()]
+                      dump.append(f'## {width}x{height} | {window.windowTitle()} | {tabs.tabText(i)}')
+                      dump.append('GROUPS: ' + ' | '.join(groups))
+                      dump.append('BUTTONS: ' + ' | '.join(f'{t} [{"on" if e else "off"}]' for t,e in buttons))
+                      dump.append('COMBOS: ' + ' | '.join(f'{t} ({n}) [{"on" if e else "off"}]' for t,n,e in combos))
+                      dump.append('')
+                  window.hide()
+
+          (out / 'widget-inventory.txt').write_text('\n'.join(dump), encoding='utf-8')
+          main.close()
+          sys.stdout.flush(); sys.stderr.flush(); os._exit(0)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-ux-audit
+          path: tools-ux-audit-artifacts
+          if-no-files-found: error
+          retention-days: 2
