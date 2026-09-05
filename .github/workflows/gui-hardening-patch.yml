@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   previews:
-    if: ${{ !contains(github.event.head_commit.message, '[visual-previews]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[visual-small]') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -23,57 +23,35 @@ jobs:
           pip install pillow
           python - <<'PY'
           from pathlib import Path
-          from PIL import Image, ImageDraw, ImageFont
-
-          root = Path('visual-artifacts')
-          out = root / 'previews'
-          out.mkdir(parents=True, exist_ok=True)
-          font = ImageFont.load_default()
-
-          def sheet(items, target, cols=2, cell=(430, 280), quality=18):
-              rows = (len(items) + cols - 1) // cols
-              canvas = Image.new('RGB', (cell[0]*cols, cell[1]*rows), 'white')
-              draw = ImageDraw.Draw(canvas)
-              for i, (label, path) in enumerate(items):
-                  im = Image.open(path).convert('RGB')
-                  maxw, maxh = cell[0]-12, cell[1]-28
-                  im.thumbnail((maxw, maxh), Image.Resampling.LANCZOS)
-                  x = (i % cols)*cell[0] + (cell[0]-im.width)//2
-                  y = (i // cols)*cell[1] + 20 + (maxh-im.height)//2
-                  canvas.paste(im, (x, y))
-                  draw.text(((i % cols)*cell[0]+6, (i // cols)*cell[1]+5), label, fill='black', font=font)
-              canvas.save(target, 'JPEG', quality=quality, optimize=True, progressive=True)
-
-          p = root/'plots'
-          sheet([
-              ('FULL coefficients', p/'full-coefficients.png'),
-              ('700x420 coefficients + scroll', p/'host-coefficients-700x420.png'),
-              ('FULL convergence', p/'full-convergence.png'),
-              ('700x420 convergence + scroll', p/'host-convergence-700x420.png'),
-              ('FULL disk grid 4x4', p/'full-disk-grid-4x4.png'),
-              ('700x420 disk grid + scroll', p/'host-disk-grid-4x4-700x420.png'),
-              ('FULL dense XY 30 series', p/'full-dense-xy-30-series.png'),
-              ('700x420 dense XY + scroll', p/'host-dense-xy-30-series-700x420.png'),
-          ], out/'plots.jpg', cols=2, cell=(430,280), quality=18)
-
+          from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+          root=Path('visual-artifacts'); out=root/'review-small'; out.mkdir(parents=True,exist_ok=True)
+          font=ImageFont.load_default()
+          def sheet(items,target,cell=(320,190),quality=10):
+              cols=2; rows=(len(items)+1)//2
+              c=Image.new('RGB',(cell[0]*cols,cell[1]*rows),'white'); d=ImageDraw.Draw(c)
+              for i,(label,path) in enumerate(items):
+                  im=Image.open(path).convert('RGB'); im.thumbnail((cell[0]-8,cell[1]-24),Image.Resampling.LANCZOS)
+                  x=(i%2)*cell[0]+(cell[0]-im.width)//2; y=(i//2)*cell[1]+18+(cell[1]-24-im.height)//2
+                  c.paste(im,(x,y)); d.text(((i%2)*cell[0]+4,(i//2)*cell[1]+3),label,fill='black',font=font)
+              c.save(target,'JPEG',quality=quality,optimize=True,progressive=True)
+          p=root/'plots'
+          sheet([('FULL coefficients',p/'full-coefficients.png'),('small coefficients',p/'host-coefficients-700x420.png'),
+                 ('FULL convergence',p/'full-convergence.png'),('small convergence',p/'host-convergence-700x420.png'),
+                 ('FULL disk 4x4',p/'full-disk-grid-4x4.png'),('small disk 4x4',p/'host-disk-grid-4x4-700x420.png'),
+                 ('FULL dense XY',p/'full-dense-xy-30-series.png'),('small dense XY',p/'host-dense-xy-30-series-700x420.png')],
+                out/'plots.jpg',cell=(320,190),quality=10)
           for spec in ('1100x650','1366x700','1536x796'):
-              u = root/'ui'/spec
-              sheet([
-                  (f'{spec} airfoil', u/'airfoil.png'),
-                  (f'{spec} results', u/'results.png'),
-                  (f'{spec} designer', u/'designer.png'),
-                  (f'{spec} run batch', u/'run-batch.png'),
-                  (f'{spec} transient', u/'transient.png'),
-                  (f'{spec} geometry', u/'geometry.png'),
-              ], out/f'ui-{spec}.jpg', cols=2, cell=(430,260), quality=18)
-
-          for path in sorted(out.glob('*.jpg')):
-              print(path, path.stat().st_size)
+              u=root/'ui'/spec
+              sheet([(f'{spec} airfoil',u/'airfoil.png'),(f'{spec} results',u/'results.png'),
+                     (f'{spec} designer',u/'designer.png'),(f'{spec} run batch',u/'run-batch.png'),
+                     (f'{spec} transient',u/'transient.png'),(f'{spec} geometry',u/'geometry.png')],
+                    out/f'ui-{spec}.jpg',cell=(320,180),quality=10)
+          for x in sorted(out.glob('*.jpg')): print(x,x.stat().st_size)
           PY
-      - name: Commit previews
+      - name: Commit review sheets
         run: |
           git config user.name "OpenAI"
           git config user.email "noreply@openai.com"
-          git add visual-artifacts/previews
-          git commit -m "[visual-previews] Add compact visual review sheets"
+          git add visual-artifacts/review-small
+          git commit -m "[visual-small] Add compact visual review sheets"
           git push origin HEAD:gui-responsive-hardening
