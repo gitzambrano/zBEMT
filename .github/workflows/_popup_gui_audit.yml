@@ -1,0 +1,213 @@
+name: popup and GUI audit
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    if: ${{ github.actor != 'github-actions[bot]' && contains(github.event.head_commit.message, '[popup-gui-audit]') }}
+    runs-on: ubuntu-24.04
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Qt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
+
+      - name: Install zBEMT
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[all]'
+
+      - name: Correct popup helper text
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('zbemt/gui/help_content.py')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = {
+              '            "Thrust is dimensional and belongs to one rotor at one air "\n'
+              '            "density. The coefficient is non-dimensional and is what "\n'
+              '            "makes two rotors of different size comparable at all."),':
+              '            "Thrust is dimensional and depends on rotor size, tip speed, "\n'
+              '            "and air density. The thrust coefficient normalizes thrust "\n'
+              '            "by those quantities."),',
+
+              '        "effect": "Trimming to a thrust in newtons compares rotors carrying the same weight. Trimming to a thrust coefficient compares them at the same blade loading, which supports comparison at equal non-dimensional loading across different diameters.",':
+              '        "effect": "Trimming to thrust in newtons compares rotors at the same dimensional thrust. Trimming to a thrust coefficient compares them at the same non-dimensional rotor thrust loading. Equal thrust coefficient does not imply equal blade loading when solidity differs. The ratio C_T/sigma accounts for solidity.",',
+
+              '            "It has to be reachable: a target above what the blade can "\n'
+              '            "produce before it stalls has no collective that satisfies "\n'
+              '            "it."),':
+              '            "The target must lie inside the range that the selected "\n'
+              '            "aerodynamic models, geometry, operating condition, and "\n'
+              '            "control limits can reach."),',
+
+              '        "range": "within what the rotor can produce unstalled",':
+              '        "range": "within the reachable range for the selected model and operating condition",',
+
+              '        "effect": "Each variant is a full solve at every condition, so this multiplies the run time directly. Three points show a trend; they do not show a maximum, which needs at least five.",':
+              '        "effect": "Each variant requires a full solve at every condition, so run time grows approximately with the number of variants. Use a coarse sweep first. Refine the interval near extrema or regions of high curvature.",',
+
+              '            "A comma-separated list used INSTEAD of the evenly spaced "':
+              '            "A comma-separated list used instead of the evenly spaced "',
+
+              '            "study usually wants points clustered where the answer is "\n'
+              '            "changing fastest."),':
+              '            "study can cluster points where the result changes fastest."),',
+
+              '        "effect": "Rectangular keeps one chord throughout and is the reference case. Tapered moves area inboard, cutting the tip loading where the velocity is highest. Elliptic approaches the minimum induced power for a given thrust.",':
+              '        "effect": "Rectangular keeps one chord throughout and provides a reference planform. Tapered reduces chord toward the tip and shifts blade area inboard. Elliptic also reduces chord toward the tip with an approximately elliptical radial distribution. The loading and induced power still depend on twist, inflow, airfoil data, loss models, and operating condition.",',
+
+              '            "not change the total thrust much: it TILTS the disk."),':
+              '            "not change the total thrust much. It tilts the disk."),',
+
+              '            "Total moment about the reference in-plane axis, INCLUDING "':
+              '            "Total moment about the reference in-plane axis, including "',
+
+              '            "PARETO FRONT: a set of designs where nothing can be "':
+              '            "Pareto front: a set of designs where nothing can be "',
+
+              '            "ZERO IS NOT OFF: it selects the NSGA-II default of one over "\n'
+              '            "the number of variables, so on average one variable per "\n'
+              '            "child is perturbed."),':
+              '            "A value of zero does not disable mutation. It selects the "\n'
+              '            "NSGA-II default of one over the number of variables. Thus, "\n'
+              '            "one variable per child is perturbed on average."),',
+
+              '            "A maneuver is not a batch: each sample INHERITS the inflow "\n'
+              '            "state of the sample before it, which is the whole reason a "\n'
+              '            "transient differs from a sequence of steady solves."),':
+              '            "A maneuver is not a batch. Each sample uses the inflow "\n'
+              '            "state from the preceding sample. This state history makes "\n'
+              '            "a transient different from a sequence of steady solves."),',
+
+              '            "speed. Comparing designs across different conditions "\n'
+              '            "compares nothing."),':
+              '            "speed. Changing the operating condition together with the "\n'
+              '            "design prevents isolation of the design effect."),',
+          }
+
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected one popup match, found {count}: {old[:90]!r}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Audit corrected popup copy
+        run: |
+          python - <<'PY'
+          from zbemt.gui.help_content import FIELD_HELP
+          from zbemt.gui.help_blocks import BLOCK_HELP
+
+          def flatten(value):
+              if isinstance(value, str):
+                  yield value
+              elif isinstance(value, dict):
+                  for item in value.values():
+                      yield from flatten(item)
+              elif isinstance(value, (list, tuple, set)):
+                  for item in value:
+                      yield from flatten(item)
+
+          visible = '\n'.join(flatten(FIELD_HELP)) + '\n' + '\n'.join(flatten(BLOCK_HELP))
+          forbidden = [
+              'same blade loading',
+              'before it stalls has no collective',
+              'maximum, which needs at least five',
+              'minimum induced power for a given thrust',
+              'INSTEAD', 'TILTS', 'INCLUDING', 'PARETO FRONT',
+              'ZERO IS NOT OFF', 'INHERITS', 'compares nothing',
+          ]
+          found = [item for item in forbidden if item in visible]
+          if found:
+              raise SystemExit('Residual popup defects: ' + ', '.join(found))
+          print('Popup helper audit: known technical and style defects are absent.')
+          PY
+
+      - name: Run popup and documentation tests
+        run: |
+          python -m pytest -q tests/architecture/test_help_content.py
+          python -m pytest -q tests/architecture/test_every_field_has_a_popup.py
+          python -m pytest -q tests/architecture/test_user_facing_documentation.py
+          python -m pytest -q tests/regression/test_field_help.py
+
+      - name: Commit popup fixes to main
+        run: |
+          git config user.name 'OpenAI'
+          git config user.email 'noreply@openai.com'
+          git add zbemt/gui/help_content.py
+          git diff --cached --check
+          git commit -m 'docs: correct popup helper physics and wording'
+          git push origin HEAD:main
+
+      - name: Run responsive regression tests
+        run: |
+          python tests/run_all_tests.py --suite regression -k gui_layout
+          python tests/run_all_tests.py --suite regression -k small_screen
+          python tests/run_all_tests.py --suite regression -k plot_scaling
+          python tests/run_all_tests.py --suite architecture
+
+      - name: Capture all GUI views at notebook sizes
+        run: |
+          rm -rf gui-review
+          mkdir -p gui-review
+          for spec in 1100x650 1280x720 1366x768 1440x900 1600x900 1920x1080; do
+            export W=${spec%x*}
+            export H=${spec#*x}
+            export OUT=gui-review/$spec
+            mkdir -p "$OUT"
+            python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          import tools.gui_screenshots as shots
+          shots.WIDTH = int(os.environ['W'])
+          shots.HEIGHT = int(os.environ['H'])
+          written = shots.generate(Path(os.environ['OUT']))
+          expected = len(shots.SHOTS) + 4
+          if len(written) != expected:
+              raise SystemExit(f'Expected {expected} screenshots, got {len(written)}')
+          print(f'Captured {len(written)} GUI views at {shots.WIDTH}x{shots.HEIGHT}.')
+          sys.stdout.flush()
+          sys.stderr.flush()
+          os._exit(0)
+          PY
+          done
+          find gui-review -type f -name '*.png' -size 0 -print -quit | grep -q . && exit 1 || true
+          count=$(find gui-review -type f -name '*.png' | wc -l)
+          test "$count" -eq 72
+          echo "Captured $count screenshots."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gui-notebook-matrix
+          path: gui-review
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Run full suite
+        run: |
+          python tests/run_all_tests.py
