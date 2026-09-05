@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 
 from ..common import (AppState, CanvasHost, equalize_button_widths,
                       install_rich_text_headings, show_error)
+from ..tool_ux import ToolWorkflowHeader
 from ..workers import ManeuverWorker, launch_worker
 from ... import api, nomenclature
 from ...models import ManeuverDefinition, ManeuverPoint
@@ -88,11 +89,18 @@ class TransientWindow(QWidget):
 
         self._widths_reviewed = False
         self._study_buttons: list = []
-        tabs = QTabWidget(self)
-        tabs.addTab(self._build_trajectory_page(), "Trajectory")
-        tabs.addTab(self._build_run_page(), "Run and results")
+        self.pages = QTabWidget(self)
+        self.pages.addTab(self._build_trajectory_page(), "Trajectory")
+        self.pages.addTab(self._build_run_page(), "Run and results")
         outer = QVBoxLayout(self)
-        outer.addWidget(tabs)
+        self.workflow_header = ToolWorkflowHeader(self.pages, [
+            ("Define maneuver",
+             "Quick start: build a ramp from two saved Run Case conditions. Use the point table only for a custom time history."),
+            ("Review and run",
+             "Check the sampled trajectory and cost, then run the unsteady march and inspect the time histories."),
+        ])
+        outer.addWidget(self.workflow_header)
+        outer.addWidget(self.pages)
 
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
@@ -202,7 +210,7 @@ class TransientWindow(QWidget):
         list_form.addRow(btn_row)
         left.addWidget(list_box)
 
-        points_box = QGroupBox("Trajectory points")
+        points_box = QGroupBox("Trajectory points (custom)")
         points_layout = QVBoxLayout(points_box)
         self.points_table = QTableWidget(0, len(self._POINT_FIELDS))
         install_rich_text_headings(self.points_table, self._point_headings())
@@ -228,7 +236,7 @@ class TransientWindow(QWidget):
         pts_btns.addStretch(1)
         points_layout.addLayout(pts_btns)
 
-        build_box = QGroupBox("Build from two saved cases")
+        build_box = QGroupBox("Build from two saved cases (quick start)")
         build_form = QFormLayout(build_box)
         self.build_case_a = QComboBox()
         self.build_case_b = QComboBox()
@@ -262,8 +270,8 @@ class TransientWindow(QWidget):
         # See `_button_row`: a spanning row would make this button
         # as wide as the whole form.
         build_form.addRow(_button_row(btn_build))
-        left.addWidget(points_box)
         left.addWidget(build_box)
+        left.addWidget(points_box)
         layout.addLayout(left, 0)
 
         right = QVBoxLayout()
@@ -738,10 +746,14 @@ class TransientWindow(QWidget):
         from zbemt.validation import validate_maneuver
         definition = self._current_definition()
         cfg = dict(self.state.project.config) if self.state.project else {}
+        if not definition.points:
+            self.validation_panel.setPlainText(
+                "Start by building a ramp from two saved cases or add at least two custom trajectory points.")
+            return
         issues = validate_maneuver(definition, cfg)
         self.validation_panel.setPlainText(
             "\n".join(str(i) for i in issues) if issues
-            else "No findings.")
+            else "Ready — no validation findings.")
 
     def _refresh_preview(self):
         from zbemt.studies import _maneuver_samples

@@ -69,6 +69,7 @@ from .tabs import (
 # it is wired by this module (Tools > Geometry Designer).
 from .tabs.designer_window import GeometryDesignerWindow
 from .common import AppState, open_help
+from .tool_ux import ToolsLauncher
 from .wheel_guard import install_wheel_guard, adjust_focus_policy
 
 # --- compatibility re-export ------------------------------------
@@ -170,27 +171,13 @@ class FlowIndicatorBar(QWidget):
         self.btn_tools.setFlat(True)
         self.btn_tools.setMinimumWidth(54)
         self.btn_tools.setToolTip(
-            "Tools: opens the dedicated windows - Geometry Designer, "
-            "Transient Simulation, Design Optimization and Stability "
-            "Derivatives")
+            "Engineering Tools: choose a task, see its prerequisites and open its guided workflow.")
         self.btn_tools.setStyleSheet(
             "QPushButton { font-weight: bold; border: 1px solid #888; border-radius: 14px; }"
             "QPushButton::menu-indicator { width: 0; border: none; }")
-        tools_menu = QMenu(self.btn_tools)
-        for label, key in self.TOOLS_MENU:
-            action = tools_menu.addAction(label)
-            action.triggered.connect(
-                lambda _checked=False, k=key: self.tools_requested.emit(k))
-        self.btn_tools.setMenu(tools_menu)
-        # The button's tooltip stays up while the menu opens over it, and
-        # under the dark strip it reads as an empty black rectangle above
-        # the entries. The menu itself says what each entry does, so the
-        # tooltip has nothing left to add once it is open.
-        # A lambda, not `connect(QToolTip.hideText)`: connecting a signal
-        # straight to a static C++ method leaves the connection with no
-        # receiver object to own it.
-        from PyQt6.QtWidgets import QToolTip
-        tools_menu.aboutToShow.connect(lambda: QToolTip.hideText())
+        self._tools_launcher = ToolsLauncher(self.state, self)
+        self._tools_launcher.tool_requested.connect(self.tools_requested.emit)
+        self.btn_tools.clicked.connect(self._tools_launcher.show)
         layout.addWidget(self.btn_tools)
 
         # Global access to the documentation: explicit text, without the

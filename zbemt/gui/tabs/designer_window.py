@@ -82,6 +82,7 @@ from ..common import (
 )
 import dataclasses
 from PyQt6.QtGui import QColor
+from ..tool_ux import ToolWorkflowHeader
 from ..workers import CompareWorker, FnWorker, launch_worker
 
 
@@ -286,6 +287,15 @@ class GeometryDesignerWindow(QWidget):
         self.pages.addTab(in_scroll_area(self._build_variants_page()), "Variants")
         self.pages.addTab(in_scroll_area(self._build_conditions_page()), "Conditions")
         self.pages.addTab(in_scroll_area(self._build_run_page()), "Run && results")
+        self.workflow_header = ToolWorkflowHeader(self.pages, [
+            ("Define variants",
+             "Start with Variation sweep to change one geometry parameter at a time. Use Generate or the manual table only when that is the engineering question."),
+            ("Set conditions",
+             "Choose saved cases, define one operating point, or create a condition sweep. Every geometry is evaluated at exactly these conditions."),
+            ("Review and run",
+             "Read the study summary and case count, then run the comparison and inspect ranking, deltas and overlays."),
+        ])
+        layout.addWidget(self.workflow_header)
         layout.addWidget(self.pages)
 
         self.state.project_changed.connect(self._on_project_changed)
@@ -414,7 +424,7 @@ class GeometryDesignerWindow(QWidget):
         box = QFrame()
         box.setFrameShape(QFrame.Shape.StyledPanel)
         vbox = QVBoxLayout(box)
-        heading = QLabel("Variation sweep")
+        heading = QLabel("Variation sweep — recommended start")
         heading.setStyleSheet("font-weight: bold;")
         vbox.addWidget(heading)
         inner = QWidget()
@@ -1562,17 +1572,22 @@ class GeometryDesignerWindow(QWidget):
     def _build_conditions_page(self) -> QWidget:
         page = QWidget()
         vbox = QVBoxLayout(page)
+        intro = QLabel(
+            "Choose how every geometry will be evaluated. For repeatable engineering comparisons, saved Run Case conditions are usually the clearest starting point.")
+        intro.setWordWrap(True)
+        intro.setStyleSheet("color: gray; margin-bottom: 6px;")
+        vbox.addWidget(intro)
 
         mode_row = QHBoxLayout()
-        self.radio_saved_cases = QRadioButton("Saved cases")
+        self.radio_saved_cases = QRadioButton("Use saved cases")
         self.radio_saved_cases.setToolTip(
             "Runs every case already stored in the project (Run Case > "
             "Save as case) on every variant.")
-        self.radio_single = QRadioButton("Single condition")
+        self.radio_single = QRadioButton("Define one condition")
         self.radio_single.setToolTip(
             "Runs one condition, built from the fields below, on every "
             "variant.")
-        self.radio_sweep = QRadioButton("Sweep")
+        self.radio_sweep = QRadioButton("Create condition sweep")
         self.radio_sweep.setToolTip(
             "Runs one axis through evenly spaced values, on every "
             "variant.")

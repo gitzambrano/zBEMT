@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 
 from ..common import (AppState, CanvasHost, equalize_button_widths,
                       show_error, show_all_options_in)
+from ..tool_ux import ToolWorkflowHeader
 from ..workers import OptimizeMultiWorker, launch_worker
 from ... import api, nomenclature
 from ...models import (
@@ -89,11 +90,18 @@ class OptimizerWindow(QWidget):
         self._last_definition = None
         self._study_buttons: list = []
 
-        tabs = QTabWidget(self)
-        tabs.addTab(self._build_definition_page(), "Study")
-        tabs.addTab(self._build_run_page(), "Run and results")
+        self.pages = QTabWidget(self)
+        self.pages.addTab(self._build_definition_page(), "Study")
+        self.pages.addTab(self._build_run_page(), "Run and results")
         outer = QVBoxLayout(self)
-        outer.addWidget(tabs)
+        self.workflow_header = ToolWorkflowHeader(self.pages, [
+            ("Define engineering problem",
+             "Choose objective(s), design variables, constraints and the operating condition. Leave numerical search tuning at its defaults unless you need it."),
+            ("Review and run",
+             "Confirm the evaluation cost, run the search and inspect the optimum or Pareto trade-off before applying a design."),
+        ])
+        outer.addWidget(self.workflow_header)
+        outer.addWidget(self.pages)
         show_all_options_in(self)
 
         self.state.project_changed.connect(self._refresh_from_project)
@@ -144,7 +152,9 @@ class OptimizerWindow(QWidget):
         self.obj_kinds = []
         for i in (1, 2):
             key_combo = QComboBox()
-            key_combo.setEditable(True)
+            key_combo.setEditable(False)
+            if i == 2:
+                key_combo.addItem("(none — single objective)", "")
             for key in _COMMON_OBJECTIVE_KEYS:
                 # Rendered text, engine key as the item's data. The key
                 # is what the definition stores and what the engine is
@@ -154,9 +164,8 @@ class OptimizerWindow(QWidget):
             kind_combo = QComboBox()
             kind_combo.addItem("Maximize", "maximize")
             kind_combo.addItem("Minimize", "minimize")
-            tip = ('"objectives" — any quantity of the results summary '
-                   "(for example FM, CT, CP). The box suggests the usual "
-                   "ones; type any other summary key.")
+            tip = ("Choose the engineering result quantity to optimize. "
+                   "The GUI keeps engine summary keys internal; advanced custom keys remain available through the Python/CLI interfaces.")
             if i == 2:
                 tip = ('"objectives" — the second objective. An EMPTY '
                        "box runs a single-objective study; a filled one "
@@ -177,7 +186,7 @@ class OptimizerWindow(QWidget):
         cons_box = QGroupBox("Constraints")
         cons_layout = QVBoxLayout(cons_box)
         self.cons_table = QTableWidget(0, 3)
-        self.cons_table.setHorizontalHeaderLabels(["Summary key",
+        self.cons_table.setHorizontalHeaderLabels(["Result quantity",
                                                     "Operator", "Value"])
         self.cons_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch)
@@ -203,7 +212,7 @@ class OptimizerWindow(QWidget):
         var_box = QGroupBox("Design variables")
         var_layout = QVBoxLayout(var_box)
         self.var_table = QTableWidget(0, 3)
-        self.var_table.setHorizontalHeaderLabels(["Parameter", "Lower",
+        self.var_table.setHorizontalHeaderLabels(["Geometry parameter", "Lower",
                                                    "Upper"])
         self.var_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch)
@@ -220,13 +229,19 @@ class OptimizerWindow(QWidget):
         var_layout.addLayout(var_btns)
         right.addWidget(var_box, 1)
 
-        search_box = QGroupBox("Search settings")
-        grid = QGridLayout(search_box)
+        condition_box = QGroupBox("Search settings (operating condition)")
+        condition_form = QFormLayout(condition_box)
         self.condition_combo = QComboBox()
         self.condition_combo.setToolTip(
-            '"condition" — the saved case whose flight state every design '
-            "is solved at. It must carry an RPM: the solver "
-            "adimensionalizes by ΩR.")
+            "Saved Run Case condition used for every design evaluation. It must include RPM.")
+        condition_form.addRow("Saved case:", self.condition_combo)
+        right.addWidget(condition_box)
+
+        search_box = QGroupBox("Search settings (advanced)")
+        search_box.setCheckable(True)
+        search_box.setChecked(False)
+        self.advanced_search_box = search_box
+        grid = QGridLayout(search_box)
         self.algorithm_combo = QComboBox()
         self.algorithm_combo.addItem("NSGA-II (Pareto front)", "nsga2")
         self.algorithm_combo.addItem("Differential evolution (global)",
@@ -290,7 +305,6 @@ class OptimizerWindow(QWidget):
             "scales almost linearly until it runs out of cores. One means "
             "run them one after another.")
         rows = [
-            ("Condition:", self.condition_combo),
             ("Algorithm:", self.algorithm_combo),
             ("Population:", self.population_spin),
             ("Generations:", self.generations_spin),
@@ -502,7 +516,9 @@ class OptimizerWindow(QWidget):
         always reflect what is on screen."""
         objectives = []
         for key_combo, kind_combo in zip(self.obj_keys, self.obj_kinds):
-            key = key_combo.currentText().strip()
+            key = key_combo.currentData()
+            if key is None:
+                key = key_combo.currentText().strip()
             if key:
                 objectives.append(ObjectiveDef(
                     key=key, kind=kind_combo.currentData()))
@@ -556,7 +572,14 @@ class OptimizerWindow(QWidget):
         while len(objectives) < 2:
             objectives.append(ObjectiveDef(key="", kind="maximize"))
         for i, obj in enumerate(objectives[:2]):
-            self.obj_keys[i].setCurrentText("" if obj.key == "" else str(obj.key))
+            key_combo = self.obj_keys[i]
+            key_index = key_combo.findData(obj.key)
+            if key_index < 0 and obj.key:
+                key_combo.addItem(_key_label(str(obj.key)), str(obj.key))
+                key_index = key_combo.findData(obj.key)
+            if key_index < 0:
+                key_index = key_combo.findData("")
+            key_combo.setCurrentIndex(max(key_index, 0))
             idx = self.obj_kinds[i].findData(obj.kind)
             self.obj_kinds[i].setCurrentIndex(max(idx, 0))
         self.var_table.setRowCount(0)
