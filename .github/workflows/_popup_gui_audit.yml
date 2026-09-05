@@ -149,10 +149,10 @@ jobs:
 
       - name: Run popup and documentation tests
         run: |
-          python -m pytest -q tests/architecture/test_help_content.py
-          python -m pytest -q tests/architecture/test_every_field_has_a_popup.py
-          python -m pytest -q tests/architecture/test_user_facing_documentation.py
-          python -m pytest -q tests/regression/test_field_help.py
+          python tests/run_all_tests.py --suite architecture -k help_content
+          python tests/run_all_tests.py --suite architecture -k every_field_has_a_popup
+          python tests/run_all_tests.py --suite architecture -k user_facing_documentation
+          python tests/run_all_tests.py --suite regression -k field_help
 
       - name: Commit popup fixes to main
         run: |
