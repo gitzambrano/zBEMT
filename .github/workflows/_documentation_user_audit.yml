@@ -37,7 +37,6 @@ jobs:
 
           blocks_path = Path('zbemt/gui/help_blocks.py')
           text = blocks_path.read_text(encoding='utf-8')
-
           replacements = {
               "Comparison variants are not persisted. The table is rebuilt from the project's own geometry on every load, so a comparison worth keeping should be re-created deliberately or exported before closing. Design optimization is not part of this window: it runs as an outer loop from the command line or the library.":
                   "Comparison variants are not persisted. Export a comparison that must be retained. Use the Optimization window for persistent design-optimization studies.",
@@ -60,6 +59,14 @@ jobs:
               text = text.replace(old, new, 1)
           blocks_path.write_text(text, encoding='utf-8')
 
+          content_path = Path('zbemt/gui/help_content.py')
+          text = content_path.read_text(encoding='utf-8')
+          old = 'when the flight condition itself changes with time, use a maneuver (SC-12).'
+          new = 'when the flight condition itself changes with time, use a maneuver.'
+          if old not in text:
+              raise SystemExit('missing SC-12 help text')
+          content_path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
           test_path = Path('tests/architecture/test_user_facing_documentation.py')
           test_path.write_text('''"""Keep user-facing documentation separate from source-code internals."""\nfrom __future__ import annotations\n\nfrom pathlib import Path\nimport re\nimport unittest\n\nROOT = Path(__file__).resolve().parents[2]\n\n\ndef _visible_html() -> str:\n    html = (ROOT / "docs" / "documentation.html").read_text(encoding="utf-8")\n    body = html.split("<body", 1)[-1]\n    body = re.sub(r"<script\\b.*?</script>", " ", body, flags=re.S | re.I)\n    body = re.sub(r"<style\\b.*?</style>", " ", body, flags=re.S | re.I)\n    body = re.sub(r"<!--.*?-->", " ", body, flags=re.S)\n    return body\n\n\nclass TestUserFacingDocumentationBoundary(unittest.TestCase):\n    """DC-5 permits useful engine explanations but not source-code internals."""\n\n    def test_documentation_has_no_source_code_surface(self):\n        body = _visible_html()\n        forbidden = {\n            "python module launch path": r"python\\s+-m\\s+zbemt\\.",\n            "config object attribute": r"\\bcfg\\.[A-Za-z_]",\n            "test project": r"projects/test\\d+",\n            "source module path": r"\\bzbemt\\.(?:gui|cli|core|solver)(?:\\.[A-Za-z_][A-Za-z0-9_]*)+",\n            "python source file": r"\\b[A-Za-z_][A-Za-z0-9_]*\\.py\\b",\n        }\n        for label, pattern in forbidden.items():\n            with self.subTest(label=label):\n                self.assertIsNone(re.search(pattern, body, flags=re.I), label)\n\n    def test_popup_copy_has_no_requirement_ids_or_source_objects(self):\n        sources = "\\n".join(\n            (ROOT / path).read_text(encoding="utf-8")\n            for path in ("zbemt/gui/help_content.py", "zbemt/gui/help_blocks.py")\n        )\n        forbidden = {\n            "requirement id": r"\\b(?:SC|DC|FR|SR)-\\d+\\b",\n            "config object attribute": r"\\bcfg\\.[A-Za-z_]",\n            "python module path": r"\\bzbemt\\.(?:gui|cli|core|solver)\\.",\n            "test project": r"projects/test\\d+",\n        }\n        for label, pattern in forbidden.items():\n            with self.subTest(label=label):\n                self.assertIsNone(re.search(pattern, sources), label)\n\n\nif __name__ == "__main__":\n    unittest.main()\n''', encoding='utf-8')
 
@@ -71,6 +78,16 @@ jobs:
               anchor = 'tests/architecture/test_documentation.py'
               architecture.insert(architecture.index(anchor) + 1, test_name)
           manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+
+          orchestrator_path = Path('tests/architecture/test_quality_orchestrator.py')
+          text = orchestrator_path.read_text(encoding='utf-8')
+          anchor = '            "test_documentation.py",\n'
+          addition = '            "test_documentation.py",\n            "test_user_facing_documentation.py",\n'
+          if '"test_user_facing_documentation.py"' not in text:
+              if text.count(anchor) != 1:
+                  raise SystemExit('unexpected architecture test-list layout')
+              text = text.replace(anchor, addition, 1)
+          orchestrator_path.write_text(text, encoding='utf-8')
           PY
 
           git rm .github/workflows/_documentation_user_audit.yml
