@@ -31,6 +31,16 @@ jobs:
 
       - name: Apply documentation audit
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/_apply_documentation_user_audit_extra.py')
+          text = p.read_text(encoding='utf-8')
+          text = text.replace(
+              'out, count = re.subn(pattern, replacement, text, count=1, flags=re.S)',
+              'out, count = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)',
+          )
+          p.write_text(text, encoding='utf-8')
+          PY
           python tools/_apply_documentation_user_audit.py
           python tools/_apply_documentation_user_audit_extra.py
 
