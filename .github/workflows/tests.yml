@@ -56,25 +56,8 @@ jobs:
             exit "$status"
           fi
 
-  flapping-all-diagnostic:
-    name: flapping with all optional dependencies
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install with every extra
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[all]"
-      - name: Print full flapping failures
-        run: python -m pytest tests/regression/test_flapping.py -vv --tb=long || true
-
   gui:
     name: complete suite with the GUI (headless)
-    if: false  # temporary: isolated by flapping-all-diagnostic above
     runs-on: ubuntu-24.04
 
     steps:
