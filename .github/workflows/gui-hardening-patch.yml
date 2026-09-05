@@ -58,17 +58,17 @@ jobs:
           pip install -e ".[all]"
       - name: Baseline failures first
         run: |
-          python tests/run_all_tests.py --suite architecture -k documentation
-          python tests/run_all_tests.py --suite architecture -k quality_orchestrator
-          python tests/run_all_tests.py --suite regression -k flapping
+          python tests/run_all_tests.py --suite architecture -k documentation || { cat tests/test_results.txt; exit 1; }
+          python tests/run_all_tests.py --suite architecture -k quality_orchestrator || { cat tests/test_results.txt; exit 1; }
+          python tests/run_all_tests.py --suite regression -k flapping || { cat tests/test_results.txt; exit 1; }
       - name: Responsive GUI and plot regressions
         run: |
-          python tests/run_all_tests.py --suite regression -k plot_scaling
-          python tests/run_all_tests.py --suite regression -k plots.py
-          python tests/run_all_tests.py --suite regression -k small_screen
-          python tests/run_all_tests.py --suite regression -k gui_layout
-          python tests/run_all_tests.py --suite regression -k tools_window_layout
-          python tests/run_all_tests.py --suite regression -k designer_window
+          python tests/run_all_tests.py --suite regression -k plot_scaling || { cat tests/test_results.txt; exit 1; }
+          python tests/run_all_tests.py --suite regression -k plots.py || { cat tests/test_results.txt; exit 1; }
+          python tests/run_all_tests.py --suite regression -k small_screen || { cat tests/test_results.txt; exit 1; }
+          python tests/run_all_tests.py --suite regression -k gui_layout || { cat tests/test_results.txt; exit 1; }
+          python tests/run_all_tests.py --suite regression -k tools_window_layout || { cat tests/test_results.txt; exit 1; }
+          python tests/run_all_tests.py --suite regression -k designer_window || { cat tests/test_results.txt; exit 1; }
       - name: Commit patch when tests pass
         run: |
           if git diff --quiet; then
