@@ -41,15 +41,34 @@ class TestTheFloorIsPerPanel(unittest.TestCase):
     def test_a_grid_asks_for_the_panel_minimum_in_each_column(self):
         fig, _axes = plots._new_figure((12.8, 11.0), 4, 4)
         width, height = plots.figure_minimum_pixels(fig)
-        self.assertEqual(width, 4 * plots.PANEL_MINIMUM_PX)
+        self.assertGreaterEqual(width, 4 * plots.PANEL_MINIMUM_PX)
         self.assertGreater(height, 0)
 
-    def test_the_floor_keeps_the_figure_proportions(self):
-        """The height follows the figure's own aspect, so a grid function
-        stays the author of how tall its cells are."""
+    def test_the_floor_keeps_each_row_at_the_panel_minimum(self):
+        """A tall grid must not lose its vertical floor to its aspect ratio."""
         fig, _axes = plots._new_figure((12.8, 11.0), 4, 4)
+        _width, height = plots.figure_minimum_pixels(fig)
+        self.assertGreaterEqual(height, 4 * plots.PANEL_MINIMUM_PX)
+
+    def test_the_floor_keeps_each_row_at_the_panel_minimum_in_a_wide_figure(self):
+        """A wide three-row figure must still reserve 240 pixels per row."""
+        fig, _axes = plots._new_figure((16.0, 9.0), 3, 4)
+        _width, height = plots.figure_minimum_pixels(fig)
+        self.assertGreaterEqual(height, 3 * plots.PANEL_MINIMUM_PX)
+
+    def test_the_floor_keeps_each_rendered_axis_at_the_panel_minimum(self):
+        """Margins and gaps must not consume the panel minimum."""
+        fig, _axes = plots._new_figure((16.0, 9.0), 3, 4)
         width, height = plots.figure_minimum_pixels(fig)
-        self.assertAlmostEqual(height / width, 11.0 / 12.8, delta=0.01)
+        fig.set_dpi(100)
+        fig.set_size_inches(width / 100, height / 100, forward=True)
+        fig.draw_without_rendering()
+        sizes = [(axis.get_position().width * width,
+                  axis.get_position().height * height)
+                 for axis in fig.axes]
+        self.assertTrue(all(panel_width >= plots.PANEL_MINIMUM_PX
+                            and panel_height >= plots.PANEL_MINIMUM_PX
+                            for panel_width, panel_height in sizes), sizes)
 
     def test_a_wider_grid_asks_for_more_width(self):
         narrow, _ = plots._new_figure((6.4, 5.5), 2, 2)     # 2 columns

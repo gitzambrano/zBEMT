@@ -321,7 +321,7 @@ class _CurrentPageStack(QStackedWidget):
     sixteen-panel grid would put scroll bars on the single-panel views
     cached beside it, which fit the window perfectly well. Reporting the
     current page's own minimum keeps each figure's rule to itself
-    (`QR-14`).
+    (`PR-12`).
     """
 
     def _current_minimum(self) -> QSize:

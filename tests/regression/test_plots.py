@@ -12,9 +12,31 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from zbemt import geometry
 from zbemt.viz import plots
+
+
+def _visible_labels_outside_figure(fig):
+    """Returns visible tick labels that would clip in an embedded canvas."""
+    width, height = plots.figure_minimum_pixels(fig)
+    fig.set_dpi(100)
+    fig.set_size_inches(width / 100, height / 100, forward=True)
+    canvas = FigureCanvasAgg(fig)
+    canvas.draw()
+    renderer = canvas.get_renderer()
+    outside = []
+    for axis in fig.axes:
+        if not axis.axison:
+            continue
+        for label in axis.get_xticklabels() + axis.get_yticklabels():
+            if not label.get_visible() or not label.get_text():
+                continue
+            box = label.get_window_extent(renderer)
+            if box.x0 < 0 or box.y0 < 0 or box.x1 > width or box.y1 > height:
+                outside.append((axis.get_title(), label.get_text()))
+    return outside
 
 
 class TestPlotPlanformReflectsNBlades(unittest.TestCase):
@@ -196,6 +218,18 @@ class TestPlotConvergence(unittest.TestCase):
         self.assertIn("1/40", texts)           # elements that failed
         self.assertIn("9", texts)              # iterations in worst element
         self.assertIn("420 ms", texts)         # solver time
+
+    def test_nested_convergence_layout_has_a_readable_floor(self):
+        """The disk, history, and cards must not collapse below their usable size."""
+        fig = plots.plot_convergence(self._complete_result())
+        width, height = plots.figure_minimum_pixels(fig)
+        self.assertGreaterEqual(width, 960)
+        self.assertGreaterEqual(height, 384)
+
+    def test_convergence_labels_stay_inside_the_figure_at_its_floor(self):
+        """The nested layout must preserve its visible scale labels."""
+        fig = plots.plot_convergence(self._complete_result())
+        self.assertEqual(_visible_labels_outside_figure(fig), [])
 
     def test_disk_map_does_not_repeat_panel_title(self):
         import numpy as np
@@ -524,6 +558,12 @@ class TestPlotCoefficientsVsAxis(unittest.TestCase):
         panel = next(ax for ax in fig.axes
                       if ax.get_title() == "H-Force, profile component")
         self.assertEqual(panel.yaxis.get_offset_text().get_text(), "")
+
+    def test_labels_stay_inside_the_figure_at_the_readable_floor(self):
+        """A tick label outside the figure clips in the Results canvas."""
+        fig = plots.plot_coefficients_vs_axis(self._results(), axis="mu_x")
+        outside = _visible_labels_outside_figure(fig)
+        self.assertEqual(outside, [], f"labels outside figure: {outside}")
 
     def test_derived_alpha_does_not_split_axial_sweep_into_series(self):
         """`alpha_rotor_deg` is DERIVED from the pair (mu_x, Vz), not an

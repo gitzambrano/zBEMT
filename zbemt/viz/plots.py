@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 from matplotlib.colors import ListedColormap, LogNorm
 from matplotlib.figure import Figure
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from .. import nomenclature
 from ..viz import style as plot_style
@@ -850,7 +850,7 @@ _DISK_GRID_FIELDS = ["Fn", "Ft", "Cl", "Cd", "Vi", "Up",
 #: names climb over the disk, the color-bar numbers grow taller than the
 #: bar, and constrained layout starts letting the panels overlap. The
 #: figure is then made to SCROLL at this size instead of being squeezed
-#: below it (`QR-14`).
+#: below it (`PR-12`).
 PANEL_MINIMUM_PX = 240
 
 
@@ -880,20 +880,42 @@ def figure_minimum_pixels(figure, panel_px: int = PANEL_MINIMUM_PX) -> tuple:
     window it is given, whatever the size of the screen, and gains
     nothing from a scroll bar. A grid does: every panel of it has to
     stay big enough to read, and a screen too small for the whole grid
-    should scroll over it rather than shrink it (`QR-14`).
+    should scroll over it rather than shrink it (`PR-12`).
 
-    The height keeps the figure's own proportions instead of assuming
-    square cells, so each grid function stays the author of its own
-    aspect ratio.
+    The figure keeps its own proportions.  Therefore the scale comes from
+    whichever axis needs the larger enlargement.  A wide figure must not
+    sacrifice its row height just to satisfy the column floor.
+
+    The calculation uses the rendered positions of the axes.  Grid rows and
+    columns alone do not include margins, gaps, nested grids, color bars, or
+    a figure title.  The visible plotting area of every active panel is what
+    must remain readable.
     """
     nrows, ncols = figure_grid_shape(figure)
     if nrows * ncols <= 1:
         return (0, 0)
     width_in, height_in = figure.get_size_inches()
-    min_width = int(ncols * panel_px)
-    if width_in <= 0:
-        return (min_width, int(nrows * panel_px))
-    return (min_width, int(round(min_width * height_in / width_in)))
+    if width_in <= 0 or height_in <= 0:
+        return (int(ncols * panel_px), int(nrows * panel_px))
+
+    # Let constrained layout resolve the nested axes before reading their
+    # normalized bounds.  The operation does not paint pixels, so it is safe
+    # before a FigureCanvasQTAgg owns the figure.
+    figure.draw_without_rendering()
+    required_width = ncols * panel_px
+    required_height = nrows * panel_px
+    for axis in figure.axes:
+        spec = axis.get_subplotspec() if hasattr(axis, "get_subplotspec") else None
+        if spec is None or not axis.get_visible() or not axis.axison:
+            continue
+        bounds = axis.get_position()
+        if bounds.width > 0:
+            required_width = max(required_width, panel_px / bounds.width)
+        if bounds.height > 0:
+            required_height = max(required_height, panel_px / bounds.height)
+
+    scale = max(required_width / width_in, required_height / height_in)
+    return (int(np.ceil(width_in * scale)), int(np.ceil(height_in * scale)))
 
 
 def plot_disk_map_grid(maps: dict, fields=None, fname=None, ncols: int = 4,
@@ -1255,7 +1277,10 @@ def plot_convergence(results: "Results", ax=None, fname=None):
         parts.append(f"{int(conv_summary['sweeps'])} sweeps")
     fig.suptitle(parts[0] + (f"  ({', '.join(parts[1:])})" if len(parts) > 1 else ""),
                  fontsize=11, fontweight="bold")
-    fig.tight_layout(rect=[0, 0, 1, 0.94])
+    # Resolve margins at every canvas draw.  The Results canvas changes its
+    # size independently of the report figure, while text remains in points.
+    fig.set_layout_engine("constrained")
+    fig.get_layout_engine().set(h_pad=0.22, w_pad=0.25, hspace=0.10, wspace=0.10)
     # The cards are drawn AFTER the layout: their font size depends on
     # the panel's final width (see `_number_cards`), and before
     # `tight_layout` that width will still change.
@@ -1757,6 +1782,10 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
         ax.axhline(0, color="0.6", linestyle=":", linewidth=0.6)
         if i >= n - ncols:
             ax.set_xlabel(axis_label)
+        # The default locator can place a final tick just outside the data
+        # interval.  Its text is not clipped to the axes and can escape the
+        # last column of a constrained grid.
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=5, prune="both"))
         ax.set_ylabel(ylabel)
         ax.set_title(title, fontsize=9)
         ax.grid(True, alpha=0.3)
@@ -1773,7 +1802,10 @@ def plot_coefficients_vs_axis(results_list, axis: str = "mu_x", fname=None, ncol
 
     mode_label = "Propeller" if panels is _PROP_SWEEP_PANELS else "Rotor"
     fig.suptitle(rf"{mode_label} performance vs {axis_title}", fontsize=12, fontweight="bold")
-    fig.tight_layout(rect=[0, 0, 1, 0.95], h_pad=3.0, w_pad=1.5)
+    # `tight_layout` only solves the margins once.  This grid is embedded in
+    # a resizable canvas, so it must recompute the composition on each draw.
+    fig.set_layout_engine("constrained")
+    fig.get_layout_engine().set(h_pad=0.16, w_pad=0.40, hspace=0.12, wspace=0.10)
     return _finish_fig(fig, fname)
 
 
@@ -1942,7 +1974,8 @@ def plot_blade_loads_vs_span(maps: dict, psi_targets_deg=(0, 90, 180, 270),
 
     mu_x = maps.get("mu_x", float("nan"))
     fig.suptitle(rf"Blade loads vs span — $\mu_x$={mu_x:.3f}", fontsize=12, fontweight="bold")
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.set_layout_engine("constrained")
+    fig.get_layout_engine().set(h_pad=0.10, w_pad=0.10, hspace=0.12, wspace=0.10)
     return _finish_fig(fig, fname)
 
 
@@ -1997,7 +2030,8 @@ def plot_loads_vs_azimuth(maps: dict, r_norm_targets=(0.25, 0.5, 0.75, 0.95),
 
     mu_x = maps.get("mu_x", float("nan"))
     fig.suptitle(rf"Blade loads vs azimuth — $\mu_x$={mu_x:.3f}", fontsize=12, fontweight="bold")
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.set_layout_engine("constrained")
+    fig.get_layout_engine().set(h_pad=0.10, w_pad=0.10, hspace=0.12, wspace=0.10)
     return _finish_fig(fig, fname)
 
 

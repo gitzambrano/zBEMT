@@ -1190,7 +1190,7 @@ def apply_figure_minimum_size(canvas: FigureCanvasQTAgg, figure: Figure) -> tupl
     scrolls over it. A SINGLE-PANEL figure gets no floor at all, so it
     goes on filling whatever area the window gives it, at any screen
     size. `viz.plots.figure_minimum_pixels` decides which is which
-    (`QR-14`).
+    (`PR-12`).
     """
     from ..viz import plots
 
@@ -1225,7 +1225,7 @@ class CanvasHost(QWidget):
     #: Smallest the drawing area itself may become. It exists so that a
     #: figure's own minimum NEVER propagates up to the tab: whatever the
     #: scrolled figure demands stops at this widget, and the surrounding
-    #: layout keeps deciding how much room the plot gets (`QR-14`).
+    #: layout keeps deciding how much room the plot gets (`PR-12`).
     _VIEWPORT_MINIMUM_PX = 120
 
     def __init__(self, with_toolbar: bool = False):
