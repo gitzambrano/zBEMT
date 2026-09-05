@@ -176,12 +176,12 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Trim target quantity",
         "definition": (
             "Which quantity the trim drives to its target.\n\n"
-            "Thrust is dimensional and belongs to one rotor at one air "
-            "density. The coefficient is non-dimensional and is what "
-            "makes two rotors of different size comparable at all."),
+            "Thrust is dimensional and depends on rotor size, tip speed, "
+            "and air density. The thrust coefficient normalizes thrust "
+            "by those quantities."),
         "unit": "—",
         "equation": r"C_T=\dfrac{T}{\rho A(\Omega R)^2}",
-        "effect": "Trimming to a thrust in newtons compares rotors carrying the same weight. Trimming to a thrust coefficient compares them at the same blade loading, which supports comparison at equal non-dimensional loading across different diameters.",
+        "effect": "Trimming to thrust in newtons compares rotors at the same dimensional thrust. Trimming to a thrust coefficient compares them at the same non-dimensional rotor thrust loading. Equal thrust coefficient does not imply equal blade loading when solidity differs. A blade-loading comparison must also account for solidity.",
         "range": "thrust [N] | thrust coefficient",
         "options": None,
         "anchor": "cap-5-5",
@@ -190,13 +190,13 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Trim target value",
         "definition": (
             "The number the trim drives the chosen quantity to.\n\n"
-            "It has to be reachable: a target above what the blade can "
-            "produce before it stalls has no collective that satisfies "
-            "it."),
+            "The target must lie inside the range that the selected "
+            "aerodynamic models, geometry, operating condition, and "
+            "control limits can reach."),
         "unit": "N, or dimensionless",
         "equation": None,
         "effect": "The solver iterates the collective until the quantity matches. An unreachable target does not fail silently: the run reports that it did not converge, and the collective it stopped at.",
-        "range": "within what the rotor can produce unstalled",
+        "range": "within the reachable range for the selected model and operating condition",
         "options": None,
         "anchor": "cap-5-5",
     },
@@ -242,7 +242,7 @@ FIELD_HELP: dict[str, dict] = {
             "bounds."),
         "unit": "—",
         "equation": None,
-        "effect": "Each variant is a full solve at every condition, so this multiplies the run time directly. Three points show a trend; they do not show a maximum, which needs at least five.",
+        "effect": "Each variant requires a full solve at every condition, so run time grows approximately with the number of variants. Use a coarse sweep first. Refine the interval near extrema or regions of high curvature.",
         "range": "3 to 15",
         "options": None,
         "anchor": "designer-variants",
@@ -250,11 +250,10 @@ FIELD_HELP: dict[str, dict] = {
     "vsweep_values": {
         "title": "Explicit values",
         "definition": (
-            "A comma-separated list used INSTEAD of the evenly spaced "
+            "A comma-separated list used instead of the evenly spaced "
             "sweep.\n\n"
             "An even sweep spends the same effort everywhere. A real "
-            "study usually wants points clustered where the answer is "
-            "changing fastest."),
+            "study can cluster points where the result changes fastest."),
         "unit": "that of the swept parameter",
         "equation": None,
         "effect": "When it is not empty it overrides Start, End and Count. Leave it empty to use the even sweep.",
@@ -271,7 +270,7 @@ FIELD_HELP: dict[str, dict] = {
             "velocity varies as r."),
         "unit": "—",
         "equation": r"\sigma = \dfrac{N_b\,\bar{c}}{\pi R}",
-        "effect": "Rectangular keeps one chord throughout and is the reference case. Tapered moves area inboard, cutting the tip loading where the velocity is highest. Elliptic approaches the minimum induced power for a given thrust.",
+        "effect": "Rectangular keeps one chord throughout and provides a reference planform. Tapered reduces chord toward the tip and shifts blade area inboard. Elliptic also reduces chord toward the tip with an approximately elliptical radial distribution. The loading and induced power still depend on twist, inflow, airfoil data, loss models, and operating condition.",
         "range": "rectangular | tapered | elliptic",
         "options": None,
         "anchor": "designer-variants",
@@ -505,7 +504,7 @@ FIELD_HELP: dict[str, dict] = {
         "definition": (
             "Perturbation of the cosine harmonic of the cyclic pitch.\n\n"
             "Unlike the collective it varies with azimuth, so it does "
-            "not change the total thrust much: it TILTS the disk."),
+            "not change the total thrust much. It tilts the disk."),
         "unit": "deg",
         "equation": r"\theta(\psi)=\theta_0+\theta_{1c}\cos\psi+\theta_{1s}\sin\psi",
         "effect": "Needs a blade with flap freedom. On a rigid blade the pitch change produces no disk tilt and the derivative is meaningless, which is why the control is disabled there.",
@@ -566,7 +565,7 @@ FIELD_HELP: dict[str, dict] = {
     "Mx_total": {
         "title": "Mx,total — hub moment about the ψ=0 axis",
         "definition": (
-            "Total moment about the reference in-plane axis, INCLUDING "
+            "Total moment about the reference in-plane axis, including "
             "the structural part carried through a hinge offset or a "
             "root spring."),
         "unit": "N·m",
@@ -607,8 +606,8 @@ FIELD_HELP: dict[str, dict] = {
             "at.\n\n"
             "A rotor is not better or worse in the abstract: it is "
             "better at a stated advance ratio, collective and rotational "
-            "speed. Comparing designs across different conditions "
-            "compares nothing."),
+            "speed. Changing the operating condition together with the "
+            "design prevents isolation of the design effect."),
         "unit": "—",
         "equation": None,
         "effect": "Every number the study reports belongs to this condition and to no other. It must carry an rpm, because rotational speed is required to determine tip speed.",
@@ -665,7 +664,7 @@ FIELD_HELP: dict[str, dict] = {
             "The quantity the search drives, taken from the results "
             "summary.\n\n"
             "One objective gives a single best design. Two give a "
-            "PARETO FRONT: a set of designs where nothing can be "
+            "Pareto front: a set of designs where nothing can be "
             "improved on one objective without giving up the other."),
         "unit": "that of the chosen quantity",
         "equation": r"\min_{x\in X} \;\left(f_1(x),\;f_2(x)\right)",
@@ -780,9 +779,9 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Mutation rate",
         "definition": (
             "The probability that any one variable is mutated.\n\n"
-            "ZERO IS NOT OFF: it selects the NSGA-II default of one over "
-            "the number of variables, so on average one variable per "
-            "child is perturbed."),
+            "A value of zero does not disable mutation. It selects the "
+            "NSGA-II default of one over the number of variables. Thus, "
+            "one variable per child is perturbed on average."),
         "unit": "—",
         "equation": r"p_m = 1/n_{var}\;\text{when set to }0",
         "effect": "Raising it explores harder at the cost of destroying good combinations more often. The default is a deliberate compromise and is rarely worth changing first.",
@@ -795,9 +794,9 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Maneuver",
         "definition": (
             "The named trajectory this window marches.\n\n"
-            "A maneuver is not a batch: each sample INHERITS the inflow "
-            "state of the sample before it, which is the whole reason a "
-            "transient differs from a sequence of steady solves."),
+            "A maneuver is not a batch. Each sample uses the inflow "
+            "state from the preceding sample. This state history makes "
+            "a transient different from a sequence of steady solves."),
         "unit": "—",
         "equation": None,
         "effect": "Stored in inputs/maneuvers.bemt and run from the CLI with --maneuver NAME.",
