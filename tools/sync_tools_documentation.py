@@ -277,6 +277,7 @@ def _project_state() -> AppState:
     airfoil = AirfoilDef(
         source="analytical",
         stall_model="clip",
+        extend_full_range=False,
         alpha_stall_pos_deg=15.0,
         alpha_stall_neg_deg=-6.0,
     )

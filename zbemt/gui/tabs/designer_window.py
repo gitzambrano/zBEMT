@@ -327,14 +327,8 @@ class GeometryDesignerWindow(QWidget):
         table_column = QVBoxLayout()
         table_column.addWidget(QLabel("Blade geometries to compare:"))
         self.variants_table = QTableWidget(0, len(self._VARIANT_COLUMNS))
-        # Compact two-line display headings keep complete words visible
-        # without changing the column semantics used by the model/export.
-        self.variants_table.setHorizontalHeaderLabels([
-            "Label", "Root chord\nc/R", "Tip chord\nc/R",
-            "Root twist\n[deg]", "Tip twist\n[deg]", "Blades",
-            "Root cutout\nr/R", "Radius\n[m]", "Aspect\nratio",
-            "Solidity", "Extra\noverrides",
-        ])
+        # Keep the canonical engineering names in the model; the table scrolls instead of changing field text.
+        self.variants_table.setHorizontalHeaderLabels(self._VARIANT_COLUMNS)
         # A SHORT tooltip. The long explanation moved to the group title's
         # popup: a six-paragraph tooltip covered the whole table and
         # followed the cursor across every cell, which made the table
@@ -406,7 +400,7 @@ class GeometryDesignerWindow(QWidget):
         analysis_column.addLayout(table_column, 3)
         analysis_column.addLayout(preview_column, 2)
         self._variants_splitter = QSplitter(Qt.Orientation.Horizontal)
-        for column, minimum in ((builder_column, 280),
+        for column, minimum in ((builder_column, 330),
                                 (analysis_column, 620)):
             holder = QWidget()
             holder.setLayout(column)
@@ -415,7 +409,7 @@ class GeometryDesignerWindow(QWidget):
         self._variants_splitter.setChildrenCollapsible(False)
         self._variants_splitter.setStretchFactor(0, 0)
         self._variants_splitter.setStretchFactor(1, 4)
-        self._variants_splitter.setSizes([300, 760])
+        self._variants_splitter.setSizes([340, 720])
         inner.addWidget(self._variants_splitter)
 
         return page
