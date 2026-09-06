@@ -4,7 +4,8 @@ The four engineering Tools expose guided workflows, configurable fields and
 user actions. This script instantiates the real PyQt widgets, inventories the
 labels shown by those widgets, verifies that every configurable field resolves
 to an existing manual anchor, writes generated reference blocks into
-``docs/documentation.html`` and refreshes the official screenshots.
+``docs/documentation.html``, keeps the corresponding durable requirements in
+``docs/software_requirements.md``, and refreshes the official screenshots.
 
 Run from the repository root::
 
@@ -45,12 +46,51 @@ from zbemt.models import AirfoilDef, FlightCondition, Project
 
 ROOT = Path(__file__).resolve().parents[1]
 DOC_PATH = ROOT / "docs" / "documentation.html"
+REQUIREMENTS_PATH = ROOT / "docs" / "software_requirements.md"
 IMAGE_DIR = ROOT / "docs" / "img" / "gui"
+
+PR14 = """- **PR-14 — Guided engineering Tools.** The Tools entry point presents each
+  engineering Tool by the engineering question it answers, the input or
+  prerequisite needed to start, and the result it produces. Each Tool window
+  exposes an obvious numbered task sequence, current-action guidance, and
+  Back/Next navigation while preserving direct step navigation for expert use.
+  Advanced numerical tuning starts collapsed. An empty study teaches the first
+  valid action instead of presenting an error. Method-inapplicable controls
+  disappear as complete rows under PR-2 rather than remaining visibly blocked.
+"""
+
+DC12 = """- **DC-12** — The Engineering Tools launcher and the four Tool chapters stay
+  synchronized with the real GUI. Their generated reference blocks document
+  the current guided steps, every configurable control label, every Tool-owned
+  action label, every table-column label, and every launcher card. Configurable
+  labels link to their complete field documentation. The synchronizer is
+  `tools/sync_tools_documentation.py`, and
+  `tests/architecture/test_tools_documentation_labels.py` fails when the GUI
+  and manual drift apart.
+"""
 
 
 def _plain(text: str) -> str:
     """Return visible plain text for one Qt/HTML string."""
     return " ".join(html.unescape(re.sub(r"<[^>]+>", "", text or "")).split())
+
+
+def _synchronize_requirements() -> None:
+    """Ensure the durable requirements for the guided Tools are explicit."""
+    document = REQUIREMENTS_PATH.read_text(encoding="utf-8")
+    if "**PR-14 — Guided engineering Tools.**" not in document:
+        marker = "\n---\n\n## 3. Architectural Requirements"
+        position = document.find(marker)
+        if position < 0:
+            raise RuntimeError("could not locate the end of Product Requirements")
+        document = document[:position] + "\n" + PR14 + document[position:]
+    if "**DC-12**" not in document:
+        marker = "\n### 3.6 GUI tab behaviour"
+        position = document.find(marker)
+        if position < 0:
+            raise RuntimeError("could not locate the end of Documentation requirements")
+        document = document[:position] + DC12 + document[position:]
+    REQUIREMENTS_PATH.write_text(document, encoding="utf-8")
 
 
 def _inventory_fields(root) -> list[tuple[str, str, str, str]]:
@@ -93,7 +133,6 @@ def _inventory_fields(root) -> list[tuple[str, str, str, str]]:
                 label = field
             add(field, label)
 
-    # Checkboxes/radio buttons can live outside QFormLayout.
     for widget_type in (QCheckBox, QRadioButton):
         for widget in root.findChildren(widget_type):
             add(_widget_field(widget), widget.text())
@@ -101,12 +140,7 @@ def _inventory_fields(root) -> list[tuple[str, str, str, str]]:
 
 
 def _inventory_actions(root) -> list[str]:
-    """Collect stable action labels shown by Tool-owned buttons.
-
-    Navigation buttons owned by ``ToolWorkflowHeader`` are already documented
-    from the workflow steps, so Back/Next and the numbered step buttons are
-    intentionally excluded here.
-    """
+    """Collect stable action labels shown by Tool-owned buttons."""
     workflow_buttons = set(root.workflow_header.findChildren(QPushButton))
     actions: list[str] = []
     seen: set[str] = set()
@@ -122,7 +156,7 @@ def _inventory_actions(root) -> list[str]:
 
 
 def _inventory_table_headers(root) -> list[str]:
-    """Collect non-empty column labels from tables visible in the Tool."""
+    """Collect non-empty column labels from Tool tables."""
     headers: list[str] = []
     seen: set[str] = set()
     for table in root.findChildren(QTableWidget):
@@ -253,6 +287,7 @@ def _project_state() -> AppState:
 
 
 def synchronize() -> None:
+    _synchronize_requirements()
     app = QApplication.instance() or QApplication([])
     state = _project_state()
     windows = {
