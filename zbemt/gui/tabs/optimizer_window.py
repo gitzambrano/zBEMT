@@ -164,7 +164,7 @@ class OptimizerWindow(QWidget):
             kind_combo = QComboBox()
             kind_combo.addItem("Maximize", "maximize")
             kind_combo.addItem("Minimize", "minimize")
-            tip = ("Choose the engineering result quantity to optimize. "
+            tip = ('"objectives" — choose the engineering result quantity to optimize. '
                    "The GUI keeps engine summary keys internal; advanced custom keys remain available through the Python/CLI interfaces.")
             if i == 2:
                 tip = ('"objectives" — the second objective. An EMPTY '

@@ -309,7 +309,8 @@ class StabilityWindow(QWidget):
         self.preset_combo.addItem("Full set", "full")
         self.preset_combo.addItem("Custom", "custom")
         self.preset_combo.setToolTip(
-            "Selects a practical starting set of perturbation variables and outputs. Custom keeps the current manual selection.")
+            '"analysis_preset" — selects a practical starting set of perturbation '
+            "variables and outputs. Custom keeps the current manual selection.")
         self.preset_combo.currentIndexChanged.connect(self._apply_analysis_preset)
         preset_form.addRow("Analysis:", self.preset_combo)
         right.addWidget(preset_box)

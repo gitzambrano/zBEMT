@@ -200,6 +200,24 @@ FIELD_HELP: dict[str, dict] = {
         "options": None,
         "anchor": "cap-5-5",
     },
+    "analysis_preset": {
+        "title": "Derivative analysis preset",
+        "definition": (
+            "A quick-start selection of perturbation variables and outputs for "
+            "the stability-derivative sweep. The preset changes only the set "
+            "to be evaluated; it does not change the finite-difference method "
+            "or the underlying rotor model."),
+        "unit": "—",
+        "equation": None,
+        "effect": (
+            "Longitudinal selects the axial/longitudinal states and controls; "
+            "lateral-directional selects lateral states and lateral cyclic; "
+            "Controls selects the three rotor controls; Full set enables all "
+            "available perturbations. Custom preserves a manual selection."),
+        "range": "longitudinal | lateral-directional | controls | full set | custom",
+        "options": None,
+        "anchor": "cap-stability",
+    },
     # ---- Geometry Designer (chapter 13) ------------------------------
     "vsweep_param": {
         "title": "Swept geometry parameter",
