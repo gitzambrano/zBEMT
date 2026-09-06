@@ -195,10 +195,12 @@ def _list_block(title: str, values: list[str], css_class: str) -> str:
 
 
 def _tool_block(key: str, window, fields, actions, table_headers) -> str:
-    menu_title = next(
-        title for title, tool_key, _purpose, _requires, _produces in _TOOLS
-        if tool_key == key
-    )
+    menu_title = {
+        "designer": _TOOLS[0][0],
+        "transient": _TOOLS[1][0],
+        "optimizer": _TOOLS[2][0],
+        "stability": _TOOLS[3][0],
+    }[key]
     steps = "".join(
         f"<li><b>{html.escape(title)}</b>: {html.escape(guidance)}</li>"
         for title, guidance in window.workflow_header.steps
