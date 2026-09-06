@@ -12,7 +12,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from tests.helpers import HAS_QT
 
 if HAS_QT:  # pragma: no branch
-    from PyQt6.QtWidgets import QApplication, QCheckBox, QFormLayout
+    from PyQt6.QtWidgets import (
+        QApplication,
+        QCheckBox,
+        QFormLayout,
+        QPushButton,
+        QRadioButton,
+        QTableWidget,
+    )
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -70,7 +77,7 @@ class TestToolsDocumentationLabels(unittest.TestCase):
                     if (label_item is not None and label_item.widget() is not None
                             and hasattr(label_item.widget(), "text")):
                         label = label_item.widget().text()
-                    elif isinstance(widget, QCheckBox):
+                    elif isinstance(widget, (QCheckBox, QRadioButton)):
                         label = widget.text()
                     else:
                         label = field
@@ -83,12 +90,54 @@ class TestToolsDocumentationLabels(unittest.TestCase):
                         self.assertTrue(rows)
                         self.assertTrue(any(_norm(label) in _norm(row) for row in rows))
 
+            for widget_type in (QCheckBox, QRadioButton):
+                for widget in root.findChildren(widget_type):
+                    field = _widget_field(widget)
+                    if not field:
+                        continue
+                    rows = re.findall(
+                        rf'<tr data-field="{re.escape(field)}">(.*?)</tr>',
+                        block,
+                        flags=re.S,
+                    )
+                    with self.subTest(tool=key, field=field,
+                                      label=_norm(widget.text())):
+                        self.assertTrue(rows)
+                        self.assertTrue(any(
+                            _norm(widget.text()) in _norm(row) for row in rows))
+
     def test_guided_step_titles_are_documented(self):
         for key, root in self.windows.items():
             block = _norm(self._block(key))
             for title, _guidance in root.workflow_header.steps:
                 with self.subTest(tool=key, step=title):
                     self.assertIn(_norm(title), block)
+
+    def test_action_labels_are_documented(self):
+        for key, root in self.windows.items():
+            block = _norm(self._block(key))
+            workflow_buttons = set(
+                root.workflow_header.findChildren(QPushButton))
+            for button in root.findChildren(QPushButton):
+                if button in workflow_buttons:
+                    continue
+                label = _norm(button.text())
+                if not label:
+                    continue
+                with self.subTest(tool=key, action=label):
+                    self.assertIn(label, block)
+
+    def test_table_column_labels_are_documented(self):
+        for key, root in self.windows.items():
+            block = _norm(self._block(key))
+            for table in root.findChildren(QTableWidget):
+                for column in range(table.columnCount()):
+                    item = table.horizontalHeaderItem(column)
+                    label = _norm(item.text()) if item is not None else ""
+                    if not label:
+                        continue
+                    with self.subTest(tool=key, table_label=label):
+                        self.assertIn(label, block)
 
     def test_launcher_tasks_are_documented(self):
         match = re.search(
@@ -99,9 +148,12 @@ class TestToolsDocumentationLabels(unittest.TestCase):
         self.assertIsNotNone(match, "missing generated Tools launcher block")
         from zbemt.gui.tool_ux import _TOOLS
         visible = _norm(match.group(1))
-        for title, _key, _purpose, _requires, _produces in _TOOLS:
+        for title, _key, purpose, requires, produces in _TOOLS:
             with self.subTest(task=title):
                 self.assertIn(_norm(title), visible)
+                self.assertIn(_norm(purpose), visible)
+                self.assertIn(_norm(requires), visible)
+                self.assertIn(_norm(produces), visible)
 
 
 if __name__ == "__main__":
