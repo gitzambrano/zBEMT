@@ -195,6 +195,10 @@ def _list_block(title: str, values: list[str], css_class: str) -> str:
 
 
 def _tool_block(key: str, window, fields, actions, table_headers) -> str:
+    menu_title = next(
+        title for title, tool_key, _purpose, _requires, _produces in _TOOLS
+        if tool_key == key
+    )
     steps = "".join(
         f"<li><b>{html.escape(title)}</b>: {html.escape(guidance)}</li>"
         for title, guidance in window.workflow_header.steps
@@ -213,6 +217,8 @@ def _tool_block(key: str, window, fields, actions, table_headers) -> str:
     return (
         f"<!-- TOOL-LABELS:{key} -->\n"
         '<div class="boxed tool-workflow-reference">'
+        f"<b>Open this Tool.</b> Choose <i>Tools</i> → "
+        f"<b>{html.escape(menu_title)}</b> in the Engineering Tools launcher. "
         "<b>Guided workflow in the current GUI.</b> Use the numbered strip "
         "from left to right; the old tab bar is intentionally hidden."
         f"<ol>{steps}</ol>"
