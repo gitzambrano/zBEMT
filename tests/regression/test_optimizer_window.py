@@ -86,7 +86,13 @@ class TestConstruction(OptimizerWindowBase):
 
 class TestNotebookLayout(OptimizerWindowBase):
     def test_study_cost_estimate_is_reachable_on_notebook_screen(self):
-        """The Study page must scroll instead of clipping its last block."""
+        """At notebook size the last Study block is reachable, with or without scroll.
+
+        The guided layout is compact enough that some Qt/font combinations fit the
+        whole Study page at 1100x650.  In that case forcing a scrollbar would make
+        the UI worse.  If the content is taller, the scroll area must expose the
+        bottom instead of clipping it.
+        """
         from PyQt6.QtWidgets import QScrollArea, QTabWidget
 
         self.window.resize(1100, 650)
@@ -97,8 +103,6 @@ class TestNotebookLayout(OptimizerWindowBase):
         area = tabs.widget(0)
         self.assertIsInstance(area, QScrollArea)
         bar = area.verticalScrollBar()
-        self.assertGreater(bar.maximum(), 0,
-                           "the Study page must scroll at 1100x650")
         bar.setValue(bar.maximum())
         QApplication.processEvents()
         top = self.window.cost_label.mapTo(
@@ -157,16 +161,23 @@ class TestRunFillsTheFrontTable(OptimizerWindowBase):
         self.assertEqual([o.key for o in stored.objectives],
                           ["CT", "CP"])
 
-    def test_run_is_blocked_while_the_study_has_errors(self):
-        """Phase 3.1: static findings surface BEFORE solver time."""
-        from unittest.mock import patch as mock_patch
-        from zbemt.gui.workers import OptimizeMultiWorker
+    def test_run_is_blocked_while_a_legacy_study_has_errors(self):
+        """A bad legacy/custom key still blocks before any solver worker starts.
 
-        self._load_project_with_study()
-        # An unknown summary key is the easiest way to make the study
-        # invalid while everything else stays well-formed.
-        self.window.obj_keys[0].setCurrentText("NOT_A_SUMMARY_KEY")
-        self.window._apply_settings()
+        The guided GUI deliberately no longer lets a user type an arbitrary
+        objective key.  Existing saved studies may still contain one, and
+        ``_fill_editor`` preserves it for backward compatibility.  That is the
+        invalid path this regression needs to exercise.
+        """
+        from unittest.mock import patch as mock_patch
+
+        project = self._load_project_with_study()
+        project.optimizations[0].objectives[0] = ObjectiveDef(
+            key="NOT_A_SUMMARY_KEY", kind="maximize")
+        self.window._fill_editor(project.optimizations[0])
+        self.assertEqual(self.window.obj_keys[0].currentData(),
+                         "NOT_A_SUMMARY_KEY")
+
         launched = []
         with mock_patch("zbemt.gui.tabs.optimizer_window."
                          "OptimizeMultiWorker",
@@ -176,7 +187,7 @@ class TestRunFillsTheFrontTable(OptimizerWindowBase):
             with patch_message_box_everywhere("QMessageBox"):
                 self.window._run()
         self.assertEqual(launched, [],
-                          "a study with errors must not reach the worker")
+                         "a study with errors must not reach the worker")
 
 
 if __name__ == "__main__":
