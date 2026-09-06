@@ -1,17 +1,17 @@
-"""Synchronize the Tools chapters of ``docs/documentation.html`` with the GUI.
+"""Synchronize the engineering-Tools documentation with the real GUI.
 
-The four engineering Tools expose a guided workflow and many documented form
-fields.  This script instantiates the real PyQt widgets, inventories their
-configurable labels, verifies that every field resolves to an existing manual
-anchor, writes an exact label reference into each Tool chapter, and refreshes
-screenshots of the current layout.
+The four engineering Tools expose guided workflows, configurable fields and
+user actions. This script instantiates the real PyQt widgets, inventories the
+labels shown by those widgets, verifies that every configurable field resolves
+to an existing manual anchor, writes generated reference blocks into
+``docs/documentation.html`` and refreshes the official screenshots.
 
 Run from the repository root::
 
     QT_QPA_PLATFORM=offscreen python tools/sync_tools_documentation.py
 
 The architecture test ``test_tools_documentation_labels.py`` prevents the
-manual from drifting away from these generated blocks.
+manual from drifting away from the current GUI.
 """
 from __future__ import annotations
 
@@ -22,9 +22,16 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication, QCheckBox, QFormLayout
+from PyQt6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QFormLayout,
+    QPushButton,
+    QRadioButton,
+    QTableWidget,
+)
 
-from tests.helpers import make_studies_project
+from zbemt import geometry
 from zbemt.gui import help_content
 from zbemt.gui.common import AppState
 from zbemt.gui.field_help import _widget_field
@@ -34,7 +41,7 @@ from zbemt.gui.tabs.optimizer_window import OptimizerWindow
 from zbemt.gui.tabs.stability_window import StabilityWindow
 from zbemt.gui.tabs.transient_window import TransientWindow
 from zbemt.gui.tool_ux import ToolsLauncher, _TOOLS
-from zbemt.models import FlightCondition
+from zbemt.models import AirfoilDef, FlightCondition, Project
 
 ROOT = Path(__file__).resolve().parents[1]
 DOC_PATH = ROOT / "docs" / "documentation.html"
@@ -42,12 +49,12 @@ IMAGE_DIR = ROOT / "docs" / "img" / "gui"
 
 
 def _plain(text: str) -> str:
-    """Return the visible text of a Qt/HTML label."""
+    """Return visible plain text for one Qt/HTML string."""
     return " ".join(html.unescape(re.sub(r"<[^>]+>", "", text or "")).split())
 
 
-def _inventory(root) -> list[tuple[str, str, str, str]]:
-    """Collect documented fields using the labels shown by the actual widget."""
+def _inventory_fields(root) -> list[tuple[str, str, str, str]]:
+    """Collect documented fields using labels shown by the actual widget."""
     rows: list[tuple[str, str, str, str]] = []
     seen: set[tuple[str, str]] = set()
 
@@ -80,16 +87,52 @@ def _inventory(root) -> list[tuple[str, str, str, str]]:
             if (label_item is not None and label_item.widget() is not None
                     and hasattr(label_item.widget(), "text")):
                 label = label_item.widget().text()
-            elif isinstance(widget, QCheckBox):
+            elif isinstance(widget, (QCheckBox, QRadioButton)):
                 label = widget.text()
             else:
                 label = field
             add(field, label)
 
-    # Documented checkboxes may live outside QFormLayout.
-    for checkbox in root.findChildren(QCheckBox):
-        add(_widget_field(checkbox), checkbox.text())
+    # Checkboxes/radio buttons can live outside QFormLayout.
+    for widget_type in (QCheckBox, QRadioButton):
+        for widget in root.findChildren(widget_type):
+            add(_widget_field(widget), widget.text())
     return rows
+
+
+def _inventory_actions(root) -> list[str]:
+    """Collect stable action labels shown by Tool-owned buttons.
+
+    Navigation buttons owned by ``ToolWorkflowHeader`` are already documented
+    from the workflow steps, so Back/Next and the numbered step buttons are
+    intentionally excluded here.
+    """
+    workflow_buttons = set(root.workflow_header.findChildren(QPushButton))
+    actions: list[str] = []
+    seen: set[str] = set()
+    for button in root.findChildren(QPushButton):
+        if button in workflow_buttons:
+            continue
+        text = _plain(button.text())
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        actions.append(text)
+    return actions
+
+
+def _inventory_table_headers(root) -> list[str]:
+    """Collect non-empty column labels from tables visible in the Tool."""
+    headers: list[str] = []
+    seen: set[str] = set()
+    for table in root.findChildren(QTableWidget):
+        for column in range(table.columnCount()):
+            item = table.horizontalHeaderItem(column)
+            text = _plain(item.text()) if item is not None else ""
+            if text and text not in seen:
+                seen.add(text)
+                headers.append(text)
+    return headers
 
 
 def _replace_tool_block(document: str, key: str, chapter: str,
@@ -110,7 +153,14 @@ def _replace_tool_block(document: str, key: str, chapter: str,
     return document[:match.end()] + "\n" + block + document[match.end():]
 
 
-def _tool_block(key: str, window, rows) -> str:
+def _list_block(title: str, values: list[str], css_class: str) -> str:
+    if not values:
+        return ""
+    items = "".join(f"<li>{html.escape(value)}</li>" for value in values)
+    return f'<b>{title}</b><ul class="{css_class}">{items}</ul>'
+
+
+def _tool_block(key: str, window, fields, actions, table_headers) -> str:
     steps = "".join(
         f"<li><b>{html.escape(title)}</b>: {html.escape(guidance)}</li>"
         for title, guidance in window.workflow_header.steps
@@ -119,12 +169,12 @@ def _tool_block(key: str, window, rows) -> str:
         '<tr data-field="{}"><td><i>{}</i></td><td><code>{}</code></td>'
         '<td><a href="#{}">{}</a></td></tr>'.format(
             html.escape(field),
-            label,
+            html.escape(_plain(label)),
             html.escape(field),
             html.escape(anchor),
             html.escape(title),
         )
-        for field, label, anchor, title in rows
+        for field, label, anchor, title in fields
     )
     return (
         f"<!-- TOOL-LABELS:{key} -->\n"
@@ -132,12 +182,15 @@ def _tool_block(key: str, window, rows) -> str:
         "<b>Guided workflow in the current GUI.</b> Use the numbered strip "
         "from left to right; the old tab bar is intentionally hidden."
         f"<ol>{steps}</ol>"
-        "<b>Labels in this Tool.</b> This table is generated from the actual "
-        "GUI controls. Each configurable label links to its full explanation "
-        "in this manual."
+        "<b>Configurable labels in this Tool.</b> This table is generated "
+        "from the actual GUI controls. Every configurable label links to its "
+        "full explanation in this manual."
         '<div class="tablewrap"><table><thead><tr><th>GUI label</th>'
         "<th>Field</th><th>Full documentation</th></tr></thead>"
-        f"<tbody>{table_rows}</tbody></table></div></div>\n"
+        f"<tbody>{table_rows}</tbody></table></div>"
+        f'{_list_block("Action labels.", actions, "tool-action-labels")}'
+        f'{_list_block("Table column labels.", table_headers, "tool-table-labels")}'
+        "</div>\n"
         f"<!-- /TOOL-LABELS:{key} -->"
     )
 
@@ -167,14 +220,34 @@ def _launcher_block() -> str:
 
 
 def _project_state() -> AppState:
+    """Build a small valid project without importing the test suite."""
+    geom = geometry.generate_tapered(
+        root_chord_norm=0.10,
+        tip_chord_norm=0.04,
+        twist_root_deg=14.0,
+        twist_tip_deg=2.0,
+        root_cutout_norm=0.15,
+        radius_m=1.0,
+        n_stations=12,
+    )
+    airfoil = AirfoilDef(
+        source="analytical",
+        stall_model="clip",
+        alpha_stall_pos_deg=15.0,
+        alpha_stall_neg_deg=-6.0,
+    )
+    project = Project(
+        name="documentation",
+        geometry=geom,
+        airfoil=airfoil,
+        config=dict(Ne=8, Npsi=12, solver="fixed_point", max_iter=150),
+    )
+    project.saved_cases = [
+        FlightCondition(name="Hover", collective_deg=8.0, rpm=800.0),
+        FlightCondition(name="Cruise", mu_x=0.18, collective_deg=7.0,
+                        rpm=800.0),
+    ]
     state = AppState()
-    project = make_studies_project()
-    if len(project.saved_cases) < 2:
-        project.saved_cases = [
-            FlightCondition(name="Hover", collective_deg=8.0, rpm=800.0),
-            FlightCondition(name="Cruise", mu_x=0.18, collective_deg=7.0,
-                            rpm=800.0),
-        ]
     state.project = project
     return state
 
@@ -191,13 +264,19 @@ def synchronize() -> None:
 
     document = DOC_PATH.read_text(encoding="utf-8")
     for key, (window, chapter) in windows.items():
-        rows = _inventory(window)
-        for field, _label, anchor, _title in rows:
+        fields = _inventory_fields(window)
+        actions = _inventory_actions(window)
+        table_headers = _inventory_table_headers(window)
+        for field, _label, anchor, _title in fields:
             if f'id="{anchor}"' not in document:
                 raise RuntimeError(
                     f"{key}: {field!r} points to missing manual anchor #{anchor}")
         document = _replace_tool_block(
-            document, key, chapter, _tool_block(key, window, rows))
+            document,
+            key,
+            chapter,
+            _tool_block(key, window, fields, actions, table_headers),
+        )
 
     launcher = _launcher_block()
     start = "<!-- TOOLS-LAUNCHER -->"
@@ -218,6 +297,7 @@ def synchronize() -> None:
 
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     launcher_window = ToolsLauncher(state)
+    launcher_window.resize(700, 600)
     launcher_window.show()
     for _ in range(20):
         app.processEvents()
