@@ -82,6 +82,7 @@ from ..common import (
 )
 import dataclasses
 from PyQt6.QtGui import QColor
+from ..tool_ux import ToolWorkflowHeader
 from ..workers import CompareWorker, FnWorker, launch_worker
 
 
@@ -286,6 +287,15 @@ class GeometryDesignerWindow(QWidget):
         self.pages.addTab(in_scroll_area(self._build_variants_page()), "Variants")
         self.pages.addTab(in_scroll_area(self._build_conditions_page()), "Conditions")
         self.pages.addTab(in_scroll_area(self._build_run_page()), "Run && results")
+        self.workflow_header = ToolWorkflowHeader(self.pages, [
+            ("Define variants",
+             "Start with Variation sweep to change one geometry parameter at a time. Use Generate or the manual table only when that is the engineering question."),
+            ("Set conditions",
+             "Choose saved cases, define one operating point, or create a condition sweep. Every geometry is evaluated at exactly these conditions."),
+            ("Review and run",
+             "Read the study summary and case count, then run the comparison and inspect ranking, deltas and overlays."),
+        ])
+        layout.addWidget(self.workflow_header)
         layout.addWidget(self.pages)
 
         self.state.project_changed.connect(self._on_project_changed)
@@ -317,7 +327,14 @@ class GeometryDesignerWindow(QWidget):
         table_column = QVBoxLayout()
         table_column.addWidget(QLabel("Blade geometries to compare:"))
         self.variants_table = QTableWidget(0, len(self._VARIANT_COLUMNS))
-        self.variants_table.setHorizontalHeaderLabels(self._VARIANT_COLUMNS)
+        # Compact two-line display headings keep complete words visible
+        # without changing the column semantics used by the model/export.
+        self.variants_table.setHorizontalHeaderLabels([
+            "Label", "Root chord\nc/R", "Tip chord\nc/R",
+            "Root twist\n[deg]", "Tip twist\n[deg]", "Blades",
+            "Root cutout\nr/R", "Radius\n[m]", "Aspect\nratio",
+            "Solidity", "Extra\noverrides",
+        ])
         # A SHORT tooltip. The long explanation moved to the group title's
         # popup: a six-paragraph tooltip covered the whole table and
         # followed the cursor across every cell, which made the table
@@ -336,8 +353,12 @@ class GeometryDesignerWindow(QWidget):
         # No `setStretchLastSection`: it overrides ResizeToContents on the
         # last column, which put "Extra overrides" back under the knife.
         header.setStretchLastSection(False)
+        header.setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        # Advance whole engineering columns horizontally, so a notebook
+        # viewport never parks in the middle of a header label.
         self.variants_table.setHorizontalScrollMode(
-            QAbstractItemView.ScrollMode.ScrollPerPixel)
+            QAbstractItemView.ScrollMode.ScrollPerItem)
         self.variants_table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows)
         self.variants_table.verticalHeader().setVisible(False)
@@ -377,26 +398,24 @@ class GeometryDesignerWindow(QWidget):
         self.preview_canvas.setMinimumHeight(240)
         preview_column.addWidget(self.preview_canvas, stretch=1)
 
-        # The three columns sit in a SPLITTER, not in fixed shares of the
-        # width. The table carries eleven columns and cannot show them all
-        # at once on a laptop screen, so the reader has to be able to give
-        # it the room -- with fixed shares the only way to read the last
-        # columns was the horizontal scrollbar, and the preview kept a
-        # fifth of the window whether it was being looked at or not.
+        # Keep the parameter builders in one narrow workflow column.
+        # The comparison table and preview share the wide analysis column,
+        # so eleven engineering columns no longer compete with a third
+        # vertical panel for horizontal space.
+        analysis_column = QVBoxLayout()
+        analysis_column.addLayout(table_column, 3)
+        analysis_column.addLayout(preview_column, 2)
         self._variants_splitter = QSplitter(Qt.Orientation.Horizontal)
-        for column, minimum in ((builder_column, 300),
-                                (table_column, 380),
-                                (preview_column, 240)):
+        for column, minimum in ((builder_column, 280),
+                                (analysis_column, 620)):
             holder = QWidget()
             holder.setLayout(column)
             holder.setMinimumWidth(minimum)
             self._variants_splitter.addWidget(holder)
         self._variants_splitter.setChildrenCollapsible(False)
-        # The table gets the slack, because it is the one panel whose
-        # content grows with the comparison.
         self._variants_splitter.setStretchFactor(0, 0)
-        self._variants_splitter.setStretchFactor(1, 3)
-        self._variants_splitter.setStretchFactor(2, 1)
+        self._variants_splitter.setStretchFactor(1, 4)
+        self._variants_splitter.setSizes([300, 760])
         inner.addWidget(self._variants_splitter)
 
         return page
@@ -414,7 +433,7 @@ class GeometryDesignerWindow(QWidget):
         box = QFrame()
         box.setFrameShape(QFrame.Shape.StyledPanel)
         vbox = QVBoxLayout(box)
-        heading = QLabel("Variation sweep")
+        heading = QLabel("Variation sweep — recommended start")
         heading.setStyleSheet("font-weight: bold;")
         vbox.addWidget(heading)
         inner = QWidget()
@@ -1562,17 +1581,22 @@ class GeometryDesignerWindow(QWidget):
     def _build_conditions_page(self) -> QWidget:
         page = QWidget()
         vbox = QVBoxLayout(page)
+        intro = QLabel(
+            "Choose how every geometry will be evaluated. For repeatable engineering comparisons, saved Run Case conditions are usually the clearest starting point.")
+        intro.setWordWrap(True)
+        intro.setStyleSheet("color: gray; margin-bottom: 6px;")
+        vbox.addWidget(intro)
 
         mode_row = QHBoxLayout()
-        self.radio_saved_cases = QRadioButton("Saved cases")
+        self.radio_saved_cases = QRadioButton("Use saved cases")
         self.radio_saved_cases.setToolTip(
             "Runs every case already stored in the project (Run Case > "
             "Save as case) on every variant.")
-        self.radio_single = QRadioButton("Single condition")
+        self.radio_single = QRadioButton("Define one condition")
         self.radio_single.setToolTip(
             "Runs one condition, built from the fields below, on every "
             "variant.")
-        self.radio_sweep = QRadioButton("Sweep")
+        self.radio_sweep = QRadioButton("Create condition sweep")
         self.radio_sweep.setToolTip(
             "Runs one axis through evenly spaced values, on every "
             "variant.")
@@ -1590,6 +1614,7 @@ class GeometryDesignerWindow(QWidget):
         self.conditions_stack.addWidget(self._build_saved_cases_panel())
         self.conditions_stack.addWidget(self._build_single_condition_panel())
         self.conditions_stack.addWidget(self._build_sweep_panel())
+        self.conditions_stack.setCurrentIndex(1)
         # `toggled`, not `idClicked`: checking a radio button from code
         # must switch the panel too, exactly as in Run Batch.
         self.radio_saved_cases.toggled.connect(

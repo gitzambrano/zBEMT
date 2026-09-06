@@ -110,9 +110,13 @@ class TestNotebookLayout(OptimizerWindowBase):
 
 class TestAlgorithmGating(OptimizerWindowBase):
     def test_de_disables_the_sbx_controls_but_keeps_them_visible(self):
-        """PR-2: a control that has nothing to say in a configuration
-        stays on screen and disabled, so the user learns it exists."""
+        """Inside Advanced, inapplicable controls stay visible but disabled.
+
+        The numerical-tuning block is intentionally collapsed until the user
+        asks for it; once open, algorithm-specific controls remain discoverable.
+        """
         self._load_project_with_study()
+        self.window.advanced_search_box.setChecked(True)
         index = self.window.algorithm_combo.findData("de")
         self.window.algorithm_combo.setCurrentIndex(index)
         for spin in (self.window.crossover_spin, self.window.mutation_spin,
