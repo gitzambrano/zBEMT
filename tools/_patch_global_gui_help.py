@@ -10,7 +10,10 @@ import re
 
 
 def sub_once(text: str, pattern: str, replacement: str, label: str) -> str:
-    out, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+    # Use a callable replacement so backslashes in LaTeX/help text (for
+    # example ``\lambda``) are inserted literally instead of being parsed as
+    # replacement-string escapes by ``re.sub``.
+    out, count = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)
     if count != 1:
         raise RuntimeError(f"{label}: expected one match, found {count}")
     return out
