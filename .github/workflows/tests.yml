@@ -115,12 +115,18 @@ jobs:
 
       # Merge evidence rather than documentation art: every main page, every
       # Engineering Tool workflow page, empty/loaded/used states, and several
-      # viewport sizes. The script also drives real Run Case / Run Batch workers
-      # and records basic aerodynamic sanity values in manifest.json.
+      # viewport sizes. The first script drives real Run Case / Run Batch
+      # workers; the second runs every Engineering Tool and captures its
+      # populated result state.
       - name: Generate GUI QA screenshot matrix
         env:
           QT_QPA_PLATFORM: offscreen
         run: python tools/gui_qa_screenshots.py --output artifacts/gui-qa
+
+      - name: Exercise Engineering Tools and capture used states
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/gui_tools_used_screenshots.py --output artifacts/gui-qa/tools-used
 
       - name: Upload GUI QA evidence
         uses: actions/upload-artifact@v6
