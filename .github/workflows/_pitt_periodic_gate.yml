@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Repair patcher preflight and apply product patch
+      - name: Apply product patch and update changed contract
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -42,6 +42,69 @@ jobs:
           p.write_text(t, encoding='utf-8')
           PY
           python tools/_patch_pitt_periodic_case.py
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          # The periodic case path now threads Oye time-march state too, so the
+          # old post-SC12 blanket incompatibility is no longer true.
+          p = Path('zbemt/validation.py')
+          t = p.read_text(encoding='utf-8')
+          pattern = (r'    # --- dynamic stall x UNSTEADY Pitt-Peters outside maneuvers ----------\n'
+                     r'.*?\n    # --- is_propeller changes the default of advance_kind')
+          replacement = '''    # --- dynamic stall + dynamic Pitt-Peters -----------------------------
+    # The fixed periodic case path can march both states together. Oye
+    # time_march is threaded from revolution to revolution; its frequency
+    # formulation remains the algebraic periodic correction at each sample.
+
+    # --- is_propeller changes the default of advance_kind'''
+          t2, n = re.subn(pattern, replacement, t, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit(f'expected one obsolete dynamic-stall compatibility block, got {n}')
+          p.write_text(t2, encoding='utf-8')
+
+          # Update regression tests whose whole purpose was enforcing the old
+          # prohibition. We assert the new contract instead.
+          p = Path('tests/regression/test_validation.py')
+          t = p.read_text(encoding='utf-8')
+          old1 = '''    def test_dynamic_stall_with_pitt_peters_unsteady_is_error(self):
+        """Narrowed by SC-12: the rejection holds on the CASE path."""
+        cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))
+        a = AirfoilDef(use_dynamic_stall=True, stall_model="clip")
+        issues = validation.validate_config(cfg, a)
+        self.assertIn("error", levels(issues))
+'''
+          new1 = '''    def test_dynamic_stall_with_pitt_peters_unsteady_is_allowed_on_case_path(self):
+        """A fixed periodic case can march Oye and Pitt-Peters together."""
+        cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))
+        a = AirfoilDef(use_dynamic_stall=True, dynamic_stall_method="time_march")
+        issues = validation.validate_config(cfg, a)
+        self.assertNotIn("error", levels(issues))
+'''
+          old2 = '''    def test_unsteady_inflow_stays_rejected_on_the_case_path(self):
+        """SC-12 narrowed the old blanket ban: the unsteady inflow is
+        still an error for an isolated case, with the maneuver as the
+        named remedy."""
+        cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))
+        issues = validation.validate_config(cfg, AirfoilDef())
+        errors = [i.message for i in issues if i.level == "error"]
+        self.assertTrue(any("maneuver" in m.lower() for m in errors),
+                        str(errors))
+'''
+          new2 = '''    def test_unsteady_inflow_is_allowed_on_the_case_path(self):
+        """An isolated case runs a constant-condition periodic time march."""
+        cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))
+        issues = validation.validate_config(cfg, AirfoilDef())
+        self.assertNotIn("error", levels(issues))
+        self.assertTrue(any("fixed case" in i.message.lower() for i in issues),
+                        str([i.message for i in issues]))
+'''
+          for old, new in ((old1, new1), (old2, new2)):
+              if old not in t:
+                  raise SystemExit('legacy validation test pattern not found')
+              t = t.replace(old, new, 1)
+          p.write_text(t, encoding='utf-8')
+          PY
           python -m py_compile \
             zbemt/bemt.py zbemt/studies.py zbemt/validation.py \
             zbemt/gui/tabs/config.py zbemt/gui/help_content.py zbemt/gui/help_blocks.py
@@ -76,16 +139,19 @@ jobs:
           project = api.open_project('projects/starter_rotor')
           state.set_project(project)
           tab = ConfigMotorTab(state)
+          tab.show()
           tab.cfg_inflow_family.setCurrentText('pitt_peters')
           values = [tab.cfg_inflow_coupling.itemData(i)
                     for i in range(tab.cfg_inflow_coupling.count())]
           assert values == ['steady', 'unsteady'], values
           idx = tab.cfg_inflow_coupling.findData('unsteady')
           tab.cfg_inflow_coupling.setCurrentIndex(idx)
+          app.processEvents()
           assert tab._inflow_field_model_from_widgets() == 'pitt_peters_unsteady'
           assert tab.cfg_pitt_peters_time_march_revolutions.isVisibleTo(tab)
           assert tab.cfg_pitt_peters_time_march_avg_last.isVisibleTo(tab)
           print('Pitt-Peters GUI exposes Steady and Dynamic (time march)')
+          tab.close()
           app.quit()
           PY
       - name: Semantic documentation gate
@@ -116,6 +182,7 @@ jobs:
             zbemt/gui/help_blocks.py \
             docs/documentation.html \
             tests/regression/test_pitt_peters_periodic_case.py \
+            tests/regression/test_validation.py \
             tests/suite_manifest.json
           git commit -m 'feat: time-march Pitt-Peters in fixed cases'
           git push origin HEAD:inflow-global-models
