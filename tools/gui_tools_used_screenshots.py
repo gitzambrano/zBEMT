@@ -138,11 +138,11 @@ def _stability(rec: Recorder, window, project) -> None:
     from tests import helpers
     from zbemt.models import DerivativeRequest, FlightCondition
 
+    # A rigid rotor is enough for a real heave/control derivative gate and
+    # keeps this UX audit focused on the window rather than on flap convergence.
     condition = FlightCondition(
         name="qa derivatives", mu_x=0.0, collective_deg=8.0, rpm=600.0)
     project.saved_cases = [condition]
-    project.geometry.dynamics.flap_model = "offset"
-    project.geometry.dynamics.hinge_offset_norm = 0.08
     project.derivatives = [DerivativeRequest(
         name="QA real derivatives",
         condition=condition,
