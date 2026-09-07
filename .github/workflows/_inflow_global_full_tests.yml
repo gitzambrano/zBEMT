@@ -1,5 +1,6 @@
 name: inflow global models full regression
 
+# Final feature-branch full-suite gate; remove this temporary workflow before merge.
 on:
   push:
     branches: [inflow-global-models]
