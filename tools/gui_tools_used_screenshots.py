@@ -109,7 +109,7 @@ def _optimizer(rec: Recorder, window, project) -> None:
                    DesignVariable(param="tip_chord_norm", lower=0.040,
                                   upper=0.070)],
         algorithm="nsga2",
-        population=4,
+        population=8,
         generations=1,
         seed=200809,
         condition=condition,
@@ -215,6 +215,12 @@ def _transient(rec: Recorder, window, project) -> None:
     tool.hide()
 
 
+def _fresh_project(tmp: str, name: str):
+    root = Path(tmp) / name
+    root.mkdir(parents=True, exist_ok=True)
+    return _make_fast_rotor_project(str(root))
+
+
 def generate(destination: Path) -> Path:
     app = _configure_application()
     from zbemt.gui.app import MainWindow
@@ -226,11 +232,11 @@ def generate(destination: Path) -> Path:
     _settle(app)
 
     with tempfile.TemporaryDirectory(prefix="zbemt_tools_qa_") as tmp:
-        # Fresh projects keep state from one Tool from contaminating another.
-        _designer(rec, window, _make_fast_rotor_project(tmp))
-        _optimizer(rec, window, _make_fast_rotor_project(tmp))
-        _stability(rec, window, _make_fast_rotor_project(tmp))
-        _transient(rec, window, _make_fast_rotor_project(tmp))
+        # Fresh on-disk roots keep each Tool's persistence and state isolated.
+        _designer(rec, window, _fresh_project(tmp, "designer"))
+        _optimizer(rec, window, _fresh_project(tmp, "optimizer"))
+        _stability(rec, window, _fresh_project(tmp, "stability"))
+        _transient(rec, window, _fresh_project(tmp, "transient"))
 
     window.hide()
     _settle(app)
