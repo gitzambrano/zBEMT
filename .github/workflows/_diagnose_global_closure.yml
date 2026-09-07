@@ -1,0 +1,92 @@
+name: diagnose global inflow closure
+
+on:
+  push:
+    branches: [inflow-global-models]
+    paths: [".github/workflows/_diagnose_global_closure.yml"]
+  workflow_dispatch:
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e .
+      - name: Diagnose Picard convergence at low mu
+        run: |
+          python - <<'PY'
+          import numpy as np
+          from dataclasses import replace
+          import zbemt.bemt as b
+
+          rgeom = np.array([0.20, 0.45, 0.70, 1.00])
+          rotor = b.Rotor(R=1.4, Nb=4, Omega_rpm=1000.0,
+                          r_root_norm_geom=0.20, r_tip_norm_geom=1.0,
+                          r_geom=rgeom, chord_geom=np.full_like(rgeom, 0.20),
+                          theta_geom_deg=np.full_like(rgeom, 12.0))
+          af = b.AnalyticalAirfoil(cl_alpha=5.7, cd0=0.016, k=0.0, stall_model="linear")
+          mu = 0.04
+          cfg = b.BEMTConfig(Ne=36, Npsi=72, inflow_field_model="coleman_global",
+                             prandtl_loss_mode="off", use_compressibility=False,
+                             reverse_flow_model="simple_flip", solver="newton",
+                             max_iter=1000, tol=1e-7, relax=0.4, collect_history=False)
+          cfg_mean = replace(cfg, inflow_field_model="glauert_local", collect_history=False)
+
+          r0 = rotor.r_root_norm_geom + cfg.integration_offset
+          r1 = rotor.r_tip_norm_geom - cfg.integration_offset
+          rn = np.linspace(r0, r1, cfg.Ne)
+          ps = np.linspace(0, 2*np.pi*(1-1/cfg.Npsi), cfg.Npsi)
+          RN, PSI = np.meshgrid(rn, ps, indexing="ij")
+          RD = RN * rotor.R
+          chord, theta = rotor.chord_theta_at(rn)
+          C = np.repeat(chord[:,None], cfg.Npsi, axis=1)
+          TH = np.repeat(theta[:,None], cfg.Npsi, axis=1)
+          lambda_z = 0.0
+
+          def residual_local(lam):
+              return b.element_state(lam, RN, PSI, RD, C, TH, mu, lambda_z,
+                                     rotor.Nb, rotor.Omega, rotor.OmegaR, af, cfg_mean,
+                                     rotor.r_root_norm_geom, rotor.r_tip_norm_geom)
+          seed_guess = b._initial_guess(rotor, af, rn, cfg.Npsi)
+          seed_lam, *_ = b.solve_newton(residual_local, seed_guess, cfg_mean,
+                                        R_NORM=RN, PSI=PSI, mu_x=mu)
+          xseed = np.mean(seed_lam, axis=1)
+
+          def field(x):
+              lm = float(b._trapz(x*rn, rn)/b._trapz(rn, rn))
+              kx, ky = b._inflow_harmonics("coleman", mu, np.array([lm]))
+              H = 1.0 + float(kx[0])*RN*np.cos(PSI) + float(ky[0])*RN*np.sin(PSI)
+              return np.clip(x[:,None]*H, -0.5, 0.5)
+
+          def g(x):
+              st = b.element_state(field(x), RN, PSI, RD, C, TH, mu, lambda_z,
+                                   rotor.Nb, rotor.Omega, rotor.OmegaR, af, cfg_mean,
+                                   rotor.r_root_norm_geom, rotor.r_tip_norm_geom)
+              return np.clip(np.mean(st["lambda_i_next"], axis=1), -0.5, 0.5)
+
+          for relax in (0.2, 0.4, 0.6, 0.8, 1.0):
+              x = xseed.copy()
+              vals=[]
+              for it in range(1,1001):
+                  y=g(x); rv=y-x; res=float(np.max(np.abs(rv)))
+                  if it in (1,2,3,5,10,20,40,80,120,160,240,400,600,800,1000):
+                      vals.append((it,res,int(np.argmax(np.abs(rv))),float(rv[np.argmax(np.abs(rv))])))
+                  if res < 1e-7:
+                      vals.append((it,res,int(np.argmax(np.abs(rv))),float(rv[np.argmax(np.abs(rv))])))
+                      break
+                  x = np.clip(x + relax*rv, -0.5, 0.5)
+              print("RELAX", relax, "LAST", vals[-1], "TRACE", vals)
+              y=g(x); rv=y-x
+              idx=np.argsort(np.abs(rv))[-6:][::-1]
+              print("WORST", [(int(i), float(rn[i]), float(rv[i])) for i in idx])
+          PY
