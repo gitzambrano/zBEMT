@@ -6,6 +6,7 @@ on:
     paths:
       - "zbemt/bemt.py"
       - "tests/regression/test_global_inflow_models.py"
+      - "tests/suite_manifest.json"
       - ".github/workflows/_inflow_global_full_tests.yml"
   workflow_dispatch:
 
