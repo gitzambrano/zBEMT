@@ -6,11 +6,12 @@ from pathlib import Path
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
-    QAbstractButton,
     QComboBox,
     QGroupBox,
     QLabel,
+    QPushButton,
     QScrollArea,
+    QToolButton,
 )
 
 from zbemt import api
@@ -26,8 +27,23 @@ def _plain(text: str) -> bool:
     return bool(text.strip()) and '<' not in text and '>' not in text
 
 
+def _style_width(widget) -> int:
+    """Qt/QSS-aware minimum width needed by a widget.
+
+    sizeHint includes the active font, QSS padding/frame and icon. Custom
+    controls such as field_help._RichToolButton override it to the exact
+    QTextDocument width they paint, which is more accurate than adding a
+    generic pixel allowance to font metrics.
+    """
+    return max(widget.sizeHint().width(), widget.minimumSizeHint().width(),
+               widget.minimumWidth())
+
+
 def _clip_findings(root) -> list[str]:
     findings: list[str] = []
+
+    # Plain QLabel text: word-wrapped or rich labels intentionally use their
+    # own layout/document and are not one-line clipping candidates.
     for label in root.findChildren(QLabel):
         if not label.isVisibleTo(root) or label.wordWrap() or not _plain(label.text()):
             continue
@@ -35,26 +51,53 @@ def _clip_findings(root) -> list[str]:
         have = label.contentsRect().width()
         if need > have + 2:
             findings.append(f'QLabel {label.text()!r}: needs {need}px, has {have}px')
-    for button in root.findChildren(QAbstractButton):
+
+    # QPushButton sizeHint is style-aware after MainWindow.show()/processEvents.
+    # Compare the whole widget rectangle because sizeHint includes its frame.
+    for button in root.findChildren(QPushButton):
         if not button.isVisibleTo(root) or not button.text().strip():
             continue
-        need = button.fontMetrics().horizontalAdvance(button.text()) + 22
-        have = button.contentsRect().width()
+        need = _style_width(button)
+        have = button.width()
+        if need > have + 2:
+            findings.append(f'QPushButton {button.text()!r}: needs {need}px, has {have}px')
+
+    # Matplotlib's NavigationToolbar uses QToolButtons whose QAction text is
+    # Home/Back/Zoom/etc. but whose visible presentation is icon-only. There
+    # is no text to clip in that style. Text-bearing tool buttons (including
+    # the custom HTML clickable field labels) are checked against their own
+    # sizeHint, so their exact paint implementation defines the requirement.
+    for button in root.findChildren(QToolButton):
+        if not button.isVisibleTo(root) or not button.text().strip():
+            continue
+        if button.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonIconOnly:
+            continue
+        need = _style_width(button)
+        have = button.width()
         if need > have + 2:
             findings.append(f'{type(button).__name__} {button.text()!r}: needs {need}px, has {have}px')
+
+    # Combo sizeHint includes arrow/padding and the longest option after QSS.
+    # Respect an intentional maximumWidth cap but make sure the current text
+    # itself still fits inside the editable/content rectangle.
     for combo in root.findChildren(QComboBox):
         if not combo.isVisibleTo(root):
             continue
         text = combo.currentText()
-        need = combo.fontMetrics().horizontalAdvance(text) + 42
-        have = combo.contentsRect().width()
-        if text and need > have + 2:
-            findings.append(f'QComboBox {text!r}: needs {need}px, has {have}px')
+        if not text:
+            continue
+        text_need = combo.fontMetrics().horizontalAdvance(text) + 8
+        text_have = combo.contentsRect().width() - 28  # arrow + right padding
+        if text_need > text_have + 2:
+            findings.append(f'QComboBox {text!r}: text needs {text_need}px, has {text_have}px')
+
     for box in root.findChildren(QGroupBox):
         if not box.isVisibleTo(root) or not box.title():
             continue
-        need = box.fontMetrics().horizontalAdvance(box.title()) + 32
-        have = box.contentsRect().width()
+        # A group title is drawn by the style on the frame; sizeHint is not a
+        # title metric, so keep a small measured allowance for frame margins.
+        need = box.fontMetrics().horizontalAdvance(box.title()) + 18
+        have = box.width()
         if need > have + 2:
             findings.append(f'QGroupBox {box.title()!r}: needs {need}px, has {have}px')
     return findings
