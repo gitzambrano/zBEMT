@@ -42,8 +42,6 @@ def _style_width(widget) -> int:
 def _clip_findings(root) -> list[str]:
     findings: list[str] = []
 
-    # Plain QLabel text: word-wrapped or rich labels intentionally use their
-    # own layout/document and are not one-line clipping candidates.
     for label in root.findChildren(QLabel):
         if not label.isVisibleTo(root) or label.wordWrap() or not _plain(label.text()):
             continue
@@ -52,8 +50,6 @@ def _clip_findings(root) -> list[str]:
         if need > have + 2:
             findings.append(f'QLabel {label.text()!r}: needs {need}px, has {have}px')
 
-    # QPushButton sizeHint is style-aware after MainWindow.show()/processEvents.
-    # Compare the whole widget rectangle because sizeHint includes its frame.
     for button in root.findChildren(QPushButton):
         if not button.isVisibleTo(root) or not button.text().strip():
             continue
@@ -62,11 +58,6 @@ def _clip_findings(root) -> list[str]:
         if need > have + 2:
             findings.append(f'QPushButton {button.text()!r}: needs {need}px, has {have}px')
 
-    # Matplotlib's NavigationToolbar uses QToolButtons whose QAction text is
-    # Home/Back/Zoom/etc. but whose visible presentation is icon-only. There
-    # is no text to clip in that style. Text-bearing tool buttons (including
-    # the custom HTML clickable field labels) are checked against their own
-    # sizeHint, so their exact paint implementation defines the requirement.
     for button in root.findChildren(QToolButton):
         if not button.isVisibleTo(root) or not button.text().strip():
             continue
@@ -77,9 +68,6 @@ def _clip_findings(root) -> list[str]:
         if need > have + 2:
             findings.append(f'{type(button).__name__} {button.text()!r}: needs {need}px, has {have}px')
 
-    # Combo sizeHint includes arrow/padding and the longest option after QSS.
-    # Respect an intentional maximumWidth cap but make sure the current text
-    # itself still fits inside the editable/content rectangle.
     for combo in root.findChildren(QComboBox):
         if not combo.isVisibleTo(root):
             continue
@@ -87,15 +75,13 @@ def _clip_findings(root) -> list[str]:
         if not text:
             continue
         text_need = combo.fontMetrics().horizontalAdvance(text) + 8
-        text_have = combo.contentsRect().width() - 28  # arrow + right padding
+        text_have = combo.contentsRect().width() - 28
         if text_need > text_have + 2:
             findings.append(f'QComboBox {text!r}: text needs {text_need}px, has {text_have}px')
 
     for box in root.findChildren(QGroupBox):
         if not box.isVisibleTo(root) or not box.title():
             continue
-        # A group title is drawn by the style on the frame; sizeHint is not a
-        # title metric, so keep a small measured allowance for frame margins.
         need = box.fontMetrics().horizontalAdvance(box.title()) + 18
         have = box.width()
         if need > have + 2:
@@ -154,7 +140,6 @@ def main() -> None:
 
     _audit_inflow_switching(config, app)
 
-    # Configure the two time-marching models through the GUI itself.
     window.tabs.setCurrentIndex(3)
     config.cfg_inflow_family.setCurrentText('pitt_peters')
     _set_combo_data(config.cfg_inflow_coupling, 'unsteady')
@@ -177,7 +162,6 @@ def main() -> None:
     ):
         assert widget.isVisibleTo(config), f'{widget} not visible in dynamic Pitt-Peters'
 
-    # Steady must hide only the time-march rows, not the general Pitt-Peters box.
     _set_combo_data(config.cfg_inflow_coupling, 'steady')
     app.processEvents()
     assert config.pitt_peters_box.isVisibleTo(config)
@@ -185,7 +169,6 @@ def main() -> None:
     _set_combo_data(config.cfg_inflow_coupling, 'unsteady')
     app.processEvents()
 
-    # Dynamic stall time march through the Airfoil GUI.
     window.tabs.setCurrentIndex(2)
     if airfoil.stall_model_combo.findText('clip') >= 0:
         airfoil.stall_model_combo.setCurrentText('clip')
@@ -208,7 +191,6 @@ def main() -> None:
         window.resize(width, height)
         app.processEvents()
 
-        # Config / Pitt-Peters Dynamic screenshot and checks.
         window.tabs.setCurrentIndex(3)
         app.processEvents()
         for area in config.findChildren(QScrollArea):
@@ -219,7 +201,6 @@ def main() -> None:
         all_findings.extend(f'{size_key}/config: {f}' for f in findings)
         assert window.grab().save(str(OUT / f'{size_key}-config-pitt-dynamic.png'))
 
-        # Airfoil / Oye Time march screenshot and checks.
         window.tabs.setCurrentIndex(2)
         app.processEvents()
         for area in airfoil.findChildren(QScrollArea):
@@ -237,7 +218,12 @@ def main() -> None:
         raise AssertionError('GUI clipping/layout findings:\n' + '\n'.join(all_findings))
 
     print(json.dumps(report, indent=2))
+    # GUI interaction intentionally dirties the in-memory project. Mark it
+    # clean only for shutdown so MainWindow.closeEvent does not open the
+    # Save/Discard modal and block a headless audit after all checks passed.
+    window.state.mark_saved()
     window.close()
+    app.processEvents()
     app.quit()
 
 
