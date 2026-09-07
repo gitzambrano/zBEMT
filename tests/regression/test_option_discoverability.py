@@ -141,7 +141,6 @@ class TestProgressiveDisclosure(unittest.TestCase):
     def test_global_empirical_inflow_models_are_selectable_and_round_trip(self):
         config = self._tab("Config")
         cases = {
-            "glauert_global": ("glauert", "global"),
             "coleman_global": ("coleman", "global"),
             "coleman_feingold_global": ("coleman_feingold", "global"),
             "drees_global": ("drees", "global"),
@@ -152,6 +151,15 @@ class TestProgressiveDisclosure(unittest.TestCase):
                 self.assertEqual(config.cfg_inflow_family.currentText(), family)
                 self.assertEqual(config.cfg_inflow_coupling.currentData(), coupling)
                 self.assertEqual(config._inflow_field_model_from_widgets(), field_model)
+
+    def test_glauert_does_not_offer_a_fictitious_global_variant(self):
+        config = self._tab("Config")
+        config.cfg_inflow_family.setCurrentText("glauert")
+        self.app.processEvents()
+        values = [config.cfg_inflow_coupling.itemData(i)
+                  for i in range(config.cfg_inflow_coupling.count())]
+        self.assertEqual(values, ["local"])
+        self.assertEqual(config._inflow_field_model_from_widgets(), "glauert_local")
 
     def test_coleman_feingold_does_not_offer_a_fictitious_local_variant(self):
         config = self._tab("Config")

@@ -1962,15 +1962,14 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Inflow Field Model",
         "definition": (
             "Selects both the inflow family and the coupling used to build the induced-velocity field.\n\n"
-            "Local empirical variants couple the wake law to the local BEMT inflow. Global variants use one disk-wide wake-skew condition and close the radial mean inflow against the full two-dimensional disk loading."
+            "Glauert is the axisymmetric annular-momentum reference. Coleman and Drees may couple their skewed-wake law locally or use one disk-wide wake condition; Coleman-Feingold is global only. Global variants close the radial mean inflow against the full two-dimensional disk loading."
         ),
         "unit": "—",
         "equation": r"\lambda_i(r,\psi)=\lambda_0(r)\,[1+K_x(r/R)\cos\psi+K_y(r/R)\sin\psi]",
         "effect": "The choice changes the azimuthal induced-velocity distribution and therefore the integrated hub forces, moments, induced power and local blade loading in forward flight. All empirical global variants reduce to the axisymmetric solution in hover.",
         "range": "one of the implemented inflow_field_model values",
         "options": {
-            "glauert_local": "Axisymmetric Glauert/annular BEMT with local coupling.",
-            "glauert_global": "Axisymmetric Glauert law evaluated through the global radial closure.",
+            "glauert_local": "Axisymmetric Glauert/annular BEMT reference. There is no separate global Glauert wake model because Kx=Ky=0.",
             "coleman_local": "Coleman wake-skew correction coupled to the local BEMT field.",
             "coleman_global": "Classical Coleman longitudinal gradient using one disk-wide Kx and Ky=0.",
             "coleman_feingold_global": "Coleman-Feingold global law: Kx=(15π/32) μ/(sqrt(μ²+λ²)+|λ|), Ky=-2μ.",

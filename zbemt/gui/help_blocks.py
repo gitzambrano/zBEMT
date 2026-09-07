@@ -300,7 +300,7 @@ BLOCK_HELP: dict[str, dict] = {
             "\n\n"
             r"$$\lambda_i(r,\psi)=\lambda_0(r)\left[1+K_x\,x\cos\psi+K_y\,x\sin\psi\right],\qquad x=r/R$$",
             "<b>Local versus global.</b> In a local formulation, the empirical wake-skew law is coupled to the local BEMT inflow field. In a global formulation, one disk-wide pair (K<sub>x</sub>, K<sub>y</sub>) is computed from one global wake condition. The radial mean λ<sub>0</sub>(r) is then closed iteratively against the loads evaluated on the complete two-dimensional (r,ψ) disk. The global model therefore does not compute a different K at every element.",
-            "<b>Glauert.</b> K<sub>x</sub>=K<sub>y</sub>=0. Local and global forms are available; with no harmonic gradient they provide the axisymmetric reference coupling.",
+            "<b>Glauert.</b> K<sub>x</sub>=K<sub>y</sub>=0. It is the axisymmetric annular-momentum reference and therefore has no separate Global choice: without a first-harmonic wake gradient, a second global wake model would only rename a numerical closure, not add new physics.",
             "<b>Coleman global.</b> Uses the classical Coleman longitudinal first harmonic and K<sub>y</sub>=0. The same disk-wide K<sub>x</sub> applies at every radial/azimuthal station.",
             "<b>Coleman-Feingold global.</b> This is a distinct global model, not an alias of Coleman:"
             "\n\n"

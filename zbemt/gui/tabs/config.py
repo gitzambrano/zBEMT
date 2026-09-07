@@ -39,12 +39,13 @@ from ..widgets import ScientificSpinBox
 # =============================================================================
 
 class ConfigMotorTab(QWidget):
-    # Empirical inflow families may be solved either with their local
-    # element/ring coupling or with a disk-wide GLOBAL first-harmonic field.
+    # Skewed-wake empirical families may use either local coupling or a
+    # disk-wide GLOBAL first-harmonic field. Glauert is the axisymmetric
+    # annular-momentum reference and has no distinct global harmonic law.
     # Coleman-Feingold exists only as a global empirical model. Pitt-Peters
     # keeps its own finite-state formulation and is steady on the case path.
     _AVAILABLE_COUPLINGS = {
-        "glauert": ("local", "global"),
+        "glauert": ("local",),
         "coleman": ("local", "global"),
         "coleman_feingold": ("global",),
         "drees": ("local", "global"),

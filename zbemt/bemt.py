@@ -269,8 +269,8 @@ class BEMTConfig:
     # ones (for example "coleman_unsteady", "pitt_peters_coleman") become
     # unrepresentable.
     inflow_field_model: str = "coleman_local"
-    # Valid values: glauert_local | glauert_global | coleman_local |
-    # coleman_global | coleman_feingold_global | drees_local | drees_global |
+    # Valid values: glauert_local | coleman_local | coleman_global |
+    # coleman_feingold_global | drees_local | drees_global |
     # pitt_peters_steady | pitt_peters_unsteady (this last one is not solved
     # see `run_sweep_unsteady_pitt_peters`).
 
@@ -1562,7 +1562,6 @@ def _inflow_harmonics(model: str, mu_x: float, lambda_total: np.ndarray):
 # =============================================================================
 _INFLOW_FIELD_MODELS: dict[str, dict] = {
     "glauert_local":        dict(harmonic="glauert", coupling="local",       unsteady=False),
-    "glauert_global":       dict(harmonic="glauert", coupling="global",      unsteady=False),
     "coleman_local":        dict(harmonic="coleman", coupling="local",       unsteady=False),
     "coleman_global":       dict(harmonic="coleman", coupling="global",      unsteady=False),
     "coleman_feingold_global": dict(harmonic="coleman_feingold", coupling="global", unsteady=False),

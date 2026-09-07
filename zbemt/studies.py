@@ -100,7 +100,7 @@ def _to_rotor(geom: RotorGeometryDef, collective_deg: float = 0.0,
 
 
 _OLD_INFLOW_MODEL_TO_FIELD = {
-    ("glauert", "local"): "glauert_local", ("glauert", "global"): "glauert_global",
+    ("glauert", "local"): "glauert_local", ("glauert", "global"): "glauert_local",
     ("coleman", "local"): "coleman_local", ("coleman", "global"): "coleman_global",
     ("drees", "local"): "drees_local", ("drees", "global"): "drees_global",
     ("glauert", "pitt_peters"): "pitt_peters_steady", ("coleman", "pitt_peters"): "pitt_peters_steady",
@@ -122,6 +122,11 @@ def _migrate_config_dict(config_dict: dict) -> dict:
         migrated["prandtl_loss_mode"] = "both" if old_bool else "off"
 
     if "inflow_field_model" in migrated:
+        # Legacy compatibility: Glauert has no distinct global harmonic
+        # formulation. A short-lived GUI exposed ``glauert_global``; map
+        # it to the single physical axisymmetric Glauert model.
+        if migrated["inflow_field_model"] == "glauert_global":
+            migrated["inflow_field_model"] = "glauert_local"
         return migrated
     if "inflow_model" not in migrated and "inflow_coupling" not in migrated:
         return migrated

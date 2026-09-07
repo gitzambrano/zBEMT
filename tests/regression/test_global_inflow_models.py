@@ -67,6 +67,17 @@ class GlobalInflowModelTests(unittest.TestCase):
         maps = bemt.solve_bemt(rotor, self.airfoil(), cfg, mu_x=mu, Vz=vz)
         return rotor, cfg, maps, bemt.aggregate_results(rotor, cfg, maps)
 
+    def test_legacy_glauert_global_migrates_to_axisymmetric_glauert(self):
+        from zbemt.studies import _migrate_config_dict
+        self.assertEqual(
+            _migrate_config_dict({"inflow_field_model": "glauert_global"})["inflow_field_model"],
+            "glauert_local",
+        )
+        self.assertEqual(
+            _migrate_config_dict({"inflow_model": "glauert", "inflow_coupling": "global"})["inflow_field_model"],
+            "glauert_local",
+        )
+
     def test_coleman_feingold_gradient_matches_johnson_ndarc_form(self):
         mu = 0.23
         lam = np.array([0.061])
