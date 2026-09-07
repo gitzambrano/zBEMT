@@ -56,7 +56,6 @@ jobs:
 
           p.write_text(t, encoding='utf-8')
           PY
-          python tools/field_index.py --write
       - name: Documentation regression
         run: |
           python -m pip install -e '.[dev]'
