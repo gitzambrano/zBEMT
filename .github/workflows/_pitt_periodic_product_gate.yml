@@ -1,5 +1,6 @@
 name: Pitt-Peters periodic product gate
 
+# rerun after documentation CLI-path correction
 on:
   push:
     branches: [inflow-global-models]
