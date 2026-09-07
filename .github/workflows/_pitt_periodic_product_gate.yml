@@ -1,6 +1,6 @@
 name: Pitt-Peters periodic product gate
 
-# Style-aware GUI audit: use Qt's own size hints for QSS/custom controls.
+# Style-aware GUI audit with non-interactive shutdown after all checks.
 on:
   push:
     branches: [inflow-global-models]
