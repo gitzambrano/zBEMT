@@ -25,13 +25,26 @@ jobs:
           from pathlib import Path
           p = Path('tools/_patch_pitt_periodic_case.py')
           t = p.read_text(encoding='utf-8')
-          old = "    '    marches.\\n',\n    '    ``inflow_path`` selects which execution path the config serves:"
-          new = "    '    marches.\\\"\\\"\\\"\\n',\n    '    ``inflow_path`` selects which execution path the config serves:"
-          if old not in t:
-              raise SystemExit('validation docstring preflight pattern not found')
-          p.write_text(t.replace(old, new, 1), encoding='utf-8')
+          repairs = [
+              (
+                  "    '    marches.\\n',\n    '    ``inflow_path`` selects which execution path the config serves:",
+                  "    '    marches.\\\"\\\"\\\"\\n',\n    '    ``inflow_path`` selects which execution path the config serves:",
+              ),
+              (
+                  "    '    formulation transports the inflow state along a changing trajectory.\\n',\n)",
+                  "    '    formulation transports the inflow state along a changing trajectory.\\\"\\\"\\\"\\n',\n)",
+              ),
+          ]
+          for old, new in repairs:
+              if old not in t:
+                  raise SystemExit(f'patcher preflight pattern not found: {old[:90]}')
+              t = t.replace(old, new, 1)
+          p.write_text(t, encoding='utf-8')
           PY
           python tools/_patch_pitt_periodic_case.py
+          python -m py_compile \
+            zbemt/bemt.py zbemt/studies.py zbemt/validation.py \
+            zbemt/gui/tabs/config.py zbemt/gui/help_content.py zbemt/gui/help_blocks.py
       - name: Install test environment
         run: |
           sudo apt-get update
