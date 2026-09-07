@@ -6259,16 +6259,16 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   in air the front has already accelerated. The induced velocity becomes a field varying with both
                   radius and azimuth, and this setting chooses how that field is represented.</p>
 
-                <p><b>The mathematics.</b> Three of the four families write the inflow as a mean value with a first
-                  harmonic superimposed,</p>
+                <p><b>The mathematics.</b> The empirical skewed-wake formulations write the induced inflow as a radial mean with a first
+        harmonic superimposed,</p>
 
                 <div class="eqn">$$\lambda_i(r,\psi)=\lambda_{i,0}\left[1+K_x\,x\cos\psi+K_y\,x\sin\psi\right],
                   \qquad x=\frac{r}{R},$$</div>
 
-                <p>and differ only in what they use for the weights. The $\cos\psi$ term is the front-to-back
-                  variation, and the $\sin\psi$ term the left-to-right one. In all three, the annular momentum balance
-                  supplies the mean $\lambda_{i,0}$, and the harmonic is then applied to it in closed
-                  form, which is why they cost almost nothing.</p>
+                <p>The $\cos\psi$ term is the front-to-back variation and the $\sin\psi$ term the left-to-right one.
+        The empirical families differ in the laws used for $K_x$ and $K_y$ and in how those laws are coupled.
+        Local variants evaluate the skew correction through the local BEMT coupling. Global variants use one
+        disk-wide wake condition and iterate the radial mean inflow against the complete two-dimensional disk loading.</p>
 
                 <p>The choice acts on how the inflow field is built, before the element loads are integrated. It
                   does not change the airfoil polar, the blade geometry, or the definitions of $C_T$ and $C_Q$.</p>
@@ -6315,9 +6315,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   residual tolerance is met or the configured iteration limit is reached.</p>
 
                 <p>The lateral weight depends only on the advance ratio, so it is nearly uniform across the disk.
-                  Both sets of coefficients are empirical, fitted to measured and vortex-wake data rather than derived
-                  within the method, and neither exposes anything for the user to adjust: the weights follow from the
-                  advance ratio and the inflow already solved.</p>
+        These skewed-wake coefficients are empirical rather than solved as finite-state dynamics, and they expose
+        no tuning parameter to the user: the gradients follow from advance ratio, mean inflow, and the selected law.</p>
 
                 <p><b>Pitt-Peters</b> takes a different route. Instead of correcting a ring solution, it treats the disk as a whole and carries three states. These are a
                   uniform component and two first-harmonic components. A linearized
