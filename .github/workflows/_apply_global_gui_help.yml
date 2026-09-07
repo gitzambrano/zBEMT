@@ -1,0 +1,133 @@
+name: apply global inflow GUI and help integration
+
+on:
+  push:
+    branches: [inflow-global-models]
+    paths:
+      - "tools/_patch_global_gui_help.py"
+      - ".github/workflows/_apply_global_gui_help.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  QT_QPA_PLATFORM: offscreen
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+
+jobs:
+  patch-test-push:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: inflow-global-models
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Qt system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+      - name: Apply product patch
+        run: python tools/_patch_global_gui_help.py
+      - name: Targeted physics, GUI and help regression
+        run: |
+          python -m pytest -q \
+            tests/regression/test_global_inflow_models.py \
+            tests/regression/test_option_discoverability.py \
+            tests/regression/test_gui_layout.py \
+            tests/architecture/test_help_content.py \
+            tests/architecture/test_help_registry.py
+      - name: Full 234-case empirical-global envelope
+        run: |
+          python - <<'PY'
+          import math
+          import numpy as np
+          from zbemt.bemt import Rotor, BEMTConfig, AnalyticalAirfoil, solve_bemt, aggregate_results
+
+          r = np.array([0.20, 0.45, 0.70, 1.00])
+          rotor = Rotor(
+              R=1.4, Nb=4, Omega_rpm=1000.0,
+              r_root_norm_geom=0.20, r_tip_norm_geom=1.0,
+              r_geom=r, chord_geom=np.full_like(r, 0.20),
+              theta_geom_deg=np.full_like(r, 12.0),
+          )
+          airfoil = AnalyticalAirfoil(cl_alpha=5.7, cd0=0.016, k=0.0,
+                                      stall_model="linear")
+          models = ("coleman_global", "coleman_feingold_global", "drees_global")
+          mus = np.round(np.arange(0.0, 0.5000001, 0.04), 10)
+          alphas = (-10.0, 0.0, 10.0)
+          correction_sets = (
+              ("clean", False, "off"),
+              ("mach_tip", True, "tip"),
+          )
+          required = ("CT", "CQ", "CH", "CMx", "CMy", "lambda_i")
+          rows = []
+          failures = []
+
+          for model in models:
+              for corr_name, compressibility, prandtl in correction_sets:
+                  cfg = BEMTConfig(
+                      Ne=36, Npsi=72,
+                      inflow_field_model=model,
+                      prandtl_loss_mode=prandtl,
+                      use_compressibility=compressibility,
+                      reverse_flow_model="simple_flip",
+                      use_rotational_augmentation=False,
+                      use_radial_flow_correction=False,
+                      use_dynamic_stall=False,
+                      solver="newton", max_iter=160, tol=1e-7,
+                      relax=0.4, collect_history=False,
+                  )
+                  for alpha in alphas:
+                      for mu in mus:
+                          lambda_z = -float(mu) * math.tan(math.radians(alpha))
+                          maps = solve_bemt(
+                              rotor, airfoil, cfg, mu_x=float(mu),
+                              Vz=lambda_z * rotor.OmegaR)
+                          summary = aggregate_results(rotor, cfg, maps)
+                          residual = float(maps["global_inflow_residual"])
+                          converged = bool(maps["global_inflow_converged"])
+                          finite = all(math.isfinite(float(summary[k])) for k in required)
+                          rows.append((model, corr_name, alpha, float(mu), residual))
+                          if (not converged) or (not finite) or residual > 1e-6:
+                              failures.append(rows[-1])
+
+          print(f"cases={len(rows)} failures={len(failures)}")
+          for model in models:
+              subset = [x for x in rows if x[0] == model]
+              print(model, "max_residual=", max(x[4] for x in subset))
+          if failures:
+              print("failures:")
+              for row in failures:
+                  print(row)
+              raise SystemExit(1)
+          PY
+      - name: Commit product files only after all gates pass
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            zbemt/bemt.py \
+            zbemt/gui/tabs/config.py \
+            zbemt/gui/help_blocks.py \
+            zbemt/gui/help_content.py \
+            tests/regression/test_option_discoverability.py
+          if git diff --cached --quiet; then
+            echo "No product changes to commit"
+          else
+            git commit -m "feat: expose corrected global inflow models in GUI"
+            git push origin HEAD:inflow-global-models
+          fi
