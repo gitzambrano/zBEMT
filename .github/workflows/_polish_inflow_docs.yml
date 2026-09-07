@@ -1,0 +1,65 @@
+name: polish global inflow documentation semantics
+
+on:
+  push:
+    branches: [inflow-global-models]
+    paths: ['.github/workflows/_polish_inflow_docs.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: inflow-global-models
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Polish stale local-only prose
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('docs/documentation.html')
+          t = p.read_text(encoding='utf-8')
+          old = '''                <p><b>The mathematics.</b> Three of the four families write the inflow as a mean value with a first
+                  harmonic superimposed,</p>'''
+          new = '''                <p><b>The mathematics.</b> The empirical skewed-wake formulations write the induced inflow as a radial mean with a first
+                  harmonic superimposed,</p>'''
+          assert old in t
+          t = t.replace(old, new, 1)
+          old = '''                <p>and differ only in what they use for the weights. The $\\cos\\psi$ term is the front-to-back
+                  variation, and the $\\sin\\psi$ term the left-to-right one. In all three, the annular momentum balance
+                  supplies the mean $\\lambda_{i,0}$, and the harmonic is then applied to it in closed
+                  form, which is why they cost almost nothing.</p>'''
+          new = '''                <p>The $\\cos\\psi$ term is the front-to-back variation and the $\\sin\\psi$ term the left-to-right one.
+                  The empirical families differ in the laws used for $K_x$ and $K_y$ and in how those laws are coupled.
+                  Local variants evaluate the skew correction through the local BEMT coupling. Global variants use one
+                  disk-wide wake condition and iterate the radial mean inflow against the complete two-dimensional disk loading.</p>'''
+          assert old in t
+          t = t.replace(old, new, 1)
+          old = '''                <p>The lateral weight depends only on the advance ratio, so it is nearly uniform across the disk.
+                  Both sets of coefficients are empirical, fitted to measured and vortex-wake data rather than derived
+                  within the method, and neither exposes anything for the user to adjust: the weights follow from the
+                  advance ratio and the inflow already solved.</p>'''
+          new = '''                <p>The lateral weight depends only on the advance ratio, so it is nearly uniform across the disk.
+                  These skewed-wake coefficients are empirical rather than solved as finite-state dynamics, and they expose
+                  no tuning parameter to the user: the gradients follow from advance ratio, mean inflow, and the selected law.</p>'''
+          assert old in t
+          t = t.replace(old, new, 1)
+          p.write_text(t, encoding='utf-8')
+          PY
+          python tools/field_index.py --write
+      - name: Documentation regression
+        run: |
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/architecture/test_help_content.py tests/architecture/test_documentation.py tests/architecture/test_user_facing_documentation.py
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/documentation.html
+          git commit -m 'docs: polish local and global inflow explanation'
+          git push origin HEAD:inflow-global-models
