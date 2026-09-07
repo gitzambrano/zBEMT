@@ -42,14 +42,27 @@ jobs:
           pip install -e ".[all]"
       - name: Apply product patch
         run: python tools/_patch_global_gui_help.py
-      - name: Targeted physics, GUI and help regression
+      - name: Targeted physics and help regression
         run: |
           python -m pytest -q \
             tests/regression/test_global_inflow_models.py \
-            tests/regression/test_option_discoverability.py \
-            tests/regression/test_gui_layout.py \
             tests/architecture/test_help_content.py \
             tests/architecture/test_help_registry.py
+      - name: Targeted GUI regression
+        run: |
+          # Some Qt/WebEngine builds segfault during interpreter teardown after
+          # pytest has already completed successfully.  Exit directly with the
+          # pytest return code so native Qt teardown cannot mask the test result.
+          python - <<'PY'
+          import os
+          import pytest
+          rc = pytest.main([
+              "-q",
+              "tests/regression/test_option_discoverability.py",
+              "tests/regression/test_gui_layout.py",
+          ])
+          os._exit(int(rc))
+          PY
       - name: Full 234-case empirical-global envelope
         run: |
           python - <<'PY'
