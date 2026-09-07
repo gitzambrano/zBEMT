@@ -83,7 +83,8 @@ replace_once(
     '                  <code>--pitt-peters-time-march-avg-last N</code>,\n'
     '                  <code>--pitt-peters-time-march-substeps-per-revolution N</code> and\n'
     '                  <code>--pitt-peters-time-march-initial-state {zero,equilibrium}</code>.\n'
-    '                  The generic <code>--set config.FIELD=VALUE</code> form remains equivalent.</p>\n',
+    '                  The generic form remains equivalent, for example\n'
+    '                  <code>--set config.pitt_peters_time_march_revolutions=8</code>.</p>\n',
 )
 replace_once(
     'docs/documentation.html',
