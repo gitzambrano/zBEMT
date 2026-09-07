@@ -138,6 +138,31 @@ class TestProgressiveDisclosure(unittest.TestCase):
         self.assertFalse(config.pitt_peters_box.isVisibleTo(config),
                          "the Pitt-Peters block stayed on screen under Glauert")
 
+    def test_global_empirical_inflow_models_are_selectable_and_round_trip(self):
+        config = self._tab("Config")
+        cases = {
+            "glauert_global": ("glauert", "global"),
+            "coleman_global": ("coleman", "global"),
+            "coleman_feingold_global": ("coleman_feingold", "global"),
+            "drees_global": ("drees", "global"),
+        }
+        for field_model, (family, coupling) in cases.items():
+            with self.subTest(field_model=field_model):
+                config._set_inflow_widgets_from_field_model(field_model)
+                self.assertEqual(config.cfg_inflow_family.currentText(), family)
+                self.assertEqual(config.cfg_inflow_coupling.currentData(), coupling)
+                self.assertEqual(config._inflow_field_model_from_widgets(), field_model)
+
+    def test_coleman_feingold_does_not_offer_a_fictitious_local_variant(self):
+        config = self._tab("Config")
+        config.cfg_inflow_family.setCurrentText("coleman_feingold")
+        self.app.processEvents()
+        values = [config.cfg_inflow_coupling.itemData(i)
+                  for i in range(config.cfg_inflow_coupling.count())]
+        self.assertEqual(values, ["global"])
+        self.assertEqual(config._inflow_field_model_from_widgets(),
+                         "coleman_feingold_global")
+
     def test_an_option_blocked_by_the_mode_stays_disabled_and_does_not_vanish(self):
         """The canonical case for HIDING: with Glauert selected, the
         Pitt-Peters parameters have no meaning at all -- there is no

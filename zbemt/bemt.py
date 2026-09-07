@@ -3885,7 +3885,7 @@ def _solve_empirical_global_inflow(rotor: Rotor, airfoil, cfg: BEMTConfig,
 
     lam0_r = _initial_guess(rotor, airfoil, r_norm_nodes, 1)[:, 0].copy()
 
-    max_outer = max(10, min(int(cfg.max_iter), 120))
+    max_outer = max(10, int(cfg.max_iter))
     tol_outer = max(10.0 * float(cfg.tol), 1e-6)
     relax_outer = float(np.clip(cfg.relax, 0.10, 0.60))
     history: list[float] = []
