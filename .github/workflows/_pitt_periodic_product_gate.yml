@@ -1,6 +1,6 @@
 name: Pitt-Peters periodic product gate
 
-# Qt offscreen still instantiates/shows/resizes/grabs the real widgets, without runner-specific XCB dependencies.
+# Style-aware GUI audit: use Qt's own size hints for QSS/custom controls.
 on:
   push:
     branches: [inflow-global-models]
@@ -64,11 +64,12 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: python tools/_audit_pitt_periodic_gui.py
       - name: Upload GUI screenshots and audit report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pitt-periodic-gui-audit
           path: gui-audit/
-          if-no-files-found: error
+          if-no-files-found: warn
       - name: Full test suite
         env:
           QT_QPA_PLATFORM: offscreen
