@@ -5,6 +5,7 @@ on:
     branches: [inflow-global-models]
     paths:
       - "tools/_apply_inflow_global_patch.py"
+      - "tools/_patch_global_hover_limit.py"
       - "tests/regression/test_global_inflow_models.py"
       - ".github/workflows/_apply_inflow_global_patch.yml"
   workflow_dispatch:
@@ -35,7 +36,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
       - name: Apply core patch
-        run: python tools/_apply_inflow_global_patch.py
+        run: |
+          python tools/_apply_inflow_global_patch.py
+          python tools/_patch_global_hover_limit.py
       - name: Targeted physics and core regression
         run: |
           python -m pytest -q \
