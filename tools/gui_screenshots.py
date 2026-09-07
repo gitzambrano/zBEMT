@@ -1,4 +1,4 @@
-﻿"""Regenerates the GUI screenshots used by ``docs/documentation.html``.
+"""Regenerates the GUI screenshots used by ``docs/documentation.html``.
 
 Each chapter of the field reference opens with a picture of the tab it
 documents, so the reader can match the list of fields against the page in
@@ -11,8 +11,8 @@ tests.
 
 The Run Case tab is captured TWICE, in rotor and in propeller mode: that is
 the one page whose field labels rotate with the mode, and showing only one of
-them would document half the behaviour. The Geometry Designer window (Tools
-button) is captured separately, after the tabs: it lives outside the QTabWidget.
+them would document half the behaviour. The Engineering Tools launcher and
+the four dedicated Tool windows are captured separately after the tabs.
 
     python tools/gui_screenshots.py             # writes docs/img/gui/
     python tools/gui_screenshots.py --check     # fails if any is missing
@@ -52,6 +52,9 @@ SHOTS = [
     ("run-batch.png",            5, False),
     ("results.png",              6, False),
 ]
+
+#: The Engineering Tools task launcher (Tools button).
+LAUNCHER_SHOT = "tools-launcher.png"
 
 #: The Geometry Designer window (Tools button), captured in addition to the
 #: tabs above -- it lives outside the QTabWidget, so it has no index.
@@ -126,6 +129,23 @@ def _crop(pixmap, tab):
     return pixmap.copy(0, 0, pixmap.width(), crop_height)
 
 
+def _apply_real_application_style(app) -> None:
+    """Mirror ``zbemt.gui.app.main`` so generated images match the GUI.
+
+    Previously this script instantiated ``MainWindow`` under Qt's default
+    style. That made a structurally valid screenshot which was visually not
+    the application a user actually launches: Fusion, the 10 pt font floor
+    and ``APP_QSS`` were missing.
+    """
+    from zbemt.gui import styles
+
+    app.setStyle("Fusion")
+    font = app.font()
+    font.setPointSize(max(font.pointSize(), 10))
+    app.setFont(font)
+    app.setStyleSheet(styles.APP_QSS)
+
+
 def generate(destination: Path = OUTPUT_DIR) -> list:
     """Writes every screenshot. Returns the paths written."""
     _ensure_fonts()
@@ -141,6 +161,8 @@ def generate(destination: Path = OUTPUT_DIR) -> list:
 
     from zbemt import api
     from zbemt.gui import app as gui
+
+    _apply_real_application_style(app)
 
     destination.mkdir(parents=True, exist_ok=True)
     window = gui.MainWindow()
@@ -166,21 +188,43 @@ def generate(destination: Path = OUTPUT_DIR) -> list:
         written.append(target)
         print(f"  {filename:<26} {target.stat().st_size // 1024:>5} KB")
 
+    written.append(_capture_launcher(app, window,
+                                     api.open_project(str(PROJECT)),
+                                     destination))
     written.append(_capture_designer(app, window,
                                      api.open_project(str(PROJECT)),
                                      destination))
     written.append(_capture_optimizer(app, window,
-                                       api.open_project(str(PROJECT)),
-                                       destination))
+                                      api.open_project(str(PROJECT)),
+                                      destination))
     written.append(_capture_stability(app, window,
-                                       api.open_project(str(PROJECT)),
-                                       destination))
+                                      api.open_project(str(PROJECT)),
+                                      destination))
     written.append(_capture_transient(app, window,
                                       api.open_project(str(PROJECT)),
                                       destination))
 
     window.close()
     return written
+
+
+def _capture_launcher(app, window, project, destination: Path) -> Path:
+    """Captures the task-oriented Engineering Tools launcher."""
+    window.state.set_project(project)
+    launcher = window.flow_bar._tools_launcher
+    launcher.resize(650, 560)
+    launcher.show()
+    launcher.raise_()
+    launcher.activateWindow()
+    _settle(app)
+
+    target = destination / LAUNCHER_SHOT
+    launcher.grab().save(str(target))
+    launcher.hide()
+    if not target.exists() or target.stat().st_size == 0:
+        raise SystemExit(f"gui_screenshots: failed to write {target}")
+    print(f"  {LAUNCHER_SHOT:<26} {target.stat().st_size // 1024:>5} KB")
+    return target
 
 
 def _capture_designer(app, window, project, destination: Path) -> Path:
@@ -206,8 +250,8 @@ def _capture_designer(app, window, project, destination: Path) -> Path:
 
 
 def _capture_optimizer(app, window, project, destination: Path) -> Path:
-    """Captures the Design Optimization window (Tools button > Design
-    Optimization), the same eager-construction path as the Designer's."""
+    """Captures the Design Optimization window (Tools button, SC-13), the
+    same eager-construction path as the Designer's."""
     window.state.set_project(project)
     optimizer = window.optimizer_window
     optimizer.resize(WIDTH, HEIGHT)
@@ -264,8 +308,9 @@ def _capture_transient(app, window, project, destination: Path) -> Path:
 
 
 def check_existing(destination: Path = OUTPUT_DIR) -> int:
-    names = [f for f, _i, _h in SHOTS] + [DESIGNER_SHOT, OPTIMIZER_SHOT,
-                                          STABILITY_SHOT, TRANSIENT_SHOT]
+    names = [f for f, _i, _h in SHOTS] + [LAUNCHER_SHOT, DESIGNER_SHOT,
+                                          OPTIMIZER_SHOT, STABILITY_SHOT,
+                                          TRANSIENT_SHOT]
     missing = [f for f in names if not (destination / f).exists()]
     if missing:
         print("missing screenshots: " + ", ".join(missing))

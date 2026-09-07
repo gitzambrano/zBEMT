@@ -1,4 +1,4 @@
-﻿"""Implement the Stability Derivatives window (SC-14).
+"""Implement the Stability Derivatives window (SC-14).
 
 Three pages, per plan phase 4.4: the trim point, the perturbation set,
 and the run with its matrix, bar chart, sign checks and the optional
@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 
 from ..common import (AppState, CanvasHost, equalize_button_widths,
                       show_error, show_all_options_in, in_scroll_area)
+from ..tool_ux import ToolWorkflowHeader
 from ..workers import DerivativeWorker, launch_worker
 from ... import api, models, nomenclature
 from ...models import DerivativeRequest, FlightCondition
@@ -112,12 +113,21 @@ class StabilityWindow(QWidget):
         self._vehicle = None
         self._study_buttons: list = []
 
-        tabs = QTabWidget(self)
-        tabs.addTab(in_scroll_area(self._build_trim_page()), "Trim point")
-        tabs.addTab(in_scroll_area(self._build_perturbations_page()), "Perturbations")
-        tabs.addTab(in_scroll_area(self._build_run_page()), "Run and results")
+        self.pages = QTabWidget(self)
+        self.pages.addTab(in_scroll_area(self._build_trim_page()), "Trim point")
+        self.pages.addTab(in_scroll_area(self._build_perturbations_page()), "Perturbations")
+        self.pages.addTab(in_scroll_area(self._build_run_page()), "Run and results")
         outer = QVBoxLayout(self)
-        outer.addWidget(tabs)
+        self.workflow_header = ToolWorkflowHeader(self.pages, [
+            ("Set operating point",
+             "Select the saved case and trim strategy. Run trim only first when the reference controls should be solved rather than prescribed."),
+            ("Choose derivatives",
+             "Start from a longitudinal, lateral-directional or control preset, then adjust variables, outputs and finite-difference steps only if needed."),
+            ("Review and run",
+             "Check the evaluation cost, run the derivative sweep and inspect matrix units, signs and convergence diagnostics."),
+        ])
+        outer.addWidget(self.workflow_header)
+        outer.addWidget(self.pages)
         show_all_options_in(self)
 
         self.state.project_changed.connect(self._refresh_from_project)
@@ -290,6 +300,21 @@ class StabilityWindow(QWidget):
         layout.addWidget(outputs_box, 0)
 
         right = QVBoxLayout()
+        preset_box = QGroupBox("Options (quick setup)")
+        preset_form = QFormLayout(preset_box)
+        self.preset_combo = QComboBox()
+        self.preset_combo.addItem("Longitudinal", "longitudinal")
+        self.preset_combo.addItem("Lateral-directional", "lateral")
+        self.preset_combo.addItem("Control derivatives", "controls")
+        self.preset_combo.addItem("Full set", "full")
+        self.preset_combo.addItem("Custom", "custom")
+        self.preset_combo.setToolTip(
+            '"analysis_preset" — selects a practical starting set of perturbation '
+            "variables and outputs. Custom keeps the current manual selection.")
+        self.preset_combo.currentIndexChanged.connect(self._apply_analysis_preset)
+        preset_form.addRow("Analysis:", self.preset_combo)
+        right.addWidget(preset_box)
+
         steps_box = QGroupBox("Steps (per variable, its own unit)")
         steps_layout = QVBoxLayout(steps_box)
         self.steps_table = QTableWidget(0, 2)
@@ -319,12 +344,9 @@ class StabilityWindow(QWidget):
         self.workers_spin = QSpinBox()
         self.workers_spin.setRange(1, 64)
         self.workers_spin.setValue(1)
-        self.workers_spin.setToolTip(
-            '"parallel_workers" — requested evaluation processes, '
-            "stored on the study. This build evaluates the derivatives "
-            "SERIALLY, so the value travels with the file and does not "
-            "yet change the run time.")
-        options_form.addRow("Parallel workers:", self.workers_spin)
+        # Kept as a persisted compatibility field, but deliberately not
+        # exposed in the GUI until derivative evaluation is actually parallel.
+        self.workers_spin.setToolTip("Reserved for future parallel derivative evaluation.")
         right.addWidget(options_box)
 
         cost_box = QGroupBox("Cost estimate")
@@ -334,7 +356,36 @@ class StabilityWindow(QWidget):
         cost_layout.addWidget(self.cost_label)
         right.addWidget(cost_box)
         layout.addLayout(right, 1)
+        self._apply_analysis_preset()
         return page
+
+    def _apply_analysis_preset(self, *_args):
+        """Select a useful engineering subset without hiding Custom control."""
+        preset = self.preset_combo.currentData() if hasattr(self, "preset_combo") else "custom"
+        if preset == "custom":
+            return
+        variable_sets = {
+            "longitudinal": {"u", "w", "q", "theta_0", "theta_1c"},
+            "lateral": {"v", "p", "theta_1s"},
+            "controls": {"theta_0", "theta_1c", "theta_1s"},
+            "full": set(_STATE_NAMES) | set(_CONTROL_NAMES),
+        }
+        output_sets = {
+            "longitudinal": {"Thrust", "H", "Mx_total", "Torque"},
+            "lateral": {"Y", "My_total", "Torque"},
+            "controls": set(_OUTPUT_NAMES),
+            "full": set(_OUTPUT_NAMES),
+        }
+        wanted_vars = variable_sets[preset]
+        wanted_outputs = output_sets[preset]
+        for name, check in self.var_checks.items():
+            check.blockSignals(True)
+            check.setChecked(check.isEnabled() and name in wanted_vars)
+            check.blockSignals(False)
+        for name, check in self.output_checks.items():
+            check.setChecked(name in wanted_outputs)
+        self._refresh_step_table()
+        self._update_cost_estimate()
 
     # ------------------------------------------------------------------
     # Page 3: Run and results
@@ -633,6 +684,11 @@ class StabilityWindow(QWidget):
             gravity_m_s2=self.gravity_spin.value())
 
     def _fill_editor(self, request: DerivativeRequest):
+        if hasattr(self, "preset_combo"):
+            custom_index = self.preset_combo.findData("custom")
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(max(custom_index, 0))
+            self.preset_combo.blockSignals(False)
         for name in _STATE_NAMES + _CONTROL_NAMES:
             self.var_checks[name].setChecked(
                 name in (*request.states, *request.controls))
