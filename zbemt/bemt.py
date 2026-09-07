@@ -3929,7 +3929,10 @@ def _solve_empirical_global_inflow(rotor: Rotor, airfoil, cfg: BEMTConfig,
         last_residual = residual
 
         if residual <= tol_outer:
-            lam0_r = target_r
+            # `lam0_r` itself already satisfies ||g(x)-x|| <= tol. Do NOT
+            # replace it by the full unrelaxed target here: for an oscillatory
+            # fixed point that final jump can move the residual back above the
+            # tolerance immediately after convergence was detected.
             converged = True
             break
 
