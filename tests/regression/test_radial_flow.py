@@ -15,7 +15,11 @@ the taper and whatever the root cutout. That is what makes the ratios
 below a real check on the engine rather than a check on one blade.
 
     C_H,profile : sigma*Cd0*mu/4  ->  3*sigma*Cd0*mu/8      (ratio 3/2)
-    C_Hr/C_Hp   : 1/2
+    C_Hr/C_Hp,tangential : 1/2
+
+Public output convention: CHp is the COMPLETE profile H-force, so when radial
+flow is enabled CHp = CHp,tangential + CHr. CHr remains a subset diagnostic and
+must not be added to CHp again. Thus CH = CHi + CHp always.
     C_P,profile : (1 + mu^2)      ->  (1 + 1.5*mu^2)
 
 The last one is the classical (1 + 4.65*mu^2) of the helicopter
@@ -76,7 +80,13 @@ class TestSpanwiseDragAgainstClosedForm(unittest.TestCase):
         cls.off, cls.on = _summaries(cls.MU)
 
     def test_spanwise_part_is_half_the_tangential_part(self):
-        self.assertAlmostEqual(self.on["CHr"] / self.on["CHp"], 0.5, delta=0.01)
+        chp_tangential = self.on["CHp"] - self.on["CHr"]
+        self.assertAlmostEqual(self.on["CHr"] / chp_tangential, 0.5, delta=0.01)
+
+    def test_public_profile_h_force_includes_radial_part_once(self):
+        self.assertAlmostEqual(self.on["CH"], self.on["CHi"] + self.on["CHp"],
+                               delta=1e-12)
+        self.assertGreater(self.on["CHr"], 0.0)
 
     def test_hub_force_grows_by_one_half(self):
         self.assertAlmostEqual(self.on["CH"] / self.off["CH"], 1.5, delta=0.01)
@@ -115,7 +125,8 @@ class TestRatiosHoldForAnyBlade(unittest.TestCase):
         project.geometry = geom
         summary = api.run_case(project, FlightCondition(
             mu_x=0.05, Vz=0.0, collective_deg=0.0, rpm=600.0)).summary
-        self.assertAlmostEqual(summary["CHr"] / summary["CHp"], 0.5, delta=0.01)
+        chp_tangential = summary["CHp"] - summary["CHr"]
+        self.assertAlmostEqual(summary["CHr"] / chp_tangential, 0.5, delta=0.01)
 
 
 class TestTheCorrectionIsGated(unittest.TestCase):
@@ -135,10 +146,12 @@ class TestTheCorrectionIsGated(unittest.TestCase):
             mu_x=0.20, Vz=0.0, collective_deg=0.0, rpm=600.0)).maps
         self.assertTrue(np.all(np.asarray(maps["Fr"]) == 0.0))
 
-    def test_the_three_parts_reconstruct_the_total(self):
+    def test_profile_output_reconstructs_total_without_double_counting(self):
         _off, on = _summaries(0.20)
-        self.assertAlmostEqual(on["CH"], on["CHi"] + on["CHp"] + on["CHr"],
-                                delta=1e-12)
+        self.assertAlmostEqual(on["CH"], on["CHi"] + on["CHp"], delta=1e-12)
+        self.assertNotAlmostEqual(on["CH"],
+                                  on["CHi"] + on["CHp"] + on["CHr"],
+                                  delta=1e-12)
 
 
 class TestTheSkewCapLimitsTheEffect(unittest.TestCase):

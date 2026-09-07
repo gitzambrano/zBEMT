@@ -4487,17 +4487,18 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
     Mx = disk_integral(-Fn * R_DIM * np.cos(PSI))
     My = disk_integral(-Fn * R_DIM * np.sin(PSI))
     Hi = disk_integral(Ft_i * np.sin(PSI))
-    Hp = disk_integral(Ft_p * np.sin(PSI))
-    # Third in-plane contribution: the SPANWISE drag (`Fr`, see
-    # `resolve_drag_with_radial_flow`). The tangential direction projects
-    # onto the two hub axes as (sin psi, -cos psi) -- which is what the
-    # two integrals above and the one for Y already assume -- so the
-    # radial direction, perpendicular to it, projects as (cos psi,
-    # sin psi). It carries no arm about the shaft and therefore adds
-    # nothing to torque or power. Zero unless the radial flow correction
-    # is on (`EN-10`).
+    Hp_tangential = disk_integral(Ft_p * np.sin(PSI))
+    # Spanwise PROFILE drag (`Fr`, see `resolve_drag_with_radial_flow`).
+    # The tangential direction projects onto the two hub axes as
+    # (sin psi, -cos psi), while the radial direction projects as
+    # (cos psi, sin psi). The radial component has no arm about the shaft,
+    # so it contributes no torque or power directly. It is nevertheless
+    # profile drag, therefore the PUBLIC Hp/CHp output includes it exactly
+    # once. Hr/CHr remain available as subset diagnostics and must NOT be
+    # added again to Hp/CHp or to H/CH.
     Hr = disk_integral(Fr * np.cos(PSI))
-    H = Hi + Hp + Hr
+    Hp = Hp_tangential + Hr
+    H = Hi + Hp
     Y = -disk_integral(Ft * np.cos(PSI)) + disk_integral(Fr * np.sin(PSI))
 
     # Power = Torque * angular speed (basic definition of rotating-shaft
@@ -4523,6 +4524,8 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
     CP = Power / (qA * OmegaR)
     CPi = Power_i / (qA * OmegaR)
     CPp = Power_p / (qA * OmegaR)
+    # CHp is the complete PROFILE contribution to H: tangential + radial.
+    # CHr is a diagnostic SUBSET of CHp, not a third additive component.
     CH, CHi, CHp, CHr = H / qA, Hi / qA, Hp / qA, Hr / qA
     CY = Y / qA
     CMx, CMy = Mx / (qA * R), My / (qA * R)
