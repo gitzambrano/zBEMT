@@ -113,22 +113,23 @@ jobs:
             exit "$status"
           fi
 
-      # Merge evidence rather than documentation art: every main page, every
-      # Engineering Tool workflow page, empty/loaded/used states, and several
-      # viewport sizes. The first script drives real Run Case / Run Batch
-      # workers; the second runs every Engineering Tool and captures its
-      # populated result state.
+      # QA evidence is independent of the legacy test gate: collect it even
+      # when the known red suite above fails, so UX/integration can still be
+      # inspected on the exact main commit.
       - name: Generate GUI QA screenshot matrix
+        if: always()
         env:
           QT_QPA_PLATFORM: offscreen
         run: python tools/gui_qa_screenshots.py --output artifacts/gui-qa
 
       - name: Exercise Engineering Tools and capture used states
+        if: always()
         env:
           QT_QPA_PLATFORM: offscreen
         run: python tools/gui_tools_used_screenshots.py --output artifacts/gui-qa/tools-used
 
       - name: Upload GUI QA evidence
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: gui-qa-${{ github.sha }}
