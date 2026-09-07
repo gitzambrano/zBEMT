@@ -19,8 +19,19 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Apply product patch
-        run: python tools/_patch_pitt_periodic_case.py
+      - name: Repair patcher preflight and apply product patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/_patch_pitt_periodic_case.py')
+          t = p.read_text(encoding='utf-8')
+          old = "    '    marches.\\n',\n    '    ``inflow_path`` selects which execution path the config serves:"
+          new = "    '    marches.\\\"\\\"\\\"\\n',\n    '    ``inflow_path`` selects which execution path the config serves:"
+          if old not in t:
+              raise SystemExit('validation docstring preflight pattern not found')
+          p.write_text(t.replace(old, new, 1), encoding='utf-8')
+          PY
+          python tools/_patch_pitt_periodic_case.py
       - name: Install test environment
         run: |
           sudo apt-get update
@@ -71,9 +82,10 @@ jobs:
           from zbemt.gui.help_content import FIELD_HELP
           from zbemt.gui.help_blocks import BLOCK_HELP
           text = Path('docs/documentation.html').read_text(encoding='utf-8')
+          body = '\n'.join(BLOCK_HELP['pitt_peters']['body'])
           assert 'pitt_peters_unsteady' in text
           assert 'Dynamic (time march)' in text
-          assert 'does not need a maneuver' in BLOCK_HELP['pitt_peters']['body'][6]
+          assert 'does not need a maneuver' in body
           assert 'does not require a maneuver' in FIELD_HELP['inflow_field_model']['options']['pitt_peters_unsteady']
           assert 'name misleads' not in text
           print('documentation and popup semantics verified')
