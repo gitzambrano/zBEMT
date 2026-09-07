@@ -294,27 +294,22 @@ BLOCK_HELP: dict[str, dict] = {
         "anchor": "cap-4-1-1",
     },
     "inflow": {
-        "title": "Inflow Model: how λi is distributed over the disk",
+        "title": "Inflow Model: local and global empirical wake fields",
         "body": [
-            "Momentum theory gives the mean induced inflow; a real wake in forward flight is <b>tilted backwards</b>, so the front of the disk sees more inflow than the rear. The three classical models add that asymmetry as a first harmonic on top of the mean (ring-theory) solution:"
+            "The empirical inflow families use a mean induced inflow plus a first harmonic over the rotor disk. In a global formulation the field is written as:"
             "\n\n"
-            r"$$\lambda_i(r,\psi) = \lambda_{i,0}\left[1 + K_x\,x\cos\psi + K_y\,x\sin\psi\right], \quad x = r/R$$",
-            "<b>Glauert (1926)</b> — the original annular momentum theory: K<sub>x</sub> = K<sub>y</sub> = 0. Every ring is solved independently of ψ. This is classical BEMT and the cheapest option; it cannot represent any fore/aft or lateral asymmetry by construction.",
-            "<b>Coleman (1945)</b> — one longitudinal harmonic only (K<sub>y</sub> = 0):"
+            r"$$\lambda_i(r,\psi)=\lambda_0(r)\left[1+K_x\,x\cos\psi+K_y\,x\sin\psi\right],\qquad x=r/R$$",
+            "<b>Local versus global.</b> In a local formulation, the empirical wake-skew law is coupled to the local BEMT inflow field. In a global formulation, one disk-wide pair (K<sub>x</sub>, K<sub>y</sub>) is computed from one global wake condition. The radial mean λ<sub>0</sub>(r) is then closed iteratively against the loads evaluated on the complete two-dimensional (r,ψ) disk. The global model therefore does not compute a different K at every element.",
+            "<b>Glauert.</b> K<sub>x</sub>=K<sub>y</sub>=0. It is the axisymmetric annular-momentum reference and therefore has no separate Global choice: without a first-harmonic wake gradient, a second global wake model would only rename a numerical closure, not add new physics.",
+            "<b>Coleman global.</b> Uses the classical Coleman longitudinal first harmonic and K<sub>y</sub>=0. The same disk-wide K<sub>x</sub> applies at every radial/azimuthal station.",
+            "<b>Coleman-Feingold global.</b> This is a distinct global model, not an alias of Coleman:"
             "\n\n"
-            r"$$K_x = \sqrt{1 + \mathrm{ratio}^2} - \mathrm{ratio}, \quad \mathrm{ratio} = \dfrac{\lambda}{\mu}$$"
-            "At high μ (ratio → 0), K<sub>x</sub> → 1. In hover (ratio → ∞), K<sub>x</sub> → 0 (axisymmetric).",
-            "<b>Drees (1949)</b> — adds the lateral harmonic and refines the longitudinal one:"
+            r"$$K_x=\frac{15\pi}{32}\frac{\mu}{\sqrt{\mu^2+\lambda^2}+|\lambda|},\qquad K_y=-2\mu$$",
+            "<b>Drees global.</b> Uses the Drees wake-skew relation with both longitudinal and lateral gradients:"
             "\n\n"
-            r"$$K_x = \dfrac{4}{3}\left[(1 - 1.8\mu^2)\sqrt{1+\mathrm{ratio}^2} - \mathrm{ratio}\right], \quad K_y = -2\mu$$"
-            "K<sub>y</sub> is quasi-constant (depends only on μ): an approximately uniform lateral tilt that Coleman ignores. Both coefficients are empirical fits. K<sub>x</sub> and K<sub>y</sub> follow from the μ and λ already solved, with no tunable parameter.",
-            "<b>Pitt-Peters (1981)</b> — derives the same harmonic shape from linearized unsteady actuator-disk theory. Three states (x = r/R):"
-            "\n\n"
-            r"$$\lambda_i = \nu_0 + \nu_c\,x\cos\psi + \nu_s\,x\sin\psi$$"
-            "\n\n"
-            r"$$\mathbf{M}\,\dot{\boldsymbol{\nu}} + \mathbf{V}\mathbf{L}^{-1}\boldsymbol{\nu} = \mathbf{C}, \quad \mathbf{C} = (C_T,\, C_{M_y},\, C_{M_x})$$"
-            "Solved at equilibrium (dν/dt = 0): ν = LV<sup>−1</sup>C(ν), a fixed point in 3 scalars.",
-            "Choosing: Glauert for axial flight and quick scans; Coleman (default) when fore/aft asymmetry matters; Drees for helicopter cruise 0.1 &lt; μ &lt; 0.4 where the lateral tilt is measurable; Pitt-Peters when you want the asymmetry to emerge from the physics, at the cost of a global 3-DOF solve, and with the linear-theory caveat that unrelieved hub moments can push it out of its validity range around μ of about 0.16 to 0.19.",
+            r"$$K_x=\frac{4}{3}\left[\frac{1-\cos\chi-1.8\mu^2}{\sin\chi}\right],\qquad K_y=-2\mu,\qquad \chi=\operatorname{atan2}(\mu,\lambda)$$",
+            "All empirical global models collapse to the axisymmetric solution in hover because the skew gradients vanish. The global closure uses the normal BEMT solver for the complete 2D loading and honors the configured maximum iteration count and convergence tolerance.",
+            "<b>Pitt-Peters</b> is different: it solves a finite-state inflow model rather than imposing one of these empirical harmonic laws."
         ],
         "anchor": "cap-4-2",
     },

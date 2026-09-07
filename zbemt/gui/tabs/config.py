@@ -39,19 +39,17 @@ from ..widgets import ScientificSpinBox
 # =============================================================================
 
 class ConfigMotorTab(QWidget):
-    # Inflow coupling is today FIXED per family. There is no real
-    # choice to offer (glauert/coleman/drees only have "local"
-    # implemented; pitt_peters only has "steady"). That's why there is
-    # no more "Type:" combo in the GUI (removed, see
-    # docs/CHANGELOG.md): a combo with a single option is not a choice,
-    # it's noise. The engine (bemt.py) still accepts "global" in old
-    # configs for backward compatibility; only the GUI no longer offers
-    # that option.
-    _FIXED_COUPLING = {
-        "glauert": "local",
-        "coleman": "local",
-        "drees": "local",
-        "pitt_peters": "steady",
+    # Skewed-wake empirical families may use either local coupling or a
+    # disk-wide GLOBAL first-harmonic field. Glauert is the axisymmetric
+    # annular-momentum reference and has no distinct global harmonic law.
+    # Coleman-Feingold exists only as a global empirical model. Pitt-Peters
+    # keeps its own finite-state formulation and is steady on the case path.
+    _AVAILABLE_COUPLINGS = {
+        "glauert": ("local",),
+        "coleman": ("local", "global"),
+        "coleman_feingold": ("global",),
+        "drees": ("local", "global"),
+        "pitt_peters": ("steady",),
     }
 
     dirty_changed = pyqtSignal(bool)   # asterisk for "not saved to disk", same mechanism as geometry_tab.py/airfoil.py
@@ -68,7 +66,6 @@ class ConfigMotorTab(QWidget):
         # it, and avoids clearing the asterisk before the user sees that
         # the change has not yet been saved.
         self._applying_locally = False
-        self._warned_global_fallback = False
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -86,6 +83,7 @@ class ConfigMotorTab(QWidget):
         # its own settings.
         self.pitt_peters_box = self._build_pitt_peters_box()
         left.addWidget(self.pitt_peters_box)
+        self._update_pitt_peters_visibility(self.cfg_inflow_family.currentText())
         left.addWidget(self._build_prandtl_box())
         left.addWidget(self._build_augmentation_box())
         left.addWidget(self._build_solver_box())
@@ -244,17 +242,32 @@ class ConfigMotorTab(QWidget):
     def _build_inflow_box(self) -> QGroupBox:
         box = QGroupBox("Inflow model")
         form = QFormLayout(box)
+
         self.cfg_inflow_family = QComboBox()
-        self.cfg_inflow_family.addItems(["glauert", "coleman", "drees", "pitt_peters"])
+        self.cfg_inflow_family.addItems([
+            "glauert", "coleman", "coleman_feingold", "drees", "pitt_peters"
+        ])
         self.cfg_inflow_family.setToolTip(
             '"inflow_field_model"<br><br>'
-            'Selects how the free-stream and induced velocity are distributed over the disk.<br><br>'
-            '<b>glauert</b>: classical uniform inflow.<br>'
-            '<b>coleman</b>: oblique-flow correction.<br>'
-            '<b>drees</b>: non-uniform inflow model.<br>'
+            'Selects the empirical/dynamic inflow family.<br><br>'
+            '<b>glauert</b>: no first-harmonic wake-skew gradient.<br>'
+            '<b>coleman</b>: classical longitudinal wake-skew gradient.<br>'
+            '<b>coleman_feingold</b>: Coleman-Feingold global gradient, including lateral tilt.<br>'
+            '<b>drees</b>: Drees longitudinal and lateral empirical gradients.<br>'
             '<b>pitt_peters</b>: finite-state dynamic inflow.')
-        form.addRow("Inflow model:", self.cfg_inflow_family)
-        self.cfg_inflow_family.currentTextChanged.connect(self._update_pitt_peters_visibility)
+        form.addRow("Inflow family:", self.cfg_inflow_family)
+
+        self.cfg_inflow_coupling = QComboBox()
+        self.cfg_inflow_coupling.setToolTip(
+            '"inflow_field_model" coupling<br><br>'
+            '<b>Local</b>: the empirical law is coupled to the local BEMT inflow solution.<br>'
+            '<b>Global</b>: one disk-wide harmonic pair Kx, Ky is obtained from a '
+            'global wake condition and the radial mean inflow is closed against the full 2D loading.<br>'
+            '<b>Steady</b>: steady finite-state Pitt-Peters solution.')
+        form.addRow("Formulation:", self.cfg_inflow_coupling)
+
+        self._populate_inflow_coupling(self.cfg_inflow_family.currentText())
+        self.cfg_inflow_family.currentTextChanged.connect(self._on_inflow_family_changed)
         return box
 
     def _build_prandtl_box(self) -> QGroupBox:
@@ -272,35 +285,70 @@ class ConfigMotorTab(QWidget):
         form.addRow("Tip/root loss (Prandtl):", self.cfg_prandtl_loss_mode)
         return box
 
+    def _populate_inflow_coupling(self, family: str, preferred: str | None = None):
+        """Populate only physically implemented couplings for *family*.
+
+        Signals are blocked while rebuilding the combo so a family change
+        produces one coherent project-config write, never an intermediate
+        or silently downgraded inflow_field_model.
+        """
+        choices = self._AVAILABLE_COUPLINGS.get(family, ())
+        labels = {
+            "local": "Local",
+            "global": "Global",
+            "steady": "Steady",
+        }
+        self.cfg_inflow_coupling.blockSignals(True)
+        try:
+            self.cfg_inflow_coupling.clear()
+            for coupling in choices:
+                self.cfg_inflow_coupling.addItem(labels.get(coupling, coupling), coupling)
+            target = preferred if preferred in choices else (choices[0] if choices else None)
+            if target is not None:
+                idx = self.cfg_inflow_coupling.findData(target)
+                self.cfg_inflow_coupling.setCurrentIndex(max(idx, 0))
+        finally:
+            self.cfg_inflow_coupling.blockSignals(False)
+
+    def _on_inflow_family_changed(self, family: str):
+        self._populate_inflow_coupling(family)
+        self._update_pitt_peters_visibility(family)
+
     def _update_pitt_peters_visibility(self, family: str):
-        """Progressive disclosure (docs/plano.md Section 5): the
-        Pitt-Peters block only appears when the inflow family is
-        'pitt_peters'. It is hidden (not just disabled) otherwise."""
+        """Pitt-Peters parameters have meaning only for that family."""
         self.pitt_peters_box.setVisible(family == "pitt_peters")
 
     def _inflow_field_model_from_widgets(self) -> str:
         family = self.cfg_inflow_family.currentText()
-        coupling = self._FIXED_COUPLING[family]
-        if family == "pitt_peters":
-            return f"pitt_peters_{coupling}"
+        coupling = self.cfg_inflow_coupling.currentData()
+        if not coupling:
+            choices = self._AVAILABLE_COUPLINGS.get(family, ())
+            if not choices:
+                raise ValueError(f"Unknown inflow family: {family!r}")
+            coupling = choices[0]
         return f"{family}_{coupling}"
 
     def _set_inflow_widgets_from_field_model(self, inflow_field_model: str):
-        if inflow_field_model.startswith("pitt_peters"):
-            family, coupling = "pitt_peters", inflow_field_model.split("_", 2)[-1]
+        if inflow_field_model.startswith("pitt_peters_"):
+            family = "pitt_peters"
+            coupling = inflow_field_model[len("pitt_peters_"):]
         else:
             family, coupling = inflow_field_model.rsplit("_", 1)
-        if coupling == "global" and not self._warned_global_fallback:
-            self._warned_global_fallback = True
-            QMessageBox.warning(
-                self, "Option 'global' removed from GUI",
-                "This project uses inflow_field_model with 'global' coupling, which is no longer "
-                "offered in this tab. When applying any changes here, the value saved in "
-                "project.config will use 'local' (glauert/coleman/drees) or 'steady' "
-                "(Pitt-Peters), the only coupling offered today.")
+
+        choices = self._AVAILABLE_COUPLINGS.get(family)
+        if choices is None or coupling not in choices:
+            # Do not silently reinterpret a project. Unknown/inapplicable
+            # values belong to validation; the GUI may show them but must not
+            # rewrite a recognized GLOBAL model as local.
+            raise ValueError(
+                f"inflow_field_model={inflow_field_model!r} is not available in the case Config tab")
+
         self.cfg_inflow_family.blockSignals(True)
-        self.cfg_inflow_family.setCurrentText(family)
-        self.cfg_inflow_family.blockSignals(False)
+        try:
+            self.cfg_inflow_family.setCurrentText(family)
+        finally:
+            self.cfg_inflow_family.blockSignals(False)
+        self._populate_inflow_coupling(family, preferred=coupling)
         self._update_pitt_peters_visibility(family)
 
     # --- 7-8) Snel + radial flow -----------------------------------------

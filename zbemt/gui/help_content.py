@@ -1961,28 +1961,24 @@ FIELD_HELP: dict[str, dict] = {
     "inflow_field_model": {
         "title": "Inflow Field Model",
         "definition": (
-            "Selects the induced-velocity model and its coupling mode.\n\n"
-            "The choice controls whether the wake deficit is solved locally at "
-            "each blade element, represented by steady disk harmonics, or "
-            "represented by the finite-state Pitt-Peters model."),
-        "unit": "",
-        "equation": r"\lambda_i = \lambda_0\left[1 + K_x \bar{r}\cos\psi + K_y \bar{r}\sin\psi\right]",
-        "effect": (
-            "Use the local Glauert, Coleman, or Drees variants when azimuthal load "
-            "feedback matters. Use Pitt-Peters for a finite-state disk "
-            "response.\n\n"
-            "Careful: use the unsteady variant only through the dedicated "
-            "time-sequence API."),
-        "range": (
-            "glauert_local, coleman_local, drees_local, pitt_peters_steady "
-            "(GUI)\n\n"
-            "The global and unsteady values are compatibility and API cases"),
+            "Selects both the inflow family and the coupling used to build the induced-velocity field.\n\n"
+            "Glauert is the axisymmetric annular-momentum reference. Coleman and Drees may couple their skewed-wake law locally or use one disk-wide wake condition; Coleman-Feingold is global only. Global variants close the radial mean inflow against the full two-dimensional disk loading."
+        ),
+        "unit": "—",
+        "equation": r"\lambda_i(r,\psi)=\lambda_0(r)\,[1+K_x(r/R)\cos\psi+K_y(r/R)\sin\psi]",
+        "effect": "The choice changes the azimuthal induced-velocity distribution and therefore the integrated hub forces, moments, induced power and local blade loading in forward flight. All empirical global variants reduce to the axisymmetric solution in hover.",
+        "range": "one of the implemented inflow_field_model values",
         "options": {
-            "glauert_local": "Classical annular momentum coupling at each mesh node.",
-            "coleman_local": "Coleman first harmonic for front/rear wake tilt, solved locally.",
-            "drees_local": "Drees longitudinal and lateral harmonics, solved locally.",
-            "pitt_peters_steady": "Three-state finite-state actuator-disk equilibrium; use when disk-level induced-flow physics is the target."
-        }
+            "glauert_local": "Axisymmetric Glauert/annular BEMT reference. There is no separate global Glauert wake model because Kx=Ky=0.",
+            "coleman_local": "Coleman wake-skew correction coupled to the local BEMT field.",
+            "coleman_global": "Classical Coleman longitudinal gradient using one disk-wide Kx and Ky=0.",
+            "coleman_feingold_global": "Coleman-Feingold global law: Kx=(15π/32) μ/(sqrt(μ²+λ²)+|λ|), Ky=-2μ.",
+            "drees_local": "Drees longitudinal/lateral empirical law coupled to the local BEMT field.",
+            "drees_global": "Drees global law using one disk-wide Kx and Ky=-2μ, closed against the full 2D loading.",
+            "pitt_peters_steady": "Steady three-state Pitt-Peters finite-state inflow.",
+            "pitt_peters_unsteady": "Time-marching Pitt-Peters finite-state inflow; used by the maneuver/transient path, not an isolated case."
+        },
+        "anchor": "cap-4-2",
     },
     "prandtl_loss_mode": {
         "title": "Prandtl Tip/Root Loss",
