@@ -270,8 +270,8 @@ class BEMTConfig:
     # unrepresentable.
     inflow_field_model: str = "coleman_local"
     # Valid values: glauert_local | glauert_global | coleman_local |
-    # coleman_global | drees_local | drees_global | pitt_peters_steady |
-    # pitt_peters_unsteady (this last one is not solved by `solve_bemt` --
+    # coleman_global | coleman_feingold_global | drees_local | drees_global |
+    # pitt_peters_steady | pitt_peters_unsteady (this last one is not solved
     # see `run_sweep_unsteady_pitt_peters`).
 
     # --- 4) Prandtl tip/root loss --------------------------------------------
@@ -1498,28 +1498,55 @@ class Rotor:
 # =============================================================================
 
 def _inflow_harmonics(model: str, mu_x: float, lambda_total: np.ndarray):
-    """Linear inflow coefficients (Coleman / Drees). mu_x is scalar (one
-    flight condition per call to solve_bemt). Lambda_total can be an
-    array ('local' mode) or scalar ('global' mode)."""
+    """Linear inflow gradients for the empirical first-harmonic models.
+
+    ``mu_x`` is scalar (one flight condition per call to ``solve_bemt``).
+    ``lambda_total`` may be an array for the historical local coupling or a
+    one-element array for the global coupling.
+
+    The canonical laws implemented here are deliberately distinct:
+
+    * ``coleman``: Coleman et al. skew-wake result, Kx=tan(chi/2), Ky=0.
+      The signed lambda/mu form is retained for the existing local model so
+      climb and descent are not collapsed into the same field.
+    * ``coleman_feingold``: the Johnson/NDARC Coleman-and-Feingold gradient,
+      Kx=(15*pi/32)*mu/(sqrt(mu^2+lambda^2)+|lambda|), Ky=-2*mu.  This
+      model is exposed only with GLOBAL coupling because its derivation uses
+      one mean wake skew angle for the disk.
+    * ``drees``: Drees (1949), algebraically equivalent to
+      (4/3)*(1-cos(chi)-1.8*mu^2)/sin(chi), with Ky=-2*mu.
+    """
     model = model.lower()
+    lam = np.asarray(lambda_total, dtype=float)
     if model == "glauert":
-        return np.zeros_like(lambda_total), np.zeros_like(lambda_total)
+        return np.zeros_like(lam), np.zeros_like(lam)
     if abs(mu_x) < 1e-5:
-        return np.zeros_like(lambda_total), np.zeros_like(lambda_total)
-    # Preserves the SIGN of lambda_total/mu_x (instead of using
-    # |lambda_total/mu_x|): this keeps the physical asymmetry between climb
-    # and descent in the wake angle: descent (lambda_total<0) and climb
-    # have opposite wake tilts, and an absolute value would collapse that
-    # difference.
-    ratio = lambda_total / mu_x
+        return np.zeros_like(lam), np.zeros_like(lam)
+
     if model == "coleman":
-        Kx = np.sqrt(1 + ratio ** 2) - ratio
+        # Preserve the SIGN of lambda_total/mu_x (legacy local behavior).
+        ratio = lam / mu_x
+        Kx = np.sqrt(1.0 + ratio ** 2) - ratio
         Ky = np.zeros_like(Kx)
         return Kx, Ky
-    if model == "drees":
-        Kx = (4.0 / 3.0) * ((1 - 1.8 * mu_x ** 2) * np.sqrt(1 + ratio ** 2) - ratio)
+
+    if model == "coleman_feingold":
+        # Johnson/NDARC form. The absolute value is part of the published
+        # mean-wake expression and makes this intentionally different from
+        # the signed Coleman-local extension above.
+        denominator = np.sqrt(mu_x ** 2 + lam ** 2) + np.abs(lam)
+        denominator = np.maximum(denominator, 1e-12)
+        Kx = (15.0 * np.pi / 32.0) * mu_x / denominator
         Ky = np.full_like(Kx, -2.0 * mu_x)
         return Kx, Ky
+
+    if model == "drees":
+        ratio = lam / mu_x
+        Kx = (4.0 / 3.0) * ((1.0 - 1.8 * mu_x ** 2)
+                            * np.sqrt(1.0 + ratio ** 2) - ratio)
+        Ky = np.full_like(Kx, -2.0 * mu_x)
+        return Kx, Ky
+
     raise ValueError(f"Unknown inflow_model: {model}")
 
 
@@ -1538,6 +1565,7 @@ _INFLOW_FIELD_MODELS: dict[str, dict] = {
     "glauert_global":       dict(harmonic="glauert", coupling="global",      unsteady=False),
     "coleman_local":        dict(harmonic="coleman", coupling="local",       unsteady=False),
     "coleman_global":       dict(harmonic="coleman", coupling="global",      unsteady=False),
+    "coleman_feingold_global": dict(harmonic="coleman_feingold", coupling="global", unsteady=False),
     "drees_local":          dict(harmonic="drees",   coupling="local",       unsteady=False),
     "drees_global":         dict(harmonic="drees",   coupling="global",      unsteady=False),
     "pitt_peters_steady":   dict(harmonic=None,       coupling="pitt_peters", unsteady=False),
@@ -3786,6 +3814,164 @@ def _check_rotor_rotation(rotor: Rotor) -> None:
             f"greater than zero.")
 
 
+
+def _solve_empirical_global_inflow(rotor: Rotor, airfoil, cfg: BEMTConfig,
+                                   harmonic_family: str, mu_x: float,
+                                   lambda_z: float, r_norm_nodes: np.ndarray,
+                                   R_NORM: np.ndarray, PSI: np.ndarray,
+                                   R_DIM: np.ndarray, CHORD: np.ndarray,
+                                   THETA: np.ndarray, motion=None):
+    """Solve a self-consistent axisymmetric mean plus one global harmonic.
+
+    The previous ``global`` path solved the mean inflow on an artificial
+    Npsi=1 strip at psi=0. That removed the azimuthal blade-speed term from
+    the blade-element loading, so the mean inflow was not consistent with
+    the 2-D forward-flight loads that were evaluated afterwards.
+
+    Here the unknown mean is the radial axisymmetric field ``lambda0(r)``.
+    At every outer iteration:
+
+      1. its disk-area mean defines ONE wake angle for the whole rotor;
+      2. the selected empirical law gives ONE pair (Kx, Ky);
+      3. lambda_i(r,psi)=lambda0(r)*(1+Kx*r*cos(psi)+Ky*r*sin(psi));
+      4. the complete 2-D blade-element state is evaluated on every azimuth;
+      5. the no-harmonic annular momentum target is averaged over azimuth to
+         update lambda0(r).
+
+    This keeps the empirical harmonic genuinely global while retaining the
+    annular BEMT radial resolution, Prandtl factors, compressibility and all
+    other section physics in the mean-load closure.
+    """
+    cfg_mean = replace(cfg, inflow_field_model="glauert_local",
+                       collect_history=False)
+
+    # Exact zero-skew limit. With mu_x=0 all empirical gradients are zero,
+    # hence the global field IS the ordinary axisymmetric/local BEMT field.
+    # Solve that identical equation with the configured robust element solver
+    # instead of wrapping it in an unnecessary outer Picard iteration.
+    if abs(mu_x) < 1e-5:
+        def residual_axis(lam):
+            return element_state(
+                lam, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
+                rotor.Nb, rotor.Omega, rotor.OmegaR, airfoil, cfg_mean,
+                rotor.r_root_norm_geom, rotor.r_tip_norm_geom, motion=motion)
+
+        lam_guess = _initial_guess(rotor, airfoil, r_norm_nodes, cfg.Npsi)
+        solver_fn = _SOLVERS.get(cfg.solver)
+        if solver_fn is None:
+            raise ValueError(f"Unknown solver: {cfg.solver}. Options: {list(_SOLVERS)}")
+        lam, state, _conv, _n_iter, total_it, history, _frac = solver_fn(
+            residual_axis, lam_guess, cfg_mean, R_NORM=R_NORM, PSI=PSI,
+            mu_x=mu_x)
+        closure_residual = float(np.max(np.abs(state["lambda_i_next"] - lam)))
+        mean_r = np.mean(np.asarray(lam, dtype=float), axis=1)
+        denom_area = _trapz(r_norm_nodes, r_norm_nodes)
+        lam_mean = (float(np.mean(mean_r)) if abs(float(denom_area)) < 1e-12
+                    else float(_trapz(mean_r * r_norm_nodes, r_norm_nodes)
+                               / denom_area))
+        tol_outer = max(10.0 * float(cfg.tol), 1e-6)
+        info = {
+            "global_inflow_converged": bool(closure_residual <= tol_outer),
+            "global_inflow_iterations": int(total_it),
+            "global_inflow_residual": closure_residual,
+            "global_inflow_residual_history": list(history),
+            "global_inflow_lambda_i_mean": lam_mean,
+            "global_inflow_lambda_total_mean": lambda_z + lam_mean,
+            "global_inflow_Kx": 0.0,
+            "global_inflow_Ky": 0.0,
+            "global_inflow_harmonic_family": harmonic_family,
+        }
+        return lam, state, info
+
+    lam0_r = _initial_guess(rotor, airfoil, r_norm_nodes, 1)[:, 0].copy()
+
+    max_outer = max(10, min(int(cfg.max_iter), 120))
+    tol_outer = max(10.0 * float(cfg.tol), 1e-6)
+    relax_outer = float(np.clip(cfg.relax, 0.10, 0.60))
+    history: list[float] = []
+    converged = False
+
+    def field_from_mean(mean_r):
+        denom_area = _trapz(r_norm_nodes, r_norm_nodes)
+        if abs(float(denom_area)) < 1e-12:
+            lam_mean = float(np.mean(mean_r))
+        else:
+            lam_mean = float(_trapz(mean_r * r_norm_nodes, r_norm_nodes)
+                             / denom_area)
+        # Wake skew is defined by the TOTAL mean through-disk velocity:
+        # freestream axial component plus induced component.
+        lambda_total_mean = lambda_z + lam_mean
+        Kx_a, Ky_a = _inflow_harmonics(
+            harmonic_family, mu_x, np.array([lambda_total_mean], dtype=float))
+        Kx = float(Kx_a[0])
+        Ky = float(Ky_a[0])
+        psi_w = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
+        harmonic = (1.0 + Kx * R_NORM * np.cos(PSI - psi_w)
+                    + Ky * R_NORM * np.sin(PSI - psi_w))
+        lam_field = np.clip(mean_r[:, None] * harmonic, -0.5, 0.5)
+        return lam_field, lam_mean, lambda_total_mean, Kx, Ky, harmonic
+
+    last_residual = float("inf")
+    for outer_it in range(1, max_outer + 1):
+        lam_field, _, _, _, _, _ = field_from_mean(lam0_r)
+
+        # Use the same 2-D aerodynamics but suppress the empirical harmonic
+        # INSIDE the momentum map. lambda_i_next is then the annular baseline
+        # target. Its periodic azimuth mean is the new lambda0(r).
+        state_mean = element_state(
+            lam_field, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
+            rotor.Nb, rotor.Omega, rotor.OmegaR, airfoil, cfg_mean,
+            rotor.r_root_norm_geom, rotor.r_tip_norm_geom, motion=motion)
+        target_r = np.mean(np.asarray(state_mean["lambda_i_next"], dtype=float), axis=1)
+        target_r = np.clip(target_r, -0.5, 0.5)
+        residual = float(np.max(np.abs(target_r - lam0_r)))
+        history.append(residual)
+        last_residual = residual
+
+        if residual <= tol_outer:
+            lam0_r = target_r
+            converged = True
+            break
+
+        # Back off automatically if the nonlinear outer fixed point worsens.
+        if len(history) >= 2 and history[-1] > 1.20 * history[-2]:
+            relax_outer = max(0.10, 0.5 * relax_outer)
+        lam0_r = (1.0 - relax_outer) * lam0_r + relax_outer * target_r
+
+    # Rebuild from the accepted mean and evaluate one final full state. Also
+    # measure the closure after that rebuild rather than reporting the previous
+    # iterate's residual.
+    lam, lam_mean, lambda_total_mean, Kx, Ky, _ = field_from_mean(lam0_r)
+    state_closure = element_state(
+        lam, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
+        rotor.Nb, rotor.Omega, rotor.OmegaR, airfoil, cfg_mean,
+        rotor.r_root_norm_geom, rotor.r_tip_norm_geom, motion=motion)
+    target_final = np.mean(np.asarray(state_closure["lambda_i_next"], dtype=float), axis=1)
+    target_final = np.clip(target_final, -0.5, 0.5)
+    last_residual = float(np.max(np.abs(target_final - lam0_r)))
+    converged = bool(last_residual <= tol_outer)
+
+    # Preserve the normal element-state contract for downstream aggregation.
+    # Its lambda_i_next is not used to solve the global mode; the explicit
+    # global closure residual below is the meaningful convergence diagnostic.
+    state = element_state(
+        lam, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
+        rotor.Nb, rotor.Omega, rotor.OmegaR, airfoil, cfg,
+        rotor.r_root_norm_geom, rotor.r_tip_norm_geom, motion=motion)
+
+    info = {
+        "global_inflow_converged": converged,
+        "global_inflow_iterations": int(len(history)),
+        "global_inflow_residual": last_residual,
+        "global_inflow_residual_history": history,
+        "global_inflow_lambda_i_mean": lam_mean,
+        "global_inflow_lambda_total_mean": lambda_total_mean,
+        "global_inflow_Kx": Kx,
+        "global_inflow_Ky": Ky,
+        "global_inflow_harmonic_family": harmonic_family,
+    }
+    return lam, state, info
+
 def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
                 should_cancel=None, motion=None):
     """Solves the inflow field lambda_i(r,psi) for a flight condition
@@ -3840,59 +4026,21 @@ def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
                               motion=motion)
 
     t0 = time.perf_counter()
+    global_info = None
 
     if coupling == "global":
-        # --- Fast mode: mean axisymmetric inflow + linear harmonic variation ---
-        # 1) solves a 1D BEMT (effective Npsi = 1, Ut = Omega*r, no advance
-        #    component) to get lambda0(r) . Much cheaper.
-        #    inflow_sideslip_deg is FORCED to 0 here: this solve defines the
-        #    AXISYMMETRIC mean; the sideslip belongs to the harmonic that
-        #    modulates it below (SC-14).
-        cfg_1d = replace(cfg, Npsi=1, inflow_field_model="glauert_local",
-                          inflow_sideslip_deg=0.0, collect_history=False)
-        R_NORM_1d, PSI_1d = np.meshgrid(r_norm_nodes, np.array([0.0]), indexing="ij")
-        R_DIM_1d = R_NORM_1d * rotor.R
-        CHORD_1d = chord_nodes[:, None]
-        THETA_1d = theta_nodes[:, None]
-
-        def residual_1d(lam):
-            # IMPORTANT: `mu_x` (not 0.0) must be passed here even at
-            # fixed psi=0 . Ut=Omega*r+Vinf*sin(0) does not change with
-            # mu_x, but the mass-flow term of the momentum equation in
-            # `element_state` uses sqrt(lambda_total**2+mu_x**2), which
-            # ALWAYS depends on mu_x. Zeroing mu_x made this 1D BEMT
-            # compute a hover-order lambda0(r) even in forward flight
-            # (mu_x=0.4 gave lambda0~0.14 near the tip, about 7x the
-            # physical value ~0.02 the converged 'local' mode produces
-            # there), because the mass flow increased by forward speed
-            # (which reduces the mean inflow) never entered the equation.
-            return element_state(lam, R_NORM_1d, PSI_1d, R_DIM_1d, CHORD_1d, THETA_1d,
-                                  mu_x, lambda_z, rotor.Nb, rotor.Omega, rotor.OmegaR,
-                                  airfoil, cfg_1d, rotor.r_root_norm_geom, rotor.r_tip_norm_geom)
-
-        lam0_guess = _initial_guess(rotor, airfoil, r_norm_nodes, 1)
-        lam0, _, _, _, _, _, _ = solve_newton(residual_1d, lam0_guess, cfg_1d)
-        lam0_r = lam0[:, 0]
-
-        # 2) global wake angle from the lambda mean weighted by r dr
-        w = r_norm_nodes
-        lam_mean = float(_trapz(lam0_r * w, r_norm_nodes) / _trapz(w, r_norm_nodes))
-        Kx_g, Ky_g = _inflow_harmonics(spec["harmonic"], mu_x, np.array([lam_mean]))
-        Kx_g, Ky_g = float(Kx_g[0]), float(Ky_g[0])
-        # Sideslip (SC-14): the gains' azimuthal pattern follows the wake
-        # skew -- rotate it with the free stream (legacy when psi_w = 0).
-        psi_w_g = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
-        harmonic = (1.0 + Kx_g * R_NORM * np.cos(PSI - psi_w_g)
-                     + Ky_g * R_NORM * np.sin(PSI - psi_w_g))
-        LAMBDA0 = np.repeat(lam0_r[:, None], cfg.Npsi, axis=1)
-        lam = np.clip(LAMBDA0 * harmonic, -0.5, 0.5)
-
-        state = residual_fn(lam)
-        converged = np.ones_like(lam, dtype=bool)  # direct evaluation, not iterative
-        n_iter = np.ones_like(lam, dtype=int)
-        total_it = 1
-        history = []
-        frac_hist = []
+        # Empirical skew-wake model with ONE disk wake angle and a 2-D
+        # azimuthally consistent mean-load closure.
+        lam, state, global_info = _solve_empirical_global_inflow(
+            rotor, airfoil, cfg, spec["harmonic"], mu_x, lambda_z,
+            r_norm_nodes, R_NORM, PSI, R_DIM, CHORD, THETA, motion=motion)
+        ok_global = bool(global_info["global_inflow_converged"])
+        n_global = int(global_info["global_inflow_iterations"])
+        converged = np.full_like(lam, ok_global, dtype=bool)
+        n_iter = np.full_like(lam, n_global, dtype=int)
+        total_it = n_global
+        history = list(global_info["global_inflow_residual_history"])
+        frac_hist = [1.0 if ok_global else 0.0 for _ in history]
         pp_nu = None
     elif coupling == "pitt_peters":
         # --- Finite-state dynamic inflow (Pitt-Peters), see Section 6b ---
@@ -3923,6 +4071,8 @@ def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
                 frac_converged_history=frac_hist, pitt_peters_nu=pp_nu,
                 mu_x=mu_x, Vz=Vz, solver=cfg.solver, inflow_coupling=coupling, rho=cfg.rho)
     maps.update(state)
+    if global_info is not None:
+        maps.update(global_info)
 
     cfg_ds = _resolve_dynamic_stall_config(cfg, airfoil)
     if cfg_ds.use_dynamic_stall:
