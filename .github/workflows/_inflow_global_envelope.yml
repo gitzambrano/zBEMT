@@ -1,5 +1,6 @@
 name: inflow global models envelope validation
 
+# Final feature-branch envelope gate; remove this temporary workflow before merge.
 on:
   push:
     branches: [inflow-global-models]
@@ -78,7 +79,7 @@ jobs:
                           finite = all(math.isfinite(float(summary[k])) for k in required)
                           rows.append((model, corr_name, alpha, mu, converged, residual,
                                        float(summary["CT"]), float(summary["CQ"])))
-                          if (not converged) or (not finite) or (not math.isfinite(residual)) or residual > 2e-5:
+                          if (not converged) or (not finite) or (not math.isfinite(residual)) or residual > 1e-6:
                               failures.append(rows[-1])
 
           print(f"cases={len(rows)} failures={len(failures)}")
