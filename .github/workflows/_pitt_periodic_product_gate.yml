@@ -1,6 +1,6 @@
 name: Pitt-Peters periodic product gate
 
-# rerun with the Qt XCB runtime required for real-window screenshots
+# Qt offscreen still instantiates/shows/resizes/grabs the real widgets, without runner-specific XCB dependencies.
 on:
   push:
     branches: [inflow-global-models]
@@ -30,7 +30,7 @@ jobs:
       - name: Install GUI and test environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libegl1 libgl1 libxcb-cursor0
+          sudo apt-get install -y libegl1 libgl1
           python -m pip install -e '.[dev,gui]'
       - name: Targeted physics, validation and documentation tests
         run: |
@@ -61,8 +61,8 @@ jobs:
             --outdir /tmp/zbemt-cli-out --plots --no-csv
       - name: Multi-size full-GUI interaction and clipping audit
         env:
-          QT_QPA_PLATFORM: xcb
-        run: xvfb-run -a -s '-screen 0 2200x1300x24' python tools/_audit_pitt_periodic_gui.py
+          QT_QPA_PLATFORM: offscreen
+        run: python tools/_audit_pitt_periodic_gui.py
       - name: Upload GUI screenshots and audit report
         uses: actions/upload-artifact@v4
         with:
