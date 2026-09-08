@@ -157,13 +157,39 @@ if _HAS_QT:
             cells = [window.variants_table.item(0, c).text()
                      for c in range(window.variants_table.columnCount())]
             geom = window._session_base_geometry()
-            integral = float(np.trapezoid(geom.chord_norm, x=geom.r_norm))
+            from zbemt import geometry
+            integral = geometry.reference_planform_integral(geom)
             self.assertEqual(cells, ["base", "0.1", "0.04", "14", "2", "2",
                                      f"{geom.root_cutout_norm:.3f}",
                                      f"{geom.radius_m:.3f}",
                                      f"{1.0 / integral:.2f}",
                                      f"{int(geom.n_blades) * integral / np.pi:.3f}",
                                      "—"])
+
+    @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
+    class TestReferenceSizingDialog(DesignerWindowBase):
+        def test_rectangular_solidity_is_independent_of_root_cutout(self):
+            from zbemt.gui.dialogs import GeometryGeneratorDialog
+            dialog = GeometryGeneratorDialog(
+                None, n_blades=4, radius_m=1.0)
+            self.addCleanup(dialog.deleteLater)
+            dialog.kind_combo.setCurrentText("rectangular")
+            dialog.chord_a.setValue(0.10)
+            sigma = dialog.solidity.value()
+            dialog.root_cutout.setValue(0.40)
+            self.assertAlmostEqual(dialog.solidity.value(), sigma, places=4)
+            self.assertAlmostEqual(dialog.chord_a.value(), 0.10, places=4)
+
+        def test_solidity_input_resolves_reference_chord(self):
+            from zbemt.gui.dialogs import GeometryGeneratorDialog
+            dialog = GeometryGeneratorDialog(
+                None, n_blades=4, radius_m=1.0)
+            self.addCleanup(dialog.deleteLater)
+            dialog.kind_combo.setCurrentText("rectangular")
+            dialog.root_cutout.setValue(0.40)
+            dialog.solidity.setValue(0.20)
+            self.assertAlmostEqual(
+                dialog.chord_a.value(), 0.20 * np.pi / 4.0, places=4)
 
     @unittest.skipUnless(_HAS_QT, "PyQt6 not installed in this environment")
     class TestVariationSweepBuilder(DesignerWindowBase):
@@ -298,7 +324,8 @@ if _HAS_QT:
         @staticmethod
         def _expected_texts(geom):
             """(cutout, radius, AR, solidity) texts of one geometry."""
-            integral = float(np.trapezoid(geom.chord_norm, x=geom.r_norm))
+            from zbemt import geometry
+            integral = geometry.reference_planform_integral(geom)
             return (f"{float(geom.root_cutout_norm):.3f}",
                     f"{float(geom.radius_m):.3f}",
                     f"{1.0 / integral:.2f}",
@@ -317,13 +344,26 @@ if _HAS_QT:
                  "Root cutout [r/R]", "Radius [m]", "Aspect ratio",
                  "Solidity", "Extra overrides"])
 
-        def test_integral_helper_matches_trapezoid_within_tolerance(self):
+        def test_integral_helper_matches_reference_area(self):
+            from zbemt import geometry
             from zbemt.gui.tabs.designer_window import _planform_integral
             window = self._window_for(_make_project())
             geom = window._session_base_geometry()
-            expected = float(np.trapezoid(geom.chord_norm, x=geom.r_norm))
+            expected = geometry.reference_planform_integral(geom)
             self.assertAlmostEqual(_planform_integral(geom) / expected,
                                     1.0, places=6)
+
+        def test_reference_metrics_do_not_change_with_root_cutout(self):
+            from zbemt import geometry
+            from zbemt.studies import _blade_planform_metrics
+            a = geometry.generate_tapered(
+                root_chord_norm=0.10, tip_chord_norm=0.04,
+                root_cutout_norm=0.10, n_blades=4)
+            b = geometry.generate_tapered(
+                root_chord_norm=0.10, tip_chord_norm=0.04,
+                root_cutout_norm=0.35, n_blades=4)
+            self.assertEqual(
+                _blade_planform_metrics(a), _blade_planform_metrics(b))
 
         def test_base_row_shows_its_own_direct_and_derived_values(self):
             window = self._window_for(_make_project())
@@ -399,10 +439,9 @@ if _HAS_QT:
             table = window.variants_table
             window.btn_add_generated.click()
             cutout = float(window.gen_cutout_spin.value())
-            r = np.linspace(cutout, 1.0,
-                            int(window.gen_stations_spin.value()))
-            c = np.full(len(r), float(window.gen_chord_spin.value()))
-            integral = float(np.trapezoid(c, x=r))
+            from zbemt import geometry
+            _, generated_geom = window._row_resolved(1)
+            integral = geometry.reference_planform_integral(generated_geom)
             blades = int(window.gen_blades_spin.value())
             self.assertEqual(table.item(1, 6).text(), f"{cutout:.3f}")
             self.assertEqual(

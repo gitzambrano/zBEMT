@@ -1186,18 +1186,8 @@ _OPTIMIZATION_METHODS = ("powell", "nelder-mead")
 
 
 def _blade_planform_metrics(geometry: RotorGeometryDef) -> dict:
-    """Classic planform comparison metrics from the radial table.
-
-    With c(x) the chord distribution in units of R over x = r/R, the
-    blade integral is I = ∫c dx; the blade aspect ratio (alongamento)
-    is AR = 1/I and the rotor solidity is σ = n_blades·I/π. Every
-    geometry is a table, so these apply to generated, imported and
-    edited blades alike.
-    """
-    r = np.asarray(geometry.r_norm, dtype=float)
-    c = np.asarray(geometry.chord_norm, dtype=float)
-    trapezoid = getattr(np, "trapezoid", None)
-    integral = float(trapezoid(c, r)) if (trapezoid is not None and r.size >= 2) else 0.0
+    """Return reference blade aspect ratio and rotor solidity."""
+    integral = geometry_gen.reference_planform_integral(geometry)
     aspect = 1.0 / integral if integral > 1e-9 else float("nan")
     return {"aspect_ratio": float(aspect),
             "solidity": float(geometry.n_blades * integral / np.pi)}

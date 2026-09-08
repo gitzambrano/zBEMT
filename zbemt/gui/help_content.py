@@ -366,34 +366,30 @@ FIELD_HELP: dict[str, dict] = {
         "anchor": "designer-run",
     },
     "root_chord_norm": {
-        "title": "Root chord",
+        "title": "Reference Root Chord",
         "definition": (
-            "Chord at the root station of the generated blade, as c/R.\n\n"
-            "Together with the tip chord it fixes the taper, and taper "
-            "is how area is moved inboard, away from the fast-moving "
-            "tip."),
+            "Chord of the reference blade at r/R = 0, as c/R.\n\n"
+            "A tapered reference planform is defined from the axis to the tip. "
+            "The aerodynamic table samples that chord law only from the root cutout outward."),
         "unit": "—",
-        "equation": r"c(r) = c_{root} + (c_{tip}-c_{root})\,\bar{r}",
-        "effect": "A wider root raises solidity and thrust at the same collective, at stations where the local velocity is low, so it buys thrust more cheaply in power than widening the tip would.",
+        "equation": r"c(\bar r)=c_{root}+(c_{tip}-c_{root})\bar r",
+        "effect": "Increasing the reference root chord increases reference solidity. Changing the root cutout alone does not change this chord or the reference solidity.",
         "range": "0.02 to 0.2 of the radius",
         "options": None,
         "anchor": "designer-variants",
     },
     "max_chord_norm": {
-        "title": "Maximum chord",
+        "title": "Reference Maximum Chord",
         "definition": (
-            "The peak chord of the elliptic planform, as c/R, reached at "
-            "mid span.\n\n"
-            "An elliptic blade has no free root or tip chord: the whole "
-            "distribution follows from this one number."),
+            "Maximum chord of the elliptic reference planform, as c/R, at r/R = 0.\n\n"
+            "The aerodynamic table starts at the root cutout. Therefore, its first chord can be smaller than this reference value."),
         "unit": "—",
-        "equation": r"c(\bar{r}) = c_{max}\sqrt{1-\bar{r}^{\,2}}",
-        "effect": "It scales the whole planform, so it sets the solidity and with it the thrust at a given collective. The elliptic shape is what approaches the minimum induced power for that thrust.",
+        "equation": r"c(\bar r)=c_{max}\sqrt{1-\bar r^{\,2}}",
+        "effect": "It scales the reference planform and its solidity. The root cutout changes the active blade span, not the reference area.",
         "range": "0.05 to 0.25 of the radius",
         "options": None,
         "anchor": "designer-variants",
     },
-    # ---- the Transient builder (15.2) --------------------------------
     "build_case_a": {
         "title": "Start condition of the ramp",
         "definition": (
@@ -1155,12 +1151,11 @@ FIELD_HELP: dict[str, dict] = {
     "root_cutout_norm": {
         "title": "Root Cutout",
         "definition": (
-            "Radial position r/R below which the blade is not integrated.\n\n"
-            "The hub and root region physically cannot support aerodynamic "
-            "loading and are excluded from BEM integration."),
+            "Radial position r/R where the aerodynamic blade starts.\n\n"
+            "The solver excludes the region inside this radius from the load integration. The reference planform still extends to r/R = 0 for solidity and blade aspect ratio."),
         "unit": "—",
-        "equation": r"\int_{r_{cutout}}^{R}",
-        "effect": "Increasing the cutout radius removes more blade area from integration, reducing total thrust and power but often improving numerical stability near the singularity.",
+        "equation": r"\int_{r_{cutout}}^{R} dF",
+        "effect": "Increasing the cutout removes active blade span and changes the loads. It does not change reference solidity or reference blade aspect ratio when the reference chord law stays fixed.",
         "range": "0–0.3",
         "options": None
     },
@@ -1204,14 +1199,11 @@ FIELD_HELP: dict[str, dict] = {
     "tip_chord_norm": {
         "title": "Tip Chord (Tapered)",
         "definition": (
-            "Normalized chord c/R at the blade tip, used together with the "
-            "root chord when the radial table generator's chord "
-            "distribution type is 'tapered'.\n\n"
-            "Linearly interpolated against the root chord across the "
-            "generated stations."),
+            "Normalized chord c/R at r/R = 1 for a tapered reference blade.\n\n"
+            "Together with the reference root chord at r/R = 0, it defines the linear chord law. The aerodynamic table samples that law from the root cutout to the tip."),
         "unit": "—",
-        "equation": r"c(r) = c_{root} + (c_{tip}-c_{root})\,\bar r",
-        "effect": "A smaller tip chord than root chord (taper ratio < 1) concentrates solidity inboard and typically reduces tip losses and blade weight.",
+        "equation": r"c(\bar r)=c_{root}+(c_{tip}-c_{root})\bar r",
+        "effect": "A smaller tip chord shifts the reference blade area inboard and changes the taper ratio.",
         "range": "0.001–2.0",
         "options": None
     },
@@ -1244,32 +1236,24 @@ FIELD_HELP: dict[str, dict] = {
         "options": None
     },
     "solidity": {
-        "title": "Solidity",
+        "title": "Reference Solidity",
         "definition": (
-            "Blade area fraction of the rotor disk, shown by the radial "
-            "table generator as a live alternate view of the chord fields "
-            "above.\n\n"
-            "Editing it rescales the chord field(s) to match the target "
-            "solidity, keeping chord distribution shape and root cutout "
-            "fixed."),
+            "Area of all reference blades divided by the full disk area.\n\n"
+            "The reference blade extends the chord law from r/R = 0 to 1. The root cutout does not enter this area."),
         "unit": "—",
-        "equation": r"\sigma = \dfrac{N_b\,S_{blade}}{\pi R^2}",
-        "effect": "Increasing solidity (via chord or blade count) raises total blade area and typically thrust and power at a given collective, up to stall limits.",
+        "equation": r"\sigma=\dfrac{N_b S_{ref}}{\pi R^2}",
+        "effect": "Editing solidity rescales the reference chord field. Changing the root cutout alone leaves solidity unchanged.",
         "range": "0.02–0.3 (typically 0.05–0.12)",
         "options": None
     },
     "aspect_ratio": {
-        "title": "Blade Aspect Ratio",
+        "title": "Reference Blade Aspect Ratio",
         "definition": (
-            "Planform aspect ratio of a single blade, shown by the radial "
-            "table generator as a live alternate view of the chord fields "
-            "above.\n\n"
-            "Editing it rescales the chord field(s) to match the target "
-            "aspect ratio, keeping chord distribution shape and root "
-            "cutout fixed."),
+            "Aspect ratio of one reference blade.\n\n"
+            "The reference blade extends from r/R = 0 to 1, so its area is independent of the root cutout."),
         "unit": "—",
-        "equation": r"AR = \dfrac{R^2}{S_{blade}}",
-        "effect": "A higher aspect ratio (narrower, longer blade for the same radius) reduces solidity and profile drag but increases structural and aeroelastic sensitivity.",
+        "equation": r"AR=\dfrac{R^2}{S_{ref}}",
+        "effect": "Editing aspect ratio rescales the reference chord field. Changing the root cutout alone leaves this aspect ratio unchanged.",
         "range": "5–25 (typically 10–20)",
         "options": None
     },

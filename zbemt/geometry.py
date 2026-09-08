@@ -34,6 +34,66 @@ def _r_grid(n_stations: int, root_cutout_norm: float) -> np.ndarray:
     return np.linspace(root_cutout_norm, 1.0, n_stations)
 
 
+ELLIPTIC_TIP_CHORD_RATIO = 0.15
+
+
+def reference_area_norm(kind: str, chord_a: float, chord_b: float = 0.0) -> float:
+    """Return the reference area of one blade divided by ``R**2``.
+
+    The reference blade spans ``0 <= r/R <= 1``. The root cutout does not
+    enter this area. ``chord_a`` is the constant chord for a rectangular
+    blade, the reference root chord for a tapered blade, and the maximum
+    chord at ``r/R = 0`` for an elliptic blade.
+    """
+    if kind == "rectangular":
+        return float(chord_a)
+    if kind == "tapered":
+        return 0.5 * (float(chord_a) + float(chord_b))
+    if kind == "elliptic":
+        q = ELLIPTIC_TIP_CHORD_RATIO
+        x_floor = np.sqrt(max(0.0, 1.0 - q ** 2))
+        elliptic_part = 0.5 * (x_floor * q + np.arcsin(x_floor))
+        floor_part = q * (1.0 - x_floor)
+        return float(chord_a) * float(elliptic_part + floor_part)
+    raise ValueError(f"Unknown chord distribution type: {kind!r}.")
+
+
+def reference_planform_integral(geom: RotorGeometryDef) -> float:
+    """Return ``S_ref/R**2`` for the blade reference planform.
+
+    Parametric blades use their exact reference law. A table without a
+    parametric generator extends its innermost linear chord segment to the
+    axis. A negative extrapolated chord is limited to zero.
+    """
+    params = dict(getattr(geom, "origin_params", {}) or {})
+    kind = str(params.get("kind", ""))
+    if getattr(geom, "origin", "") == "parametric":
+        if kind == "rectangular" and "chord_norm" in params:
+            return reference_area_norm(kind, float(params["chord_norm"]))
+        if kind == "tapered" and {"root_chord_norm", "tip_chord_norm"} <= set(params):
+            return reference_area_norm(
+                kind, float(params["root_chord_norm"]),
+                float(params["tip_chord_norm"]))
+        if kind == "elliptic" and "max_chord_norm" in params:
+            return reference_area_norm(kind, float(params["max_chord_norm"]))
+
+    r, c, _ = _validate_and_sort_table(
+        geom.r_norm, geom.chord_norm, geom.twist_deg,
+        context="reference_planform_integral")
+    if r.size < 2:
+        return 0.0
+    if r[0] > 0.0:
+        slope = (c[1] - c[0]) / (r[1] - r[0])
+        c_axis = max(0.0, float(c[0] - slope * r[0]))
+        r = np.concatenate(([0.0], r))
+        c = np.concatenate(([c_axis], c))
+    elif r[0] < 0.0:
+        raise ValueError(
+            "reference_planform_integral: r_norm must not be negative.")
+    trapezoid = getattr(np, "trapezoid", None) or np.trapz
+    return float(trapezoid(c, x=r))
+
+
 def _validate_and_sort_table(r_norm, chord_norm, twist_deg, *, context: str
                               ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Validate a radial table (r_norm, chord_norm, twist_deg) before any
@@ -100,7 +160,7 @@ def generate_tapered(root_cutout_norm: float = 0.15, radius_m: float = 1.0,
                       n_blades: int = 2, n_stations: int = 25,
                       airfoil_name: str = "") -> RotorGeometryDef:
     r = _r_grid(n_stations, root_cutout_norm)
-    chord = np.linspace(root_chord_norm, tip_chord_norm, n_stations)
+    chord = root_chord_norm + (tip_chord_norm - root_chord_norm) * r
     twist = np.linspace(twist_root_deg, twist_tip_deg, n_stations)
     return RotorGeometryDef(
         r_norm=r.tolist(), chord_norm=chord.tolist(), twist_deg=twist.tolist(),
@@ -117,45 +177,25 @@ def generate_elliptic(root_cutout_norm: float = 0.15, radius_m: float = 1.0,
                        max_chord_norm: float = 0.10, twist_root_deg: float = 14.0,
                        twist_tip_deg: float = 2.0, n_blades: int = 2,
                        n_stations: int = 25, airfoil_name: str = "") -> RotorGeometryDef:
-    """Blade with elliptic planform: chord(r) = max_chord_norm*sqrt(1-r_norm²).
+    """Generate an elliptic reference planform and apply the root cutout.
 
-    The peak sits at the ROOT (small r_norm), not at mid-span. This is
-    INTENTIONAL (Q3, production-plan.md), not a bug: the convention here
-    is single-blade (root->tip), analogous to the classic elliptic
-    distribution of a two-blade rotor viewed as a single disk. The two
-    blades, side by side, form a complete ellipse with the peak at the hub
-    (r=0) tapering to zero at both tips. Each isolated blade is half of
-    that ellipse. This is also the shape used in classic references for
-    minimum induced-loss propellers (elliptic loading). Do not confuse this
-    with the ellipse of a WHOLE WING (peak at the center or mid-span, two
-    symmetric sides). That is not the convention adopted here. Changing
-    this would change the blade shape for existing users of the generator,
-    so it stays as is. See ``tests/regression/test_geometry.py::
-    test_generate_elliptic_chord_never_zero_at_tip``, which locks in this
-    behavior.
+    The reference law is ``c/R = c_max/R * sqrt(1 - (r/R)**2)`` from the
+    axis to the tip. ``max_chord_norm`` is the reference chord at ``r/R = 0``.
+    The aerodynamic table starts at ``root_cutout_norm``. A small tip floor
+    keeps the generated chord positive at the last station.
     """
     r = _r_grid(n_stations, root_cutout_norm)
     chord = max_chord_norm * np.sqrt(np.maximum(0.0, 1.0 - r ** 2))
-    # Q3 (production-plan.md): the ellipse peak at r=0 (root/hub) is
-    # DELIBERATE, not a bug. See the function docstring. But since the
-    # table only starts at r=root_cutout_norm (>0), the value AT THE FIRST
-    # POINT already comes out smaller than max_chord_norm (sqrt(1-r^2) < 1
-    # for r>0), and the GUI labels this field "Max chord (c/R)": the user
-    # enters the value expecting it to actually be the peak of the
-    # generated table. Rescale so that chord[0] (the true peak, at the
-    # root) matches max_chord_norm exactly, preserving the elliptical shape.
-    peak = max_chord_norm * np.sqrt(max(0.0, 1.0 - root_cutout_norm ** 2))
-    if peak > 1e-12:
-        chord = chord * (max_chord_norm / peak)
-    chord = np.maximum(chord, 0.15 * max_chord_norm)   # avoid zero chord at the tip
+    chord = np.maximum(chord, ELLIPTIC_TIP_CHORD_RATIO * max_chord_norm)
     twist = np.linspace(twist_root_deg, twist_tip_deg, n_stations)
     return RotorGeometryDef(
         r_norm=r.tolist(), chord_norm=chord.tolist(), twist_deg=twist.tolist(),
         origin="parametric",
         origin_params={"kind": "elliptic", "max_chord_norm": max_chord_norm,
-                        "twist_root_deg": twist_root_deg, "twist_tip_deg": twist_tip_deg},
-        n_blades=n_blades, radius_m=radius_m, root_cutout_norm=root_cutout_norm,
-        airfoil_name=airfoil_name,
+                       "twist_root_deg": twist_root_deg,
+                       "twist_tip_deg": twist_tip_deg},
+        n_blades=n_blades, radius_m=radius_m,
+        root_cutout_norm=root_cutout_norm, airfoil_name=airfoil_name,
     )
 
 

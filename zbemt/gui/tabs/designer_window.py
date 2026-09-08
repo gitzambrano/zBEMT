@@ -131,17 +131,12 @@ _trapz = getattr(np, "trapezoid", None) or np.trapz
 
 
 def _planform_integral(geom) -> float:
-    """∫c d(r/R) of one geometry, over its own stations.
-
-    The trapezoidal rule integrates the chord table against the r/R
-    table as given. Returns ``0.0`` when the table holds fewer than
-    two stations or the two arrays differ in length; callers render
-    that case as an em dash."""
-    r = np.asarray(getattr(geom, "r_norm", None) or [], dtype=float)
-    c = np.asarray(getattr(geom, "chord_norm", None) or [], dtype=float)
-    if r.size < 2 or c.size != r.size:
+    """Return the reference blade area divided by ``R**2``."""
+    try:
+        return geometry.reference_planform_integral(geom)
+    except (TypeError, ValueError):
         return 0.0
-    return float(_trapz(c, x=r))
+
 
 
 class GeometryDesignerWindow(QWidget):
@@ -183,11 +178,11 @@ class GeometryDesignerWindow(QWidget):
     #: refresh materializes its item for the first time.
     _PROJECTION_TOOLTIPS = {
         _COL_ASPECT_RATIO:
-            "Derived from this row's planform: AR = 1/∫c d(r/R); "
-            "solidity σ = n·∫c d(r/R)/π.",
+            "Reference blade metrics: AR = R²/S_ref and "
+            "σ = n·S_ref/(πR²). Root cutout does not change S_ref.",
         _COL_SOLIDITY:
-            "Derived from this row's planform: AR = 1/∫c d(r/R); "
-            "solidity σ = n·∫c d(r/R)/π.",
+            "Reference blade metrics: AR = R²/S_ref and "
+            "σ = n·S_ref/(πR²). Root cutout does not change S_ref.",
         _COL_EXTRA_OVERRIDES:
             "Parameters without a dedicated column, overridden by "
             "this row.",
@@ -537,9 +532,9 @@ class GeometryDesignerWindow(QWidget):
         self.gen_family_combo = QComboBox()
         self.gen_family_combo.addItems(list(self._GENERATE_FAMILIES))
         self.gen_family_combo.setToolTip(
-            "\"gen_family\" — Planform family of the generated blade: rectangular keeps "
-            "one chord along the span. Tapered interpolates the chord "
-            "from root to tip. Elliptic peaks at the root.")
+            "\"gen_family\" — Planform family of the generated blade. Rectangular keeps "
+            "one chord. Tapered uses a reference chord law from r/R = 0 to 1. "
+            "Elliptic has its reference peak at r/R = 0.")
         form.addRow("Family:", self.gen_family_combo)
 
         def add_chord_spin(attr, label, default):
@@ -557,15 +552,15 @@ class GeometryDesignerWindow(QWidget):
             "as c/R.")
         add_chord_spin("gen_root_chord_spin", "Root chord [c/R]:",
                         0.10).setToolTip(
-            '"root_chord_norm" — Chord at the root station, as c/R. The '
-            "tip chord interpolates linearly toward it.")
+            '"root_chord_norm" — Reference chord at r/R = 0, as c/R. '
+            "The generated table samples the chord law from the cutout outward.")
         add_chord_spin("gen_tip_chord_spin", "Tip chord [c/R]:",
                         0.04).setToolTip(
             '"tip_chord_norm" — Chord at the tip station, as c/R.')
         add_chord_spin("gen_max_chord_spin", "Max chord [c/R]:",
                         0.10).setToolTip(
-            '"max_chord_norm" — Peak chord of the elliptic planform, '
-            "reached at the root, as c/R.")
+            '"max_chord_norm" — Reference peak chord at r/R = 0, as c/R. '
+            "The first aerodynamic station can have a smaller chord.")
 
         self.gen_twist_root_spin = QDoubleSpinBox()
         self.gen_twist_root_spin.setRange(-30.0, 30.0)
@@ -1126,10 +1121,9 @@ class GeometryDesignerWindow(QWidget):
     def _derived_texts(geom) -> tuple[str, str]:
         """``(aspect ratio, solidity)`` cell texts of one geometry.
 
-        With I = ∫c d(r/R) over the row's own stations, AR = 1/I and
-        σ = n_blades·I/π. An integral too small to be meaningful (a
-        table too short or ragged to integrate) renders both as an em
-        dash."""
+        With I_ref = S_ref/R², AR = 1/I_ref and
+        σ = n_blades·I_ref/π. The root cutout does not enter I_ref.
+        An invalid reference area renders both as an em dash."""
         integral = _planform_integral(geom)
         if integral > 1e-9:
             return (f"{1.0 / integral:.2f}",

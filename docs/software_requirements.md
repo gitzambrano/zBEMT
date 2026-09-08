@@ -307,6 +307,14 @@ different rule.
   state that limitation. The result validator must issue a warning with the
   converged mesh percentage. A partial field must never appear as a fully
   converged solution.
+- **EN-12** — Planform sizing metrics must use a reference blade that spans
+  from `r/R = 0` to `r/R = 1`. Rotor solidity is
+  `sigma = N_b S_ref/(pi R^2)`, and blade aspect ratio is
+  `AR = R^2/S_ref`. The root cutout truncates the aerodynamic table and the
+  BEMT load integration only. It must not change either reference metric when
+  the reference chord law stays fixed. For a tapered blade,
+  `root_chord_norm` is the reference chord at `r/R = 0`, and
+  `tip_chord_norm` is the chord at `r/R = 1`.
 
 ### 3.3 GUI / CLI / `.bemt` parity
 

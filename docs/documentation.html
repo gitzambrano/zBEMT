@@ -2709,12 +2709,11 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         5.3.2</a>).</p>
 
     <h4 id="cap-14-3">5.4.3 Solidity, $\sigma$</h4>
-    <div class="eqn">$$\sigma(r) \;=\; \frac{N_b\,c(r)}{2\pi r} \qquad\text{(local)}\,,\qquad \sigma \;=\;
-      \frac{N_b\,\bar c}{\pi R}\quad\text{(mean, reference chord }\bar c\text{)}$$</div>
-    <p>Solidity is the fraction of the disk that is blade: locally, the blade area in an annulus divided
-      by the area of that annulus. Globally, the total blade area divided by the disk area. It is
-      dimensionless, and it is the one geometric number that measures how much lifting surface the rotor has
-      available for the disk area it sweeps.</p>
+    <div class="eqn">$$\sigma(r)=\frac{N_b c(r)}{2\pi r}\qquad\text{(local)},\qquad
+      \sigma = \frac{N_b S_b}{\pi R^2}\qquad\text{(reference rotor solidity)}$$</div>
+    <p>For the rotor solidity, $S_b$ is the area of one reference blade, equivalent to $S_{ref}$.
+      The reference chord law extends from $r/R=0$ to $1$. The root cutout does not enter this area;
+      it only removes the inner region from the aerodynamic blade and the load integration.</p>
 
     <p><b>Physical effect of solidity.</b> At a fixed operational lift coefficient, higher solidity
       increases total thrust capacity by providing greater blade area. However, increased blade surface area
@@ -3857,9 +3856,9 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p><b>The physics.</b> The blade does not begin at the axis. The hub, the grips and the pitch
       bearings occupy the innermost part of the span, and they carry no aerofoil section and produce
       no useful lift. The root cutout is where the lifting blade starts, expressed as a fraction of the
-      radius, and the region inside it is excluded from the integration of thrust and torque. Ignoring
-      the cutout overestimates thrust, but only slightly. The inboard stations move slowly, so they
-      contribute little. This is also why the exact value is not critical.</p>
+      radius, and the region inside it is excluded from the integration of thrust and torque. The
+      reference blade still extends to the axis for solidity and blade aspect ratio. Ignoring the cutout
+      overestimates thrust, but only slightly because the inboard stations move slowly.</p>
 
     <p><b>The mathematics.</b> The loads are integrated from the cutout outwards rather than from the
       axis,</p>
@@ -4010,9 +4009,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       $8^\circ$ and $16^\circ$.</p>
 
     <p><b>The root cutout.</b> The field labeled <i>Root cutout (r/R)</i> sets where the generated
-      table starts: no station is produced inside it, because there is no lifting blade there. It is the
-      same quantity documented in <a class="xref" href="#cap-2-5" title="7.3 Root cutout">Section 7.3</a>, which gives its key, its range and its effect on the integration,
-      and this dialog is the only place the window offers a control for it.</p>
+      aerodynamic table starts. The reference chord law still extends to $r/R=0$. Therefore, the cutout
+      changes the active span but not reference solidity or reference blade aspect ratio.</p>
 
     <p><b>The resolution.</b> <code>n_stations</code> is how many rows the generated table has. It
       controls how finely the planform is described, not how finely the disk is solved, which is set
@@ -4044,10 +4042,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       set with <code>--set</code>, for example <code>--set geom.origin_params=...</code>.
     </p>
 
-    <h4 id="cap-2-2-1">7.5.2 Solidity and blade aspect ratio</h4>
+    <h4 id="cap-2-2-1">7.5.2 Reference solidity and blade aspect ratio</h4>
 
-    <p>The same dialog can size the chord from a target solidity or a target blade aspect ratio instead
-      of from a chord in meters. For $N_b$ blades of radius $R$ and planform area $S_b$ each,</p>
+    <p>The same dialog can size the chord from a reference solidity or a reference blade aspect ratio.
+      Let $S_b=S_{ref}$ be the area of one reference blade from the axis to the tip.</p>
     <div class="eqn">$$\sigma = \frac{N_b S_b}{\pi R^2},\qquad
       AR = \frac{R^2}{S_b} = \frac{N_b}{\pi\sigma}.$$</div>
     <p>With the number of blades fixed, these two are not independent: an increase of the solidity
@@ -4056,17 +4054,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       so that its taper ratio is preserved. For an elliptic blade it scales the maximum chord.
       Root cutout and twist are unaffected.</p>
 
-    <p><b>A single source for both numbers.</b> The dialog derives solidity and aspect ratio from one
-      quantity: the planform area of one blade divided by $R^{2}$, integrated from the root cutout to the
-      tip. For a rectangular planform this area is $c_{root}\,(1-r_{cut})$. For a tapered one it is
-      $\tfrac{1}{2}(c_{root}+c_{tip})(1-r_{cut})$, which preserves the taper ratio when both chords are
-      scaled together. For an elliptic one it is the exact integral of the rescaled $\sqrt{1-r^{2}}$
-      shape over the same span, using the same peak normalization as the generator. Solidity is $N_b$
-      times this area over $\pi R^{2}$, and the aspect ratio is its reciprocal. Editing either field
-      solves this area for the chords.</p>
-    <p>One consequence follows directly. Moving the root cutout outward
-      shortens the loaded span, so the same pair of chords gives a higher aspect ratio and a lower
-      solidity.</p>
+    <p><b>A single source for both numbers.</b> The dialog derives both metrics from
+      $S_{ref}/R^2$, integrated from $r/R=0$ to $1$. For a rectangular reference blade this is $c/R$.
+      For a tapered reference blade it is $\tfrac{1}{2}(c_{root}+c_{tip})/R$. For an elliptic reference
+      blade it is the exact integral of the generator chord law. Editing either metric rescales the
+      reference chord field.</p>
+    <p>The root cutout does not enter $S_{ref}$. Changing only the cutout leaves $\sigma$ and $AR$
+      unchanged while changing the active span and the aerodynamic loads.</p>
 
     <p>This is a way of sizing the planform, not a finite-wing correction. Higher solidity allows more
       load per unit of disk area but raises profile drag and therefore power. Higher aspect ratio tends
@@ -8606,10 +8600,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>The window holds three pages. <i>Variants</i> defines the blade
                           geometries to compare. <i>Conditions</i> decides what every variant
                           runs. <i>Run &amp; results</i> executes the solves and reads them. The
-                          window compares geometries. It does not search for one: design
-                          optimization lives in its own window,
-                          <a class="xref" href="#cap-optimization"
-                          title="14. Design Optimization">Chapter 14</a>.</p>
+                          window compares geometries. It does not perform design optimization;
+                          that is a separate tool.</p>
 
                         <figure>
                           <img src="img/gui/designer.png" alt="Geometry Designer window">
@@ -8752,11 +8744,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           the planform family: <i>rectangular</i>, <i>tapered</i> or
                           <i>elliptic</i>. A rectangular blade keeps one chord along the span
                           and asks for it in <i>Chord [c/R]</i>, which starts at 0.08. A
-                          tapered blade interpolates linearly from root to tip and asks for
-                          both ends in <i>Root chord [c/R]</i> and <i>Tip chord [c/R]</i>,
-                          which start at 0.10 and 0.04. An elliptic blade peaks at the root
-                          and asks for that peak in <i>Max chord [c/R]</i>, which starts at
-                          0.10. Only the planform fields of the selected family stay on
+                          tapered blade uses a linear reference chord law. <i>Root chord [c/R]</i>
+                          is the value at $r/R=0$, and <i>Tip chord [c/R]</i> is the value at $r/R=1$.
+                          An elliptic blade uses <i>Max chord [c/R]</i> as the reference peak at $r/R=0$.
+                          The cutout only truncates the aerodynamic table. Only the planform fields of the selected family stay on
                           screen, and switching families hides the rest. Every family shares the
                           remaining settings. <i>Twist root [deg]</i> and <i>Twist tip
                           [deg]</i> start at 12.0 and 4.0 and interpolate linearly

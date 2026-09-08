@@ -24,12 +24,14 @@ class TestGenerators(unittest.TestCase):
         self.assertEqual(geom.origin, "parametric")
         self.assertEqual(geom.origin_params["kind"], "rectangular")
 
-    def test_generate_tapered_monotonic(self):
-        geom = geometry.generate_tapered(root_chord_norm=0.10, tip_chord_norm=0.04, n_stations=15)
+    def test_generate_tapered_samples_reference_chord_law(self):
+        geom = geometry.generate_tapered(
+            root_chord_norm=0.10, tip_chord_norm=0.04,
+            root_cutout_norm=0.15, n_stations=15)
         chord = np.asarray(geom.chord_norm)
-        # afilamento linear raiz->ponta: estritamente decrescente
         self.assertTrue(np.all(np.diff(chord) <= 1e-12))
-        self.assertAlmostEqual(chord[0], 0.10)
+        expected_at_cutout = 0.10 + (0.04 - 0.10) * 0.15
+        self.assertAlmostEqual(chord[0], expected_at_cutout)
         self.assertAlmostEqual(chord[-1], 0.04)
 
     def test_generate_elliptic_chord_never_zero_at_tip(self):
@@ -51,14 +53,36 @@ class TestGenerators(unittest.TestCase):
         for gen in (geometry.generate_rectangular, geometry.generate_tapered, geometry.generate_elliptic):
             self.assertIsInstance(gen(), RotorGeometryDef)
 
-    def test_generate_elliptic_peak_matches_max_chord_norm_param(self):
-        # Q3: the actual peak of the table (at r_norm[0], the root) must match
-        # the value the user typed as "Max Chord" in the GUI --
-        # before, sqrt(1-root_cutout^2) < 1 made the actual peak fall below
-        # the parameter.
-        geom = geometry.generate_elliptic(max_chord_norm=0.20, root_cutout_norm=0.25, n_stations=30)
-        self.assertAlmostEqual(geom.chord_norm[0], 0.20, places=9)
-        self.assertEqual(geom.chord_norm[0], max(geom.chord_norm))
+    def test_generate_elliptic_samples_reference_peak_after_cutout(self):
+        geom = geometry.generate_elliptic(
+            max_chord_norm=0.20, root_cutout_norm=0.25, n_stations=30)
+        expected = 0.20 * np.sqrt(1.0 - 0.25 ** 2)
+        self.assertAlmostEqual(geom.chord_norm[0], expected, places=9)
+        self.assertLess(geom.chord_norm[0], 0.20)
+
+    def test_reference_rectangular_area_does_not_depend_on_cutout(self):
+        for cutout in (0.0, 0.15, 0.35):
+            geom = geometry.generate_rectangular(
+                chord_norm=0.08, root_cutout_norm=cutout, n_stations=20)
+            self.assertAlmostEqual(
+                geometry.reference_planform_integral(geom), 0.08, places=12)
+
+    def test_reference_tapered_area_does_not_depend_on_cutout(self):
+        expected = 0.5 * (0.10 + 0.04)
+        for cutout in (0.0, 0.15, 0.35):
+            geom = geometry.generate_tapered(
+                root_chord_norm=0.10, tip_chord_norm=0.04,
+                root_cutout_norm=cutout, n_stations=20)
+            self.assertAlmostEqual(
+                geometry.reference_planform_integral(geom), expected, places=12)
+
+    def test_reference_table_extends_inner_segment_to_axis(self):
+        geom = geometry.generate_custom(
+            r_norm=[0.2, 0.6, 1.0], chord_norm=[0.10, 0.06, 0.02],
+            twist_deg=[10.0, 5.0, 0.0])
+        self.assertAlmostEqual(
+            geometry.reference_planform_integral(geom), 0.07, places=12)
+
 
 
 class TestCustomTableValidation(unittest.TestCase):

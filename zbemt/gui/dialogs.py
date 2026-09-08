@@ -145,12 +145,12 @@ class GeometryGeneratorDialog(QDialog):
         # the others in real time (all linked to `_on_param_changed`).
         self.solidity = QDoubleSpinBox(); self.solidity.setRange(0.0001, 2.0)
         self.solidity.setDecimals(4); self.solidity.setSingleStep(0.005)
-        self.solidity.setToolTip('"solidity" — σ = Nb·S_blade/(π·R²), blade area fraction of the disk. '
-                                  'Alternate way to set the chord fields above (they stay linked)')
+        self.solidity.setToolTip('"solidity" — reference solidity σ = Nb·S_ref/(π·R²). '
+                                  'S_ref extends the chord law to r/R = 0 and does not use root cutout')
         self.aspect_ratio = QDoubleSpinBox(); self.aspect_ratio.setRange(0.1, 1000.0)
         self.aspect_ratio.setDecimals(2); self.aspect_ratio.setSingleStep(0.5)
-        self.aspect_ratio.setToolTip('"aspect_ratio" — AR = R²/S_blade, blade planform aspect ratio. '
-                                      'Alternate way to set the chord fields above (they stay linked)')
+        self.aspect_ratio.setToolTip('"aspect_ratio" — reference blade AR = R²/S_ref. '
+                                      'S_ref extends the chord law to r/R = 0 and does not use root cutout')
         form.addRow("Solidity σ:", self.solidity)
         form.addRow("Blade aspect ratio:", self.aspect_ratio)
 
@@ -243,48 +243,28 @@ class GeometryGeneratorDialog(QDialog):
             label_b.setText("Tip chord (c/R):")
             set_row_visible(self._form, self.chord_b, True)
 
-    def _blade_area_norm(self, kind: str, chord_a: float, chord_b: float, root_cutout: float) -> float:
-        """Single blade area normalized by R² (S_blade/R²), integrating
-        chord_norm(r) from root_cutout to 1 -- the single source from which
-        solidity (σ = Nb·S/π) and blade AR (= 1/S) are derived, see the
-        class docstring."""
-        span = max(0.0, 1.0 - root_cutout)
-        if kind == "rectangular":
-            return chord_a * span
-        if kind == "tapered":
-            return 0.5 * (chord_a + chord_b) * span
-        # elliptic: chord(r) = max_chord_norm * sqrt(1-r^2) / sqrt(1-rc^2)
-        # (the denominator is the same peak rescaling done in
-        # geometry.generate_elliptic, see its docstring).
-        rc = min(max(root_cutout, 0.0), 0.999999)
-        denom = math.sqrt(max(1e-12, 1.0 - rc ** 2))
-        integral = (math.pi / 4.0) - 0.5 * (rc * math.sqrt(max(0.0, 1.0 - rc ** 2)) + math.asin(rc))
-        return (chord_a / denom) * integral
+    def _blade_area_norm(self, kind: str, chord_a: float,
+                         chord_b: float) -> float:
+        """Return the reference blade area divided by ``R**2``."""
+        return geometry.reference_area_norm(kind, chord_a, chord_b)
 
-    def _invert_chords_for_area(self, kind: str, target_area: float, chord_a: float,
-                                 chord_b: float, root_cutout: float) -> tuple[float, float]:
-        """Inverts `_blade_area_norm`: given the target area, solves for the
-        chord fields. Tapered is underdetermined (1 equation, 2 unknowns)
-        -- solved by scaling root/tip proportionally, preserving the current
-        shape (tip/root ratio)."""
+    def _invert_chords_for_area(self, kind: str, target_area: float,
+                                 chord_a: float,
+                                 chord_b: float) -> tuple[float, float]:
+        """Resolve chord fields from a target reference blade area."""
         target_area = max(0.0, target_area)
-        span = max(1e-9, 1.0 - root_cutout)
         if kind == "rectangular":
-            return target_area / span, chord_b
+            return target_area, chord_b
         if kind == "tapered":
-            current = self._blade_area_norm(kind, chord_a, chord_b, root_cutout)
+            current = self._blade_area_norm(kind, chord_a, chord_b)
             if current <= 1e-9:
-                flat = target_area / span
-                return flat, flat
-            k = target_area / current
-            return chord_a * k, chord_b * k
-        # elliptic
-        rc = min(max(root_cutout, 0.0), 0.999999)
-        denom = math.sqrt(max(1e-12, 1.0 - rc ** 2))
-        integral = (math.pi / 4.0) - 0.5 * (rc * math.sqrt(max(0.0, 1.0 - rc ** 2)) + math.asin(rc))
-        if integral <= 1e-9:
+                return target_area, target_area
+            scale = target_area / current
+            return chord_a * scale, chord_b * scale
+        unit_area = geometry.reference_area_norm("elliptic", 1.0)
+        if unit_area <= 1e-12:
             return chord_a, chord_b
-        return target_area * denom / integral, chord_b
+        return target_area / unit_area, chord_b
 
     def _on_param_changed(self, source: str):
         if self._syncing_solidity_ar:
@@ -292,7 +272,6 @@ class GeometryGeneratorDialog(QDialog):
         self._syncing_solidity_ar = True
         try:
             kind = self.kind_combo.currentText()
-            rc = self.root_cutout.value()
             if source in ("solidity", "aspect_ratio"):
                 if source == "solidity":
                     area = self.solidity.value() * math.pi / max(self.n_blades.value(), 1)
@@ -300,11 +279,11 @@ class GeometryGeneratorDialog(QDialog):
                     ar = self.aspect_ratio.value()
                     area = 1.0 / ar if ar > 1e-9 else 0.0
                 new_a, new_b = self._invert_chords_for_area(
-                    kind, area, self.chord_a.value(), self.chord_b.value(), rc)
+                    kind, area, self.chord_a.value(), self.chord_b.value())
                 self.chord_a.setValue(new_a)
                 if kind == "tapered":
                     self.chord_b.setValue(new_b)
-            area = self._blade_area_norm(kind, self.chord_a.value(), self.chord_b.value(), rc)
+            area = self._blade_area_norm(kind, self.chord_a.value(), self.chord_b.value())
             self.solidity.setValue(self.n_blades.value() * area / math.pi)
             self.aspect_ratio.setValue(1.0 / area if area > 1e-9 else self.aspect_ratio.maximum())
         finally:
