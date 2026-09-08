@@ -422,7 +422,7 @@ class GeometryDesignerWindow(QWidget):
         box = QFrame()
         box.setFrameShape(QFrame.Shape.StyledPanel)
         vbox = QVBoxLayout(box)
-        heading = QLabel("Variation sweep — recommended start")
+        heading = QLabel("Variation sweep")
         heading.setStyleSheet("font-weight: bold;")
         vbox.addWidget(heading)
         inner = QWidget()
@@ -1569,12 +1569,6 @@ class GeometryDesignerWindow(QWidget):
     def _build_conditions_page(self) -> QWidget:
         page = QWidget()
         vbox = QVBoxLayout(page)
-        intro = QLabel(
-            "Choose how every geometry will be evaluated. For repeatable engineering comparisons, saved Run Case conditions are usually the clearest starting point.")
-        intro.setWordWrap(True)
-        intro.setStyleSheet("color: gray; margin-bottom: 6px;")
-        vbox.addWidget(intro)
-
         mode_row = QHBoxLayout()
         self.radio_saved_cases = QRadioButton("Use saved cases")
         self.radio_saved_cases.setToolTip(
@@ -1763,10 +1757,6 @@ class GeometryDesignerWindow(QWidget):
             "\"sweep_count\" — Number of evenly spaced values between start and stop.")
         form.addRow("Count:", self.sweep_count)
 
-        fixed_hint = QLabel(
-            "The remaining quantities keep the Single condition values.")
-        fixed_hint.setStyleSheet("color: gray;")
-        form.addRow(fixed_hint)
         return panel
 
     def _wire_summary_updates(self):
