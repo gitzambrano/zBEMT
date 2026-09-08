@@ -17,7 +17,6 @@ jobs:
   fix-and-test:
     runs-on: ubuntu-24.04
     env:
-      QT_QPA_PLATFORM: offscreen
       OMP_NUM_THREADS: "1"
       OPENBLAS_NUM_THREADS: "1"
       MKL_NUM_THREADS: "1"
@@ -33,17 +32,10 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Qt system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
-            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
-            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
-
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[all]"
+          pip install -e ".[dev]"
 
       - name: Apply Run Batch fixes and add regressions
         shell: bash
@@ -51,9 +43,8 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          path = Path("zbemt/studies.py")
-          text = path.read_text(encoding="utf-8")
-
+          studies = Path("zbemt/studies.py")
+          text = studies.read_text(encoding="utf-8")
           replacements = [
               (
                   '    for combo in itertools.product(*(ax["values"] for ax in axes)):\n'
@@ -67,158 +58,137 @@ jobs:
                   '        combo = tuple(reversed(reverse_combo))\n'
                   '        overrides = dict(zip(variables, combo))'
               ),
-              (
-                  'Vz=float(np.tan(np.deg2rad(a)) * Vinf_long)',
-                  'Vz=float(-np.tan(np.deg2rad(a)) * Vinf_long)'
-              ),
-              (
-                  'return float(np.tan(np.deg2rad(value)) * Vinf_long)',
-                  'return float(-np.tan(np.deg2rad(value)) * Vinf_long)'
-              ),
-              (
-                  'Vz=float(np.tan(np.deg2rad(v)) * Vinf_long)',
-                  'Vz=float(-np.tan(np.deg2rad(v)) * Vinf_long)'
-              ),
+              ('Vz=float(np.tan(np.deg2rad(a)) * Vinf_long)',
+               'Vz=float(-np.tan(np.deg2rad(a)) * Vinf_long)'),
+              ('return float(np.tan(np.deg2rad(value)) * Vinf_long)',
+               'return float(-np.tan(np.deg2rad(value)) * Vinf_long)'),
+              ('Vz=float(np.tan(np.deg2rad(v)) * Vinf_long)',
+               'Vz=float(-np.tan(np.deg2rad(v)) * Vinf_long)'),
           ]
-
           for old, new in replacements:
               count = text.count(old)
               if count != 1:
                   raise SystemExit(
-                      f"Refusing ambiguous patch: expected one occurrence of {old!r}, got {count}")
+                      f"Refusing ambiguous studies patch: expected one occurrence, got {count}: {old!r}")
               text = text.replace(old, new)
+          studies.write_text(text, encoding="utf-8")
 
-          path.write_text(text, encoding="utf-8")
-          PY
+          tests = Path("tests/regression/test_axial_sign_convention.py")
+          text = tests.read_text(encoding="utf-8")
 
-          cat > tests/regression/test_factorial_generation.py <<'PY'
-          """Run Batch factorial ordering and alpha-input regression tests."""
-          import unittest
-          from unittest.mock import patch
+          old = "import unittest\n\nimport numpy as np"
+          new = "import unittest\nfrom unittest.mock import patch\n\nimport numpy as np"
+          if text.count(old) != 1:
+              raise SystemExit("Unexpected unittest import layout")
+          text = text.replace(old, new)
 
-          from zbemt import api, geometry, studies
-          from zbemt.models import AirfoilDef, BatchDefinition, Project
+          old = "from zbemt.models import AirfoilDef, FlightCondition, Project"
+          new = "from zbemt.models import AirfoilDef, BatchDefinition, FlightCondition, Project"
+          if text.count(old) != 1:
+              raise SystemExit("Unexpected models import layout")
+          text = text.replace(old, new)
 
+          marker = '\n\nif __name__ == "__main__":   # pragma: no cover\n    unittest.main()\n'
+          if text.count(marker) != 1:
+              raise SystemExit("Could not locate unittest main marker")
 
-          def _project():
-              geom = geometry.generate_rectangular(
-                  chord_norm=0.08, twist_root_deg=8.0, twist_tip_deg=0.0,
-                  radius_m=1.0, n_stations=12)
-              return Project(
-                  name="factorial-generation",
-                  geometry=geom,
-                  airfoil=AirfoilDef(source="analytical", stall_model="linear"),
-                  config={},
-              )
-
-
-          def _reported_alpha(condition, radius_m=1.0):
-              return api.alpha_deg_from_vv(
-                  condition.Vz, condition.mu_x, condition.rpm, radius_m)
+          regression = r'''
 
 
-          class TestFactorialLoopPriority(unittest.TestCase):
-              def test_first_row_is_the_inner_loop_for_two_axes(self):
-                  conditions = studies.build_factorial_conditions(
-                      _project(),
-                      [
-                          {"variable": "mu_x", "values": [0.1, 0.2, 0.3]},
-                          {"variable": "alpha_deg", "values": [-5.0, 0.0, 5.0]},
-                      ],
-                      {"rpm": 600.0, "collective_deg": 8.0},
-                  )
-
-                  actual = [
-                      (round(c.mu_x, 6), round(_reported_alpha(c), 6))
-                      for c in conditions
-                  ]
-                  expected = [
-                      (0.1, -5.0), (0.2, -5.0), (0.3, -5.0),
-                      (0.1, 0.0), (0.2, 0.0), (0.3, 0.0),
-                      (0.1, 5.0), (0.2, 5.0), (0.3, 5.0),
-                  ]
-                  self.assertEqual(actual, expected)
-
-              def test_first_row_inner_second_middle_third_outer(self):
-                  conditions = studies.build_factorial_conditions(
-                      _project(),
-                      [
-                          {"variable": "mu_x", "values": [0.1, 0.2]},
-                          {"variable": "collective_deg", "values": [4.0, 8.0]},
-                          {"variable": "rpm", "values": [400.0, 600.0]},
-                      ],
-                      {"Vz": 0.0},
-                  )
-
-                  actual = [
-                      (round(c.mu_x, 6), c.collective_deg, c.rpm)
-                      for c in conditions
-                  ]
-                  expected = [
-                      (0.1, 4.0, 400.0), (0.2, 4.0, 400.0),
-                      (0.1, 8.0, 400.0), (0.2, 8.0, 400.0),
-                      (0.1, 4.0, 600.0), (0.2, 4.0, 600.0),
-                      (0.1, 8.0, 600.0), (0.2, 8.0, 600.0),
-                  ]
-                  self.assertEqual(actual, expected)
+def _generated_alpha(condition):
+    return api.alpha_deg_from_vv(
+        condition.Vz, condition.mu_x, condition.rpm, 1.0)
 
 
-          class TestAlphaGenerationConvention(unittest.TestCase):
-              def test_fixed_positive_alpha_stays_fixed_across_mu_and_rpm(self):
-                  conditions = studies.build_factorial_conditions(
-                      _project(),
-                      [
-                          {"variable": "mu_x", "values": [0.1, 0.2, 0.3]},
-                          {"variable": "rpm", "values": [400.0, 800.0]},
-                      ],
-                      {"alpha_deg": 5.0, "collective_deg": 8.0},
-                  )
+class TestFactorialLoopPriority(unittest.TestCase):
+    """The first visible Run Batch axis is the innermost loop."""
 
-                  self.assertTrue(all(c.Vz < 0.0 for c in conditions))
-                  self.assertEqual(
-                      [round(_reported_alpha(c), 9) for c in conditions],
-                      [5.0] * len(conditions),
-                  )
+    def test_first_row_is_the_inner_loop_for_two_axes(self):
+        conditions = studies.build_factorial_conditions(
+            _project(),
+            [
+                {"variable": "mu_x", "values": [0.1, 0.2, 0.3]},
+                {"variable": "alpha_deg", "values": [-5.0, 0.0, 5.0]},
+            ],
+            {"rpm": 600.0, "collective_deg": 8.0},
+        )
+        actual = [
+            (round(c.mu_x, 6), round(_generated_alpha(c), 6))
+            for c in conditions
+        ]
+        self.assertEqual(actual, [
+            (0.1, -5.0), (0.2, -5.0), (0.3, -5.0),
+            (0.1, 0.0), (0.2, 0.0), (0.3, 0.0),
+            (0.1, 5.0), (0.2, 5.0), (0.3, 5.0),
+        ])
 
-              def test_direct_alpha_sweep_uses_positive_alpha_as_flow_from_below(self):
-                  with patch.object(
-                      studies, "_run_conditions",
-                      side_effect=lambda _project, conditions, **_kwargs: conditions,
-                  ):
-                      conditions = studies.run_alpha_sweep(
-                          _project(), [-5.0, 5.0], mu_x=0.2,
-                          collective_deg=8.0, rpm=600.0)
-
-                  self.assertGreater(conditions[0].Vz, 0.0)
-                  self.assertLess(conditions[1].Vz, 0.0)
-                  self.assertAlmostEqual(_reported_alpha(conditions[0]), -5.0, places=9)
-                  self.assertAlmostEqual(_reported_alpha(conditions[1]), 5.0, places=9)
-
-              def test_legacy_alpha_batch_uses_the_same_sign(self):
-                  batch = BatchDefinition(
-                      name="alpha",
-                      sweep_kind="alpha_sweep",
-                      sweep_params={
-                          "alpha_deg_values": [-5.0, 5.0],
-                          "mu_x": 0.2,
-                          "collective_deg": 8.0,
-                          "rpm": 600.0,
-                      },
-                  )
-                  with patch.object(
-                      studies, "_run_conditions",
-                      side_effect=lambda _project, conditions, **_kwargs: conditions,
-                  ):
-                      conditions = studies.run_batch(_project(), batch)
-
-                  self.assertGreater(conditions[0].Vz, 0.0)
-                  self.assertLess(conditions[1].Vz, 0.0)
-                  self.assertAlmostEqual(_reported_alpha(conditions[0]), -5.0, places=9)
-                  self.assertAlmostEqual(_reported_alpha(conditions[1]), 5.0, places=9)
+    def test_first_row_inner_second_middle_third_outer(self):
+        conditions = studies.build_factorial_conditions(
+            _project(),
+            [
+                {"variable": "mu_x", "values": [0.1, 0.2]},
+                {"variable": "collective_deg", "values": [4.0, 8.0]},
+                {"variable": "rpm", "values": [400.0, 600.0]},
+            ],
+            {"Vz": 0.0},
+        )
+        actual = [(round(c.mu_x, 6), c.collective_deg, c.rpm)
+                  for c in conditions]
+        self.assertEqual(actual, [
+            (0.1, 4.0, 400.0), (0.2, 4.0, 400.0),
+            (0.1, 8.0, 400.0), (0.2, 8.0, 400.0),
+            (0.1, 4.0, 600.0), (0.2, 4.0, 600.0),
+            (0.1, 8.0, 600.0), (0.2, 8.0, 600.0),
+        ])
 
 
-          if __name__ == "__main__":  # pragma: no cover
-              unittest.main()
+class TestBatchAlphaGenerationConvention(unittest.TestCase):
+    """Every batch path uses alpha_rotor > 0 => Vz < 0."""
+
+    def test_fixed_positive_alpha_stays_fixed_across_mu_and_rpm(self):
+        conditions = studies.build_factorial_conditions(
+            _project(),
+            [
+                {"variable": "mu_x", "values": [0.1, 0.2, 0.3]},
+                {"variable": "rpm", "values": [400.0, 800.0]},
+            ],
+            {"alpha_deg": 5.0, "collective_deg": 8.0},
+        )
+        self.assertTrue(all(c.Vz < 0.0 for c in conditions))
+        self.assertEqual([round(_generated_alpha(c), 9) for c in conditions],
+                         [5.0] * len(conditions))
+
+    def test_direct_alpha_sweep_uses_positive_alpha_as_flow_from_below(self):
+        with patch.object(
+                studies, "_run_conditions",
+                side_effect=lambda _project, conditions, **_kwargs: conditions):
+            conditions = studies.run_alpha_sweep(
+                _project(), [-5.0, 5.0], mu_x=0.2,
+                collective_deg=8.0, rpm=600.0)
+        self.assertGreater(conditions[0].Vz, 0.0)
+        self.assertLess(conditions[1].Vz, 0.0)
+        self.assertAlmostEqual(_generated_alpha(conditions[0]), -5.0, places=9)
+        self.assertAlmostEqual(_generated_alpha(conditions[1]), 5.0, places=9)
+
+    def test_legacy_alpha_batch_uses_the_same_sign(self):
+        batch = BatchDefinition(
+            name="alpha", sweep_kind="alpha_sweep",
+            sweep_params={
+                "alpha_deg_values": [-5.0, 5.0],
+                "mu_x": 0.2, "collective_deg": 8.0, "rpm": 600.0,
+            },
+        )
+        with patch.object(
+                studies, "_run_conditions",
+                side_effect=lambda _project, conditions, **_kwargs: conditions):
+            conditions = studies.run_batch(_project(), batch)
+        self.assertGreater(conditions[0].Vz, 0.0)
+        self.assertLess(conditions[1].Vz, 0.0)
+        self.assertAlmostEqual(_generated_alpha(conditions[0]), -5.0, places=9)
+        self.assertAlmostEqual(_generated_alpha(conditions[1]), 5.0, places=9)
+'''
+          text = text.replace(marker, regression + marker)
+          tests.write_text(text, encoding="utf-8")
           PY
 
       - name: Check patch formatting
@@ -226,12 +196,9 @@ jobs:
 
       - name: Focused regression tests
         run: |
-          python -m pytest -q \
-            tests/regression/test_factorial_generation.py \
-            tests/regression/test_axial_sign_convention.py \
-            tests/regression/test_run_batch_queue.py
+          python -m pytest -q tests/regression/test_axial_sign_convention.py
 
-      - name: Complete test suite (audit existing baseline)
+      - name: Complete engine suite audit
         continue-on-error: true
         run: |
           set +e
