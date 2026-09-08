@@ -53,6 +53,32 @@ jobs:
       - name: Apply patch
         run: python tools/apply_airfoil_cm_geometry_paste.py
 
+      - name: Preserve PolarSlice positional compatibility
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("zbemt/models.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''    cd: list[float] = field(default_factory=list)
+              cm: list[float] = field(default_factory=list)
+              r_norm: Optional[float] = None
+              reynolds: Optional[float] = None
+              mach: Optional[float] = None
+              label: str = ""   # free-form label, for example "root", "tip", imported file name
+          '''
+          new = '''    cd: list[float] = field(default_factory=list)
+              r_norm: Optional[float] = None
+              reynolds: Optional[float] = None
+              mach: Optional[float] = None
+              label: str = ""   # free-form label, for example "root", "tip", imported file name
+              cm: list[float] = field(default_factory=list)
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(
+                  f"PolarSlice field-order target count: {text.count(old)}")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
       - name: Qt system dependencies
         run: |
           sudo apt-get update
