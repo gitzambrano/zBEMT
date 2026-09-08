@@ -79,6 +79,47 @@ jobs:
           path.write_text(text.replace(old, new, 1), encoding="utf-8")
           PY
 
+      - name: Repair generated geometry clipboard parser
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("zbemt/gui/tabs/geometry_tab.py")
+          text = path.read_text(encoding="utf-8")
+          start = text.index("def _parse_geometry_clipboard")
+          end = text.index("class GeometryTableWidget", start)
+          replacement = r'''def _parse_geometry_clipboard(text: str) -> list[list[float]]:
+              """Parse a rectangular table copied from a spreadsheet or text file."""
+              lines = [
+                  line
+                  for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+                  if line.strip()
+              ]
+              if not lines:
+                  return []
+
+              if any("\t" in line for line in lines):
+                  rows = [line.split("\t") for line in lines]
+              elif any(";" in line for line in lines):
+                  rows = [line.split(";") for line in lines]
+              elif all(line.count(",") == 2 for line in lines):
+                  rows = [line.split(",") for line in lines]
+              else:
+                  rows = [line.split() for line in lines]
+
+              width = len(rows[0])
+              if width == 0 or any(len(row) != width for row in rows):
+                  raise ValueError("The pasted geometry table must be rectangular.")
+              return [[_parse_clipboard_number(cell) for cell in row] for row in rows]
+
+
+          def _format_clipboard_number(value: float) -> str:
+              return f"{value:.12g}"
+
+
+          '''
+          path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
+          PY
+
       - name: Qt system dependencies
         run: |
           sudo apt-get update
