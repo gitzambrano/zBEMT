@@ -1,0 +1,74 @@
+name: apply airfoil CM and geometry paste
+
+on:
+  push:
+    branches: [fix/airfoil-cm-geometry-paste]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-airfoil-cm-geometry-paste
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  apply-test-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Apply patch
+        run: python tools/apply_airfoil_cm_geometry_paste.py
+
+      - name: Qt system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
+
+      - name: Install with every extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+
+      - name: Targeted regression tests
+        run: python -m pytest tests/regression/test_airfoil_cm_clipboard.py -q
+
+      - name: Complete suite
+        run: |
+          set +e
+          python tests/run_all_tests.py
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "::group::Full failed-test report"
+            cat tests/test_results.txt || true
+            echo "::endgroup::"
+            exit "$status"
+          fi
+
+      - name: Commit tested patch
+        run: |
+          git restore tests/test_results.txt 2>/dev/null || true
+          git diff --check
+          git config user.name "zBEMT integrated QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "feat(airfoil): preserve Cm and paste geometry tables (SC-16, TB-5)"
+          git push origin HEAD:fix/airfoil-cm-geometry-paste
