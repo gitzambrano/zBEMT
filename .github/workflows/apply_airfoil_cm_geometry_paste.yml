@@ -37,22 +37,17 @@ jobs:
           from pathlib import Path
           path = Path("tools/apply_airfoil_cm_geometry_paste.py")
           text = path.read_text(encoding="utf-8")
-          old = '''_replace_block(
-              "zbemt/gui/tabs/airfoil.py",
-              "        # The same text as the button, visible without having to discover\\n",
-              "        self.detected_axes_label = QLabel(\\\"No data imported yet.\\\")\\n",
+          needle = '''    "        self.detected_axes_label = QLabel(\\\"No data imported yet.\\\")\\n",
               ''' + "'''" + '''        self.detected_axes_label = QLabel("No data imported yet.")
           ''' + "'''" + ''',
           )'''
-          new = '''_replace_block(
-              "zbemt/gui/tabs/airfoil.py",
-              "        # The same text as the button, visible without having to discover\\n",
-              "        self.detected_axes_label = QLabel(\\\"No data imported yet.\\\")\\n",
+          replacement = '''    "        self.detected_axes_label = QLabel(\\\"No data imported yet.\\\")\\n",
               "",
           )'''
-          if text.count(old) != 1:
-              raise SystemExit("staged airfoil help-block fix target not found exactly once")
-          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          if text.count(needle) != 1:
+              raise SystemExit(
+                  f"staged airfoil help-block fix target count: {text.count(needle)}")
+          path.write_text(text.replace(needle, replacement, 1), encoding="utf-8")
           PY
 
       - name: Apply patch
