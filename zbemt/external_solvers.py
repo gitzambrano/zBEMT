@@ -144,64 +144,88 @@ def _coordinates_from_geometry(geometry: ProfileGeometry) -> np.ndarray:
     ])
 
 
-def _parse_xfoil_polar(text: str) -> tuple[list[float], list[float], list[float]]:
-    """Parse a standard XFOIL accumulated polar dump into parallel
-    (alpha_deg, cl, cd) lists. Leading '#' comment lines and the header
-    block are skipped. The data block starts below the last header line
-    whose first column name starts with 'alpha' (typical columns:
-    ``alpha CL CD CDp CM ...``), and the first three columns of each data
-    row are read as alpha, CL and CD. Rows that fail to parse or that hold
-    non-finite values are skipped, and trailing blank lines are tolerated.
-    An empty or unrecognizable dump raises ``ValueError``."""
+def _parse_xfoil_polar(text: str, *, include_cm: bool = False) -> tuple:
+    """Parse a standard XFOIL accumulated polar dump.
+
+    The default return stays ``(alpha_deg, cl, cd)`` for compatibility.
+    Set ``include_cm=True`` to also return the XFOIL ``CM`` column when the
+    header supplies it. A missing ``CM`` column then returns an empty list.
+    """
     if not text or not text.strip():
         raise ValueError("XFOIL polar dump is empty.")
     lines = text.splitlines()
     header_index = None
-    for position in range(len(lines)):
-        tokens = lines[position].split()
+    header_tokens: list[str] = []
+    for position, line in enumerate(lines):
+        tokens = line.split()
         if tokens and tokens[0].lower().startswith("alpha"):
-            # Keep scanning: a later column-name line wins, so the parser
-            # lands on the LAST header of an accumulated dump.
             header_index = position
+            header_tokens = tokens
     if header_index is None:
         raise ValueError(
             "XFOIL polar dump has no column-header line starting with "
             "'alpha'. The content is not a recognizable polar output."
         )
+
+    columns = {name.lower(): index for index, name in enumerate(header_tokens)}
+    alpha_index = columns.get("alpha", 0)
+    cl_index = columns.get("cl", 1)
+    cd_index = columns.get("cd", 2)
+    cm_index = columns.get("cm")
+
     alpha_deg: list[float] = []
     cl: list[float] = []
     cd: list[float] = []
+    cm: list[float] = []
+    required_last = max(alpha_index, cl_index, cd_index)
     for line in lines[header_index + 1:]:
         tokens = line.split()
-        if len(tokens) < 3:
+        if len(tokens) <= required_last:
             continue
         try:
-            alpha = float(tokens[0])
-            lift = float(tokens[1])
-            drag = float(tokens[2])
+            alpha = float(tokens[alpha_index])
+            lift = float(tokens[cl_index])
+            drag = float(tokens[cd_index])
         except ValueError:
             continue
         if not (np.isfinite(alpha) and np.isfinite(lift) and np.isfinite(drag)):
             continue
+
+        moment = None
+        if cm_index is not None:
+            if len(tokens) <= cm_index:
+                moment = float("nan")
+            else:
+                try:
+                    moment = float(tokens[cm_index])
+                except ValueError:
+                    moment = float("nan")
+
         alpha_deg.append(alpha)
         cl.append(lift)
         cd.append(drag)
+        if cm_index is not None:
+            cm.append(moment)
+
     if not alpha_deg:
         raise ValueError(
             "XFOIL polar dump contains a column header but no usable data row."
         )
+    if include_cm:
+        return alpha_deg, cl, cd, cm
     return alpha_deg, cl, cd
 
 
 def _mach_corrected_slices(engine_name: str, alpha_valid_deg: np.ndarray,
                            cl_inc: np.ndarray, cd_inc: np.ndarray,
                            mach_list: list[float], reynolds: float,
-                           label: str) -> list[PolarSlice]:
-    """Tail shared by both engines: apply the Prandtl-Glauert correction
-    per Mach (Cl_c = Cl / beta, Cd_c = Cd / beta, beta = sqrt(1 - M^2),
-    the same correction bemt.py applies per element) and build one
-    ``PolarSlice`` for each Mach that survives it. A sonic or supersonic
-    Mach emits a warning and contributes no slice."""
+                           label: str, cm_inc: Optional[np.ndarray] = None) -> list[PolarSlice]:
+    """Apply the Prandtl-Glauert correction and build polar slices.
+
+    Lift, drag, and pitching-moment coefficients use the same ``1 / beta``
+    pressure-coefficient scaling when pitching-moment data are available.
+    A sonic or supersonic Mach value contributes no slice.
+    """
     slices: list[PolarSlice] = []
     for mach in mach_list:
         beta = float(np.sqrt(max(0.0, 1.0 - mach ** 2)))
@@ -215,6 +239,7 @@ def _mach_corrected_slices(engine_name: str, alpha_valid_deg: np.ndarray,
             alpha_deg=alpha_valid_deg.tolist(),
             cl=(cl_inc / beta).tolist(),
             cd=(cd_inc / beta).tolist(),
+            cm=((cm_inc / beta).tolist() if cm_inc is not None else []),
             reynolds=float(reynolds),
             mach=float(mach),
             label=label,
@@ -370,7 +395,8 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
                 with open(polar_path, "r", errors="replace") as handle:
                     text = handle.read()
             try:
-                alpha_vals, cl_vals, cd_vals = _parse_xfoil_polar(text)
+                alpha_vals, cl_vals, cd_vals, cm_vals = _parse_xfoil_polar(
+                    text, include_cm=True)
             except ValueError:
                 warnings.warn(f"XFOIL: no converged points for Re={reynolds:.3g}")
                 if diagnostics is not None:
@@ -382,6 +408,7 @@ def _run_polar_xfoil(geometry: ProfileGeometry,
                 alpha_valid_deg=np.asarray(alpha_vals, dtype=float),
                 cl_inc=np.asarray(cl_vals, dtype=float),
                 cd_inc=np.asarray(cd_vals, dtype=float),
+                cm_inc=(np.asarray(cm_vals, dtype=float) if cm_vals else None),
                 mach_list=mach_list,
                 reynolds=reynolds,
                 label=label,
@@ -490,6 +517,8 @@ def run_polar(engine: str, geometry: ProfileGeometry,
 
         cl_inc = np.asarray(aero["CL"], dtype=float)
         cd_inc = np.asarray(aero["CD"], dtype=float)
+        cm_raw = aero.get("CM")
+        cm_inc = np.asarray(cm_raw, dtype=float) if cm_raw is not None else None
         confidence = np.asarray(
             aero.get("analysis_confidence", np.ones_like(cl_inc)), dtype=float
         )
@@ -508,6 +537,7 @@ def run_polar(engine: str, geometry: ProfileGeometry,
             alpha_valid_deg=alpha_deg[valid_base],
             cl_inc=cl_inc[valid_base],
             cd_inc=cd_inc[valid_base],
+            cm_inc=(cm_inc[valid_base] if cm_inc is not None else None),
             mach_list=mach_list,
             reynolds=reynolds,
             label=label,

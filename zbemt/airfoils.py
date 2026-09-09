@@ -756,6 +756,7 @@ _COLUMN_ALIASES = {
     "alpha_deg": ["alpha_deg", "alpha", "aoa", "aoa_deg"],
     "cl": ["cl", "Cl", "CL"],
     "cd": ["cd", "Cd", "CD"],
+    "cm": ["cm", "Cm", "CM"],
     "r_norm": ["r_norm", "r/R", "rR", "radial_station"],
     "reynolds": ["reynolds", "Re", "re"],
     "mach": ["mach", "Mach", "M"],
@@ -779,9 +780,10 @@ def detect_csv_axes(path: str) -> dict:
 
 
 def import_polar_csv(path: str, column_map: Optional[dict] = None) -> list[PolarSlice]:
-    """Imports a polar CSV, automatically detecting which axes (r_norm,
-    reynolds, mach) are present, and returns a list of `PolarSlice`, one
-    per unique combination of (r_norm, reynolds, mach) found in the file.
+    """Import a polar CSV and preserve an optional ``Cm`` column.
+
+    The function detects the conditioning axes ``r_norm``, Reynolds, and
+    Mach. It returns one ``PolarSlice`` for each unique axis combination.
     `column_map`, if given, overrides the automatic detection
     (for example: {"alpha_deg": "AOA[deg]"})."""
     df = pd.read_csv(path)
@@ -822,6 +824,8 @@ def import_polar_csv(path: str, column_map: Optional[dict] = None) -> list[Polar
                 alpha_deg=group[cols["alpha_deg"]].tolist(),
                 cl=group[cols["cl"]].tolist(),
                 cd=group[cols["cd"]].tolist(),
+                cm=(group[cols["cm"]].tolist()
+                    if cols["cm"] is not None else []),
                 r_norm=_val(cols["r_norm"]),
                 reynolds=_val(cols["reynolds"]),
                 mach=_val(cols["mach"]),
@@ -832,26 +836,37 @@ def import_polar_csv(path: str, column_map: Optional[dict] = None) -> list[Polar
             alpha_deg=df[cols["alpha_deg"]].tolist(),
             cl=df[cols["cl"]].tolist(),
             cd=df[cols["cd"]].tolist(),
+            cm=(df[cols["cm"]].tolist() if cols["cm"] is not None else []),
             label=Path(path).stem,
         ))
     return slices
 
 
 def export_polar_slices_csv(slices: list[PolarSlice], path: str) -> Path:
-    """Writes ``slices`` in the CSV format that ``detect_csv_axes``/
-    ``import_polar_csv`` know how to read back (columns ``alpha_deg, Cl,
-    Cd, r_norm, reynolds, mach``). Low-level function used both by
-    ``export_polar_csv`` (below, from an already-built ``AirfoilDef``)
-    and by ``api.export_polar_table`` (Phase 7, from the direct return of
-    ``external_solvers.run_polar``, without needing an
-    ``AirfoilDef``/project to generate and export a table)."""
+    """Write polar slices in the format accepted by ``import_polar_csv``.
+
+    The required aerodynamic columns are ``alpha_deg``, ``Cl``, and ``Cd``.
+    ``Cm`` is written when at least one slice contains pitching-moment data.
+    Radial position, Reynolds number, and Mach number remain conditioning
+    columns and can identify many slices in one file.
+    """
     rows = []
+    has_cm = any(bool(s.cm) for s in slices)
     for s in slices:
-        for a, cl, cd in zip(s.alpha_deg, s.cl, s.cd):
-            rows.append({
-                "alpha_deg": a, "Cl": cl, "Cd": cd,
-                "r_norm": s.r_norm, "reynolds": s.reynolds, "mach": s.mach,
-            })
+        n_points = min(len(s.alpha_deg), len(s.cl), len(s.cd))
+        cm_aligned = len(s.cm) == n_points
+        for index in range(n_points):
+            row = {
+                "alpha_deg": s.alpha_deg[index],
+                "Cl": s.cl[index],
+                "Cd": s.cd[index],
+                "r_norm": s.r_norm,
+                "reynolds": s.reynolds,
+                "mach": s.mach,
+            }
+            if has_cm:
+                row["Cm"] = s.cm[index] if cm_aligned else np.nan
+            rows.append(row)
     df = pd.DataFrame(rows)
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -372,12 +372,13 @@ def _coerce_field(ftype: Any, val: Any, is_propeller: bool = False) -> Any:
 
 @dataclass
 class PolarSlice:
-    """A polar (alpha_deg, Cl, Cd), optionally labeled by radial section
-    (r_norm), Reynolds and/or Mach. The combination of which labels are
-    present (None = absent) across the whole slice list of an
-    ``AirfoilDef`` determines, in ``airfoils.to_airfoil()``, whether the
-    result is a single polar, multi-section, and/or interpolated in
-    Re/Mach."""
+    """A polar with angle, lift, drag, and optional pitching moment.
+
+    ``r_norm``, Reynolds, and Mach label the condition of a slice. ``cm``
+    stores the section pitching-moment coefficient when the source supplies
+    it. The current BEMT force and performance solution does not use ``cm``.
+    It is retained in the project and in exported polar data.
+    """
     alpha_deg: list[float] = field(default_factory=list)
     cl: list[float] = field(default_factory=list)
     cd: list[float] = field(default_factory=list)
@@ -385,6 +386,7 @@ class PolarSlice:
     reynolds: Optional[float] = None
     mach: Optional[float] = None
     label: str = ""   # free-form label, for example "root", "tip", imported file name
+    cm: list[float] = field(default_factory=list)
 
 
 @dataclass

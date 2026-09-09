@@ -997,33 +997,21 @@ class AirfoilTab(QWidget):
         self._btn_import_csv = btn_import
         btn_export = QPushButton("Export CSV…")
         btn_export.setToolTip(
-            "Writes the current polar in the same CSV format the importer "
-            "reads — one row per angle of attack, with a column for each of "
-            "r/R, Reynolds and Mach that this polar actually uses. Exporting "
-            "once is the quickest way to get a template to fill in.")
+            "Write the current polar in the CSV format accepted by the importer. "
+            "The export preserves the optional pitching-moment coefficient and "
+            "the radial, Reynolds, and Mach conditioning columns when present.")
         btn_export.clicked.connect(self._export_csv)
         row.addWidget(btn_import)
         row.addWidget(btn_export)
+        btn_csv_help = QPushButton("?")
+        btn_csv_help.setFixedWidth(28)
+        btn_csv_help.setToolTip("Show the polar CSV format help.")
+        btn_csv_help.clicked.connect(self._show_csv_import_help)
+        row.addWidget(btn_csv_help)
         row.addStretch(1)
         layout.addLayout(row)
         #: the two read as a pair: same width (see `showEvent`)
         self._table_buttons = (btn_import, btn_export)
-
-        # The same text as the button, visible without having to discover
-        # there is a tooltip: whoever reaches this block is precisely
-        # trying to assemble the file. `_CSV_IMPORT_TOOLTIP` is the
-        # single source for both screens.
-        format_hint = QLabel(
-            'Expected file: one line per angle of attack, columns '
-            '<code>alpha_deg, Cl, Cd</code> — plus <code>r_norm</code>, '
-            '<code>reynolds</code> and/or <code>mach</code> repeated on every '
-            'line to declare a sweep. Hover "Import CSV…" for the full format '
-            'with examples.')
-        format_hint.setWordWrap(True)
-        format_hint.setStyleSheet("color: #666; font-size: 11px;")
-        format_hint.setToolTip(self._CSV_IMPORT_TOOLTIP)
-        layout.addWidget(format_hint)
-        self._csv_format_tooltip = format_hint
 
         self.detected_axes_label = QLabel("No data imported yet.")
         self.detected_axes_label.setWordWrap(True)
@@ -1036,45 +1024,35 @@ class AirfoilTab(QWidget):
         layout.addWidget(self.slices_list)
         return box
 
-    #: Help text for the tabulated polar IMPORTER. The previous text only
-    #: said "imports a polar CSV" -- whoever had never seen the format had
-    #: no way to assemble the file. Here is the entire contract of
-    #: `airfoils.import_polar_csv`: which columns, what a row is, what a
-    #: block is, and how a Reynolds/Mach/radial station sweep is declared
-    #: (the answer is the same for all three: one extra COLUMN, repeated
-    #: on every row of the block).
+    def _show_csv_import_help(self):
+        QMessageBox.information(
+            self, "Polar CSV format", self._CSV_IMPORT_TOOLTIP)
+
+    #: Help for the tabulated polar importer. The same text is available as
+    #: the Import CSV button tooltip and through the adjacent help button.
     _CSV_IMPORT_TOOLTIP = (
-        "Imports a Cl/Cd polar from a CSV, as one or more slices.\n\n"
-        "ONE LINE = ONE ANGLE OF ATTACK. The file is a plain table with a "
-        "header line and one row per point:\n"
-        "    alpha_deg,Cl,Cd\n"
-        "    -5,-0.32,0.0121\n"
-        "    0,0.21,0.0098\n"
-        "    5,0.74,0.0115\n\n"
-        "REQUIRED COLUMNS: alpha_deg (degrees), Cl and Cd. Names are matched "
-        "case-insensitively and common spellings are accepted: alpha_deg, "
-        "alpha, aoa and aoa_deg for the angle, CL / cl and CD / cd for the "
-        "coefficients. "
-        "Any other column is ignored.\n\n"
-        "OPTIONAL COLUMNS — this is how a sweep is declared: add r_norm "
-        "(also accepted: r/R, radial_station), reynolds (Re) and/or mach (M). "
-        "Every row carries the value of the condition it belongs to, repeated:\n"
-        "    alpha_deg,Cl,Cd,reynolds,mach\n"
-        "    -5,-0.30,0.0140,200000,0.2\n"
-        "     0,0.19,0.0115,200000,0.2\n"
-        "    -5,-0.32,0.0121,600000,0.2\n"
-        "     0,0.21,0.0098,600000,0.2\n\n"
-        "ONE BLOCK = ONE COMBINATION of the optional columns. The rows above "
-        "make two slices (Re=2e5 and Re=6e5, both at Mach 0.2), each with its "
-        "own sweep in angle of attack. Rows do not need to be sorted or grouped together — "
-        "they are collected by value, not by position. The same file may carry "
-        "r/R, Reynolds and Mach at once: the engine then interpolates the "
-        "polar in every axis present, per radial station and flight condition.\n\n"
-        "With no optional column at all, the file is a single polar used "
-        "everywhere on the blade.\n\n"
-        "The importer shows which columns it recognized before anything is "
-        "applied, and 'Export CSV…' writes this very format — export once to "
-        "have a template to fill in."
+        "Import one or more airfoil polar slices from one CSV file.\n\n"
+        "Required columns are alpha_deg, Cl, and Cd. Common aliases are "
+        "accepted without regard to case. The pitching-moment coefficient "
+        "Cm is optional. If Cm is present, zBEMT stores it in the project and "
+        "writes it on export. The current BEMT force and performance solution "
+        "does not use the pitching-moment coefficient.\n\n"
+        "Use r_norm to put several radial polar stations of the same airfoil "
+        "in one file. Do not import one file for each radial station. Repeat "
+        "the r_norm value on every angle-of-attack row that belongs to that "
+        "station. Reynolds and Mach work the same way and can appear in the "
+        "same file.\n\n"
+        "Example:\n"
+        "    r_norm,alpha_deg,Cl,Cd,Cm\n"
+        "    0.20,-5,-0.32,0.0121,-0.040\n"
+        "    0.20,0,0.21,0.0098,-0.043\n"
+        "    0.80,-5,-0.30,0.0114,-0.036\n"
+        "    0.80,0,0.24,0.0092,-0.039\n\n"
+        "Use the Radial Sections control when the blade uses different airfoil "
+        "definitions or different profile geometries along the span. A radial "
+        "polar table for one airfoil does not require separate Airfoil Sections.\n\n"
+        "Without r_norm, Reynolds, or Mach, the CSV defines one polar for the "
+        "whole blade. Export CSV writes a compatible template."
     )
 
     #: Help text for the contour import button. It is the answer to the
@@ -2260,7 +2238,7 @@ class AirfoilTab(QWidget):
             axes = airfoils.detect_csv_axes(path)
             self._imported_slices = airfoils.import_polar_csv(path)
             self.source_combo.setCurrentText("table")
-            detected = ", ".join(k for k, v in axes.items() if v and k not in ("alpha_deg", "cl", "cd"))
+            detected = ", ".join(k for k, v in axes.items() if v and k not in ("alpha_deg", "cl", "cd", "cm"))
             self.detected_axes_label.setText(
                 f"Imported: {Path(path).name} — {len(self._imported_slices)} polar(s). "
                 f"Extra axes detected: {detected or 'none (single polar)'}"
