@@ -124,50 +124,53 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          from textwrap import dedent, indent
 
           path = Path("zbemt/gui/tabs/airfoil.py")
           text = path.read_text(encoding="utf-8")
           start = text.index("    def _show_csv_import_help")
           end = text.index("    #: Help text for the contour import button.", start)
-          replacement = r'''    def _show_csv_import_help(self):
+          block = r'''
+          def _show_csv_import_help(self):
               QMessageBox.information(
                   self, "Polar CSV format", self._CSV_IMPORT_TOOLTIP)
 
-              #: Help for the tabulated polar importer. The same text is available as
-              #: the Import CSV button tooltip and through the adjacent help button.
-              _CSV_IMPORT_TOOLTIP = (
-                  "Import one or more airfoil polar slices from one CSV file.\n\n"
-                  "Required columns are alpha_deg, Cl, and Cd. Common aliases are "
-                  "accepted without regard to case. The pitching-moment coefficient "
-                  "Cm is optional. If Cm is present, zBEMT stores it in the project and "
-                  "writes it on export. The current BEMT force and performance solution "
-                  "does not use the pitching-moment coefficient.\n\n"
-                  "Use r_norm to put several radial polar stations of the same airfoil "
-                  "in one file. Do not import one file for each radial station. Repeat "
-                  "the r_norm value on every angle-of-attack row that belongs to that "
-                  "station. Reynolds and Mach work the same way and can appear in the "
-                  "same file.\n\n"
-                  "Example:\n"
-                  "    r_norm,alpha_deg,Cl,Cd,Cm\n"
-                  "    0.20,-5,-0.32,0.0121,-0.040\n"
-                  "    0.20,0,0.21,0.0098,-0.043\n"
-                  "    0.80,-5,-0.30,0.0114,-0.036\n"
-                  "    0.80,0,0.24,0.0092,-0.039\n\n"
-                  "Use the Radial Sections control when the blade uses different airfoil "
-                  "definitions or different profile geometries along the span. A radial "
-                  "polar table for one airfoil does not require separate Airfoil Sections.\n\n"
-                  "Without r_norm, Reynolds, or Mach, the CSV defines one polar for the "
-                  "whole blade. Export CSV writes a compatible template."
-              )
-
+          #: Help for the tabulated polar importer. The same text is available as
+          #: the Import CSV button tooltip and through the adjacent help button.
+          _CSV_IMPORT_TOOLTIP = (
+              "Import one or more airfoil polar slices from one CSV file.\n\n"
+              "Required columns are alpha_deg, Cl, and Cd. Common aliases are "
+              "accepted without regard to case. The pitching-moment coefficient "
+              "Cm is optional. If Cm is present, zBEMT stores it in the project and "
+              "writes it on export. The current BEMT force and performance solution "
+              "does not use the pitching-moment coefficient.\n\n"
+              "Use r_norm to put several radial polar stations of the same airfoil "
+              "in one file. Do not import one file for each radial station. Repeat "
+              "the r_norm value on every angle-of-attack row that belongs to that "
+              "station. Reynolds and Mach work the same way and can appear in the "
+              "same file.\n\n"
+              "Example:\n"
+              "    r_norm,alpha_deg,Cl,Cd,Cm\n"
+              "    0.20,-5,-0.32,0.0121,-0.040\n"
+              "    0.20,0,0.21,0.0098,-0.043\n"
+              "    0.80,-5,-0.30,0.0114,-0.036\n"
+              "    0.80,0,0.24,0.0092,-0.039\n\n"
+              "Use the Radial Sections control when the blade uses different airfoil "
+              "definitions or different profile geometries along the span. A radial "
+              "polar table for one airfoil does not require separate Airfoil Sections.\n\n"
+              "Without r_norm, Reynolds, or Mach, the CSV defines one polar for the "
+              "whole blade. Export CSV writes a compatible template."
+          )
           '''
+          replacement = indent(dedent(block).lstrip(), "    ") + "\n"
           path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
 
           path = Path("zbemt/gui/tabs/geometry_tab.py")
           text = path.read_text(encoding="utf-8")
           start = text.index("    _GEOMETRY_TABLE_HELP = (")
           end = text.index("    def __init__(self, state: AppState):", start)
-          replacement = r'''    _GEOMETRY_TABLE_HELP = (
+          block = r'''
+          _GEOMETRY_TABLE_HELP = (
               "Edit one cell at a time, or paste a rectangular block from a spreadsheet.\n\n"
               "Select the first destination cell and press Ctrl+V. The first pasted "
               "value goes into that cell. Following rows and columns fill consecutive "
@@ -177,8 +180,8 @@ jobs:
               "zBEMT validates the full block before it changes the table. The geometry "
               "and preview update once after a successful paste."
           )
-
           '''
+          replacement = indent(dedent(block).lstrip(), "    ") + "\n"
           path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
           PY
 
