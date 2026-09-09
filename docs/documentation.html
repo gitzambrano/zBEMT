@@ -3914,9 +3914,12 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       the solver runs: a table that is not strictly increasing, that lies outside the blade limits, or whose columns have
       different lengths is rejected and the run does not start.</p>
 
-    <p><span class="gui">GUI</span>: the <i>Radial Distribution Table</i>, with the columns
-      <i>r/R</i>, <i>chord c/R</i> and <i>twist [deg]</i>, editable cell by cell. Confirming a cell
-      rebuilds the blade immediately, keeping the current number of blades and radius.
+    <p><span class="gui">GUI</span>: the <i>Radial Distribution Table</i> has the columns
+      <i>r/R</i>, <i>chord c/R</i> and <i>twist [deg]</i>. Edit one cell at a time, or select the
+      first destination cell and paste a rectangular spreadsheet block. A paste fills consecutive cells
+      and adds rows when necessary. Tab-delimited spreadsheet data accepts a dot or comma decimal separator.
+      Semicolon-delimited text and simple three-column CSV text are also accepted. zBEMT validates the full
+      pasted block before it changes the table and rebuilds the geometry once after the paste.
     </p>
 
     <p><span class="bemt">.bemt</span>: the keys <code>r_norm</code>, <code>chord_norm</code>
@@ -5311,12 +5314,15 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>The file is a plain comma-separated table with one header row and one row per angle-of-attack
                   sample. It contains no block separators or repeated headers: optional condition columns identify
                   the slice to which each row belongs.</p>
-                <p><b>One row is one angle of attack.</b> The three required columns are the angle in degrees and
-                  the two coefficients at that angle:</p>
-                <pre>alpha_deg,Cl,Cd
--5,-0.32,0.0121
-0,0.21,0.0098
-5,0.74,0.0115</pre>
+                <p><b>One row is one angle of attack.</b> The required columns are the angle in degrees,
+                  lift coefficient, and drag coefficient. The pitching-moment coefficient $C_m$ is optional:</p>
+                <pre>alpha_deg,Cl,Cd,Cm
+-5,-0.32,0.0121,-0.040
+0,0.21,0.0098,-0.043
+5,0.74,0.0115,-0.046</pre>
+                <p>If the source supplies $C_m$, zBEMT stores it in the polar slice and preserves it in
+                  <code>.bemt</code> files and CSV exports. The current BEMT force and performance solution does
+                  not use the section pitching-moment coefficient.</p>
                 <p><b>Column names are matched case-insensitively, against a list of accepted spellings</b>
                   , so a file exported by another
                   tool usually imports unchanged:</p>
@@ -5341,6 +5347,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       <td>Drag coefficient</td>
                       <td>required</td>
                       <td><code>cd</code>, <code>Cd</code>, <code>CD</code></td>
+                    </tr>
+                    <tr>
+                      <td>Pitching-moment coefficient</td>
+                      <td>optional</td>
+                      <td><code>cm</code>, <code>Cm</code>, <code>CM</code></td>
                     </tr>
                     <tr>
                       <td>Radial station, $r/R$</td>
@@ -5376,8 +5387,10 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>This sample defines two operating slices ($Re = 2\times 10^5$ and $Re = 6\times 10^5$ at $M =
                   0.2$), each containing an angle-of-attack sweep. Slices are grouped dynamically by unique tuples of
                   $(r/R, Re, M)$ without requiring sorted or contiguous rows. A single CSV may span multiple radial
-                  stations, Reynolds numbers, and Mach numbers. The solver interpolates across all supplied dimensions
-                  during execution. Omitting parametric columns defines a single global static polar.</p>
+                  stations, Reynolds numbers, and Mach numbers. Therefore, do not import one file for each radial polar
+                  station of the same airfoil. Use the separate Airfoil Sections control only when the blade uses different
+                  airfoil definitions or different profile geometries along the span. The solver interpolates across all
+                  supplied dimensions during execution. Omitting parametric columns defines a single global static polar.</p>
                 <p>Delimiter and decimal are standard CSV (comma-delimited, dot decimal separator, single header
                   row). Non-standard exports (such as semicolon-separated or comma-decimal European locale formats)
                   must be converted before import. Blank entries in optional columns represent unconditioned axes.</p>
@@ -5916,8 +5929,9 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><b>The format written.</b> The file is the same comma-separated format the importer reads,
                   described in 8.6.1: one header line, one row per angle of attack, and the columns
-                  <code>alpha_deg</code>, <code>Cl</code>, <code>Cd</code>, <code>r_norm</code>,
-                  <code>reynolds</code> and <code>mach</code>. Exporting and re-importing is therefore exact.
+                  <code>alpha_deg</code>, <code>Cl</code>, <code>Cd</code>, optional <code>Cm</code>,
+                  <code>r_norm</code>, <code>reynolds</code> and <code>mach</code>. Exporting and re-importing
+                  therefore preserves the available polar data.
                 </p>
 
                 <p><span class="gui">GUI</span>: the <i>Export generated table</i> button, beside

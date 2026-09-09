@@ -145,6 +145,14 @@ different rule.
   full input slot: a fixed value, a batch axis, a results column, a CSV
   column and a report row, on the same terms as the other two.
 
+- **SC-16** — A tabulated airfoil polar may contain an optional pitching-moment
+  coefficient $C_m$ beside $C_l$ and $C_d$. CSV import, external polar
+  generation when the source supplies the coefficient, `.bemt` persistence,
+  and CSV export preserve $C_m$. The current BEMT force and performance
+  solution does not use $C_m$. A single polar CSV may contain several radial
+  stations through the `r_norm` conditioning column. Therefore, one file may
+  define all radial polar stations of one airfoil.
+
 ### 1.2 The software must not support
 
 - **SC-5** — Free-wake, prescribed-wake and vortex-lattice inflow, and any
@@ -402,6 +410,14 @@ different rule.
   it and Restore reloads the last saved version.
 - **TB-4** — Every tab must survive an empty project, a project with no results, and a
   mode switch between rotor and propeller without losing user input.
+
+- **TB-5** — The Geometry radial table accepts a rectangular clipboard block.
+  A paste starts at the selected cell and fills consecutive rows and columns.
+  The table grows when more rows are required. The parser accepts tab-delimited
+  spreadsheet data, semicolon-delimited text, and simple three-column CSV text.
+  It accepts a decimal comma in spreadsheet and semicolon data. The GUI validates
+  the complete pasted block before it changes cells and applies one project update
+  after the complete paste.
 
 ---
 

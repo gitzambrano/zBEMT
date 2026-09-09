@@ -14,9 +14,10 @@ import numpy as np
 from PyQt6.QtWidgets import (
     QWidget, QTabWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox, QPushButton,
     QDoubleSpinBox, QSpinBox, QTableWidget, QTableWidgetItem, QMessageBox,
-    QScrollArea, QSplitter, QHeaderView, QDialog, QCheckBox, QLabel,
+    QScrollArea, QSplitter, QHeaderView, QDialog, QCheckBox, QLabel, QApplication,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
+from PyQt6.QtGui import QKeySequence
 
 from ... import geometry
 from ...models import BladeDynamicsDef
@@ -45,6 +46,100 @@ def _sym(latex: str) -> str:
     return symbol_html(body)
 
 
+def _parse_clipboard_number(value: str) -> float:
+    """Parse one spreadsheet number and accept a decimal comma."""
+    token = value.strip().replace(" ", "").replace(" ", "")
+    if not token:
+        raise ValueError("The pasted geometry table contains an empty cell.")
+    if "," in token and "." not in token:
+        token = token.replace(",", ".")
+    try:
+        number = float(token)
+    except ValueError as exc:
+        raise ValueError(
+            f"The pasted geometry value {value!r} is not a number."
+        ) from exc
+    if not np.isfinite(number):
+        raise ValueError(
+            f"The pasted geometry value {value!r} is not finite."
+        )
+    return number
+
+
+def _parse_geometry_clipboard(text: str) -> list[list[float]]:
+    """Parse a rectangular table copied from a spreadsheet or text file."""
+    lines = [
+        line
+        for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        if line.strip()
+    ]
+    if not lines:
+        return []
+
+    if any("\t" in line for line in lines):
+        rows = [line.split("\t") for line in lines]
+    elif any(";" in line for line in lines):
+        rows = [line.split(";") for line in lines]
+    elif all(line.count(",") == 2 for line in lines):
+        rows = [line.split(",") for line in lines]
+    else:
+        rows = [line.split() for line in lines]
+
+    width = len(rows[0])
+    if width == 0 or any(len(row) != width for row in rows):
+        raise ValueError("The pasted geometry table must be rectangular.")
+    return [[_parse_clipboard_number(cell) for cell in row] for row in rows]
+
+
+def _format_clipboard_number(value: float) -> str:
+    return f"{value:.12g}"
+
+
+class GeometryTableWidget(QTableWidget):
+    """QTableWidget that accepts a rectangular spreadsheet paste."""
+
+    paste_completed = pyqtSignal()
+
+    def paste_text(self, text: str) -> None:
+        matrix = _parse_geometry_clipboard(text)
+        if not matrix:
+            return
+        start_row = max(0, self.currentRow())
+        start_column = max(0, self.currentColumn())
+        width = len(matrix[0])
+        if start_column + width > self.columnCount():
+            raise ValueError(
+                "The pasted geometry block extends past the last table column."
+            )
+
+        needed_rows = start_row + len(matrix)
+        previous_blocked = self.blockSignals(True)
+        try:
+            if needed_rows > self.rowCount():
+                self.setRowCount(needed_rows)
+            for row_offset, row in enumerate(matrix):
+                for column_offset, value in enumerate(row):
+                    self.setItem(
+                        start_row + row_offset,
+                        start_column + column_offset,
+                        QTableWidgetItem(_format_clipboard_number(value)),
+                    )
+        finally:
+            self.blockSignals(previous_blocked)
+        if not previous_blocked:
+            self.paste_completed.emit()
+
+    def keyPressEvent(self, event):
+        if event.matches(QKeySequence.StandardKey.Paste):
+            try:
+                self.paste_text(QApplication.clipboard().text())
+            except ValueError as exc:
+                QMessageBox.warning(self, "Invalid geometry table", str(exc))
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class GeometryTab(QWidget):
     """Geometry = radial table (r/R, chord, twist). The parametric
     generator is just a convenience to fill it (popup); number of
@@ -58,6 +153,17 @@ class GeometryTab(QWidget):
     mode of ResultsTab, removed in this Part."""
 
     dirty_changed = pyqtSignal(bool)   # asterisk for "not saved to disk" (same mechanism as config.py/airfoil.py)
+
+    _GEOMETRY_TABLE_HELP = (
+        "Edit one cell at a time, or paste a rectangular block from a spreadsheet.\n\n"
+        "Select the first destination cell and press Ctrl+V. The first pasted "
+        "value goes into that cell. Following rows and columns fill consecutive "
+        "cells. The table grows when the pasted block needs more rows.\n\n"
+        "Spreadsheet tab-delimited data accepts decimal points or decimal commas. "
+        "Semicolon-delimited text and simple three-column CSV text are also accepted. "
+        "zBEMT validates the full block before it changes the table. The geometry "
+        "and preview update once after a successful paste."
+    )
 
     def __init__(self, state: AppState):
         super().__init__()
@@ -119,11 +225,25 @@ class GeometryTab(QWidget):
 
         table_box = QGroupBox("Radial Distribution Table")
         tbox_layout = QVBoxLayout(table_box)
-        self.table = QTableWidget(0, 3)
+        help_row = QHBoxLayout()
+        help_row.addStretch(1)
+        btn_table_help = QPushButton("?")
+        btn_table_help.setFixedWidth(28)
+        btn_table_help.setToolTip("Show the geometry table help.")
+        btn_table_help.clicked.connect(
+            lambda: QMessageBox.information(
+                self, "Geometry table", self._GEOMETRY_TABLE_HELP))
+        help_row.addWidget(btn_table_help)
+        tbox_layout.addLayout(help_row)
+
+        self.table = GeometryTableWidget(0, 3)
+        self.table.setToolTip(self._GEOMETRY_TABLE_HELP)
         self.table.setHorizontalHeaderLabels(["r/R", "chord c/R", "twist [deg]"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.itemChanged.connect(self._schedule_preview_refresh)
         self.table.itemChanged.connect(self._apply_table_edits)
+        self.table.paste_completed.connect(self._schedule_preview_refresh)
+        self.table.paste_completed.connect(self._apply_table_edits)
         tbox_layout.addWidget(self.table)
         layout.addWidget(table_box, stretch=1)
 
