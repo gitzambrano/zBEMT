@@ -79,6 +79,10 @@ belong in this document.
 - **SC-7n** — A comparison variant may define its own airfoil sections or blade
   dynamics. The report identifies such a comparison as not geometry-only and
   does not claim equal-polar fairness.
+- **SC-7o** — A geometry-only comparison uses the same airfoil polar, mesh,
+  inflow model, and correction settings for every variant.
+- **SC-7p** — Comparison conditions can be the project's saved cases, one
+  explicit condition, or one swept quantity.
 - **SC-8** — Persisted single-objective studies in
   `inputs/optimizations.bemt` optimize one summary quantity at one flight
   condition over bounded parametric planform variables with Powell or
@@ -97,8 +101,8 @@ belong in this document.
   applies the same Prandtl-Glauert post-correction used by NeuralFoil.
 - **SC-9c** — `ncrit`, `xtr_top`, and `xtr_bot` apply only to XFOIL.
   NeuralFoil rejects these inputs.
-- **SC-9d** — A missing XFOIL executable affects only XFOIL and raises an error
-  that states the cause and available remedies.
+- **SC-9d** — A missing XFOIL executable affects only XFOIL and raises a
+  `RuntimeError` that states the cause and available remedies.
 - **SC-10** — The airfoil geometry resolver supports NACA 4-digit, NACA
   5-digit, CST, Bézier, PARSEC, Joukowski, biconvex, and imported contours
   through preset names and prefixed forms.
@@ -174,6 +178,8 @@ belong in this document.
 - **PR-8** — User-facing labels, angles, summary fields, plots, CLI help, and
   `.bemt` keys use the active rotor or propeller vehicle convention rather than
   internal disk-axis names.
+- **PR-8a** — Each mode exposes only angle and velocity components that are
+  meaningful in that vehicle convention.
 - **PR-9** — Every plot title states the general flight or operating condition
   represented by the plot.
 - **PR-9a** — Legends, labels, titles, and annotations do not overlap plotted
@@ -240,9 +246,11 @@ belong in this document.
   seed or starting point where one is required.
 - **EN-4** — An implementation named after a published correction reproduces
   the published closed form.
-- **EN-5** — Analytical, tabulated, conditioned, extended, and externally
-  generated polar sources implement one coefficient interface so the engine
-  does not depend on the source type.
+- **EN-5** — Analytical polars, a single tabulated polar, radial tabulated
+  polars, Reynolds-conditioned and Mach-conditioned tables,
+  Viterna-Corrigan extension, table-plus-Viterna blending, and external polar
+  sources implement one coefficient interface. The engine does not depend on
+  which source produced a coefficient.
 - **EN-6** — Every reverse-flow model is defined on both sides of zero
   tangential velocity. A model advertised as continuous is continuous at that
   boundary.
@@ -264,8 +272,9 @@ belong in this document.
   reference limits `C_H,profile = sigma*C_d0*mu/4` without radial-flow
   resolution and `3*sigma*C_d0*mu/8` with full vector resolution. The profile
   power factor changes from `(1 + mu^2)` to `(1 + 1.5*mu^2)`.
-- **EN-11** — A result with non-converged inflow elements reports the converged
-  mesh percentage and is not presented as fully converged.
+- **EN-11** — The result validator issues a warning when one or more inflow
+  elements do not converge. The warning reports the converged mesh percentage,
+  and the result is not presented as fully converged.
 - **EN-12** — Blade aspect ratio and rotor solidity use a reference blade that
   spans `r/R = 0` to `r/R = 1`, with `AR = R^2/S_ref` and
   `sigma = N_b*S_ref/(pi*R^2)`.
@@ -301,6 +310,17 @@ belong in this document.
   user-facing keys.
 - **PA-4b** — CLI help describes each flight-condition input by its physical
   slot and the letter used in rotor and propeller modes.
+- **PA-4c** — Vehicle `x` is longitudinal and forward, vehicle `y` is lateral,
+  and vehicle `z` is vertical and upward.
+- **PA-4d** — Rotor mode uses a vertical shaft aligned with vehicle `z`.
+  Propeller mode uses a horizontal shaft aligned with vehicle `x`.
+- **PA-4e** — Propeller display mapping swaps the internal disk-axis pairs
+  `Vx` and `Vz`, `mu_x` and `mu_z`, and `J_x` and `J_z`. Internal
+  `lambda_z` displays as `lambda_x`, and internal `Vz_total` displays as
+  `Vx_total`. Rotor mode keeps the corresponding `x` and `z` labels.
+- **PA-4f** — `alpha_rotor_deg` is user-facing in rotor mode and hidden in
+  propeller mode. `alpha_disk_deg` is user-facing in propeller mode and hidden
+  in rotor mode.
 - **PA-5** — If the GUI accepts an alternate form of an input, the CLI and
   `.bemt` format accept the same form unless another requirement explicitly
   scopes it.
@@ -311,6 +331,9 @@ belong in this document.
 - **PA-5c** — `alpha_rotor_deg` and `alpha_disk_deg` can supply the axial flow
   component when their required context is available and the corresponding
   direct component is not supplied.
+- **PA-5d** — An axial-angle alias is rejected when RPM is unavailable, when
+  both angle forms are supplied, or when the direct axial component is also
+  supplied.
 
 ### 3.4 Reports
 
@@ -415,6 +438,8 @@ belong in this document.
   `zbemt/`, `tools/`, and `tests/` is an English name that states its purpose.
   Stable external keys, product CLI flags, CSV headers, HTML `id` values, and Qt
   compatibility names are not renamed only to satisfy this rule.
+- **QR-9a** — New internal identifiers, HTML `id` values, and Qt object or slot
+  names are English unless compatibility requires an existing stable name.
 - **QR-10** — One quality orchestrator selects the architecture, regression, or
   physics suite. Architecture tests enforce contracts and boundaries.
   Regression tests protect implemented behavior and bug fixes. Physics tests
