@@ -5,21 +5,21 @@ description: "Use when writing or reviewing any prose in this project: docstring
 
 # Writing rules
 
-This skill adapts ASD-STE100 (Simplified Technical English), the aerospace
-controlled-language standard, for this project. It governs every piece of
-prose in the repository: docstrings, comments, commit messages, helper and
+This skill adapts ASD-STE100 (Simplified Technical English) for this project.
+It governs repository prose: docstrings, comments, commit messages, helper and
 tooltip text, dialog and error messages, `docs/*.md`, and
 `docs/documentation.html`.
 
-ASD-STE100 was built so a maintenance technician can never misread an
-instruction. The same discipline keeps this project's documentation short,
-unambiguous, and easy to translate or parse, by a human reader or by an
-agent.
+Text is either **procedural** (steps, CLI usage, GUI instructions, a tutorial)
+or **descriptive** (an explanation, a docstring, a module overview, prose in
+`docs/`). The General rules apply to both. The Procedural and Descriptive rules
+apply only to their own kind of text.
 
-Text is either **procedural** (steps, CLI usage, GUI instructions, a
-tutorial) or **descriptive** (an explanation, a docstring, a module
-overview, prose in `docs/`). The General rules apply to both. The
-Procedural and Descriptive rules apply only to their own kind of text.
+Apply sentence rules to sentences. Titles, headings, field labels, button text,
+table headers, commit subjects, requirement identifiers, file paths, and code
+syntax may be concise fragments. They still follow the applicable terminology,
+clarity, spelling, and factuality rules. Structural punctuation, such as the
+separator after a requirement code, is not sentence punctuation.
 
 ## General rules
 
@@ -58,15 +58,19 @@ Procedural and Descriptive rules apply only to their own kind of text.
 | G31 | Use American spelling. "behavior", "normalize", "labeled", "center" | Use British spelling. "behaviour", "normalise", "labelled", "centre" |
 | G32 | State only what is factual and measurable, and keep a hedge exactly as strong as the source. "The solver converged in 12 iterations." "The run may have failed." | Use a superlative, a marketing word, an exaggeration or a non-technical vague word (robust, powerful, seamless, huge, the best). Stack hedges until the sentence claims nothing ("it may potentially help to improve"), or promote a hedge to a fact. |
 
-**`G25`, `G26` and `G28` never apply to code.** A command-line flag keeps
-its dashes (`--project`, `--set`, `--max-iter`). A hyphenated compound
-adjective keeps its single hyphen (`a radial-azimuthal mesh`, `a
-fixed-point solver`). A file path, an operator, a numeric literal and a
-range inside a code sample stay exactly as the code writes them. These
-rules govern prose only.
+An approved word in `G23` is a plain established project term or a necessary
+technical term. This project does not maintain a separate approved-word list.
 
-All documentation in this project, including docstrings, helper text,
-tooltips, and GUI strings, must follow this table.
+**`G25`, `G26` and `G28` never apply to code.** A command-line flag keeps its
+dashes (`--project`, `--set`, `--max-iter`). A hyphenated compound adjective
+keeps its single hyphen (`a radial-azimuthal mesh`, `a fixed-point solver`). A
+file path, an operator, a numeric literal, a requirement-code separator, and a
+range inside a code sample stay exactly as their syntax requires. These rules
+govern prose only.
+
+All documentation in this project, including docstrings, helper text, tooltips,
+and GUI strings, must follow this table where the rules apply to that text
+form.
 
 ## Procedural rules (steps, CLI usage, GUI instructions)
 
@@ -99,7 +103,7 @@ tooltips, and GUI strings, must follow this table.
 5. `G2` and `P1`: split any sentence that holds more than one topic or
    instruction, unless the actions happen at the same time.
 6. `G14`: split any sentence joined by a semicolon.
-7. `G15`: replace any dash with a plain sentence break.
+7. `G15`: in sentence prose, replace any dash with a plain sentence break.
 8. `G10`: look for synonym rotation, the same thing named two different
    ways. Pick one name and use it everywhere.
 9. `G11`: look for a nominalization ("perform a check of"). Replace it
@@ -126,7 +130,7 @@ tooltips, and GUI strings, must follow this table.
 
 ## Scope
 
-This skill governs prose and user-facing strings. It does not govern code
-identifiers, which follow the project's existing naming conventions. It
-complements, and does not override, the structural rules for
-`docs/documentation.html` in `CLAUDE.md`.
+This skill governs repository prose and user-facing strings. It does not govern
+code identifiers. Product, architecture, documentation structure, and quality
+requirements live in `docs/software_requirements.md`; this skill controls how
+their prose is written and reviewed.
