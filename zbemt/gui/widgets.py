@@ -25,6 +25,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QDoubleValidator, QTextDocument
 
 from .. import api
+from .. import nomenclature
 
 
 _UNIT_SYMBOL_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -116,7 +117,7 @@ _UNIT_TOOLTIPS = {
     "mu_x": "<b>μ<sub>x</sub></b><br><br>Advance ratio based on the vehicle x component.<br><br>μ<sub>x</sub> = V<sub>x</sub>/(ΩR).",
     "J_x": "<b>J<sub>x</sub></b><br><br>Propeller advance ratio based on the vehicle x component.<br><br>J<sub>x</sub> = V<sub>x</sub>/(nD).",
     "Vx": "<b>V<sub>x</sub></b><br><br>Free-stream velocity component along the vehicle x-axis.<br><br>It is the forward component for a rotor and the along-shaft airspeed for a propeller.",
-    "Vz": "<b>V<sub>z</sub></b><br><br>Free-stream velocity component along the vehicle z-axis.<br><br>It is climb/descent for a rotor and cross-flow for a propeller.",
+    "Vz": "<b>V<sub>z</sub></b><br><br>Free-stream velocity component along the vehicle z-axis.<br><br>Positive V<sub>z</sub> means the free stream arrives from ABOVE in both rotor and propeller modes. It is axial flow for a rotor and cross-flow for a propeller.",
     "mu_z": "<b>μ<sub>z</sub></b><br><br>Velocity ratio based on the vehicle z component.<br><br>μ<sub>z</sub> = V<sub>z</sub>/(ΩR).",
     "J_z": "<b>J<sub>z</sub></b><br><br>Velocity ratio based on the vehicle z component.<br><br>J<sub>z</sub> = V<sub>z</sub>/(nD).",
     "alpha_deg": "<b>α<sub>rotor</sub></b><br><br>Rotor inflow angle measured from the disk plane.<br><br>It is positive when the stream arrives from BELOW the disk, which is the case that opposes the induced velocity: a positive angle therefore goes with a NEGATIVE V<sub>z</sub>.",
@@ -124,7 +125,7 @@ _UNIT_TOOLTIPS = {
     "mu_y": "<b>μ<sub>y</sub></b><br><br>Velocity ratio based on the lateral component.<br><br>μ<sub>y</sub> = V<sub>y</sub>/(ΩR).",
     "J_y": "<b>J<sub>y</sub></b><br><br>Velocity ratio based on the lateral component.<br><br>J<sub>y</sub> = V<sub>y</sub>/(nD).",
     "sideslip_deg": "<b>ψ<sub>w</sub></b><br><br>Sideslip angle of the in-plane free stream, measured in the disk plane.<br><br>ψ<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>): it SPLITS the in-plane component above into a lateral one, so it needs that component to be non-zero. In hover, give V<sub>y</sub> instead.",
-    "alpha_disk": "<b>α<sub>disk</sub></b><br><br>Propeller inflow angle measured from the shaft.<br><br>It is zero when V<sub>z</sub> is zero and the free stream is aligned with the shaft.",
+    "alpha_disk": "<b>α<sub>disk</sub></b><br><br>Propeller inflow angle measured from the shaft.<br><br>Positive α<sub>disk</sub> means the free stream arrives from BELOW. Positive propeller V<sub>z</sub> cross-flow means it arrives from ABOVE, so the signs are opposite. It is zero in straight axial cruise.",
 }
 
 
@@ -237,7 +238,7 @@ class ScientificSpinBox(QDoubleSpinBox):
 #
 # THERE ARE TWO ANGLES, ONE PER MODE, and each mode offers only ITS OWN.
 # `alpha_rotor` is measured from the plane and `alpha_disk` from the
-# shaft; one is the complement of the other. Each is zero at its
+# shaft; both use the same wind-side sign, but different reference axes. Each is zero at its
 # vehicle's NORMAL condition -- level forward flight for a helicopter,
 # straight cruise for an airplane --, which is what makes the number
 # readable. Offering both in either mode was the confusion to avoid.
@@ -363,13 +364,20 @@ class LongitudinalInput(QWidget):
         self.unit_combo.currentIndexChanged.connect(self._on_unit_changed)
         self.spin.valueChanged.connect(self.changed.emit)
         self._context_provider = None  # callable() -> (rpm, radius_m) | None
+        self._axial_context_provider = None  # callable() -> axial Vz [m/s] | None
         self._prev_unit = self.unit_combo.currentText()
 
     def set_context_provider(self, fn):
-        """Registers a callable that returns (rpm, radius_m) --
-        needed to convert between mu_x/J_x and V when the unit is
-        switched."""
+        """Register the tip-speed context used by velocity conversions."""
         self._context_provider = fn
+
+    def set_axial_context_provider(self, fn):
+        """Register a callable returning the current along-shaft speed [m/s]."""
+        self._axial_context_provider = fn
+
+    def _axial_context(self):
+        return (self._axial_context_provider()
+                if self._axial_context_provider is not None else None)
 
     def _on_unit_changed(self, _index: int):
         old_text = self._prev_unit if hasattr(self, '_prev_unit') else None
@@ -427,7 +435,15 @@ class LongitudinalInput(QWidget):
                 return None
             rpm, radius_m = ctx
             return api.V_to_mu(value, rpm, radius_m)
-        return None       # alpha_disk: depends on Vz, known only by the tab
+        if var == "alpha_disk":
+            ctx = self._ctx()
+            Vz = self._axial_context()
+            if ctx is None or Vz is None:
+                return None
+            rpm, radius_m = ctx
+            cross = nomenclature.alpha_disk_cross_velocity(value, Vz)
+            return api.V_to_mu(cross, rpm, radius_m)
+        return None
 
     def _value_in(self, label: str, mu_x: float):
         var = unit_label_variable(self._SLOT, label)
@@ -441,7 +457,15 @@ class LongitudinalInput(QWidget):
                 return None
             rpm, radius_m = ctx
             return api.mu_to_V(mu_x, rpm, radius_m)
-        return None       # alpha_disk: same
+        if var == "alpha_disk":
+            ctx = self._ctx()
+            Vz = self._axial_context()
+            if ctx is None or Vz is None:
+                return None
+            rpm, radius_m = ctx
+            cross = api.mu_to_V(mu_x, rpm, radius_m)
+            return nomenclature.alpha_disk_from_components(cross, Vz)
+        return None
 
     # --- read / write -------------------------------------------------------
 
@@ -466,32 +490,32 @@ class LongitudinalInput(QWidget):
         accepts every variable in `CONDITION_UNITS`)."""
         return self.spin.value()
 
-    def mu_x(self, Vz: float = 0.0) -> float:
-        """``mu_x`` corresponding to the displayed value.
-
-        ``Vz`` is only used when the unit is `alpha_disk` (the only
-        one that derives this component from the other):
-        mu_x = tan(alpha_disk)*Vz/(Omega*R)."""
+    def mu_x(self, Vz: float | None = None) -> float:
+        """Return the engine in-plane ratio represented by the field."""
         v = self.spin.value()
         if self.is_alpha_disk():
             ctx = self._ctx()
-            if ctx is None:
+            axial = self._axial_context() if Vz is None else Vz
+            if ctx is None or axial is None:
                 return 0.0
             rpm, radius_m = ctx
-            return api.V_to_mu(float(np.tan(np.deg2rad(v))) * Vz, rpm, radius_m)
+            cross = nomenclature.alpha_disk_cross_velocity(v, axial)
+            return api.V_to_mu(cross, rpm, radius_m)
         converted = self._mu_from(self.unit_combo.currentText(), v)
         return v if converted is None else converted
 
-    def set_mu(self, mu_x: float, Vz: float = 0.0):
+    def set_mu(self, mu_x: float, Vz: float | None = None):
         self.spin.blockSignals(True)
         if self.is_alpha_disk():
             ctx = self._ctx()
-            Vinf_long = 0.0
-            if ctx is not None:
+            axial = self._axial_context() if Vz is None else Vz
+            if ctx is not None and axial is not None:
                 rpm, radius_m = ctx
-                Vinf_long = api.mu_to_V(mu_x, rpm, radius_m)
-            self.spin.setValue(float(np.degrees(np.arctan2(Vinf_long, Vz)))
-                                if abs(Vz) > 1e-9 else 0.0)
+                cross = api.mu_to_V(mu_x, rpm, radius_m)
+                self.spin.setValue(nomenclature.alpha_disk_from_components(
+                    cross, axial))
+            else:
+                self.spin.setValue(0.0)
         else:
             converted = self._value_in(self.unit_combo.currentText(), mu_x)
             self.spin.setValue(mu_x if converted is None else converted)

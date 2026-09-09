@@ -63,104 +63,36 @@ _ROTOR_RESULT = _example_result()
 
 
 class TestAngleFromAxis(unittest.TestCase):
-    """The two reported angles, and the identity that ties them.
-
-    `alpha_rotor` is the disk ANGLE OF ATTACK: positive when the stream
-    arrives from BELOW the disk, the case that opposes the induced
-    velocity and raises the thrust, exactly as an angle of attack is
-    defined for a wing. It is therefore the NEGATIVE of the geometric
-    angle `atan2(Vz, Vx)`, and it carries the opposite sign to `Vz`.
-
-    `alpha_disk` is not an angle of attack at all: it is the stream's
-    tilt away from the SHAFT, it keeps the geometric sign, and it reads
-    zero for a propeller in straight cruise. That zero is the whole
-    point of the column, so it did NOT change with the convention.
-
-    The identity between them is consequently a DIFFERENCE:
-
-        alpha_disk = 90 - alpha_geom = 90 + alpha_rotor
-
-    which is what the third test checks, over both signs of both
-    components.
-    """
+    """alpha_disk is signed by where the free stream comes from."""
 
     def test_purely_axial_flow_reads_zero_from_the_shaft(self):
-        """`Vz > 0` is flow through the disk from above, so it is the
-        stream ARRIVING FROM ABOVE and the angle of attack is negative.
-        Measured from the shaft, the same flow is aligned: zero."""
         cfg = bemt.BEMTConfig(is_propeller=True)
         rot = _rotor()
         _mu, _Vv, meta = bemt.resolve_advance_velocity(rot, cfg, mu_x=0.0, Vz=50.0)
-        self.assertAlmostEqual(meta["alpha_rotor_deg"], -90.0, places=9)
         self.assertAlmostEqual(meta["alpha_disk_deg"], 0.0, places=9)
 
-    def test_a_stream_from_below_is_a_positive_angle_of_attack(self):
-        """The convention itself, stated on the case that names it."""
-        cfg = bemt.BEMTConfig()
+    def test_positive_propeller_Vz_is_flow_from_above(self):
+        cfg = bemt.BEMTConfig(is_propeller=True)
         rot = _rotor()
-        _mu, _Vv, meta = bemt.resolve_advance_velocity(rot, cfg, mu_x=0.3,
-                                                        Vz=-10.0)
-        self.assertGreater(meta["alpha_rotor_deg"], 0.0,
-                            "a negative Vz is a stream from below, which is a "
-                            "POSITIVE disk angle of attack")
+        _mu, _Vv, meta = bemt.resolve_advance_velocity(rot, cfg, mu_x=0.2, Vz=60.0)
+        self.assertLess(meta["alpha_disk_deg"], 0.0)
 
-    def test_edgewise_flight_reads_ninety(self):
-        cfg = bemt.BEMTConfig()
+    def test_negative_propeller_Vz_is_flow_from_below(self):
+        cfg = bemt.BEMTConfig(is_propeller=True)
+        rot = _rotor()
+        _mu, _Vv, meta = bemt.resolve_advance_velocity(rot, cfg, mu_x=-0.2, Vz=60.0)
+        self.assertGreater(meta["alpha_disk_deg"], 0.0)
+
+    def test_edgewise_positive_cross_flow_reads_minus_ninety(self):
+        cfg = bemt.BEMTConfig(is_propeller=True)
         _mu, _Vv, meta = bemt.resolve_advance_velocity(_rotor(), cfg, mu_x=0.3, Vz=0.0)
-        self.assertAlmostEqual(meta["alpha_rotor_deg"], 0.0, places=9)
-        self.assertAlmostEqual(meta["alpha_disk_deg"], 90.0, places=9)
-
-    def test_the_two_angles_always_differ_by_ninety(self):
-        """Modulo 360: `alpha_disk` is normalized to (-180°, 180°], so the
-        identity closes within one revolution (see
-        `bemt._angle_from_axis`).
-
-        It used to be a SUM, back when `alpha_rotor` carried the
-        geometric sign. Flipping that sign turned the sum into a
-        difference, and this is the test that says so.
-        """
-        cfg = bemt.BEMTConfig()
-        rot = _rotor()
-        for mu_x in (-0.2, 0.0, 0.05, 0.2, 0.6):
-            for Vz in (-30.0, -1.0, 0.0, 1.0, 40.0):
-                with self.subTest(mu_x=mu_x, Vz=Vz):
-                    _m, _v, meta = bemt.resolve_advance_velocity(rot, cfg, mu_x=mu_x, Vz=Vz)
-                    total = meta["alpha_disk_deg"] - meta["alpha_rotor_deg"]
-                    # difference AROUND (-180, 180]: `x % 360` returns
-                    # 360.0 for a -1e-14, and it closes exactly this way
-                    # in half the cases
-                    deviation = (total - 90.0 + 180.0) % 360.0 - 180.0
-                    self.assertAlmostEqual(deviation, 0.0, places=9)
-
-    def test_angle_magnitude_is_real_angle_with_axis(self):
-        """What an angle column must deliver: |alpha_disk| is the angle
-        between the freestream vector and the +axis direction, in all four
-        quadrants.
-
-        Without normalization, negative crossflow AND axial descent
-        (mu_x<0, Vz<0) gave 190° -- whose magnitude is not an angle at all."""
-        cfg = bemt.BEMTConfig()
-        rot = _rotor()
-        for mu_x in (-0.4, -0.1, 0.0, 0.1, 0.4):
-            for Vz in (-40.0, -1.0, 0.0, 1.0, 40.0):
-                if mu_x == 0.0 and Vz == 0.0:
-                    continue          # without freestream there is no angle
-                with self.subTest(mu_x=mu_x, Vz=Vz):
-                    _m, _v, meta = bemt.resolve_advance_velocity(rot, cfg, mu_x=mu_x, Vz=Vz)
-                    vector = np.array([mu_x * rot.OmegaR, Vz])
-                    real = np.degrees(np.arccos(
-                        np.dot(vector, [0.0, 1.0]) / np.linalg.norm(vector)))
-                    self.assertAlmostEqual(abs(meta["alpha_disk_deg"]), real,
-                                            places=9)
+        self.assertAlmostEqual(meta["alpha_disk_deg"], -90.0, places=9)
 
 
 class TestAlphaFromAxisAsInput(unittest.TestCase):
-    """`alpha_disk_deg` resolves the IN-PLANE from the axial -- the inverse of
-    `alpha_deg`. It is what a propeller needs: in cruise the misalignment is
-    only a few degrees and the velocity scale comes from the axis, not the
-    plane."""
+    """alpha_disk derives propeller cross-flow from along-shaft speed."""
 
-    def test_alpha_disk_zero_nao_tem_escoamento_cruzado(self):
+    def test_alpha_disk_zero_has_no_crossflow(self):
         cfg = bemt.BEMTConfig(is_propeller=True)
         mu_x, Vz, meta = bemt.resolve_advance_velocity(
             _rotor(), cfg, alpha_disk_deg=0.0, Vz=60.0)
@@ -168,57 +100,53 @@ class TestAlphaFromAxisAsInput(unittest.TestCase):
         self.assertAlmostEqual(Vz, 60.0, places=12)
         self.assertAlmostEqual(meta["alpha_disk_deg"], 0.0, places=9)
 
-    def test_alpha_disk_produces_matching_crossflow(self):
+    def test_positive_alpha_disk_produces_negative_crossflow(self):
         cfg = bemt.BEMTConfig(is_propeller=True)
         rot = _rotor()
         mu_x, Vz, meta = bemt.resolve_advance_velocity(
             rot, cfg, alpha_disk_deg=10.0, Vz=60.0)
-        self.assertAlmostEqual(mu_x * rot.OmegaR, math.tan(math.radians(10.0)) * 60.0,
-                                places=9)
+        expected = -math.tan(math.radians(10.0)) * 60.0
+        self.assertAlmostEqual(mu_x * rot.OmegaR, expected, places=9)
+        self.assertLess(mu_x, 0.0)
         self.assertAlmostEqual(meta["alpha_disk_deg"], 10.0, places=6)
-        self.assertAlmostEqual(Vz, 60.0, places=12)
 
-    def test_alpha_disk_accepts_dimensionless_axial(self):
-        """J_x (internal `J_z`) is the natural way to specify propeller
-        advance -- it must also serve as the scale for `alpha_disk`."""
+    def test_negative_alpha_disk_produces_positive_crossflow(self):
         cfg = bemt.BEMTConfig(is_propeller=True)
         rot = _rotor()
-        mu_x, Vz, _meta = bemt.resolve_advance_velocity(
-            rot, cfg, alpha_disk_deg=0.0, J_z=0.8)
-        self.assertAlmostEqual(Vz, (0.8 / np.pi) * rot.OmegaR, places=9)
-        self.assertAlmostEqual(mu_x, 0.0, places=12)
+        mu_x, _Vz, meta = bemt.resolve_advance_velocity(
+            rot, cfg, alpha_disk_deg=-10.0, Vz=60.0)
+        self.assertGreater(mu_x, 0.0)
+        self.assertAlmostEqual(meta["alpha_disk_deg"], -10.0, places=6)
 
-    def test_both_angles_together_are_error(self):
-        """`alpha_deg` derives the axial from the in-plane and `alpha_disk_deg`
-        does the inverse: given both, no component fixes the scale and any
-        multiple of the same vector satisfies both."""
-        cfg = bemt.BEMTConfig()
-        with self.assertRaises(ValueError) as ctx:
-            bemt.resolve_advance_velocity(_rotor(), cfg,
-                                           alpha_disk_deg=5.0, alpha_deg=85.0)
-        self.assertIn("alpha_disk_deg", str(ctx.exception))
-
-    def test_alpha_disk_with_axial_descent_does_not_flip_crossflow(self):
-        """With Vz<0 (axial descent / windmill), using the raw sign of Vz
-        in the conversion inverted the side the crossflow points to, and the
-        reported angle no longer matched the geometry: 10° input came out as
-        190°, which is not an angle at all. With |Vz|, it comes out as 170° --
-        the real angle with the +axis direction."""
+    def test_reverse_axial_flow_does_not_reverse_crossflow_side(self):
         cfg = bemt.BEMTConfig(is_propeller=True)
         rot = _rotor()
         mu_x, Vz, meta = bemt.resolve_advance_velocity(
             rot, cfg, alpha_disk_deg=10.0, Vz=-60.0)
-        self.assertGreater(mu_x, 0.0)      # same side as with Vz>0
-        self.assertAlmostEqual(meta["alpha_disk_deg"], 170.0, places=6)
-        vector = np.array([mu_x * rot.OmegaR, Vz])
-        real = np.degrees(np.arccos(
-            np.dot(vector, [0.0, 1.0]) / np.linalg.norm(vector)))
-        self.assertAlmostEqual(real, 170.0, places=6)
+        self.assertLess(mu_x, 0.0)
+        self.assertEqual(Vz, -60.0)
+        self.assertAlmostEqual(meta["alpha_disk_deg"], 10.0, places=6)
+
+    def test_alpha_disk_accepts_dimensionless_axial(self):
+        cfg = bemt.BEMTConfig(is_propeller=True)
+        rot = _rotor()
+        mu_x, Vz, meta = bemt.resolve_advance_velocity(
+            rot, cfg, alpha_disk_deg=5.0, J_z=0.8)
+        self.assertGreater(Vz, 0.0)
+        self.assertLess(mu_x, 0.0)
+        self.assertAlmostEqual(meta["alpha_disk_deg"], 5.0, places=6)
+
+    def test_both_angles_together_are_error(self):
+        cfg = bemt.BEMTConfig()
+        with self.assertRaises(ValueError):
+            bemt.resolve_advance_velocity(
+                _rotor(), cfg, alpha_disk_deg=5.0, alpha_deg=5.0)
 
     def test_alpha_disk_still_requires_single_longitudinal(self):
         cfg = bemt.BEMTConfig()
         with self.assertRaises(ValueError):
-            bemt.resolve_advance_velocity(_rotor(), cfg, alpha_disk_deg=5.0, mu_x=0.1)
+            bemt.resolve_advance_velocity(
+                _rotor(), cfg, alpha_disk_deg=5.0, mu_x=0.1)
 
 
 class TestTwoAlphasOnePerMode(unittest.TestCase):

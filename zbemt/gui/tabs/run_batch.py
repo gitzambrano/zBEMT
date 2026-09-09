@@ -345,6 +345,7 @@ class RunBatchTab(QWidget):
             'Choose μ<sub>x</sub>, J<sub>x</sub>, or V<sub>x</sub> from the unit selector.')
         self.fixed_axial = AxialInput(default_value=0.0)
         self.fixed_axial.set_context_provider(self._fixed_axial_context)
+        self.fixed_advance.set_axial_context_provider(self._fixed_axial_velocity)
         self.fixed_axial.setToolTip(
             '"Vz"<br><br>Fixed second velocity component for every generated case.<br><br>'
             'Its physical direction follows the selected rotor or propeller mode.')
@@ -533,6 +534,7 @@ class RunBatchTab(QWidget):
             'Choose μ<sub>x</sub>, J<sub>x</sub>, or V<sub>x</sub> from the unit selector.')
         self.add_row_axial = AxialInput(default_value=0.0)
         self.add_row_axial.set_context_provider(self._add_row_axial_context)
+        self.add_row_advance.set_axial_context_provider(self._add_row_axial_velocity)
         self.add_row_axial.setToolTip(
             '"Vz"<br><br>Second velocity component for this case.<br><br>'
             'Its physical direction follows the selected rotor or propeller mode.')
@@ -1670,6 +1672,10 @@ class RunBatchTab(QWidget):
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
         return self.fixed_rpm.value(), radius_m
 
+    def _fixed_axial_velocity(self):
+        rpm, radius_m = self._fixed_advance_context()
+        return self.fixed_axial.vv(0.0, rpm, radius_m)
+
     def _fixed_axial_context(self):
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
         return self.fixed_advance.mu_x(), self.fixed_rpm.value(), radius_m
@@ -1685,6 +1691,10 @@ class RunBatchTab(QWidget):
     def _add_row_advance_context(self):
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
         return self.rpm_spin.value(), radius_m
+
+    def _add_row_axial_velocity(self):
+        rpm, radius_m = self._add_row_advance_context()
+        return self.add_row_axial.vv(0.0, rpm, radius_m)
 
     def _add_row_axial_context(self):
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0

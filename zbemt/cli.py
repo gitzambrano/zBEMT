@@ -1,4 +1,4 @@
-﻿"""Implement the command-line interface for the same workflows as the GUI.
+"""Implement the command-line interface for the same workflows as the GUI.
 
 Purpose: parse project, geometry, airfoil, flight-condition, batch, solver, and
 export options and delegate all behavior to ``api.py``. Inputs are arguments,
@@ -328,9 +328,11 @@ def _build_parser() -> argparse.ArgumentParser:
                                   "(0 = straight axial cruise, the propeller convention). "
                                   "The IN-PLANE component is derived from it and from the "
                                   "along-shaft one (--v-axial/--j-axial/--mu-axial), which "
-                                  "is therefore required. "
-                                  "Complement of --alpha-rotor-deg; the two are mutually "
-                                  "exclusive because neither would set the velocity scale.")
+                                  "is therefore required. Positive alpha_disk means flow from BELOW; "
+                                  "positive propeller V_z cross-flow means flow from ABOVE. "
+                                  "Positive means flow from BELOW; positive propeller V_z cross-flow means "
+                                  "flow from ABOVE. It is mutually exclusive with --alpha-rotor-deg "
+                                  "because neither angle alone sets the velocity scale.")
     axial_group = p.add_mutually_exclusive_group()
     axial_group.add_argument("--v-axial", dest="V_axial", type=float, default=None,
                              help="ALONG-SHAFT velocity [m/s] (default 0.0): a rotor's "
@@ -1530,7 +1532,7 @@ def main(argv=None, options=None) -> int:
     # hover condition instead of the requested cruise.
     if args.alpha_disk_deg is not None and args.alpha_rotor_deg is not None:
         print("cli.py: error: --alpha-disk-deg and --alpha-rotor-deg are the "
-              "same angle written two ways (alpha_disk = 90 - alpha_rotor): with "
+              "two alternate angle definitions: with "
               "both, neither velocity component sets the scale. Give one angle "
               "plus a dimensional or non-dimensional component "
               "(--vz/--jz/--muz for the axial one, --mux/--jx for the in-plane).",
@@ -1575,16 +1577,15 @@ def main(argv=None, options=None) -> int:
         if args.alpha_disk_deg is not None:
             if args.rpm is None:
                 print("cli.py: error: --alpha-disk-deg requires --rpm "
-                      "(the in-plane component is tan(alpha_disk)*Vz, and mu_x needs Omega*R).",
+                      "(the cross-flow is -tan(alpha_disk)*|V_axial|, and mu_x needs Omega*R).",
                       file=sys.stderr)
                 return 2
             Vz, error_message = _axial(0.0)
             if error_message:
                 print(error_message, file=sys.stderr)
                 return 2
-            # |Vz|: same reason as `bemt.resolve_advance_velocity`.
             mu_x = api.V_to_mu(
-                float(np.tan(np.deg2rad(args.alpha_disk_deg))) * abs(Vz),
+                nomenclature.alpha_disk_cross_velocity(args.alpha_disk_deg, Vz),
                 args.rpm, radius_m)
         else:
             if args.mu_inplane is not None:

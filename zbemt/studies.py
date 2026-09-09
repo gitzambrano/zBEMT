@@ -1000,11 +1000,9 @@ def build_factorial_conditions(project: Project, axes: list[dict],
         if "alpha_disk" in overrides or "alpha_disk" in inplane_fixed:
             alpha_disk = float(overrides.get("alpha_disk", inplane_fixed.get("alpha_disk", 0.0)))
             Vz = _axial(0.0)
-            # |Vz|: see `bemt.resolve_advance_velocity`. With Vz<0 the
-            # raw sign would flip the side of the cross flow and the
-            # reported angle would stop matching the geometry.
-            mu_x = ((float(np.tan(np.deg2rad(alpha_disk))) * abs(Vz)) / omega_R
-                  if omega_R > 1e-9 else 0.0)
+            cross_velocity = nomenclature.alpha_disk_cross_velocity(
+                alpha_disk, Vz)
+            mu_x = (cross_velocity / omega_R if omega_R > 1e-9 else 0.0)
         else:
             if "mu_x" in overrides:
                 mu_x = float(overrides["mu_x"])

@@ -180,6 +180,7 @@ class RunCaseTab(QWidget):
         # --- axial component: alpha [deg] or Vz [m/s] (label-dropdown) ---
         self.axial = AxialInput(default_value=0.0)
         self.axial.set_context_provider(self._axial_context)
+        self.advance.set_axial_context_provider(self._advance_axial_velocity)
         self._size_field(self.axial)
         form.addRow("Axial flow:", self.axial)
 
@@ -458,10 +459,14 @@ class RunCaseTab(QWidget):
             apply_condition_unit_width(self)
 
     def _advance_context(self):
-        """Given to LongitudinalInput to convert mu_x<->V when the unit
-        changes (depends on this tab's current rpm and radius)."""
+        """Return RPM and radius for the in-plane unit conversions."""
         radius_m = self.state.project.geometry.radius_m if self.state.project else 1.0
         return self.rpm_spin.value(), radius_m
+
+    def _advance_axial_velocity(self):
+        """Return the along-shaft speed that gives alpha_disk its scale."""
+        rpm, radius_m = self._advance_context()
+        return self.axial.vv(0.0, rpm, radius_m)
 
     def _lateral_context(self):
         """Given to LateralInput to convert V_y<->psi_w when the unit

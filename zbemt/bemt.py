@@ -164,6 +164,11 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+try:
+    from . import nomenclature
+except ImportError:  # direct `python zbemt/bemt.py`
+    import nomenclature
+
 # Compat: numpy >=2.0 renamed trapz -> trapezoid (and drops trapz in
 # recent versions). numpy <2.0 only has trapz. This keeps the code portable.
 _trapz = getattr(np, "trapezoid", None) or np.trapz
@@ -4179,7 +4184,7 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
     `J_x` (synonyms, propeller convention, J_x=pi*mu_x) or
     `alpha_disk_deg` (angle between the free stream and the rotor AXIS,
     degrees . The in-plane component IS DERIVED from the axial one via
-    Vx=tan(alpha_disk_deg)*Vz).
+    Vx=-tan(alpha_disk_deg)*|Vz|).
 
     VERTICAL/AXIAL COMPONENT (uniform over the disk, maps to internal
     `Vz`) . Supply AT MOST ONE of: `Vz`/`Vz` (dimensional, m/s,
@@ -4249,7 +4254,7 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
         raise ValueError(
             "resolve_advance_velocity: alpha_deg, measured from the PLANE, and "
             "alpha_disk_deg, measured from the SHAFT, are the same angle written "
-            "two ways (alpha_disk = 90 + alpha_rotor). If you give both, no "
+            "two ways (the two angle inputs require different known velocity components). If you give both, no "
             "component fixes the velocity scale. Give one angle and one "
             "dimensional or non-dimensional component.")
 
@@ -4266,20 +4271,15 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
         # BELOW the disk, which is the case that OPPOSES the induced
         # velocity, so it produces a negative `Vz`. See the module note
         # on the axial convention.
-        return -float(np.tan(np.deg2rad(spec["alpha_deg"]))) * Vinf_long_conhecido
+        return nomenclature.alpha_rotor_axial_velocity(
+            spec["alpha_deg"], Vinf_long_conhecido)
 
     if long_kind == "alpha_disk_deg":
         Vv_val = _axial_de(given_axial, 0.0)
-        # |Vz|, not Vz: `alpha_disk` is the flow's tilt relative to the
-        # axis LINE, and with Vz<0 (axial descent, windmill) the raw sign
-        # would flip the side the cross-flow points to . The reported
-        # angle would stop matching the geometry. With the absolute
-        # value, the angle that comes out in `alpha_disk_deg` is always
-        # the real angle between the free stream and the +axis direction:
-        # `alpha_disk` for Vz>0, and `180 - alpha_disk` for Vz<0 (the flow
-        # arrives from the front of the disk, and that is what an obtuse
-        # angle says).
-        Vinf_long = float(np.tan(np.deg2rad(float(long_val)))) * abs(Vv_val)
+        # Propeller display V_z is the engine's in-plane component. Its sign
+        # follows vehicle V_z: positive means flow from above. alpha_disk uses
+        # the opposite sign: positive means flow from below.
+        Vinf_long = nomenclature.alpha_disk_cross_velocity(long_val, Vv_val)
         mu_val = Vinf_long / rotor.OmegaR
     else:
         if long_kind == "mu_x":
@@ -4290,25 +4290,16 @@ def resolve_advance_velocity(rotor: Rotor, cfg: BEMTConfig, *,
         Vv_val = _axial_de(given_axial, Vinf_long)
 
     mu_z_val = Vv_val / rotor.OmegaR
-    # ONE geometric angle, from which BOTH reported angles are derived.
-    # `alpha_geom` is the raw `atan2(Vz, Vx)`: it carries the sign of
-    # `Vz`, and it is what `_angle_from_axis` has always consumed.
-    alpha_geom_deg = _geom_angle_deg(Vv_val, Vinf_long)
-    # The reported disk angle of attack is its NEGATIVE, so that it means
-    # what the same symbol means for a wing: positive when the stream
-    # arrives from below the disk. That is the case with `Vz < 0`, which
-    # opposes the induced velocity and raises the thrust.
-    alpha_rotor_deg = -alpha_geom_deg + 0.0     # the +0.0 kills a -0.0
+    alpha_rotor_deg = nomenclature.alpha_rotor_from_components(
+        Vv_val, Vinf_long)
+    alpha_disk_deg = nomenclature.alpha_disk_from_components(
+        Vinf_long, Vv_val)
 
     meta = dict(
         mu_x=mu_val, J_x=np.pi * mu_val,
         Vz=Vv_val, mu_z=mu_z_val, J_z=np.pi * mu_z_val,
         alpha_rotor_deg=alpha_rotor_deg,
-        # From the GEOMETRIC angle, not from the reported one: a
-        # propeller in straight cruise must keep reading zero here, and
-        # deriving one reported angle from the other is what would let
-        # the pair drift apart after a change like this one.
-        alpha_disk_deg=_angle_from_axis(alpha_geom_deg),
+        alpha_disk_deg=alpha_disk_deg,
         Vx=Vinf_long,
     )
     return mu_val, Vv_val, meta
@@ -4339,34 +4330,16 @@ def _geom_angle_deg(Vz: float, Vx: float) -> float:
 
 
 def _angle_from_axis(alpha_geom_deg: float) -> float:
-    """The stream's angle from the rotor AXIS, from the GEOMETRIC angle.
+    """Return the signed propeller angle from a geometric disk-plane angle.
 
-    The argument is `atan2(Vz, Vx)` -- the angle from the disk plane
-    carrying the sign of `Vz` -- and NOT the reported `alpha_rotor_deg`,
-    which is its negative. Passing the reported angle here would put a
-    propeller in straight cruise at 180 degrees instead of zero.
-
-    Purely axial flight (propeller in cruise) is 0deg here and 90deg
-    there. Purely edgewise flight (helicopter in level forward flight) is
-    90deg here and 0deg there. Axial descent (`Vz<0`, geometric angle -90deg)
-    gives 180deg: the flow arrives from the FRONT of the disk, and that is
-    what 180deg says.
-
-    The propeller in cruise is the case motivating this column . There
-    the geometric angle reads 90deg on a flight the pilot calls "aligned", and
-    no reader would spot a 2deg misalignment by reading "88deg".
-
-    NORMALIZED to (-180deg, 180deg]: the identity is `90 - alpha_geom`
-    MODULO 360, not the raw subtraction. With negative cross-flow AND
-    axial descent (`mu_x<0`, `Vz<0`) the raw value gives 190deg, whose
-    ABSOLUTE VALUE is no longer the angle between the free stream and the
-    axis . 170deg is. Normalized, |alpha_disk| is always that angle,
-    which is what one reads in an angle column."""
-    raw_angle = 90.0 - float(alpha_geom_deg)
-    normalized = (raw_angle + 180.0) % 360.0 - 180.0        # [-180, 180)
-    if normalized == -180.0:
-        normalized = 180.0        # pure axial descent reads 180, not -180
-    return normalized + 0.0        # kills the -0.0
+    This compatibility helper reconstructs a unit velocity vector and applies
+    the same convention as ``alpha_disk_from_components``. Positive means the
+    free stream arrives from below. The result is limited to [-90, 90].
+    """
+    angle = np.deg2rad(float(alpha_geom_deg))
+    cross = float(np.cos(angle))
+    axial = float(np.sin(angle))
+    return nomenclature.alpha_disk_from_components(cross, axial)
 
 
 def solve_bemt_flight(rotor: Rotor, airfoil, cfg: BEMTConfig, **flight_kwargs):
@@ -4599,20 +4572,16 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         mu_z_val = Vz / OmegaR
         flight_cols = dict(mu_x=mu_x, J_x=J_adv,
                             Vz=Vz, mu_z=mu_z_val, J_z=Jz_adv,
-                            alpha_rotor_deg=-_geom_angle_deg(Vz, mu_x * OmegaR),
+                            alpha_rotor_deg=nomenclature.alpha_rotor_from_components(
+                                Vz, mu_x * OmegaR),
                             Vx=mu_x * OmegaR)
     # An explicit `alpha_rotor` (if passed by the caller) always takes
     # display priority over the reconstructed value, for backward
     # compatibility.
     if alpha_rotor is not None:
         flight_cols["alpha_rotor_deg"] = alpha_rotor
-    # The angle from the AXIS follows the same GEOMETRY as the angle from
-    # the plane, which is the negative of the reported one. Derived from
-    # the reported angle instead -- as it was -- a propeller in straight
-    # cruise would read 180 degrees here rather than zero, because the
-    # reported angle changed sign and this line did not.
-    flight_cols["alpha_disk_deg"] = _angle_from_axis(
-        -float(flight_cols["alpha_rotor_deg"]))
+    flight_cols["alpha_disk_deg"] = nomenclature.alpha_disk_from_components(
+        float(flight_cols["Vx"]), float(flight_cols["Vz"]))
 
     # =========================================================================
     # RESOLVED AXIAL FLOW: v_i, lambda_i, lambda (disk averages) ------------

@@ -283,13 +283,15 @@ belong in this document.
 - **EN-12b** — For a tapered blade, `root_chord_norm` is the reference chord at
   `r/R = 0` and `tip_chord_norm` is the chord at `r/R = 1`.
 - **EN-13** — In rotor mode, `V_z`, `lambda_z`, `mu_z`, `J_z`, and total axial
-  inflow are positive through the disk in the induced-velocity direction.
-  `lambda_total = lambda_z + lambda_i`. Positive `V_z` reduces thrust for the
-  same remaining inputs.
+  inflow are positive through the disk in the induced-velocity direction. This
+  is free stream arriving from above. `lambda_total = lambda_z + lambda_i`.
+  Positive `V_z` reduces thrust for the same remaining inputs.
 - **EN-13a** — In rotor mode, `alpha_rotor = -atan2(V_z, V_x)` and is measured
   from the disk plane. Positive `alpha_rotor` corresponds to negative `V_z`.
-- **EN-14** — In propeller mode, `alpha_disk = atan2(V_z, V_x)` and is measured
-  from the shaft. Straight axial cruise has `V_z = 0` and `alpha_disk = 0`.
+- **EN-14** — In propeller vehicle axes, `V_z` is positive when the free stream
+  arrives from above. `alpha_disk = atan2(-V_z, |V_x|)` is measured from the
+  shaft and is positive when the free stream arrives from below. Straight axial
+  cruise has `V_z = 0` and `alpha_disk = 0`.
 - **EN-15** — Longitudinal and lateral in-plane flow resolve as one magnitude
   and direction: `mu_inplane = hypot(V_x, V_y)/(Omega*R)` and
   `psi_w = atan2(V_y, V_x)`.
@@ -328,12 +330,12 @@ belong in this document.
   Equivalent forms do not persist as independent values that can disagree.
 - **PA-5b** — An alternate input that lacks required context or conflicts with
   another form is rejected. It is never silently dropped.
-- **PA-5c** — `alpha_rotor_deg` and `alpha_disk_deg` can supply the axial flow
-  component when their required context is available and the corresponding
-  direct component is not supplied.
-- **PA-5d** — An axial-angle alias is rejected when RPM is unavailable, when
-  both angle forms are supplied, or when the direct axial component is also
-  supplied.
+- **PA-5c** — `alpha_rotor_deg` derives rotor axial flow from a known in-plane
+  component. `alpha_disk_deg` derives propeller cross-flow from a known
+  along-shaft component. Both use the sign conventions of `EN-13a` and `EN-14`.
+- **PA-5d** — An angle alias is rejected when its required velocity scale is
+  unavailable, when both angle forms are supplied, or when a direct form of the
+  component that the angle would derive is also supplied.
 
 ### 3.4 Reports
 

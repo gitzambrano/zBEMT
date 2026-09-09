@@ -175,6 +175,51 @@ class TestRunCaseResultsTable(unittest.TestCase):
 
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
+class TestRunCaseFlightSignConvention(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _propeller_tab(self):
+        from zbemt.gui.common import AppState
+        from zbemt.gui.tabs.run_case import RunCaseTab
+        state = AppState()
+        project = helpers.make_studies_project()
+        project.config["is_propeller"] = True
+        state.project = project
+        tab = RunCaseTab(state)
+        self.addCleanup(tab.deleteLater)
+        tab.show()
+        self.app.processEvents()
+        return tab, project
+
+    def test_positive_alpha_disk_builds_flow_from_below_and_runs_that_case(self):
+        from zbemt import api
+        tab, project = self._propeller_tab()
+        tab.axial.unit_combo.setCurrentText("Vₓ [m/s]")
+        tab.axial.spin.setValue(60.0)
+        tab.advance.unit_combo.setCurrentText("α_dᵢₛₖ [deg]")
+        tab.advance.spin.setValue(10.0)
+        condition = tab._current_condition()
+        self.assertGreater(condition.Vz, 0.0)
+        self.assertLess(condition.mu_x, 0.0)
+        result = api.run_case(project, condition)
+        self.assertAlmostEqual(result.summary["alpha_disk_deg"], 10.0, places=3)
+
+    def test_positive_propeller_Vz_builds_negative_alpha_disk(self):
+        from zbemt import api
+        tab, project = self._propeller_tab()
+        tab.axial.unit_combo.setCurrentText("Vₓ [m/s]")
+        tab.axial.spin.setValue(60.0)
+        tab.advance.unit_combo.setCurrentText("V_z [m/s]")
+        tab.advance.spin.setValue(6.0)
+        condition = tab._current_condition()
+        self.assertGreater(condition.mu_x, 0.0)
+        result = api.run_case(project, condition)
+        self.assertLess(result.summary["alpha_disk_deg"], 0.0)
+
+
+@unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
 class TestUnitCombosFollowPr2(unittest.TestCase):
     """An axis row's unit dropdown is progressive disclosure: hidden while
     the axis sits at "(none)", and alive (visible, populated, enabled) as

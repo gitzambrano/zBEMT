@@ -46,6 +46,7 @@ class _ConditionWidgetTest(unittest.TestCase):
     def _longitudinal(self, is_propeller=False):
         field = LongitudinalInput()
         field.set_context_provider(lambda: (RPM, RADIUS_M))
+        field.set_axial_context_provider(lambda: 60.0)
         field.set_default_unit(is_propeller)
         return field
 
@@ -106,6 +107,24 @@ class TestVelocityUnitIsRead(_ConditionWidgetTest):
         prop.unit_combo.setCurrentText("Vₓ [m/s]")
         prop.spin.setValue(5.0)
         self.assertAlmostEqual(prop.vv(0.2, RPM, RADIUS_M), 5.0, places=9)
+
+
+    def test_propeller_alpha_disk_positive_means_negative_crossflow(self):
+        field = self._longitudinal(is_propeller=True)
+        field.unit_combo.setCurrentText("α_dᵢₛₖ [deg]")
+        field.spin.setValue(5.0)
+        self.assertLess(field.mu_x(), 0.0)
+
+    def test_switching_propeller_Vz_to_alpha_disk_preserves_the_vector(self):
+        field = self._longitudinal(is_propeller=True)
+        field.unit_combo.setCurrentText("V_z [m/s]")
+        field.spin.setValue(6.0)
+        before = field.mu_x()
+        field.unit_combo.setCurrentText("α_dᵢₛₖ [deg]")
+        self.assertLess(field.spin.value(), 0.0)
+        self.assertAlmostEqual(field.mu_x(), before, delta=2e-5)
+        field.unit_combo.setCurrentText("V_z [m/s]")
+        self.assertAlmostEqual(field.spin.value(), 6.0, delta=1e-3)
 
 
 class TestEveryOfferedUnitConverts(_ConditionWidgetTest):

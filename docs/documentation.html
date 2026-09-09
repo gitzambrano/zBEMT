@@ -1579,8 +1579,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         $\alpha_{rotor}=-\arctan(V_z/V_x)$ is positive when the stream arrives from <b>below</b>
         the disk, the case that opposes the induced velocity and raises the thrust, exactly as an
         angle of attack is defined for a wing. A positive $\alpha_{rotor}$ therefore goes with a
-        negative $V_z$. $\alpha_{disk}$ keeps its own meaning, the tilt away from the shaft, and
-        reads $0^\circ$ for a propeller in straight cruise. The solver always works in disk axes. What rotates is what appears on
+        negative $V_z$. In propeller vehicle axes, $\alpha_{disk}$ uses the same wind-side sign: it is positive for flow from <b>below</b> and negative for flow from above, while vehicle $V_z$ has the opposite sign. It reads $0^\circ$ in straight cruise. The solver always works in disk axes. What rotates is what appears on
         screen and what is written into <code>.bemt</code> files, CSV headers and <span class="cli">CLI</span> flags.
       </figcaption>
     </figure>
@@ -1723,9 +1722,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       direction, and the induced velocity is defined by a direction to begin with.</p>
 
     <p>The mode also decides which angle is shown. A rotor offers $\alpha_{rotor}$ and a propeller offers
-      $\alpha_{disk}$, never both, because the two are the same physical angle measured from references
-      that are perpendicular to each other. Showing both would give the reader two numbers for one
-      quantity, and the two numbers would differ by $90^\circ$.</p>
+      $\alpha_{disk}$, never both. They are mode-specific signed incidence representations: $\alpha_{rotor}$ is referenced to the disk plane and $\alpha_{disk}$ to the shaft. Both are positive when the free stream arrives from below; they are not treated as complementary user inputs.</p>
 
     <p>The solver uses <b>disk axes</b>, where the in-plane component is always $x$ and the axial one
       always $z$, whatever the vehicle. The vehicle convention is applied at the user-facing boundary:
@@ -2035,7 +2032,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         <tr>
           <td>$\alpha_{rotor}$</td>
           <td>deg</td>
-          <td>Angle between the free stream and the <b>disk plane</b>, $\alpha_{rotor}=\operatorname{atan2}(V_z,V_x)$ in
+          <td>Angle between the free stream and the <b>disk plane</b>, $\alpha_{rotor}=-\operatorname{atan2}(V_z,V_x)$ in
             rotor axes. The angle rotor mode uses: $0$ in a helicopter's level forward flight, positive when the flow
             arrives from below the disk (<a class="xref" href="#cap-prop-4"
               title="4.2.4 The angle: $\alpha_{disk}$, and why it lives in the cross-flow field">Section 4.2.4</a>).
@@ -2044,8 +2041,8 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
         <tr>
           <td>$\alpha_{disk}$</td>
           <td>deg</td>
-          <td>Angle between the free stream and the <b>shaft</b>, $\alpha_{disk}=\operatorname{atan2}(V_z,V_x)$ in
-            propeller axes, equivalently $90^\circ-\alpha_{rotor}$ modulo a full turn. The angle propeller mode uses:
+          <td>Angle between the free stream and the <b>shaft</b>, $\alpha_{disk}=\operatorname{atan2}(-V_z,|V_x|)$ in
+            propeller axes. The angle propeller mode uses:
             $0$ in straight cruise, positive when the disk is tilted nose-up. Each mode uses and shows only its own, and
             neither is the section angle of attack $\alpha_{eff}$ (<a class="xref" href="#cap-prop-4"
               title="4.2.4 The angle: $\alpha_{disk}$, and why it lives in the cross-flow field">Section 4.2.4</a>).
@@ -2251,15 +2248,16 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p>There are exactly two angles in the program and each mode uses only its own
       (<a class="xref" href="#sec-21-nomenclature" title="4.1 Nomenclature">Section 4.1</a>). Propeller mode uses
       $\alpha_{disk}$,
-      measured <b>from the shaft</b> and normalized to $(-180^\circ,\,180^\circ]$:</p>
+      measured <b>from the shaft</b> and reported in $[-90^\circ,\,90^\circ]$:</p>
     <ul>
       <li><b>Zero</b> in straight cruise, when the free stream is aligned with the thrust axis. That is
         the reason for the second name: a propeller reader who checks a two-degree misalignment
         reads $2^\circ$, not $88^\circ$. The rotor angle is still computed and still exported. In cruise
-        it reads $\alpha_{rotor}=90^\circ$.</li>
-        <li><b>Positive when the flow arrives from below</b>, that is, the disk is tilted nose-up relative to
-          the free stream. Axial descent, with flow arriving on the front face, reads
-          $180^\circ$.</li>
+        it reads $\alpha_{rotor}=-90^\circ$.</li>
+        <li><b>Positive when the flow arrives from below</b>. Positive vehicle $V_z$ is cross-flow from
+          above and therefore gives a negative $\alpha_{disk}$; negative vehicle $V_z$ is flow from below
+          and gives a positive $\alpha_{disk}$. Reversing the along-shaft component does not reverse this
+          wind-side sign.</li>
       <li>It is a property of the <em>flight condition</em>, not of any blade section. The section's
         angle of attack is $\alpha_{eff}$, which varies with radius (<a class="xref" href="#sec-28-blade-element-theory"
           title="5.6 Blade Element Theory">Section 5.6</a>).</li>
@@ -2268,9 +2266,9 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p><b>Cross-flow velocity and angle coupling.</b> A single angular parameter defines the
       velocity vector orientation given an axial velocity scale. In propeller mode, the primary airspeed acts
       along the shaft ($x$-axis), and the cross-flow component ($z$-axis) is determined via:</p>
-    <div class="eqn">$$V_{\text{cross}} \;=\; \tan(\alpha_{disk})\;\bigl|V_{\text{shaft}}\bigr| .$$</div>
-    <p>The absolute value $\bigl|V_{\text{shaft}}\bigr|$ ensures consistent cross-flow direction regardless
-      of axial flow sign. An angle defined relative to the cross-flow axis instead would introduce a
+    <div class="eqn">$$V_{\text{cross}} \;=\; -\tan(\alpha_{disk})\;\bigl|V_{\text{shaft}}\bigr| .$$</div>
+    <p>The minus sign is the convention: positive $\alpha_{disk}$ means flow from below, while positive
+      vehicle $V_z$ cross-flow means flow from above. The absolute value $\bigl|V_{\text{shaft}}\bigr|$ keeps that wind-side sign independent of axial-flow reversal. An angle defined relative to the cross-flow axis instead would introduce a
       singularity ($\tan(0)=0$) in axial cruise. Therefore, both operating modes enforce the convention:
       <b>the $x$-axis specifies velocity scale, and the $z$-axis defines angle of incidence</b>. Angular
       values on both axes simultaneously are invalid, because then no reference velocity scale is
@@ -7013,7 +7011,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     <div class="eqn">$$U_T=\Omega r+V\sin\psi,$$</div>
                     <p>which is where the azimuthal dependence enters: the $\sin\psi$ term adds on one side of the disk
                       and subtracts on the other. In propeller mode the angle form is related to the two components
-                      by $\alpha_{disk}=\operatorname{atan2}(V_z,V_x)$, so it fixes the cross-flow once the along-shaft
+                      by $\alpha_{disk}=\operatorname{atan2}(-V_z,|V_x|)$, so it fixes the cross-flow once the along-shaft
                       component is known.</p>
 
                     <p><b>Configuration and sign convention.</b> For a <b>rotor</b>, use $0$ for hover, and a positive
@@ -7047,7 +7045,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       <code>alpha_disk_deg</code> instead of the ratio, exactly as the command line accepts
                       <code>--alpha-disk-deg</code>. It is measured from the shaft, so it is the along-shaft component
                       that is the known one and the in-plane one that is derived from it:
-                      $\mu_x=\tan(\alpha_{disk})\,|V_z|/(\Omega R)$. The angle is an input form only: what the file
+                      $\mu_x=-\tan(\alpha_{disk})\,|V_z|/(\Omega R)$. The angle is an input form only: what the file
                       keeps after the next save is still the ratio, so no component ever has two stored values that can
                       disagree. Because the conversion needs the tip speed, a condition that gives the angle must also
                       give an <code>rpm</code>, and the project's geometry must have a radius. On opening, the application refuses

@@ -13,9 +13,10 @@ fail against:
     is therefore -atan2(V_z, V_x), and a positive angle goes with a
     NEGATIVE V_z.
 
-    alpha_disk is not an angle of attack. It measures the stream's tilt
-    away from the SHAFT, keeps the geometric sign, and reads zero for a
-    propeller in straight cruise.
+    alpha_disk is measured from the SHAFT. Like alpha_rotor, it is
+    POSITIVE when the stream arrives from BELOW. Propeller display V_z is
+    POSITIVE for flow from ABOVE, so alpha_disk and display V_z have opposite
+    signs.
 
 `alpha_rotor` used to carry the geometric sign, which put it alone
 outside the family: a positive angle meant a stream from ABOVE, the
@@ -120,25 +121,20 @@ class TestTheDiskAngleOfAttack(unittest.TestCase):
                                places=9)
 
 
-class TestTheAngleFromTheShaftDidNotChange(unittest.TestCase):
-    """`alpha_disk` measures a different thing and keeps its own sign."""
+class TestThePropellerDiskAngleUsesTheSameWindSign(unittest.TestCase):
+    """alpha_disk > 0 means flow from below, like alpha_rotor."""
 
     def test_a_propeller_in_straight_cruise_reads_zero(self):
         summary = _summary(30.0, propeller=True, mu_x=0.0, rpm=3000.0)
         self.assertAlmostEqual(summary["alpha_disk_deg"], 0.0, places=6)
 
-    def test_edgewise_flight_reads_ninety(self):
-        self.assertAlmostEqual(_summary(0.0)["alpha_disk_deg"], 90.0,
-                               places=6)
+    def test_positive_cross_flow_is_negative_alpha_disk(self):
+        summary = _summary(60.0, propeller=True, mu_x=0.1, rpm=3000.0)
+        self.assertLess(summary["alpha_disk_deg"], 0.0)
 
-    def test_the_identity_between_the_two_angles(self):
-        """`alpha_disk = 90 + alpha_rotor`, modulo one revolution."""
-        for Vz in (-30.0, -1.0, 0.0, 1.0, 30.0):
-            with self.subTest(Vz=Vz):
-                s = _summary(Vz)
-                deviation = (s["alpha_disk_deg"] - s["alpha_rotor_deg"]
-                             - 90.0 + 180.0) % 360.0 - 180.0
-                self.assertAlmostEqual(deviation, 0.0, places=6)
+    def test_negative_cross_flow_is_positive_alpha_disk(self):
+        summary = _summary(60.0, propeller=True, mu_x=-0.1, rpm=3000.0)
+        self.assertGreater(summary["alpha_disk_deg"], 0.0)
 
 
 class TestTheInputConvertersAgreeWithTheOutput(unittest.TestCase):

@@ -266,7 +266,7 @@ def resolve_alpha_aliases(project: Project) -> int:
             # signed value would cancel it. Same reason as in
             # `bemt.resolve_advance_velocity`.
             condition.mu_x = V_to_mu(
-                float(np.tan(np.deg2rad(degrees))) * abs(Vz),
+                nomenclature.alpha_disk_cross_velocity(degrees, Vz),
                 float(rpm), radius)
         delattr(condition, models.ALPHA_ALIAS_ATTRIBUTE)
         converted += 1
