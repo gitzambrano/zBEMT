@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/unify-alpha-vz-sign-convention
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -11,7 +14,7 @@ permissions:
 
 jobs:
   snapshot:
-    runs-on: windows-2025
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +24,6 @@ jobs:
         with:
           python-version: '3.11'
       - name: Materialize production patch only
-        shell: bash
         run: |
           python tools/apply_flight_sign_fix.py || true
           python - <<'PY'
@@ -43,11 +45,9 @@ jobs:
           python tools/build_toc.py --write
           python tools/field_index.py --write
       - name: Archive patched source
-        shell: pwsh
-        run: |
-          Get-ChildItem -Force | Where-Object { $_.Name -ne '.git' } | Compress-Archive -DestinationPath patched-source.zip
+        run: tar --exclude=.git -czf patched-source.tar.gz .
       - uses: actions/upload-artifact@v4
         with:
-          name: patched-source-windows-${{ github.sha }}
-          path: patched-source.zip
+          name: patched-source-${{ github.sha }}
+          path: patched-source.tar.gz
           retention-days: 2
