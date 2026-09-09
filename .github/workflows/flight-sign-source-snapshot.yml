@@ -1,0 +1,53 @@
+name: Flight sign source snapshot
+
+on:
+  push:
+    branches:
+      - fix/unify-alpha-vz-sign-convention
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/unify-alpha-vz-sign-convention
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Materialize production patch only
+        shell: bash
+        run: |
+          python tools/apply_flight_sign_fix.py || true
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('docs/documentation.html')
+          s = p.read_text(encoding='utf-8')
+          for old, new in [
+              (r'$\alpha_{rotor}=\operatorname{atan2}(V_z,V_x)$', r'$\alpha_{rotor}=-\operatorname{atan2}(V_z,V_x)$'),
+              (r'$\mu_x=\tan(\alpha_{disk})\,|V_z|/(\Omega R)$', r'$\mu_x=-\tan(\alpha_{disk})\,|V_z|/(\Omega R)$'),
+          ]:
+              if new in s and old not in s:
+                  continue
+              if s.count(old) != 1:
+                  raise SystemExit(f'bad documentation cardinality for {old!r}: {s.count(old)}')
+              s = s.replace(old, new)
+          p.write_text(s, encoding='utf-8')
+          PY
+          python tools/apply_flight_sign_fix.py
+          python tools/build_toc.py --write
+          python tools/field_index.py --write
+      - name: Archive patched source
+        shell: pwsh
+        run: |
+          Get-ChildItem -Force | Where-Object { $_.Name -ne '.git' } | Compress-Archive -DestinationPath patched-source.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patched-source-windows-${{ github.sha }}
+          path: patched-source.zip
+          retention-days: 2
