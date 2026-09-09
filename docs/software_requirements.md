@@ -4,9 +4,11 @@ This document is the binding specification for zBEMT. It defines product,
 architecture, engine, interface, documentation, GUI, and quality requirements.
 
 Each requirement has a permanent code. Retire a removed code. Never reuse it
-for a different requirement. Requirements state the required end state in the
-present tense. Rationale, migration history, bug history, and temporary
-implementation notes do not belong in this document.
+for a different requirement. State one independently testable obligation per
+requirement and use subcodes when a feature needs several obligations.
+Requirements state the required end state in the present tense. Rationale,
+migration history, bug history, and temporary implementation notes do not
+belong in this document.
 
 | Prefix | Section | Scope |
 |---|---|---|
@@ -26,23 +28,18 @@ implementation notes do not belong in this document.
 
 - **SC-1** — The software performs steady-state and quasi-steady BEMT analysis
   of rotors and propellers in hover, forward flight, climb, and descent.
-- **SC-2** — The supported aerodynamic solution scope includes selectable
-  inflow models, numerical solvers, local corrections, loss models, stall
-  models, reverse-flow treatment, and full-range polar treatment.
-- **SC-2a** — The supported inflow models are Glauert, Coleman, local Drees,
+- **SC-2** — The supported inflow models are Glauert, Coleman, local Drees,
   global Drees, and Pitt-Peters steady.
-- **SC-2b** — The supported numerical solvers are Newton-Raphson, fixed-point,
+- **SC-2a** — The supported numerical solvers are Newton-Raphson, fixed-point,
   Aitken, and bisection.
-- **SC-2c** — The supported local physics options include rotational and
+- **SC-2b** — The supported local physics options include rotational and
   compressibility corrections, dynamic stall, tip and root loss, reverse-flow
   models, and full-range polar extension.
-- **SC-3** — The software supports batch execution, parametric sweeps, HTML
-  reporting, visualization, and multiple airfoil-polar sources.
-- **SC-3a** — The software supports batch runs and parametric sweeps.
-- **SC-3b** — The software supports self-contained HTML reporting and 2D and 3D
-  visualization.
-- **SC-3c** — The software supports analytical, tabulated, NeuralFoil-generated,
-  and XFOIL-generated airfoil polars.
+- **SC-3** — The software supports batch runs and parametric sweeps.
+- **SC-3a** — The software supports self-contained HTML reporting.
+- **SC-3b** — The software supports 2D and 3D visualization.
+- **SC-3c** — The software supports analytical, tabulated,
+  NeuralFoil-generated, and XFOIL-generated airfoil polars.
 - **SC-4** — The supported entry points are the GUI, CLI, and Python library.
   `.bemt` files provide the persistent project input format.
 - **SC-7** — The Geometry Designer compares labeled blade planform variants
@@ -102,14 +99,12 @@ implementation notes do not belong in this document.
   NeuralFoil rejects these inputs.
 - **SC-9d** — A missing XFOIL executable affects only XFOIL and raises an error
   that states the cause and available remedies.
-- **SC-10** — The software supports regenerable analytic airfoil geometry
-  families through one resolver grammar.
-- **SC-10a** — The resolver supports NACA 4-digit, NACA 5-digit, CST, Bézier,
-  PARSEC, Joukowski, biconvex, and imported contours. The grammar accepts
-  preset names and prefixed forms.
-- **SC-10b** — Each analytic family is a normal GUI Source option with its own
+- **SC-10** — The airfoil geometry resolver supports NACA 4-digit, NACA
+  5-digit, CST, Bézier, PARSEC, Joukowski, biconvex, and imported contours
+  through preset names and prefixed forms.
+- **SC-10a** — Each analytic family is a normal GUI Source option with its own
   editor rows. The GUI has no parallel free-form geometry specification field.
-- **SC-10c** — Regenerable geometry parameters persist as `generator_params`
+- **SC-10b** — Regenerable geometry parameters persist as `generator_params`
   inside the profile `geometry` block in `inputs/airfoil.bemt`.
 - **SC-11** — The software supports periodic quasi-steady rigid-blade flap and
   lead-lag response with a hinge offset, root spring, or both. A rigid blade
@@ -184,10 +179,8 @@ implementation notes do not belong in this document.
 - **PR-9a** — Legends, labels, titles, and annotations do not overlap plotted
   data or each other in a way that blocks reading.
 - **PR-9b** — A disk map states its azimuth convention.
-- **PR-10** — GUI layout keeps related controls aligned and user-facing text
-  readable at supported window sizes.
-- **PR-10a** — Editable field columns align within and across related forms.
-  Buttons presented as a group share a width.
+- **PR-10** — Editable field columns align within and across related forms.
+- **PR-10a** — Buttons presented as a group share a width.
 - **PR-10b** — User-facing text is not clipped or overflowed in labels, buttons,
   tooltips, help popups, or other controls.
 - **PR-10c** — Hiding a form field hides both its label and its editor.
@@ -200,26 +193,22 @@ implementation notes do not belong in this document.
 - **PR-11a** — Main-thread work such as table filling and figure construction
   runs once per user gesture or coalesced event burst, not once per row, column,
   or repeated signal.
-- **PR-12** — Figures preserve readability without forcing the application
-  window to grow.
-- **PR-12a** — A multi-panel figure maintains a readable minimum size per panel
+- **PR-12** — A multi-panel figure maintains a readable minimum size per panel
   and scrolls inside its drawing area when the available area is smaller.
-- **PR-12b** — Figure text uses point sizing and does not shrink merely because a
+- **PR-12a** — Figure text uses point sizing and does not shrink merely because a
   panel is compressed.
-- **PR-12c** — A single-panel figure fills the available drawing area and has no
+- **PR-12b** — A single-panel figure fills the available drawing area and has no
   multi-panel minimum-size floor.
-- **PR-12d** — A figure minimum size does not propagate outside the drawing area
+- **PR-12c** — A figure minimum size does not propagate outside the drawing area
   to enlarge the containing window.
 - **PR-13** — Every editable dimensional value shows its unit. Every editable
   dimensionless value shows `[-]`.
-- **PR-14** — Engineering Tools guide the user from a defined engineering
-  question to the required input and produced result.
-- **PR-14a** — Each Tool card states the engineering question, prerequisite or
-  input, and result produced by the Tool.
-- **PR-14b** — Each Tool window provides numbered steps, current-action
+- **PR-14** — Each Engineering Tool card states the engineering question,
+  prerequisite or input, and result produced by the Tool.
+- **PR-14a** — Each Tool window provides numbered steps, current-action
   guidance, Back and Next navigation, and direct step navigation.
-- **PR-14c** — Advanced numerical tuning starts collapsed.
-- **PR-14d** — An empty study presents the first valid action instead of an
+- **PR-14b** — Advanced numerical tuning starts collapsed.
+- **PR-14c** — An empty study presents the first valid action instead of an
   error.
 
 ## 3. Architectural Requirements
