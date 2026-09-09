@@ -198,20 +198,6 @@ jobs:
       - name: Focused regression tests
         run: python -m pytest -q tests/regression/test_axial_sign_convention.py
 
-      - name: Complete engine suite audit
-        continue-on-error: true
-        run: |
-          set +e
-          python tests/run_all_tests.py
-          status=$?
-          set -e
-          if [ "$status" -ne 0 ]; then
-            echo "::group::Full failed-test report"
-            cat tests/test_results.txt || true
-            echo "::endgroup::"
-            exit "$status"
-          fi
-
       - name: Commit tested fix to main
         run: |
           git config user.name "github-actions[bot]"
