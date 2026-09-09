@@ -1,0 +1,60 @@
+name: convention-physics-bench
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: convention-physics-bench-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  bench:
+    name: convention + physics diagnostic bench
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Qt system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-cursor0
+
+      - name: Install with every extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+
+      - name: Run diagnostic bench
+        run: |
+          mkdir -p artifacts/convention-physics-bench
+          python tools/convention_physics_bench.py \
+            --json artifacts/convention-physics-bench/report.json \
+            | tee artifacts/convention-physics-bench/report.txt
+
+      - name: Run strict gate for visibility
+        continue-on-error: true
+        run: python tools/convention_physics_bench.py --strict
+
+      - name: Upload bench ledger
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: convention-physics-bench-${{ github.sha }}
+          path: artifacts/convention-physics-bench
+          if-no-files-found: error
+          retention-days: 14
