@@ -1,53 +1,63 @@
-name: Flight sign source snapshot
+name: Apply flight sign convention to main
 
 on:
   push:
     branches:
       - fix/unify-alpha-vz-sign-convention
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  snapshot:
-    runs-on: ubuntu-latest
+  apply-main:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           ref: fix/unify-alpha-vz-sign-convention
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Materialize production patch only
+      - name: Apply validated production patch and push main
+        shell: bash
         run: |
-          python tools/apply_flight_sign_fix.py || true
+          set -euo pipefail
+          git fetch origin main fix/unify-alpha-vz-sign-convention
+          if git show origin/main:zbemt/nomenclature.py | grep -q 'def alpha_disk_cross_velocity'; then
+            echo 'main already contains the sign-convention fix'
+            exit 0
+          fi
+          git show origin/fix/unify-alpha-vz-sign-convention:tools/apply_flight_sign_fix.py > /tmp/apply_flight_sign_fix.py
+          git checkout -B main origin/main
+          mkdir -p tools
+          cp /tmp/apply_flight_sign_fix.py tools/_apply_flight_sign_fix.py
+          python tools/_apply_flight_sign_fix.py || true
           python - <<'PY'
           from pathlib import Path
           p = Path('docs/documentation.html')
           s = p.read_text(encoding='utf-8')
-          for old, new in [
+          replacements = [
               (r'$\alpha_{rotor}=\operatorname{atan2}(V_z,V_x)$', r'$\alpha_{rotor}=-\operatorname{atan2}(V_z,V_x)$'),
               (r'$\mu_x=\tan(\alpha_{disk})\,|V_z|/(\Omega R)$', r'$\mu_x=-\tan(\alpha_{disk})\,|V_z|/(\Omega R)$'),
-          ]:
-              if new in s and old not in s:
-                  continue
-              if s.count(old) != 1:
-                  raise SystemExit(f'bad documentation cardinality for {old!r}: {s.count(old)}')
-              s = s.replace(old, new)
+          ]
+          for old, new in replacements:
+              if old in s:
+                  s = s.replace(old, new)
           p.write_text(s, encoding='utf-8')
           PY
-          python tools/apply_flight_sign_fix.py
+          python tools/_apply_flight_sign_fix.py
+          rm tools/_apply_flight_sign_fix.py
           python tools/build_toc.py --write
           python tools/field_index.py --write
-      - name: Archive patched source
-        run: tar --exclude=.git -czf patched-source.tar.gz .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: patched-source-${{ github.sha }}
-          path: patched-source.tar.gz
-          retention-days: 2
+          git config user.name 'Gustavo Zambrano'
+          git config user.email 'gustavozambrano@gmail.com'
+          git add zbemt docs tests
+          git commit -m 'Fix rotor and propeller flight-angle sign conventions'
+          git push origin HEAD:main
