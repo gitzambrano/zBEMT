@@ -30,11 +30,12 @@ surfaces the user reads and types. The single exception is a batch whose
 rule like any other input.
 """
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
 from zbemt import api, bemt, geometry, studies
-from zbemt.models import AirfoilDef, FlightCondition, Project
+from zbemt.models import AirfoilDef, BatchDefinition, FlightCondition, Project
 
 
 def _project(propeller=False):
@@ -185,6 +186,100 @@ class TestTheEngineAcceptsTheAngleAsAnInput(unittest.TestCase):
                 self.assertAlmostEqual(meta["alpha_rotor_deg"], alpha,
                                        places=9)
                 self.assertEqual(np.sign(Vv), -np.sign(alpha))
+
+
+def _generated_alpha(condition):
+    return api.alpha_deg_from_vv(
+        condition.Vz, condition.mu_x, condition.rpm, 1.0)
+
+
+class TestFactorialLoopPriority(unittest.TestCase):
+    """The first visible Run Batch axis is the innermost loop."""
+
+    def test_first_row_is_the_inner_loop_for_two_axes(self):
+        conditions = studies.build_factorial_conditions(
+            _project(),
+            [
+                {"variable": "mu_x", "values": [0.1, 0.2, 0.3]},
+                {"variable": "alpha_deg", "values": [-5.0, 0.0, 5.0]},
+            ],
+            {"rpm": 600.0, "collective_deg": 8.0},
+        )
+        actual = [
+            (round(c.mu_x, 6), round(_generated_alpha(c), 6))
+            for c in conditions
+        ]
+        self.assertEqual(actual, [
+            (0.1, -5.0), (0.2, -5.0), (0.3, -5.0),
+            (0.1, 0.0), (0.2, 0.0), (0.3, 0.0),
+            (0.1, 5.0), (0.2, 5.0), (0.3, 5.0),
+        ])
+
+    def test_first_row_inner_second_middle_third_outer(self):
+        conditions = studies.build_factorial_conditions(
+            _project(),
+            [
+                {"variable": "mu_x", "values": [0.1, 0.2]},
+                {"variable": "collective_deg", "values": [4.0, 8.0]},
+                {"variable": "rpm", "values": [400.0, 600.0]},
+            ],
+            {"Vz": 0.0},
+        )
+        actual = [(round(c.mu_x, 6), c.collective_deg, c.rpm)
+                  for c in conditions]
+        self.assertEqual(actual, [
+            (0.1, 4.0, 400.0), (0.2, 4.0, 400.0),
+            (0.1, 8.0, 400.0), (0.2, 8.0, 400.0),
+            (0.1, 4.0, 600.0), (0.2, 4.0, 600.0),
+            (0.1, 8.0, 600.0), (0.2, 8.0, 600.0),
+        ])
+
+
+class TestBatchAlphaGenerationConvention(unittest.TestCase):
+    """Every batch path uses alpha_rotor > 0 => Vz < 0."""
+
+    def test_fixed_positive_alpha_stays_fixed_across_mu_and_rpm(self):
+        conditions = studies.build_factorial_conditions(
+            _project(),
+            [
+                {"variable": "mu_x", "values": [0.1, 0.2, 0.3]},
+                {"variable": "rpm", "values": [400.0, 800.0]},
+            ],
+            {"alpha_deg": 5.0, "collective_deg": 8.0},
+        )
+        self.assertTrue(all(c.Vz < 0.0 for c in conditions))
+        self.assertEqual(
+            [round(_generated_alpha(c), 9) for c in conditions],
+            [5.0] * len(conditions))
+
+    def test_direct_alpha_sweep_uses_positive_alpha_as_flow_from_below(self):
+        with patch.object(
+                studies, "_run_conditions",
+                side_effect=lambda _project, conditions, **_kwargs: conditions):
+            conditions = studies.run_alpha_sweep(
+                _project(), [-5.0, 5.0], mu_x=0.2,
+                collective_deg=8.0, rpm=600.0)
+        self.assertGreater(conditions[0].Vz, 0.0)
+        self.assertLess(conditions[1].Vz, 0.0)
+        self.assertAlmostEqual(_generated_alpha(conditions[0]), -5.0, places=9)
+        self.assertAlmostEqual(_generated_alpha(conditions[1]), 5.0, places=9)
+
+    def test_legacy_alpha_batch_uses_the_same_sign(self):
+        batch = BatchDefinition(
+            name="alpha", sweep_kind="alpha_sweep",
+            sweep_params={
+                "alpha_deg_values": [-5.0, 5.0],
+                "mu_x": 0.2, "collective_deg": 8.0, "rpm": 600.0,
+            },
+        )
+        with patch.object(
+                studies, "_run_conditions",
+                side_effect=lambda _project, conditions, **_kwargs: conditions):
+            conditions = studies.run_batch(_project(), batch)
+        self.assertGreater(conditions[0].Vz, 0.0)
+        self.assertLess(conditions[1].Vz, 0.0)
+        self.assertAlmostEqual(_generated_alpha(conditions[0]), -5.0, places=9)
+        self.assertAlmostEqual(_generated_alpha(conditions[1]), 5.0, places=9)
 
 
 if __name__ == "__main__":   # pragma: no cover

@@ -716,7 +716,7 @@ def run_alpha_sweep(project: Project, alpha_deg_values: Sequence[float], *,
 
     conditions = [
         FlightCondition(name=f"{name_prefix}_{a:g}", mu_x=mu_x,
-                         Vz=float(np.tan(np.deg2rad(a)) * Vinf_long),
+                         Vz=float(-np.tan(np.deg2rad(a)) * Vinf_long),
                          collective_deg=collective_deg, rpm=rpm)
         for a in alpha_deg_values
     ]
@@ -958,7 +958,13 @@ def build_factorial_conditions(project: Project, axes: list[dict],
     base_cyclic_s = float(fixed.get("cyclic_s_deg", 0.0))
 
     conditions: list[FlightCondition] = []
-    for combo in itertools.product(*(ax["values"] for ax in axes)):
+    # GUI axis rows define loop priority: row 1 varies fastest, row 2
+    # wraps row 1, and row 3 is the outermost loop. itertools.product
+    # varies its LAST iterable fastest, so iterate reversed axes and
+    # reverse each tuple back before mapping it to the original names.
+    for reverse_combo in itertools.product(
+            *(ax["values"] for ax in reversed(axes))):
+        combo = tuple(reversed(reverse_combo))
         overrides = dict(zip(variables, combo))
 
         # rpm FIRST: everything that converts (V->mu_x, alpha_deg->Vz)
@@ -984,7 +990,7 @@ def build_factorial_conditions(project: Project, axes: list[dict],
             if kind == "J_z":
                 return (float(value) / np.pi) * omega_R
             if kind == "alpha_deg":
-                return float(np.tan(np.deg2rad(value)) * Vinf_long)
+                return float(-np.tan(np.deg2rad(value)) * Vinf_long)
             return 0.0
 
         # ORDER: with `alpha_disk` the dependency inverts, because it is
@@ -1106,7 +1112,7 @@ def run_batch(project: Project, batch: BatchDefinition, *,
             Vinf_long = mu_x * rotor.OmegaR
             conditions = [FlightCondition(name=f"alpha_{v:g}", mu_x=mu_x,
                                           collective_deg=params.get("collective_deg", 8.0),
-                                          Vz=float(np.tan(np.deg2rad(v)) * Vinf_long), rpm=rpm)
+                                          Vz=float(-np.tan(np.deg2rad(v)) * Vinf_long), rpm=rpm)
                           for v in params.get("alpha_deg_values", [])]
         elif batch.sweep_kind == "collective_sweep":
             conditions = [FlightCondition(name=f"collective_{v:g}", mu_x=params.get("mu_x", 0.0),
