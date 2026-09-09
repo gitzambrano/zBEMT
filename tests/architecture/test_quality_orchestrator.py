@@ -56,6 +56,7 @@ class TestSuiteRunnerSelection(unittest.TestCase):
             "test_agent_instructions.py",
             "test_documentation.py",
             "test_user_facing_documentation.py",
+            "test_tools_documentation_labels.py",
             "test_every_field_has_a_popup.py",
             "test_gui_cli_parity.py",
             "test_help_content.py",
