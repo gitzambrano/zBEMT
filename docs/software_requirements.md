@@ -1,472 +1,448 @@
 # zBEMT: Software Requirements
 
-zBEMT is a Blade Element Momentum Theory (BEMT) solver for rotors,
-propellers, and eVTOL rotors, exposed through three interfaces (GUI, CLI,
-Python library) that share a single engine. This document states the
-requirements the software must satisfy.
+This document is the binding specification for zBEMT. It defines product,
+architecture, engine, interface, documentation, GUI, and quality requirements.
 
-Every requirement carries a code, so that a test, a commit message or a review
-comment can name the rule it is about. The prefix says which section it comes
-from:
+Each requirement has a permanent code. Retire a removed code. Never reuse it
+for a different requirement. State one independently testable obligation per
+requirement and use subcodes when a feature needs several obligations.
+Requirements state the required end state in the present tense. Rationale,
+migration history, bug history, and temporary implementation notes do not
+belong in this document.
 
-| Prefix | Section | What it covers |
+| Prefix | Section | Scope |
 |---|---|---|
-| `SC` | 1 | Scope: what the software must and must not do |
-| `PR` | 2 | Product: what the user is entitled to |
-| `AR` | 3.1 | Architecture: which module may do what |
+| `SC` | 1 | Supported and excluded capabilities |
+| `PR` | 2 | User-visible product behavior |
+| `AR` | 3.1 | Architecture boundaries |
 | `EN` | 3.2 | Engine correctness |
-| `PA` | 3.3 | GUI / CLI / `.bemt` parity |
+| `PA` | 3.3 | GUI, CLI, and `.bemt` parity |
 | `RP` | 3.4 | Reports |
 | `DC` | 3.5 | Documentation |
-| `TB` | 3.6 | GUI tab behaviour |
-| `QR` | 4 | Quality: how the work is done and verified |
-
-Codes are permanent. A requirement that is removed leaves its code retired
-rather than reassigned, so an old reference never silently points at a
-different rule.
-
----
+| `TB` | 3.6 | GUI tab behavior |
+| `QR` | 4 | Verification and repository quality |
 
 ## 1. Scope
 
-### 1.1 The software must support
+### 1.1 Supported capabilities
 
-- **SC-1** — Steady-state and quasi-steady BEMT analysis of rotors and propellers,
-  including forward flight, climb/descent, and hover.
-- **SC-2** — Multiple inflow models (Glauert, Coleman, Drees — local and global — and
-  Pitt-Peters steady), multiple solvers (Newton-Raphson, fixed-point,
-  Aitken, bisection), rotational and compressibility corrections, dynamic
-  stall, tip/root loss, and full-range polar extension.
-- **SC-3** — Batch and parametric sweeps, self-contained HTML reporting, 2D and 3D
-  visualization, and analytical/tabulated/NeuralFoil-generated airfoil
-  polars.
-- **SC-4** — Three synchronized interfaces (GUI, CLI, library) built on one engine,
-  with GUI/CLI/`.bemt`-file parity as required by §3.3.
-- **SC-7** — Geometry comparison across labeled variants in a dedicated
-  Geometry Designer window. A chosen set of flight conditions (the
-  project's saved cases, one single condition, or one swept quantity)
-  runs over several blade planforms, and everything except the geometry
-  stays fixed: the same airfoil polar, mesh, inflow model and corrections
-  go into every run. Variants are override rows over the project's own
-  planform, or they come from a one-parameter variation sweep. A user
-  label (or an auto-generated `param=value` label) tags each variant in
-  the verdicts, plots and exports. After a run, the summary metric may be
-  ranked across variants at any condition of the run, not only the first.
-  The ranking default follows the mode convention: propeller efficiency
-  for propeller-convention runs, figure of merit otherwise. Beside the
-  ranking, the software draws each variant's percent change against the
-  base planform at that same condition, and it falls back to the absolute
-  difference when the base value is approximately zero. The comparison may
-  instead hold the loading constant across variants, at constant thrust or
-  constant `CT`. The first variant is then the reference and runs
-  untrimmed. Its thrust or `CT` at each condition becomes that condition's
-  target. Every other variant reaches the target by bisection over one
-  degree of freedom chosen automatically from the mode convention (RPM for
-  propellers, collective for rotors). A variant whose target falls outside
-  the search bracket raises a named error instead of converging outside
-  it. Trimmed summaries record the target, the solved degree of freedom
-  and its converged value. Variants may also come ready-made. The window
-  generates blades from the three parametric families (rectangular,
-  tapered, elliptic), and it imports the blade of any project folder,
-  either as one more variant or as a session-only replacement of the base
-  planform (the imported project file is only ever read). For a base
-  without a parametric generator, the window applies a planform parameter
-  in table space instead of failing. It reads the parameter as a target on
-  the radial table. The root and tip chord and twist parameters rebuild
-  the chord and twist tables so their endpoints meet the requested values,
-  `chord_norm` scales the chord uniformly to the mean chord, and
-  `max_chord_norm` scales it uniformly to the peak chord. The variant table
-  exposes each row's root cutout, radius, aspect ratio and solidity beside
-  its overrides, and every comparison result summary carries the blade aspect
-  ratio and the rotor solidity (`studies._blade_planform_metrics`), so the
-  ranking, the overlay figure and the CSV export can compare shape next to
-  performance.
-- **SC-7a** - Persisted comparisons (`inputs/comparisons.bemt`). A comparison
-  — its variant rows, chosen conditions and trim mode — may be saved with the
-  project under a name and re-run or reviewed later; it is no longer strictly
-  session data. A variant row may also carry its own airfoil section and blade
-  dynamics block, in which case the run is no longer geometry alone: the
-  report says so beside the ranking, because the equal-polar fairness claim
-  of `SC-7` no longer holds for that run.
-- **SC-8** — Persisted design-optimization studies (`inputs/optimizations.bemt`)
-  drive one summary quantity on one flight condition through a bounded,
-  derivative-free search over parametric planform parameters (Powell or
-  Nelder-Mead). The search starts deterministically from the center of the
-  bounds, respects them throughout, and penalizes failed evaluations instead
-  of stopping. This single-objective search is reachable from the CLI
-  (`--optimize`) and the library; the multi-objective search of `SC-13` adds
-  the GUI window.
-- **SC-9** — XFOIL as an external polar engine. Polar generation may drive
-  the `xfoil` binary, which the software looks up through a four-place
-  chain: the `ZBEMT_XFOIL_BIN`
-  environment variable first, then the executable path remembered from a
-  previous GUI "Locate…" pick (stored between sessions in the application
-  settings file), then PATH, then the standard Windows install folders
-  (`%LOCALAPPDATA%\Programs\XFOIL` and `%ProgramFiles%\XFOIL`). Generation
-  writes one script per Reynolds number and applies the same
-  Prandtl-Glauert post-correction as NeuralFoil.
-  The XFOIL-only transition
-  inputs (`ncrit`, `xtr_top`, `xtr_bot`: the e^N criterion and forced
-  transition stations) reach the binary only on the XFOIL path. With
-  `--gen-neuralfoil`, the solver rejects them. Per PR-7, a missing binary
-  degrades only this feature. The failure raises a RuntimeError that names
-  the cause and the remedies.
-- **SC-10** — Analytic airfoil geometry families (PARSEC, Joukowski,
-  biconvex) join the NACA 4- and 5-digit codes, CST, Bézier and imported
-  contours. All families are reachable through one resolver grammar
-  (preset nicknames and prefixed forms) served by the CLI's
-  `--airfoil-geometry`. In the GUI, every family is a normal entry of the
-  contour Source dropdown and reveals its own editor rows. No parallel
-  specification-string field exists on screen. The software serializes the
-  parameters under the profile geometry (`generator_params` inside the
-  `geometry` block of
-  `inputs/airfoil.bemt`) so a saved contour can be regenerated without its
-  coordinate table.
-- **SC-11** — Rigid-blade flap and lead-lag dynamics, solved as a periodic
-  quasi-steady response. The blade carries a flap hinge offset, a root
-  spring, or both. A rigid blade with no flap freedom stays available, and
-  it stays the default.
-- **SC-12** — Transient time marching over a prescribed sequence of flight
-  conditions. The marched states are the Pitt-Peters inflow states and the
-  Øye separation state. The blade-element solution stays quasi-steady
-  inside each time step.
-- **SC-13** — Multi-objective design optimization in a dedicated window,
-  with a genetic algorithm and a Pareto front. `SC-8` stays the
-  single-objective study; `SC-13` is the multi-objective one.
-- **SC-14** — Stability and control derivatives of the rotor hub loads, by
-  finite differences about a trim point, in a dedicated window.
-- **SC-15** — A lateral component of the in-plane free stream, so the flight
-  velocity has all three of its components. The disk plane carries two
-  directions, and the condition names both: the longitudinal one, and the
-  lateral one it flies sideways at. The lateral one is offered in four
-  spellings that mean the same freedom -- the velocity V_y, the ratios
-  mu_y and J_y, and the sideslip angle psi_w that splits the longitudinal
-  component into it -- and a condition gives exactly one of them. It is a
-  full input slot: a fixed value, a batch axis, a results column, a CSV
-  column and a report row, on the same terms as the other two.
+- **SC-1** — The software performs steady-state and quasi-steady BEMT analysis
+  of rotors and propellers in hover, forward flight, climb, and descent.
+- **SC-2** — The supported inflow models are Glauert, Coleman, local Drees,
+  global Drees, and Pitt-Peters steady.
+- **SC-2a** — The supported numerical solvers are Newton-Raphson, fixed-point,
+  Aitken, and bisection.
+- **SC-2b** — The supported local physics options include rotational and
+  compressibility corrections, dynamic stall, tip and root loss, reverse-flow
+  models, and full-range polar extension.
+- **SC-3** — The software supports batch runs and parametric sweeps.
+- **SC-3a** — The software supports self-contained HTML reporting.
+- **SC-3b** — The software supports 2D and 3D visualization.
+- **SC-3c** — The software supports analytical, tabulated,
+  NeuralFoil-generated, and XFOIL-generated airfoil polars.
+- **SC-4** — The supported entry points are the GUI, CLI, and Python library.
+  `.bemt` files provide the persistent project input format.
+- **SC-7** — The Geometry Designer compares labeled blade planform variants
+  across selected flight conditions and keeps non-geometry inputs fixed by
+  default.
+- **SC-7a** — Named comparisons persist in `inputs/comparisons.bemt` with their
+  variants, selected conditions, and trim mode.
+- **SC-7b** — A geometry comparison accepts explicit override rows,
+  one-parameter variation sweeps, generated rectangular, tapered, or elliptic
+  blades, and blades imported from another project.
+- **SC-7c** — Each comparison variant has a user label or an automatically
+  generated `parameter=value` label used by results, plots, and exports.
+- **SC-7d** — A summary metric can rank variants at any condition in the
+  comparison. The default metric is propeller efficiency in propeller mode and
+  figure of merit otherwise.
+- **SC-7e** — The comparison reports each variant relative to the base planform
+  at the selected condition. It uses percent change unless the base value is
+  approximately zero, then it uses absolute difference.
+- **SC-7f** — A comparison can hold thrust or `CT` constant. The first variant
+  runs untrimmed and defines the target for each condition.
+- **SC-7g** — Other variants reach a constant-loading target by bisection.
+  Propeller mode trims RPM. Rotor mode trims collective.
+- **SC-7h** — A target outside the trim bracket raises a named error. The trim
+  solver does not converge outside the bracket.
+- **SC-7i** — A trimmed comparison result records the target, trimmed degree of
+  freedom, and converged value.
+- **SC-7j** — If a base blade has no parametric generator, the Geometry Designer
+  applies planform targets directly to the radial table.
+- **SC-7k** — Root and tip chord and twist targets rebuild the corresponding
+  tables to meet the requested endpoints. `chord_norm` scales chord to the
+  requested mean chord. `max_chord_norm` scales chord to the requested peak
+  chord.
+- **SC-7l** — Variant rows, comparison results, and comparison CSV exports expose
+  root cutout, radius, blade aspect ratio, and rotor solidity where applicable.
+- **SC-7m** — The Geometry Designer can use an imported project blade as a
+  session-only base replacement without modifying the imported project.
+- **SC-7n** — A comparison variant may define its own airfoil sections or blade
+  dynamics. The report identifies such a comparison as not geometry-only and
+  does not claim equal-polar fairness.
+- **SC-7o** — A geometry-only comparison uses the same airfoil polar, mesh,
+  inflow model, and correction settings for every variant.
+- **SC-7p** — Comparison conditions can be the project's saved cases, one
+  explicit condition, or one swept quantity.
+- **SC-8** — Persisted single-objective studies in
+  `inputs/optimizations.bemt` optimize one summary quantity at one flight
+  condition over bounded parametric planform variables with Powell or
+  Nelder-Mead.
+- **SC-8a** — A single-objective search starts at the center of the bounds,
+  remains inside the bounds, and penalizes failed evaluations instead of
+  stopping.
+- **SC-8b** — Single-objective optimization is available through the CLI
+  `--optimize` path and the Python library.
+- **SC-9** — XFOIL is supported as an external polar engine.
+- **SC-9a** — The XFOIL executable resolves in this order: `ZBEMT_XFOIL_BIN`,
+  the persisted GUI selection, `PATH`, then the standard Windows install
+  folders under `%LOCALAPPDATA%\Programs\XFOIL` and
+  `%ProgramFiles%\XFOIL`.
+- **SC-9b** — XFOIL generation writes one script per Reynolds number and
+  applies the same Prandtl-Glauert post-correction used by NeuralFoil.
+- **SC-9c** — `ncrit`, `xtr_top`, and `xtr_bot` apply only to XFOIL.
+  NeuralFoil rejects these inputs.
+- **SC-9d** — A missing XFOIL executable affects only XFOIL and raises a
+  `RuntimeError` that states the cause and available remedies.
+- **SC-10** — The airfoil geometry resolver supports NACA 4-digit, NACA
+  5-digit, CST, Bézier, PARSEC, Joukowski, biconvex, and imported contours
+  through preset names and prefixed forms.
+- **SC-10a** — Each analytic family is a normal GUI Source option with its own
+  editor rows. The GUI has no parallel free-form geometry specification field.
+- **SC-10b** — Regenerable geometry parameters persist as `generator_params`
+  inside the profile `geometry` block in `inputs/airfoil.bemt`.
+- **SC-11** — The software supports periodic quasi-steady rigid-blade flap and
+  lead-lag response with a hinge offset, root spring, or both. A rigid blade
+  with no flap freedom is the default.
+- **SC-12** — The software time-marches prescribed flight conditions with
+  Pitt-Peters inflow states and the Øye separation state. Blade-element loads
+  remain quasi-steady within each time step.
+- **SC-13** — A dedicated GUI tool performs multi-objective genetic-algorithm
+  optimization and presents a Pareto front.
+- **SC-14** — A dedicated GUI tool computes rotor hub-load stability and
+  control derivatives by finite differences about a trim point.
+- **SC-15** — A flight condition supports a lateral in-plane component so the
+  free-stream velocity has three components.
+- **SC-15a** — The lateral component accepts `Vy`, `mu_y`, `J_y`, or
+  `sideslip_deg` as equivalent input forms. A condition supplies at most one
+  of them.
+- **SC-15b** — The lateral component is available as a fixed input, batch axis,
+  results field, CSV field, and report field.
+- **SC-15c** — `sideslip_deg` specifies the direction of a known longitudinal
+  in-plane component and remains inside plus or minus 89 degrees. Pure
+  sideward flight is specified through `Vy`.
+- **SC-16** — A tabulated polar may include optional `Cm`. CSV import,
+  supported external generation, `.bemt` persistence, and CSV export preserve
+  it. The force and performance solution does not use `Cm`.
+- **SC-16a** — One polar CSV can define multiple radial stations of one airfoil
+  definition through `r_norm`.
 
-- **SC-16** — A tabulated airfoil polar may contain an optional pitching-moment
-  coefficient $C_m$ beside $C_l$ and $C_d$. CSV import, external polar
-  generation when the source supplies the coefficient, `.bemt` persistence,
-  and CSV export preserve $C_m$. The current BEMT force and performance
-  solution does not use $C_m$. A single polar CSV may contain several radial
-  stations through the `r_norm` conditioning column. Therefore, one file may
-  define all radial polar stations of one airfoil.
+### 1.2 Excluded capabilities
 
-### 1.2 The software must not support
-
-- **SC-5** — Free-wake, prescribed-wake and vortex-lattice inflow, and any
-  form of computational fluid dynamics. The inflow field stays an annular
-  momentum model or a finite-state model. Blade elasticity, that is a modal
-  or a finite-element blade, also stays out of scope. The blade is rigid.
-  Its rigid-body flap and lag freedoms are in scope (`SC-11`).
-- **SC-6** — Mandatory GUI dependencies in the core engine. The solver and CLI must
-  keep running on `numpy` + `scipy` + `matplotlib` + `pandas` alone; a
-  batch run on a headless server must never require Qt or 3D graphics.
-
----
+- **SC-5** — Free-wake, prescribed-wake, vortex-lattice inflow, and
+  computational fluid dynamics are out of scope.
+- **SC-5a** — Supported inflow fields remain annular-momentum or finite-state
+  models.
+- **SC-5b** — Modal and finite-element blade elasticity are out of scope.
+  Rigid-body flap and lag remain in scope under `SC-11`.
+- **SC-6** — The solver and CLI run without Qt or 3D graphics. Their required
+  numerical stack is NumPy, SciPy, Matplotlib, and pandas.
 
 ## 2. Product Requirements
 
-- **PR-1 — Three equivalent entry points.** Every capability reachable
-  from the GUI must be reachable from the CLI and from a `.bemt` project
-  file, and vice versa. A feature implemented in only one interface must
-  not be considered complete.
-- **PR-2 — Progressive disclosure in the GUI.** Options that do not apply
-  to the current configuration must be hidden. A control that cannot affect
-  the active model must never remain on screen in a blocked state.
-- **PR-3 — Field-level help.** Every configurable field must expose its
-  help through two paths: a hover tooltip with a short description, and a
-  click on the field's name/label that opens a popup. The popup must
-  contain the complete descriptive physics and mathematics governing that
-  field's behavior, and it must always include a link to the
-  corresponding section of the full HTML documentation
-  (`docs/documentation.html`). The mapping from field to documentation section must be
-  derived from the field's tooltip/name, not maintained as a separate
-  hand-written list.
-- **PR-4 — LaTeX rendering of mathematical notation.** Greek symbols and
-  subscripts must be rendered in LaTeX everywhere they appear: GUI field
-  labels and values, field-help popups, tables, plots/graphs, and
-  `docs/documentation.html`. Plain-text or Unicode approximations
-  (`lambda_i`, `mu_x`) must not be used in any user-facing surface.
-- **PR-5 — Self-contained reports.** `generate_report` output must be
-  viewable with no external files or network access. Large batches must
-  split into a master page plus per-section satellite pages; a report
-  must never omit data because it was "too large."
-- **PR-6 — Validate before running.** Static validation
-  (`validation.py`) must catch invalid or physically inconsistent
-  configurations before the engine runs, both in the GUI (step-by-step,
-  via the flow indicator) and the CLI (automatically, before every
-  execution).
-- **PR-7 — Graceful optional dependencies.** PyVista (3D), NeuralFoil (ML
-  polars), and Plotly (interactive reports) must remain optional; their
-  absence must degrade only the specific feature that depends on them,
-  and must never crash an unrelated feature.
-- **PR-8 — Correct propeller/rotor axis conventions.** Field labels,
-  angles, summary columns, plot axes, CLI help and the keys written into
-  `.bemt` files must all reflect the vehicle convention in use (rotor vs.
-  propeller), not the engine's internal disk-axes decomposition. Every mode
-  must show only the angle and velocity components meaningful to it.
-
-  This is enforced structurally, not by convention: `zbemt/nomenclature.py`
-  is the single table every surface reads, so a symbol cannot be right in
-  the results table and wrong in the chart printed beside it in the same
-  report.
-- **PR-9 — Plots must read correctly.** A plot states the general
-  flight/operating condition it was generated under in its title. Legends,
-  labels and annotations must not overlap the plotted data. A disk map must
-  carry the azimuth convention it was drawn in.
-- **PR-10 — GUI layout invariants.** Fields align vertically across forms;
-  buttons that appear together share a width; no text is ever clipped or
-  overflowed, in a label, a button, a tooltip or a help popup. A hidden form
-  field hides its whole row, label included. A visible label pointing at a
-  hidden field is a defect.
-- **PR-11 — The GUI never freezes.** No user action may block the main
-  thread. Solving, batch runs, report generation, polar generation and file
-  import run off the main thread; the GUI stays responsive, reports progress,
-  can be cancelled, and updates itself as results arrive. Work that only the
-  main thread can do — filling a table, building a figure — is done once per
-  user gesture, not once per row or per column, and a burst of clicks
-  produces one refresh, not one per click.
-- **PR-12 — A figure keeps a readable size, or scrolls.** A multi-panel
-  figure has a minimum size per panel and the drawing area scrolls when the
-  window is smaller than that minimum. Text is measured in points and does
-  not shrink with the panel, so squeezing a grid into a small screen makes
-  its labels collide instead of making it smaller. A single-panel figure has
-  no such floor: it fills whatever area the window gives it, at any screen
-  size. A figure's minimum never propagates out of the drawing area to
-  enlarge the window itself.
-- **PR-13 — Units on editable values.** Every editable dimensional value in
-  the GUI states its unit in the label or an adjacent unit selector. A
-  dimensionless value states that it is dimensionless with `[-]`.
-
-- **PR-14 — Guided engineering Tools.** The Tools entry point presents each
-  engineering Tool by the engineering question it answers, the input or
-  prerequisite needed to start, and the result it produces. Each Tool window
-  exposes an obvious numbered task sequence, current-action guidance, and
-  Back/Next navigation while preserving direct step navigation for expert use.
-  Advanced numerical tuning starts collapsed. An empty study teaches the first
-  valid action instead of presenting an error. Method-inapplicable controls
-  disappear as complete rows under PR-2 rather than remaining visibly blocked.
-
----
+- **PR-1** — GUI, CLI, and `.bemt` project inputs expose equivalent
+  user-configurable capabilities unless another requirement explicitly scopes a
+  capability to fewer interfaces.
+- **PR-2** — A control that is inapplicable to the active configuration is
+  hidden. A control that is applicable but temporarily unavailable because of
+  a prerequisite remains visible and disabled.
+- **PR-3** — Every configurable field provides a short hover tooltip and a
+  clickable field label that opens help.
+- **PR-3a** — Field help contains the governing physics and mathematics and
+  links to the corresponding section in `docs/documentation.html`.
+- **PR-3b** — The field-to-documentation mapping is derived from field label and
+  tooltip metadata. It is not maintained as a separate manual list.
+- **PR-4** — User-facing mathematical symbols, Greek letters, subscripts, and
+  exponents use rendered mathematical notation. Plain identifier spellings such
+  as `lambda_i` and `mu_x` do not replace rendered notation on user-facing
+  surfaces.
+- **PR-5** — A generated report is readable without external files or network
+  access.
+- **PR-5a** — Large batches may split into a master page and satellite pages,
+  but no data is omitted because of report size.
+- **PR-6** — Static validation rejects invalid or physically inconsistent
+  configurations before the engine runs in GUI and CLI workflows.
+- **PR-6a** — The GUI presents pre-execution validation state through its flow
+  indicator.
+- **PR-7** — Missing PyVista, NeuralFoil, Plotly, or another optional dependency
+  disables only the feature that requires it.
+- **PR-8** — User-facing labels, angles, summary fields, plots, CLI help, and
+  `.bemt` keys use the active rotor or propeller vehicle convention rather than
+  internal disk-axis names.
+- **PR-8a** — Each mode exposes only angle and velocity components that are
+  meaningful in that vehicle convention.
+- **PR-9** — Every plot title states the general flight or operating condition
+  represented by the plot.
+- **PR-9a** — Legends, labels, titles, and annotations do not overlap plotted
+  data or each other in a way that blocks reading.
+- **PR-9b** — A disk map states its azimuth convention.
+- **PR-10** — Editable field columns align within and across related forms.
+- **PR-10a** — Buttons presented as a group share a width.
+- **PR-10b** — User-facing text is not clipped or overflowed in labels, buttons,
+  tooltips, help popups, or other controls.
+- **PR-10c** — Hiding a form field hides both its label and its editor.
+- **PR-10d** — A dropdown does not silently hide options behind Qt's default
+  ten-item limit. Lists that fit the supported popup limit show all options
+  without scrolling.
+- **PR-11** — Long work does not block the GUI main thread. The GUI remains
+  responsive, reports progress, supports cancellation where the operation can
+  be cancelled, and presents available results as they arrive.
+- **PR-11a** — Main-thread work such as table filling and figure construction
+  runs once per user gesture or coalesced event burst, not once per row, column,
+  or repeated signal.
+- **PR-12** — A multi-panel figure maintains a readable minimum size per panel
+  and scrolls inside its drawing area when the available area is smaller.
+- **PR-12a** — Figure text uses point sizing and does not shrink merely because a
+  panel is compressed.
+- **PR-12b** — A single-panel figure fills the available drawing area and has no
+  multi-panel minimum-size floor.
+- **PR-12c** — A figure minimum size does not propagate outside the drawing area
+  to enlarge the containing window.
+- **PR-13** — Every editable dimensional value shows its unit. Every editable
+  dimensionless value shows `[-]`.
+- **PR-14** — Each Engineering Tool card states the engineering question,
+  prerequisite or input, and result produced by the Tool.
+- **PR-14a** — Each Tool window provides numbered steps, current-action
+  guidance, Back and Next navigation, and direct step navigation.
+- **PR-14b** — Advanced numerical tuning starts collapsed.
+- **PR-14c** — An empty study presents the first valid action instead of an
+  error.
 
 ## 3. Architectural Requirements
 
 ### 3.1 Layering
 
-- **AR-1** — `api` must be the only path through which the GUI or CLI run the engine
-  or write to disk. `geometry`, `airfoils`, `viz`, and `validation` may be
-  imported directly by the GUI/CLI only for on-screen preview and
-  drawing; they must not run the engine or write files outside `api`.
-- **AR-2** — `studies` must orchestrate `bemt` across flight conditions and must
-  never touch disk; it must always return `Results` (or `list[Results]`)
-  in memory.
-- **AR-3** — `models` must hold no physics: every `...Def` dataclass must be raw,
-  editable, serializable data; physics-aware classes must be constructed
-  from them, never duplicated.
-- **AR-4** — `validation` must return static `Issue`s (error/warning/info) and must
-  not run the engine.
+- **AR-1** — The GUI and CLI run the engine and write application data only
+  through `api`. Direct imports of `geometry`, `airfoils`, `viz`, and
+  `validation` are limited to preview, drawing, and static validation.
+- **AR-2** — `studies` orchestrates `bemt` across flight conditions, does not
+  write to disk, and returns `Results` objects in memory.
+- **AR-3** — `models` contains raw editable and serializable data definitions.
+  Physics-aware behavior lives outside `...Def` dataclasses.
+- **AR-4** — `validation` returns static `Issue` objects and does not run the
+  engine.
+- **AR-5** — `zbemt/nomenclature.py` is the single source for user-facing axis
+  symbols, units, tooltips, slot names, and display-key mappings.
+- **AR-6** — Vehicle-axis key conversion is a one-pass reversible mapping. A
+  display-key dictionary returns to internal disk-axis form only through the
+  inverse mapping at the boundary that produced it.
 
-### 3.2 Engine correctness
+### 3.2 Engine Correctness
 
-- **EN-1** — Convergence must always be tested on the true residual
-  `g(lambda) - lambda`, evaluated before relaxation, never on the relaxed
-  step. This applies to every solver mode.
-- **EN-2** — Every physics option must be documented in `bemt.py`'s module
-  docstring, mapping the `BEMTConfig` field to its code section.
-- **EN-3** — A numerical guard (e.g. a protected denominator near a singular
-  configuration) must be paired with a correct seed/starting point where
-  applicable. A guard that only prevents `NaN` while still allowing
-  divergence to a nonphysical value must not be considered a complete
-  fix.
-- **EN-4** — A published correction must reproduce its published closed form. A
-  correction implemented as a simplification of the form it is named after (
-  a dropped factor, a linearized term) is a defect, not a variant, and must
-  be tested against the closed form rather than against a stored number.
-- **EN-5** — The airfoil polar sources — analytical, tabulated single polar, tabulated
-  by radial section, tabulated by Reynolds and/or Mach, Viterna-Corrigan
-  extension, and the table+Viterna blend, must be interchangeable behind one
-  interface: the engine must not know which source produced a coefficient.
-- **EN-6** — Every reverse-flow model must be defined on both sides of the boundary, and
-  a model advertised as continuous must be continuous at zero tangential
-  velocity. A discontinuity there appears as an azimuthal step in the loads,
-  not as a solver failure.
-- **EN-7** — Geometry generation and custom geometry tables must be validated before the
-  engine runs: monotonic radial stations, a span inside the hub and tip
-  radii, and consistent lengths across the columns.
-- **EN-8** — A periodic response solved by harmonic balance must state its
-  harmonic count, and it must reject a resonant denominator instead of
-  returning a large number. See the resonant denominator ν_β² − n² of the
-  flap response (`SC-11`).
-- **EN-9** — A time-marched state must report the marched interval, the step
-  count, and whether the last revolutions reached a periodic regime. A
-  transient that did not settle must not pass as a converged result.
-- **EN-10** — Where a model resolves the section drag in spanwise (radial)
-  flow, it must resolve the drag VECTOR along the total relative wind, not
-  merely rescale the drag coefficient. The spanwise component carries no arm
-  about the shaft, so it must reach the in-plane hub forces and leave torque
-  and power untouched, and it must be reported as its own term so the user
-  can see what the option did. The closed form for a constant drag
-  coefficient — C_H,profile rising from σC_d0μ/4 to 3σC_d0μ/8, profile power
-  from (1 + μ²) to (1 + 1.5μ²) — is the reference the implementation is
-  checked against.
-- **EN-11** — A result with one or more non-converged inflow elements must
-  state that limitation. The result validator must issue a warning with the
-  converged mesh percentage. A partial field must never appear as a fully
-  converged solution.
-- **EN-12** — Planform sizing metrics must use a reference blade that spans
-  from `r/R = 0` to `r/R = 1`. Rotor solidity is
-  `sigma = N_b S_ref/(pi R^2)`, and blade aspect ratio is
-  `AR = R^2/S_ref`. The root cutout truncates the aerodynamic table and the
-  BEMT load integration only. It must not change either reference metric when
-  the reference chord law stays fixed. For a tapered blade,
-  `root_chord_norm` is the reference chord at `r/R = 0`, and
-  `tip_chord_norm` is the chord at `r/R = 1`.
+- **EN-1** — Every solver tests convergence on `g(lambda) - lambda` before
+  relaxation.
+- **EN-2** — The `bemt.py` module docstring maps each `BEMTConfig` physics
+  option to the code section that implements it.
+- **EN-3** — A numerical singularity guard is paired with a physically valid
+  seed or starting point where one is required.
+- **EN-4** — An implementation named after a published correction reproduces
+  the published closed form.
+- **EN-5** — Analytical polars, a single tabulated polar, radial tabulated
+  polars, Reynolds-conditioned and Mach-conditioned tables,
+  Viterna-Corrigan extension, table-plus-Viterna blending, and external polar
+  sources implement one coefficient interface. The engine does not depend on
+  which source produced a coefficient.
+- **EN-6** — Every reverse-flow model is defined on both sides of zero
+  tangential velocity. A model advertised as continuous is continuous at that
+  boundary.
+- **EN-7** — Generated and tabulated geometry validates monotonic radial
+  stations, radial bounds, and consistent column lengths before execution.
+- **EN-8** — A harmonic-balance result records its harmonic count and rejects a
+  resonant denominator instead of returning a large finite value. For flap
+  response, this includes the denominator `nu_beta^2 - n^2`.
+- **EN-9** — A transient result records the marched interval, step count, and
+  final periodic-state status. An unsettled transient is not reported as
+  converged.
+- **EN-10** — A model that resolves radial flow resolves section drag along the
+  total relative-wind vector rather than only rescaling the drag coefficient.
+- **EN-10a** — The radial drag component contributes to in-plane hub forces and
+  does not contribute to shaft torque or power.
+- **EN-10b** — The radial-flow drag contribution is reported as a distinct
+  result term.
+- **EN-10c** — For constant drag coefficient, the implementation reproduces the
+  reference limits `C_H,profile = sigma*C_d0*mu/4` without radial-flow
+  resolution and `3*sigma*C_d0*mu/8` with full vector resolution. The profile
+  power factor changes from `(1 + mu^2)` to `(1 + 1.5*mu^2)`.
+- **EN-11** — The result validator issues a warning when one or more inflow
+  elements do not converge. The warning reports the converged mesh percentage,
+  and the result is not presented as fully converged.
+- **EN-12** — Blade aspect ratio and rotor solidity use a reference blade that
+  spans `r/R = 0` to `r/R = 1`, with `AR = R^2/S_ref` and
+  `sigma = N_b*S_ref/(pi*R^2)`.
+- **EN-12a** — Root cutout truncates aerodynamic loading but does not change
+  `AR` or `sigma` when the reference chord law is unchanged.
+- **EN-12b** — For a tapered blade, `root_chord_norm` is the reference chord at
+  `r/R = 0` and `tip_chord_norm` is the chord at `r/R = 1`.
+- **EN-13** — In rotor mode, `V_z`, `lambda_z`, `mu_z`, `J_z`, and total axial
+  inflow are positive through the disk in the induced-velocity direction.
+  `lambda_total = lambda_z + lambda_i`. Positive `V_z` reduces thrust for the
+  same remaining inputs.
+- **EN-13a** — In rotor mode, `alpha_rotor = -atan2(V_z, V_x)` and is measured
+  from the disk plane. Positive `alpha_rotor` corresponds to negative `V_z`.
+- **EN-14** — In propeller mode, `alpha_disk = atan2(V_z, V_x)` and is measured
+  from the shaft. Straight axial cruise has `V_z = 0` and `alpha_disk = 0`.
+- **EN-15** — Longitudinal and lateral in-plane flow resolve as one magnitude
+  and direction: `mu_inplane = hypot(V_x, V_y)/(Omega*R)` and
+  `psi_w = atan2(V_y, V_x)`.
 
-### 3.3 GUI / CLI / `.bemt` parity
+### 3.3 GUI, CLI, and `.bemt` Parity
 
-- **PA-1** — Every `Project`/`BEMTConfig` field editable in the GUI must be reachable
-  from the CLI (dedicated flag or `--set config.<field>=<value>`).
-- **PA-2** — Every `.bemt` project produced by any of the three paths must traverse
-  the other two identically.
-- **PA-3** — A new configuration field must be wired into all three interfaces
-  before the feature is considered complete.
-- **PA-4** — The three interfaces speak the SAME axis vocabulary: a `.bemt` file
-  stores a flight condition under the letters the GUI shows for that
-  project's mode, and the CLI's help describes each flag by the slot it
-  fills and the letter it carries in each mode. The engine keeps its own
-  disk-axes names, which never reach a user-facing surface.
-- **PA-5** — The three interfaces accept the same INPUTS, not only the same
-  fields. Where the GUI lets a quantity be given in an alternative form
-  that it converts on the spot, the CLI and the `.bemt` file must accept
-  that form too. The axial component of a flight condition may be stated
-  as `alpha_rotor_deg` (from the disk plane) or `alpha_disk_deg` (from
-  the shaft) instead of `Vz`, in a file exactly as on a flag. Such a
-  form is an INPUT ALIAS: the canonical field stays the only thing
-  stored, so no axis has two stored forms that can disagree. An alias
-  that cannot be resolved -- no RPM, both angles at once, or an angle
-  beside the very component it would set -- must be REFUSED. It must
-  never be dropped, because a dropped angle leaves the case running at
-  the default velocity and returning a plausible wrong answer.
+- **PA-1** — Every `Project` or `BEMTConfig` field editable in the GUI is
+  reachable from the CLI through a dedicated flag or `--set`.
+- **PA-2** — A `.bemt` project produced by any supported entry point traverses
+  the other entry points without semantic change.
+- **PA-3** — A new configuration field is wired into every interface required
+  by `PR-1` before the feature is complete.
+- **PA-4** — GUI, CLI, reports, exports, and `.bemt` persistence use the same
+  vehicle-axis vocabulary for a project mode. Internal engine keys remain
+  disk-axis keys.
+- **PA-4a** — A `.bemt` flight condition stores the axis letters shown by the
+  GUI for that project mode. Internal disk-axis names do not reach persistent
+  user-facing keys.
+- **PA-4b** — CLI help describes each flight-condition input by its physical
+  slot and the letter used in rotor and propeller modes.
+- **PA-4c** — Vehicle `x` is longitudinal and forward, vehicle `y` is lateral,
+  and vehicle `z` is vertical and upward.
+- **PA-4d** — Rotor mode uses a vertical shaft aligned with vehicle `z`.
+  Propeller mode uses a horizontal shaft aligned with vehicle `x`.
+- **PA-4e** — Propeller display mapping swaps the internal disk-axis pairs
+  `Vx` and `Vz`, `mu_x` and `mu_z`, and `J_x` and `J_z`. Internal
+  `lambda_z` displays as `lambda_x`, and internal `Vz_total` displays as
+  `Vx_total`. Rotor mode keeps the corresponding `x` and `z` labels.
+- **PA-4f** — `alpha_rotor_deg` is user-facing in rotor mode and hidden in
+  propeller mode. `alpha_disk_deg` is user-facing in propeller mode and hidden
+  in rotor mode.
+- **PA-5** — If the GUI accepts an alternate form of an input, the CLI and
+  `.bemt` format accept the same form unless another requirement explicitly
+  scopes it.
+- **PA-5a** — Alternate input forms resolve to one canonical stored field.
+  Equivalent forms do not persist as independent values that can disagree.
+- **PA-5b** — An alternate input that lacks required context or conflicts with
+  another form is rejected. It is never silently dropped.
+- **PA-5c** — `alpha_rotor_deg` and `alpha_disk_deg` can supply the axial flow
+  component when their required context is available and the corresponding
+  direct component is not supplied.
+- **PA-5d** — An axial-angle alias is rejected when RPM is unavailable, when
+  both angle forms are supplied, or when the direct axial component is also
+  supplied.
 
 ### 3.4 Reports
 
-- **RP-1** — `api.generate_report` must be the single implementation used by the GUI
-  button, the CLI `--report` flag, and direct library calls. HTML
-  assembly must not be duplicated in the GUI layer.
-- **RP-2** — Section order must be: blade geometry and airfoil polars (inputs) →
-  performance coefficients → azimuth/span loads → disk maps →
-  convergence.
-- **RP-3** — The summary table must have one row per condition and one column per
-  `Results.summary` key, each with a symbol, unit, and description. A new
-  summary key must ship with a column entry.
+- **RP-1** — `api.generate_report` is the single report implementation used by
+  GUI, CLI, and library calls.
+- **RP-2** — Reports present blade geometry and airfoil polars, performance
+  coefficients, azimuth and span loads, disk maps, then convergence.
+- **RP-3** — The summary table has one row per condition and one column for
+  every `Results.summary` key, with symbol, unit, and description metadata.
 
 ### 3.5 Documentation
 
-- **DC-1** — `docs/documentation.html` is the single physics reference and the embedded
-  help source, written in English. Every flag, module, project, batch and
-  anchor it cites must exist.
-- **DC-2** — Structure: introduction and physical method (chapters 0-5); one chapter per GUI tab in tab order
-  (6-12); Geometry Designer (13); Optimization, Transient, and Stability tool windows (14-16);
-  CLI and limitations (17-18); then symbols and references.
-- **DC-3** — A GUI page gets a chapter of its own. Its sections follow the order of the
-  blocks and fields on screen. A page is never documented inside a physics
-  chapter.
-- **DC-4** — A field's section is self-contained: the physics, the mathematics, every
-  option it offers, and how to set it in the GUI, in `.bemt` and in the CLI as
-  three separate paragraphs. A reader must not follow a link to understand or
-  set a field. Named models are explained where their control is.
-- **DC-5** — No class names, function names, package paths or development notes. The
-  three interfaces are called GUI, CLI and `.bemt`.
-- **DC-6** — Each page chapter opens with its tab screenshot from `docs/img/gui/`.
-- **DC-7** — A field or block belonging to a tab opens a section inside that tab's
-  chapter.
-- **DC-8** — Figures are files under `docs/img/`, never base64 in the HTML. Regenerate
-  through `tools/regenerate_documentation_plots.py` against a real example
-  project, with all on-screen text in English.
-- **DC-9** — All mathematical notation, including Greek symbols and subscripts, is
-  rendered in LaTeX (per PR-4).
-- **DC-10** — The index, the per-tab field lists and the screenshots are generated by
-  tools and never hand-edited.
-- **DC-11** — Enforced by `tests/architecture/test_documentation.py` and `tests/architecture/test_help_content.py`.
-- **DC-12** — The Engineering Tools launcher and the four Tool chapters stay
-  synchronized with the real GUI. Their generated reference blocks document
-  the current guided steps, every configurable control label, every Tool-owned
-  action label, every table-column label, and every launcher card. Configurable
-  labels link to their complete field documentation. The synchronizer is
-  `tools/sync_tools_documentation.py`, and
-  `tests/architecture/test_tools_documentation_labels.py` fails when the GUI
-  and manual drift apart.
+- **DC-1** — `docs/documentation.html` is the single user-facing physics
+  reference and the source for embedded field help.
+- **DC-1a** — Every flag, project, batch, field, and anchor named by the
+  documentation exists.
+- **DC-2** — Chapters 0 to 5 contain the introduction and physical method.
+  Chapters 6 to 12 follow the seven GUI tabs. Chapter 13 covers Geometry
+  Designer. Chapters 14 to 16 cover Optimization, Transient, and Stability.
+  Chapters 17 and 18 cover CLI and limitations. Symbols and references follow.
+- **DC-3** — Each GUI page has its own chapter, and the chapter follows the
+  visible block and field order of that page.
+- **DC-4** — A field section is self-contained and contains the field's physics,
+  mathematics, options, and valid ranges.
+- **DC-4a** — Each field section explains how to set the field in GUI, `.bemt`,
+  and CLI in three separate paragraphs.
+- **DC-4b** — A named model is explained where its controlling field is
+  documented.
+- **DC-5** — User documentation contains no class names, function names,
+  package paths, or development notes. The interfaces are named GUI, CLI, and
+  `.bemt`.
+- **DC-6** — Each GUI page chapter opens with its current tab screenshot from
+  `docs/img/gui/`.
+- **DC-7** — A field or block belonging to a page is documented inside that
+  page chapter.
+- **DC-8** — Documentation figures are files under `docs/img/`, not base64
+  data, and are generated from a real example project with user-visible text in
+  English.
+- **DC-9** — Documentation follows the mathematical-notation rule in `PR-4` and
+  does not define a competing notation convention.
+- **DC-10** — The general index, per-page field lists, and GUI screenshots are
+  generated artifacts and are not hand-edited.
+- **DC-11** — Architecture tests enforce documentation structure, field-help
+  integration, link validity, and interface-reference validity.
+- **DC-12** — The Engineering Tools launcher and Tool chapters match the GUI's
+  current steps, configurable control labels, action labels, table-column
+  labels, and launcher cards.
+- **DC-12a** — Configurable labels in Tool documentation link to their complete
+  field documentation.
+- **DC-13** — Field instructions mark interface references with their semantic
+  classes: GUI uses `<span class="gui">`, CLI uses `<span class="cli">`, and
+  `.bemt` uses `<span class="bemt">`. The corresponding presentation uses blue,
+  red, and green respectively.
+- **DC-14** — A reference to another section is an underlined navigable link and
+  carries the target section title. Bare section numbers are not used as
+  cross-references.
+- **DC-15** — Chapters 6 to 16 do not defer required field physics or setup
+  instructions to another chapter. A link to another chapter can identify
+  scope or related material.
 
-### 3.6 GUI tab behaviour
+### 3.6 GUI Tab Behavior
 
-- **TB-1** — The Results tab groups a batch into series by the swept variable, within a
-  numerical tolerance. Series height and color are independent controls: a
-  series must never encode two quantities at once.
-- **TB-2** — A tab must reflect the project it has open. A control whose value came from
-  a project that has since been closed must not remain offered.
-- **TB-3** — A tab that mutates the project in memory marks it as unsaved; Save writes
-  it and Restore reloads the last saved version.
-- **TB-4** — Every tab must survive an empty project, a project with no results, and a
-  mode switch between rotor and propeller without losing user input.
-
-- **TB-5** — The Geometry radial table accepts a rectangular clipboard block.
-  A paste starts at the selected cell and fills consecutive rows and columns.
-  The table grows when more rows are required. The parser accepts tab-delimited
-  spreadsheet data, semicolon-delimited text, and simple three-column CSV text.
-  It accepts a decimal comma in spreadsheet and semicolon data. The GUI validates
-  the complete pasted block before it changes cells and applies one project update
-  after the complete paste.
-
----
+- **TB-1** — The Results tab groups a batch into series by swept variable within
+  numerical tolerance. Series height and color remain independent encodings.
+- **TB-2** — A tab reflects the project currently open and does not retain
+  selectable values from a closed project.
+- **TB-3** — A tab that changes the in-memory project marks it unsaved. Save
+  persists it. Restore reloads the last saved state.
+- **TB-4** — Every tab supports an empty project, a project with no results, and
+  rotor-to-propeller mode changes without losing valid user input.
+- **TB-5** — The Geometry radial table supports spreadsheet-style rectangular
+  clipboard paste starting at the selected cell and grows rows as needed.
+- **TB-5a** — Geometry paste accepts tab-delimited spreadsheet data,
+  semicolon-delimited data, and simple three-column CSV. A decimal comma is
+  accepted in spreadsheet and semicolon-delimited input.
+- **TB-5b** — The complete pasted block validates before any cell changes, and a
+  successful paste produces one project update.
 
 ## 4. Quality Requirements
 
-- **QR-1 — Regression tests for logic fixes.** A fix to solver or
-  business logic must ship with a regression test that fails before the
-  fix and passes after. Pure layout/styling fixes are exempt.
-- **QR-2 — Full suite must pass before completion.** The complete test
-  suite (`pytest`, including headless GUI tests) must pass before work is
-  marked complete. Failing or partial work must not be shipped.
-- **QR-3 — Coverage of the physics/mode matrix.** The versioned example
-  projects under `projects/` must span airfoil sources (analytical /
-  table / external+NeuralFoil), inflow models (including
-  `pitt_peters_steady`), stall models, both rotor and propeller mode, and
-  multi-section airfoils. A gap in that coverage must be treated as a
-  defect.
-- **QR-4 — Project/model changes must be checked.** Any change to a
-  project file or to `models.py`'s dataclass defaults must be followed by
-  `python tools/check_project_configs.py`, which loads, validates, and
-  smoke-solves every folder under `projects/`.
-- **QR-5 — English everywhere.** All code, comments, docstrings, and
-  everything a user of the GUI/CLI/reports/plots/docs sees must be
-  English. A single file must not mix languages.
-- **QR-6 — Boundaries documented alongside fixes.** A fix that changes
-  documented behavior (a docstring's claim, a known limitation) must
-  correct the documentation in the same change.
-- **QR-7 — License compliance.** Third-party code, generated code, or
-  dependencies must be compatible with GPL-3.0-or-later. A dependency
-  requiring a more restrictive or incompatible license must not be
-  introduced.
-- **QR-8 — A physics option must be shown to do something.** Locking down a
-  toggle's default value is not coverage. Every physics option must have a
-  test that turns it on and verifies the expected physical effect against a
-  reference external to the code: a published formula, a limit the engine
-  must reproduce, or a property the model must have (harmonic inflow models
-  coinciding in hover, for instance).
-- **QR-9 — English internal identifiers.** Every function, class, variable,
-  constant and parameter name in `zbemt/`, `tools/` and `tests/` is an
-  English name that states its purpose. A Portuguese identifier is a defect
-  even when every user-facing string is English. Renames never touch
-  user-facing keys: `.bemt` keys, product CLI flag names, CSV headers, HTML
-  `id` attributes and Qt object/slot names stay fixed.
-- **QR-10 — Quality-suite separation.** One quality orchestrator must select
-  the architecture, regression, or physics suite. Architecture tests enforce
-  requirements, dependency boundaries, documentation contracts, and interface
-  parity. Regression tests protect implemented behavior, bug fixes, snapshots,
-  and GUI workflows. Physics checks compare executed cases with published
-  equations, physical limits, or literature data and record their evidence.
-  Test modules must live in the directory for their suite, shared test support
-  must remain outside those directories, and one module must not be listed in
-  more than one suite.
+- **QR-1** — A solver or business-logic fix includes a regression test that
+  fails before the fix and passes after it. Pure layout and styling fixes are
+  exempt.
+- **QR-2** — Work is complete only after `python tests/run_all_tests.py` passes.
+  A failing or partial change is not reported as complete.
+- **QR-3** — Versioned example projects cover the supported airfoil-source
+  classes, inflow-model classes, stall-model classes, rotor and propeller
+  modes, and multi-section airfoils.
+- **QR-4** — A project-file change or a dataclass default change in `models.py`
+  is followed by `python tools/check_project_configs.py`.
+- **QR-5** — Code comments, docstrings, repository documentation, commit
+  messages, and user-facing text are English. A text file does not mix natural
+  languages.
+- **QR-6** — A change to documented behavior updates the affected documentation
+  in the same change.
+- **QR-7** — Third-party code, generated code, and dependencies are compatible
+  with GPL-3.0-or-later.
+- **QR-8** — Every physics option has a test that enables the option and
+  verifies its expected effect against a published equation, physical limit,
+  literature datum, or other reference external to the implementation.
+- **QR-9** — Every function, class, variable, constant, and parameter name in
+  `zbemt/`, `tools/`, and `tests/` is an English name that states its purpose.
+  Stable external keys, product CLI flags, CSV headers, HTML `id` values, and Qt
+  compatibility names are not renamed only to satisfy this rule.
+- **QR-9a** — New internal identifiers, HTML `id` values, and Qt object or slot
+  names are English unless compatibility requires an existing stable name.
+- **QR-10** — One quality orchestrator selects the architecture, regression, or
+  physics suite. Architecture tests enforce contracts and boundaries.
+  Regression tests protect implemented behavior and bug fixes. Physics tests
+  compare executed behavior with external references and record their evidence.
+  Test modules live in the directory for their suite, shared support remains
+  outside suite directories, and a test module belongs to one suite only.

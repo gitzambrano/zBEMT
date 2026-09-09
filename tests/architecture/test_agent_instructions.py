@@ -1,16 +1,11 @@
-"""`AGENTS.md` and `CLAUDE.md` must carry the same rules, and the
-`writing-rules` skill must read the same under `.claude/` and `.agents/`.
+"""Guard the repository instruction sources.
 
-`CLAUDE.md` is what Claude Code reads. `AGENTS.md` is the cross-agent
-convention that other tools read. `.claude/skills/writing-rules/SKILL.md`
-is where Claude Code loads the skill from; `.agents/skills/writing-rules/
-SKILL.md` is a mirror for any other agent. A rule that lives in only one of
-a pair binds only one agent, which is the same as not binding anyone.
-
-`AGENTS.md` drifted once already: it accumulated three near-copies of the
-whole ruleset, 741 lines against 320, and the copies disagreed. This test
-is what stops that from happening again, for both pairs.
+`AGENTS.md` and `CLAUDE.md` contain the same operational instructions.
+The writing-rule skill has identical Claude and cross-agent copies.
+Product and architecture requirements remain in
+`docs/software_requirements.md` instead of being copied into agent files.
 """
+import re
 import unittest
 from pathlib import Path
 
@@ -18,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _body(name: str) -> str:
-    """The file's text without its title line."""
+    """Return file text without its title line."""
     lines = (ROOT / name).read_text(encoding="utf-8").split("\n")
     return "\n".join(lines[1:])
 
@@ -31,9 +26,8 @@ class TestAgentsMirrorsClaude(unittest.TestCase):
     def test_the_body_is_identical(self):
         self.assertEqual(
             _body("CLAUDE.md"), _body("AGENTS.md"),
-            "AGENTS.md and CLAUDE.md have diverged. They must carry the same "
-            "rules, so copy CLAUDE.md over AGENTS.md and change only the "
-            "title line.")
+            "AGENTS.md and CLAUDE.md must carry identical operational rules."
+        )
 
     def test_each_title_names_its_file(self):
         self.assertEqual(
@@ -44,12 +38,13 @@ class TestAgentsMirrorsClaude(unittest.TestCase):
             "# AGENTS.md")
 
     def test_no_section_appears_twice(self):
-        """The duplication that broke AGENTS.md must not come back."""
         for name in ("CLAUDE.md", "AGENTS.md"):
-            titles = [l for l in (ROOT / name).read_text(encoding="utf-8").split("\n")
-                      if l.startswith("## ")]
-            repeated = sorted({t for t in titles if titles.count(t) > 1})
-            self.assertEqual(repeated, [], f"{name} repeats sections: {repeated}")
+            lines = (ROOT / name).read_text(encoding="utf-8").split("\n")
+            titles = [line for line in lines if line.startswith("## ")]
+            repeated = sorted({title for title in titles
+                               if titles.count(title) > 1})
+            self.assertEqual(repeated, [],
+                             f"{name} repeats sections: {repeated}")
 
     def test_both_point_to_the_writing_skill(self):
         for name in ("CLAUDE.md", "AGENTS.md"):
@@ -57,9 +52,25 @@ class TestAgentsMirrorsClaude(unittest.TestCase):
             self.assertIn("writing-rules", text,
                           f"{name} does not mention the writing-rules skill")
 
+    def test_agent_files_do_not_define_requirement_bullets(self):
+        pattern = re.compile(r"^- \*\*[A-Z]{2}-\d+[a-z]?\*\*", re.MULTILINE)
+        for name in ("CLAUDE.md", "AGENTS.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            self.assertIsNone(
+                pattern.search(text),
+                f"{name} defines a software requirement. Put it in "
+                "docs/software_requirements.md and reference its code.")
+
+    def test_requirements_file_is_named_as_binding_source(self):
+        for name in ("CLAUDE.md", "AGENTS.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            self.assertIn("docs/software_requirements.md", text)
+            self.assertIn("binding specification", text)
+            self.assertIn("Do not copy requirements into this file", text)
+
 
 class TestSkillMirroredInAgents(unittest.TestCase):
-    """The writing-rules skill must read the same under both conventions."""
+    """The writing-rules skill must be identical for both agent conventions."""
 
     CLAUDE_SKILL = ".claude/skills/writing-rules/SKILL.md"
     AGENTS_SKILL = ".agents/skills/writing-rules/SKILL.md"
@@ -73,8 +84,21 @@ class TestSkillMirroredInAgents(unittest.TestCase):
         b = (ROOT / self.AGENTS_SKILL).read_text(encoding="utf-8")
         self.assertEqual(
             a, b,
-            f"{self.CLAUDE_SKILL} and {self.AGENTS_SKILL} have diverged. "
-            "Copy one over the other so both agents follow the same rules.")
+            f"{self.CLAUDE_SKILL} and {self.AGENTS_SKILL} must stay identical."
+        )
+
+    def test_all_discussed_rule_ids_remain_present(self):
+        text = (ROOT / self.CLAUDE_SKILL).read_text(encoding="utf-8")
+        expected = (
+            {f"G{i}" for i in range(1, 33)}
+            | {f"P{i}" for i in range(1, 6)}
+            | {f"D{i}" for i in range(1, 4)}
+        )
+        rows = set(re.findall(r"^\| (G\d+|P\d+|D\d+) \|", text,
+                              flags=re.MULTILINE))
+        self.assertEqual(rows, expected,
+                         "The writing-rule Do/Don't tables changed their "
+                         "rule set. Add or remove a rule only deliberately.")
 
 
 if __name__ == "__main__":
