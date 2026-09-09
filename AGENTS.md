@@ -37,6 +37,9 @@ not replacements for the requirements.
 7. Do not report work as complete while a required test fails or the requested
    implementation is partial.
 
+Before editing `bemt.py`, read its module docstring and keep its `BEMTConfig`
+option map current as required by `EN-2`.
+
 ## Change discipline
 
 Keep a change as small as the requested behavior permits. Do not combine an
@@ -79,9 +82,9 @@ Use `python tests/run_all_tests.py` for the complete suite. Use direct pytest
 only for individual files, classes, or tests. GUI tests already run headless
 through `tests/conftest.py`.
 
-Scripts under `zbemt/` and `tools/` must remain runnable without command-line
-arguments when they expose a command-line entry path. Put repository defaults
-in a `DEFAULT_*` constant near the top of the file.
+Every script under `zbemt/` and `tools/` must remain runnable without
+command-line arguments. Put repository defaults in a `DEFAULT_*` constant near
+the top of the file when a script otherwise needs an argument.
 
 No linter is configured. Do not invent a lint gate when validating a change.
 
@@ -99,16 +102,20 @@ python tools/sync_tools_documentation.py
 python tools/regenerate_documentation_plots.py
 ```
 
-Set `QT_QPA_FONTDIR` when `gui_screenshots.py` runs on a system without a Qt
-font backend.
+Run `python tools/field_index.py --write` after adding, removing, renaming, or
+moving a configurable GUI field.
 
-Do not hand-edit generated indexes, field lists, or screenshots.
+Set `QT_QPA_FONTDIR` when `gui_screenshots.py` runs on a system without a Qt
+font backend. Do not hand-edit generated indexes, field lists, or screenshots.
 
 ## Tests and generated data
 
 Use `unittest.TestCase` for repository test classes and keep them discoverable
-by pytest. Put shared test constructors and GUI message-box patches in
-`tests/helpers.py` rather than duplicating them across test modules.
+by pytest. Put shared test constructors in `tests/helpers.py`.
+
+Use `patch_message_box_everywhere(name, value)` from `tests/helpers.py` when a
+GUI test must silence `QMessageBox`. Patch each GUI module that owns a message
+box reference, not only `zbemt.gui.app`.
 
 Example projects under `projects/` are versioned individually. Add the matching
 `.gitignore` allow rule when adding a new versioned example project.
