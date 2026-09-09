@@ -12,9 +12,78 @@ engine, filesystem, or argument parser.
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from typing import Optional
+
+
+# =============================================================================
+# Signed flight-angle convention
+# =============================================================================
+# Vehicle V_z is positive when the free stream arrives from ABOVE. Both
+# alpha_rotor and alpha_disk are positive when it arrives from BELOW. The
+# engine remains in disk axes; these helpers translate only the user-facing
+# convention at the interface boundary.
+
+def alpha_rotor_axial_velocity(alpha_rotor_deg: float,
+                                inplane_velocity: float) -> float:
+    """Return rotor axial ``V_z`` from ``alpha_rotor`` and ``V_x``.
+
+    Positive ``alpha_rotor`` means flow from below, so the returned ``V_z``
+    is negative for a positive forward velocity.
+    """
+    return (-math.tan(math.radians(float(alpha_rotor_deg)))
+            * float(inplane_velocity))
+
+
+def alpha_rotor_from_components(axial_velocity: float,
+                                inplane_velocity: float) -> float:
+    """Return ``alpha_rotor`` [deg] from rotor-display velocity components.
+
+    This preserves the established definition ``-atan2(V_z, V_x)``.
+    """
+    vz = float(axial_velocity)
+    vx = float(inplane_velocity)
+    if abs(vx) > 1e-12:
+        return -math.degrees(math.atan2(vz, vx)) + 0.0
+    if vz > 0.0:
+        return -90.0
+    if vz < 0.0:
+        return 90.0
+    return 0.0
+
+
+def alpha_disk_cross_velocity(alpha_disk_deg: float,
+                              axial_velocity: float) -> float:
+    """Return propeller-display cross-flow ``V_z`` from ``alpha_disk``.
+
+    Positive ``alpha_disk`` means flow from below. Positive display ``V_z``
+    means flow from above. The signs are therefore opposite. The magnitude
+    of the along-shaft component sets the scale, so reversing axial flow does
+    not change which side of the disk the cross-flow comes from.
+    """
+    return (-math.tan(math.radians(float(alpha_disk_deg)))
+            * abs(float(axial_velocity)))
+
+
+def alpha_disk_from_components(cross_velocity: float,
+                               axial_velocity: float) -> float:
+    """Return propeller ``alpha_disk`` [deg] from display ``V_z`` and ``V_x``.
+
+    The result is in [-90, 90]. Positive means flow from below; positive
+    cross-flow ``V_z`` means flow from above and therefore gives a negative
+    angle.
+    """
+    vz_cross = float(cross_velocity)
+    vx_axial = abs(float(axial_velocity))
+    if vx_axial > 1e-12:
+        return math.degrees(math.atan2(-vz_cross, vx_axial)) + 0.0
+    if vz_cross > 0.0:
+        return -90.0
+    if vz_cross < 0.0:
+        return 90.0
+    return 0.0
 
 
 # =============================================================================
@@ -96,9 +165,10 @@ _QUANTITIES: tuple = (
            "the blades and makes the advancing and retreating sides differ"),
        propeller_description=(
            "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R), "
-           "the cross-flow normalized by tip speed. This is the component that "
-           "varies with azimuth and makes one side of the disk see more speed "
-           "than the other. Zero in straight cruise")),
+           "the cross-flow normalized by tip speed. Positive V<sub>z</sub> "
+           "means the free stream arrives from ABOVE. This is the component "
+           "that varies with azimuth and makes one side of the disk see more "
+           "speed than the other. Zero in straight cruise")),
     _q("J_x", "inplane", r"J_x", r"J_z", "J_z", unit="-",
        rotor_description=(
            "Advance ratio along x in propeller form: J<sub>x</sub> = "
@@ -117,7 +187,8 @@ _QUANTITIES: tuple = (
        propeller_description=(
            "Free-stream component along z [m/s]. In propeller mode z is "
            "VERTICAL, across the shaft and in the plane of the disk: the "
-           "cross-flow. ZERO in straight cruise; non-zero when the propeller "
+           "cross-flow. Positive V<sub>z</sub> means the free stream arrives "
+           "from ABOVE. ZERO in straight cruise; non-zero when the propeller "
            "flies at an angle to its axis")),
 
     # --- lateral component (engine y, in the disk plane) --------------------
@@ -147,9 +218,10 @@ _QUANTITIES: tuple = (
     _q("mu_z", "axial", r"\mu_z", r"\mu_x", "mu_x", unit="-",
        rotor_description=(
            "Advance ratio along z: &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R). "
-           "In rotor mode z is the SHAFT direction, so this is climb (positive) "
-           "or descent (negative). Same number as &lambda;<sub>z</sub>, written "
-           "in the advance-ratio vocabulary instead of the inflow one"),
+           "In rotor mode z is the SHAFT direction. Positive V<sub>z</sub> "
+           "means free stream arriving from ABOVE the rotor disk. Same number "
+           "as &lambda;<sub>z</sub>, written in the advance-ratio vocabulary "
+           "instead of the inflow one"),
        propeller_description=(
            "Advance ratio along x: &mu;<sub>x</sub> = V<sub>x</sub>/(&Omega;R), "
            "the airspeed normalized by tip speed. THE SAME NUMBER as "
@@ -166,8 +238,9 @@ _QUANTITIES: tuple = (
     _q("Vz", "axial", r"V_z", r"V_x", "Vx", unit="m/s", name_unit=" m/s",
        rotor_description=(
            "Free-stream component along z [m/s]. In rotor mode z is the SHAFT "
-           "direction, so this is climb (positive) or descent (negative). It is "
-           "the FREE STREAM, not the flow through the disk -- that one is "
+           "direction. Positive V<sub>z</sub> means the free stream arrives "
+           "from ABOVE; negative means it arrives from BELOW. It is the FREE "
+           "STREAM, not the flow through the disk -- that one is "
            "V<sub>z,total</sub>"),
        propeller_description=(
            "Free-stream component along x [m/s]. In propeller mode x is the "
@@ -177,10 +250,11 @@ _QUANTITIES: tuple = (
     _q("lambda_z", "axial", r"\lambda_z", r"\lambda_x", "lambda_x", unit="-",
        rotor_description=(
            "Inflow ratio along z, from the free stream alone: "
-           "&lambda;<sub>z</sub> = V<sub>z</sub>/(&Omega;R). In rotor mode z is "
-           "the shaft, so this is the climb inflow -- an input datum, known "
-           "before any aerodynamics. THE SAME NUMBER as &mu;<sub>z</sub>, in "
-           "the inflow vocabulary instead of the advance-ratio one"),
+           "&lambda;<sub>z</sub> = V<sub>z</sub>/(&Omega;R). Positive is free "
+           "stream arriving from ABOVE the rotor disk. It is an input datum, "
+           "known before any aerodynamics. THE SAME NUMBER as "
+           "&mu;<sub>z</sub>, in the inflow vocabulary instead of the "
+           "advance-ratio one"),
        propeller_description=(
            "Inflow ratio along x, from the free stream alone: "
            "&lambda;<sub>x</sub> = V<sub>x</sub>/(&Omega;R). In propeller mode "
@@ -200,30 +274,26 @@ _QUANTITIES: tuple = (
            "The airspeed plus what the propeller adds. Written U<sub>P</sub> in "
            "the manual (Section 2.4.2)")),
 
-    # --- the two angles: one per mode, each measured from its own reference -
-     # They are the SAME angle (alpha_rotor + alpha_disk = 90). Showing both
-     # would invite reading one as if it were the other, so each mode shows
-     # only the one that is zero at its vehicle's normal condition.
+    # --- the two user-facing flight angles ---------------------------------
+    # They use different reference axes but the SAME wind-side sign:
+    # positive means the free stream arrives from below. Each mode shows only
+    # its own operational angle to avoid mixing the two definitions.
     _q("alpha_rotor_deg", "axial", r"\alpha_{rotor}", unit="deg", name_unit="°",
        propeller_visible=False,
        rotor_description=(
-           "ROTOR angle of attack [deg]: angle between the free stream and the "
-           "DISK PLANE, &alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, "
-           "V<sub>x</sub>). This is THE angle of rotor mode -- 0 in a "
-           "helicopter's level forward flight, and POSITIVE when the flow "
-           "arrives from below the disk. Its propeller-mode counterpart is "
-           "&alpha;<sub>disk</sub>, measured from the shaft; the two are "
-           "complementary and each mode shows only its own")),
+           "ROTOR angle of attack [deg], measured from the DISK PLANE: "
+           "&alpha;<sub>rotor</sub> = -atan2(V<sub>z</sub>, V<sub>x</sub>). "
+           "It is 0 in level forward flight, POSITIVE when the free stream "
+           "arrives from below, and NEGATIVE when it arrives from above")),
     _q("alpha_disk_deg", "inplane", r"\alpha_{disk}", unit="deg", name_unit="°",
        rotor_visible=False,
        rotor_description=(
-           "DISK angle of attack [deg]: angle between the free stream and the "
-           "SHAFT, &alpha;<sub>disk</sub> = 90 - &alpha;<sub>rotor</sub>. This "
-           "is THE angle of propeller mode -- 0 in straight cruise (so a 2 deg "
-           "misalignment reads '2'), and POSITIVE when the disk is tilted "
-           "nose-up, i.e. the flow arrives from below. Its rotor-mode "
-           "counterpart is &alpha;<sub>rotor</sub>, measured from the disk "
-           "plane; each mode shows only its own")),
+           "DISK angle of attack [deg], measured from the SHAFT in propeller "
+           "vehicle axes: &alpha;<sub>disk</sub> = atan2(-V<sub>z</sub>, "
+           "|V<sub>x</sub>|). It is 0 in straight axial cruise, POSITIVE when "
+           "the free stream arrives from below, and NEGATIVE when it arrives "
+           "from above. Positive propeller V<sub>z</sub> cross-flow therefore "
+           "has the opposite sign to &alpha;<sub>disk</sub>")),
 
     # --- along the shaft in BOTH modes: no letter to rotate -----------------
     _q("Vi", "invariant", r"v_i", unit="m/s", name_unit=" m/s",
@@ -456,13 +526,7 @@ del _quantity
 # =============================================================================
 # One LaTeX source -> three renderings
 # =============================================================================
-# Moved here from `viz/plots.py` (`label_to_text`/`label_to_html`), which
-# is where they were written and where they are still used: `plots` draws
-# mathtext directly, the Results-tab combos need Unicode, and the report needs
-# HTML. Keeping the converters next to the table is what lets ONE symbol
-# string serve all three, instead of a second and a third list.
 
-#: Macros with a Unicode letter of their own.
 _GREEK_UNICODE = {
     r"\alpha": "α", r"\beta": "β", r"\gamma": "γ", r"\delta": "δ",
     r"\theta": "θ", r"\lambda": "λ", r"\mu": "μ", r"\nu": "ν",
@@ -473,9 +537,6 @@ _GREEK_UNICODE = {
     r"\circ": "°",
 }
 
-#: HTML entities for the same macros. Kept separate from `_GREEK_UNICODE` on
-#: purpose: Qt renders both, but an entity survives a `QTextDocument` built
-#: from an HTML source regardless of the encoding of the file that loaded it.
 _GREEK_HTML = {
     r"\alpha": "&alpha;", r"\beta": "&beta;", r"\gamma": "&gamma;",
     r"\delta": "&delta;", r"\theta": "&theta;", r"\lambda": "&lambda;",
@@ -487,9 +548,6 @@ _GREEK_HTML = {
     r"\pm": "&plusmn;", r"\circ": "&deg;",
 }
 
-#: Only the characters that EXIST as a Unicode subscript. "T" (from C_T) does
-#: not, so it stays on the line. "CT" reads well, while a half-lowered
-#: "Cᵢnf" reads worse than "Cinf".
 _SUBSCRIPT_UNICODE = {
     "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅",
     "6": "₆", "7": "₇", "8": "₈", "9": "₉",
@@ -498,26 +556,9 @@ _SUBSCRIPT_UNICODE = {
     "s": "ₛ", "t": "ₜ", "u": "ᵤ", "v": "ᵥ", "x": "ₓ",
 }
 
-
-#: A subscript, in either mathtext spelling: braced (`_{x,total}`) or a lone
-#: token (`_x`, `_\beta`). Matched as one alternation so a rejected braced
-#: group is not re-read as a lone-character subscript.
-#:
-#: The lone-token branch accepts a MACRO as well as a word character, because
-#: a Greek subscript is written `\nu_\beta` and `\beta` is not `\w`.
-#: Left at `_(\w)` the group never matched, the `_` survived to the end, and
-#: the flap frequency ratio reached the Geometry tab as the literal text
-#: "&nu;_&beta;^2".
 _SUBSCRIPT = re.compile(r"_\{([^}]*)\}|_(\\[a-zA-Z]+|\w)")
-
-#: A superscript, in the same two spellings. The flap frequency ratio squared
-#: is a real symbol of this application, so `^` cannot be left on the line as
-#: a caret.
 _SUPERSCRIPT = re.compile(r"\^\{([^}]*)\}|\^(\\[a-zA-Z]+|\w)")
 
-#: The characters that have a Unicode SUPERSCRIPT form. Far fewer than the
-#: subscript table, which is why the rule below is all-or-nothing in the same
-#: way: a half-raised exponent reads worse than a caret.
 _SUPERSCRIPT_UNICODE = {
     "0": "\u2070", "1": "\u00b9", "2": "\u00b2", "3": "\u00b3",
     "4": "\u2074", "5": "\u2075", "6": "\u2076", "7": "\u2077",
@@ -525,21 +566,12 @@ _SUPERSCRIPT_UNICODE = {
     "n": "\u207f", "i": "\u2071",
 }
 
-#: An overbar is an OVERBAR, not the three letters "bar". It is drawn with the
-#: combining macron, which Qt and a browser both place over the character it
-#: follows, so no markup is needed and one string serves a label, a CSV header
-#: and HTML alike.
 _OVERBAR = re.compile(r"\\bar\{([^}]*)\}|\\bar(\\[a-zA-Z]+|\w)")
 _COMBINING_MACRON = "\u0304"
 
 
 def _overbar(text: str) -> str:
-    """Replaces every overbar group by its body plus a combining macron.
-
-    Applied BEFORE the Greek substitution, so the macron ends up on the glyph
-    the macro becomes. Applied after it, the macron would land on the last
-    character of an entity name instead.
-    """
+    """Replaces every overbar group by its body plus a combining macron."""
     def repl(match):
         body = match.group(1) if match.group(1) is not None else match.group(2)
         return (body + _COMBINING_MACRON) if body else ""
@@ -547,12 +579,7 @@ def _overbar(text: str) -> str:
 
 
 def _superscript_unicode(text: str) -> str:
-    """Raises a superscript only when EVERY character has a raised form.
-
-    The same all-or-nothing rule as `_subscript_unicode`, and for the same
-    reason: a mixture of raised and flat characters inside one exponent reads
-    worse than leaving the whole exponent flat.
-    """
+    """Raises a superscript only when every character has a raised form."""
     if not text:
         return text
     if all(c in _SUPERSCRIPT_UNICODE for c in text):
@@ -561,89 +588,43 @@ def _superscript_unicode(text: str) -> str:
 
 
 def _subscript_unicode(text: str, lower: str = "all") -> str:
-    """Lowers a subscript only when EVERY character has a subscript form.
-
-    A half-lowered subscript reads worse than none at all ("Cᵢnf" vs "Cinf"),
-    so the mixed case keeps the `_` that marked it: "V_z" stays "V_z" rather
-    than collapsing to "Vz", where the z would read as part of the name.
-
-    ``lower``:
-
-    - ``"all"``   -- lower whatever can be lowered. For a LABEL, where the
-      subscript is read, not typed.
-    - ``"digits"``-- lower only digit groups (θ₀), keep letters on the line
-      (μ_x, α_rotor). For a condition NAME: the name becomes a file name
-      through `api.sanitize_filename`, whose ASCII transcription knows Greek
-      letters and subscript digits but not "ᵣₒₜₒᵣ", which would travel into a
-      zip as mojibake.
-    - ``"none"``  -- keep every subscript on the line.
-    """
+    """Lowers a subscript only when every character has a subscript form."""
     if not text:
         return text
     if lower == "none":
         return f"_{text}"
     if lower == "digits":
-        # A NAME keeps the `_` it could not lower: "mu_x" is an identifier as
-        # much as a symbol, and "mux" would not read back as one.
         return ("".join(_SUBSCRIPT_UNICODE[c] for c in text) if text.isdigit()
                 else f"_{text}")
     if all(c in _SUBSCRIPT_UNICODE for c in text):
         return "".join(_SUBSCRIPT_UNICODE[c] for c in text)
-    # A LABEL drops it: "CT" and "CT,prop" read as the coefficients they are,
-    # and are what the reader of a chart expects to see on the axis.
     return text
 
 
 def _is_mathtext(text: str) -> bool:
-    """Whether a string is mathtext at all.
-
-    Deliberately narrow: a plain name (`"RPM"`, `"cfg_solver"`) must pass
-    through untouched, and `cfg_solver` is exactly the case where treating a
-    lone underscore as a subscript would produce "cfgₛₒₗᵥₑᵣ"."""
     return "$" in text or "\\" in text
 
 
 def _needs_math(body: str) -> bool:
-    """Whether a symbol BODY from `QUANTITIES` carries real notation (a Greek
-    macro or a subscript) and must be wrapped in `$...$` before rendering.
-    `"RPM"` does not; `"J_x"` does."""
     return "\\" in body or "_" in body or "^" in body
 
 
 def to_unicode(mathtext: str, lower_subscripts: str = "all") -> str:
-    """Plain-text (Unicode) rendering of a mathtext body or label.
-
-    ``lower_subscripts`` is ``"all"``, ``"digits"`` or ``"none"`` -- see
-    `_subscript_unicode`. A condition NAME uses ``"digits"``.
-
-    ``r"\\mu_x"`` -> ``"μₓ"``; ``r"$C_{T,prop}$ [-]"`` -> ``"CT,prop [-]"``.
-    For a plain Qt label, a combo item, or a CSV header.
-    """
+    """Plain-text Unicode rendering of a mathtext body or label."""
     if not mathtext:
         return ""
     if not _is_mathtext(mathtext):
         return mathtext
-    # The ORDER matters. The scripts are lifted off the LaTeX FIRST, while a
-    # Greek subscript is still spelled as a macro and the pattern can see it;
-    # the Greek substitution then runs over the result, macros inside the
-    # lifted groups included. Done the other way round -- as it was -- the
-    # macro had already become a glyph the word-character branch does not
-    # match, so the flap frequency ratio kept its underscore and its caret all
-    # the way to the screen.
     text = _overbar(mathtext)
-    # ONE pass over both subscript forms. Two passes would re-read the `_`
-    # that the braced form leaves behind when it cannot be lowered:
-    # `_{x,total}` -> `_x,total` -> `ₓ,total`, which lowers half of a group
-    # that was rejected as a whole.
     text = re.sub(_SUBSCRIPT,
-                   lambda m: _subscript_unicode(
-                       m.group(1) if m.group(1) is not None else m.group(2),
-                       lower_subscripts),
-                   text)
+                  lambda m: _subscript_unicode(
+                      m.group(1) if m.group(1) is not None else m.group(2),
+                      lower_subscripts),
+                  text)
     text = re.sub(_SUPERSCRIPT,
-                   lambda m: _superscript_unicode(
-                       m.group(1) if m.group(1) is not None else m.group(2)),
-                   text)
+                  lambda m: _superscript_unicode(
+                      m.group(1) if m.group(1) is not None else m.group(2)),
+                  text)
     for macro, symbol in _GREEK_UNICODE.items():
         text = text.replace(macro + " ", symbol).replace(macro, symbol)
     text = text.replace(r"\,", " ").replace(r"\ ", " ")
@@ -652,29 +633,22 @@ def to_unicode(mathtext: str, lower_subscripts: str = "all") -> str:
 
 
 def to_html(mathtext: str) -> str:
-    """HTML rendering, with a real ``<sub>``.
-
-    ``r"\\mu_x"`` -> ``"&mu;<sub>x</sub>"``; ``r"$C_T$ [-]"`` ->
-    ``"C<sub>T</sub> [-]"``. For the report, and for the Qt widgets that
-    paint their item with a `QTextDocument`.
-    """
+    """HTML rendering, with real subscript and superscript tags."""
     if not mathtext:
         return ""
     if not _is_mathtext(mathtext):
         return mathtext
-    # Same order as `to_unicode`, and for the same reason: a Greek subscript
-    # has to be lifted while it is still a macro.
     text = _overbar(mathtext)
     text = re.sub(_SUBSCRIPT,
-                   lambda m: "<sub>%s</sub>" % (m.group(1)
-                                                 if m.group(1) is not None
-                                                 else m.group(2)),
-                   text)
+                  lambda m: "<sub>%s</sub>" % (m.group(1)
+                                                if m.group(1) is not None
+                                                else m.group(2)),
+                  text)
     text = re.sub(_SUPERSCRIPT,
-                   lambda m: "<sup>%s</sup>" % (m.group(1)
-                                                 if m.group(1) is not None
-                                                 else m.group(2)),
-                   text)
+                  lambda m: "<sup>%s</sup>" % (m.group(1)
+                                                if m.group(1) is not None
+                                                else m.group(2)),
+                  text)
     for macro, entity in _GREEK_HTML.items():
         text = text.replace(macro + " ", entity).replace(macro, entity)
     text = text.replace(r"\,", " ").replace(r"\ ", " ")
@@ -683,12 +657,7 @@ def to_html(mathtext: str) -> str:
 
 
 def to_mathtext(latex: str, unit: str = "") -> str:
-    """A mathtext body plus its bracketed unit, the form matplotlib draws:
-    ``(r"\\mu_x", "-")`` -> ``r"$\\mu_x$ [-]"``.
-
-    The unit is explicit even when dimensionless: an empty bracket reads as
-    "forgot to fill in", while "[-]" states that the quantity has none.
-    """
+    """A mathtext body plus its bracketed unit, the form matplotlib draws."""
     body = f"${latex}$" if _needs_math(latex) else latex
     return f"{body} [{unit}]" if unit else body
 
@@ -698,20 +667,16 @@ def to_mathtext(latex: str, unit: str = "") -> str:
 # =============================================================================
 
 def quantity(engine_key: str) -> Optional[AxisQuantity]:
-    """The entry for a key, or `None`. A key with no entry is not an error:
-    `Results.summary` also carries coefficients and `cfg_*` echoes, which
-    carry no axis letter and are handled by the caller's own table."""
-    return QUANTITIES.get(engine_key)
+    q = QUANTITIES.get(engine_key)
+    return q
 
 
 def symbol_latex(engine_key: str, is_propeller: bool = False) -> str:
-    """The mathtext body, the source the other renderings come from."""
     q = QUANTITIES.get(engine_key)
     return q.latex(is_propeller) if q else engine_key
 
 
 def symbol_mathtext(engine_key: str, is_propeller: bool = False) -> str:
-    """Axis label for matplotlib, unit included."""
     q = QUANTITIES.get(engine_key)
     if q is None:
         return engine_key
@@ -719,28 +684,16 @@ def symbol_mathtext(engine_key: str, is_propeller: bool = False) -> str:
 
 
 def symbol_html(engine_key: str, is_propeller: bool = False) -> str:
-    """Column header for the report and for Qt rich text.
-
-    A key with no entry comes back verbatim: it is a coefficient or a
-    `cfg_*` echo, whose underscore is part of its NAME, not a subscript."""
     q = QUANTITIES.get(engine_key)
     return to_html(_as_mathtext(q.latex(is_propeller))) if q else engine_key
 
 
 def symbol_text(engine_key: str, is_propeller: bool = False) -> str:
-    """Plain-Unicode symbol, for a widget without rich text."""
     q = QUANTITIES.get(engine_key)
     return to_unicode(_as_mathtext(q.latex(is_propeller))) if q else engine_key
 
 
 def symbol_name(engine_key: str, is_propeller: bool = False) -> str:
-    """Symbol for a condition NAME: Greek letters and digit subscripts
-    (``"θ₀"``), but letter subscripts left on the line (``"μ_x"``, not
-    ``"μₓ"``).
-
-    A name is an identifier as much as a label -- it is what
-    `api.sanitize_filename` turns into a file name, and that transcription
-    knows Greek but not Unicode subscripts."""
     q = QUANTITIES.get(engine_key)
     if q is None:
         return engine_key
@@ -749,47 +702,30 @@ def symbol_name(engine_key: str, is_propeller: bool = False) -> str:
 
 
 def _as_mathtext(body: str) -> str:
-    """Wraps a symbol body so the converters recognize it as mathtext. A body
-    with no notation (`"RPM"`) is left alone, so it never gets treated as a
-    name with a subscript."""
     return f"${body}$" if _needs_math(body) else body
 
 
 def unit(engine_key: str) -> str:
-    """SI unit. It does NOT depend on the mode: the letters rotate, the
-    physics does not."""
     q = QUANTITIES.get(engine_key)
     return q.unit if q else ""
 
 
 def description_html(engine_key: str, is_propeller: bool = False) -> str:
-    """Tooltip body, already in symbols -- a user-facing surface never shows
-    a `snake_case` field name as if it were a physical symbol."""
     q = QUANTITIES.get(engine_key)
     return q.description(is_propeller) if q else ""
 
 
 def is_visible(engine_key: str, is_propeller: bool = False) -> bool:
-    """Whether the mode shows this quantity at all.
-
-    Only the two angles are hidden, and only ever one of them: they are the
-    same angle from different references, and two columns whose numbers never
-    coincide invite reading one as the other."""
     q = QUANTITIES.get(engine_key)
     return q.visible(is_propeller) if q else True
 
 
 def slot_of(engine_key: str) -> str:
-    """`"inplane"`, `"axial"` or `"invariant"` -- the physical component the
-    quantity describes, which does NOT rotate with the mode. Used to detect
-    a conflict between two factorial axes and to group the input fields."""
     q = QUANTITIES.get(engine_key)
     return q.slot if q else "invariant"
 
 
 def variables_in_slot(slot: str, is_propeller: bool = False) -> tuple:
-    """Engine keys that represent `slot`, in the order a user of this mode
-    would look for them, and without the angle the mode does not use."""
     return tuple(q.engine_key for q in _QUANTITIES
                  if q.slot == slot and q.visible(is_propeller))
 
@@ -797,14 +733,10 @@ def variables_in_slot(slot: str, is_propeller: bool = False) -> tuple:
 # --- the key rotation --------------------------------------------------------
 
 def display_key(engine_key: str, is_propeller: bool = False) -> str:
-    """The key the user reads -- in the results table, the CSV header and the
-    `.bemt` file. Rotor mode is the identity."""
     q = QUANTITIES.get(engine_key)
     return q.key(is_propeller) if q else engine_key
 
 
-#: `display -> engine`, per mode. Built once, from the same table, so the two
-#: directions cannot drift apart.
 _ENGINE_KEY_OF = {
     True: {q.key(True): q.engine_key for q in _QUANTITIES if not q.alias_of},
     False: {q.key(False): q.engine_key for q in _QUANTITIES if not q.alias_of},
@@ -812,46 +744,24 @@ _ENGINE_KEY_OF = {
 
 
 def engine_key_of(display: str, is_propeller: bool = False) -> str:
-    """Inverse of `display_key`: what the engine calls a key the user wrote."""
     return _ENGINE_KEY_OF[bool(is_propeller)].get(display, display)
 
 
 def to_display_keys(mapping: dict, is_propeller: bool = False) -> dict:
-    """A copy of `mapping` with its keys in the user's vocabulary.
-
-    ONE pass, into a NEW dict. The propeller rotation is a swap
-    (`mu_x` <-> `mu_z`), so renaming in place, key by key, would collapse
-    both components onto whichever was written last -- silently, with a
-    plausible number. That is why this is the only place the rotation
-    happens."""
     if not is_propeller:
         return dict(mapping)
     return {display_key(key, True): value for key, value in mapping.items()}
 
 
 def from_display_keys(mapping: dict, is_propeller: bool = False) -> dict:
-    """Exact inverse of `to_display_keys`, for reading back what a user (or a
-    `.bemt` file) wrote."""
     if not is_propeller:
         return dict(mapping)
     return {engine_key_of(key, True): value for key, value in mapping.items()}
 
 
 # =============================================================================
-# The two input slots, as the user meets them
+# The input slots, as the user meets them
 # =============================================================================
-# One row of the Run Case and Run Batch forms per slot. The engine's slot names
-# are `inplane` (its `mu_x`) and `axial` (its `Vz`); which of the two carries
-# the letter x, and which one carries the vehicle's flight speed, is what the
-# mode decides.
-#
-# Why the propeller's angle lives in the IN-PLANE slot and not the axial one:
-# an angle never fixes the scale of a velocity, it only splits a KNOWN
-# component into the other one. In straight cruise the known component is the
-# axial one, so that is the one given as a number and the in-plane one is
-# derived from the angle. Put in the axial slot, alpha_disk would solve
-# `Vz = V_inplane/tan(alpha_disk)`, which is 0/0 in exactly the cruise a
-# propeller spends its life in.
 _SLOT_LABELS = {
     ("inplane", False): (
         "Edgewise (in-plane) Flow:",
@@ -865,35 +775,26 @@ _SLOT_LABELS = {
         "V<sub>z</sub> is the field below."),
     ("axial", False): (
         "Axial (along-shaft) Flow:",
-        "The vertical component of the flight velocity, V<sub>z</sub>. On a "
-        "rotor the shaft is vertical, so z runs ALONG THE SHAFT: this is climb "
-        "(positive) or descent (negative), and the engine adds the induced "
-        "velocity to it to form V<sub>z,total</sub> = V<sub>z</sub> + "
-        "v<sub>i</sub>.\n\n"
-        "Units offered: &alpha;<sub>rotor</sub> [deg], V<sub>z</sub> [m/s], and "
-        "the ratios &mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R) (also written "
-        "&lambda;<sub>z</sub>) and J<sub>z</sub> = V<sub>z</sub>/(nD).\n\n"
-        "&alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>) is THE "
-        "angle of rotor mode, measured FROM THE DISK PLANE: 0&deg; is level "
-        "forward flight, and it is POSITIVE when the flow arrives from below "
-        "the disk. Propeller mode offers &alpha;<sub>disk</sub> instead, "
-        "measured from the shaft; each mode offers only its own angle, so "
-        "there is never a doubt about which of the two a number is.\n\n"
-        "The angle lives in this field in both modes for one reason: an angle "
-        "never fixes the scale of the velocity, it only splits the KNOWN "
-        "component into the other one."),
+        "The vertical free-stream component V<sub>z</sub>. Positive "
+        "V<sub>z</sub> means wind arriving from ABOVE the rotor disk; negative "
+        "means wind arriving from BELOW.\n\n"
+        "Units offered: &alpha;<sub>rotor</sub> [deg], V<sub>z</sub> [m/s], "
+        "&mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R), and "
+        "J<sub>z</sub> = V<sub>z</sub>/(nD).\n\n"
+        "&alpha;<sub>rotor</sub> = -atan2(V<sub>z</sub>, V<sub>x</sub>) is "
+        "measured from the disk plane. It is POSITIVE when the free stream "
+        "arrives from BELOW and NEGATIVE when it arrives from ABOVE."),
     ("inplane", True): (
         "Cross (in-plane) Flow:",
-        "The cross-flow across the propeller shaft, V<sub>z</sub>. Propeller "
-        "axes: x is along the shaft, z is in the disk plane. In straight cruise "
-        "V<sub>z</sub> = 0 -- the aircraft's airspeed goes in the axial field "
-        "below.\n\n"
+        "The propeller cross-flow V<sub>z</sub>, in the disk plane. Positive "
+        "V<sub>z</sub> means the free stream arrives from ABOVE; negative "
+        "means it arrives from BELOW. In straight cruise V<sub>z</sub> = 0.\n\n"
         "Units offered: V<sub>z</sub> [m/s], &alpha;<sub>disk</sub> [deg], "
         "&mu;<sub>z</sub> = V<sub>z</sub>/(&Omega;R), or J<sub>z</sub> = "
-        "V<sub>z</sub>/(nD). J<sub>z</sub> is the cross-flow, NOT the propeller "
-        "advance ratio.\n\n"
-        "&alpha;<sub>disk</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>): 0&deg; "
-        "means the free stream is aligned with the shaft."),
+        "V<sub>z</sub>/(nD).\n\n"
+        "&alpha;<sub>disk</sub> = atan2(-V<sub>z</sub>, |V<sub>x</sub>|), "
+        "measured from the shaft. It is POSITIVE when the free stream arrives "
+        "from BELOW, so its sign is opposite to propeller V<sub>z</sub>."),
     ("lateral", False): (
         "Lateral (in-plane, sideways) Flow:",
         "The sideways component of the flight velocity, V<sub>y</sub>. The "
@@ -907,9 +808,7 @@ _SLOT_LABELS = {
         "&psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>) is the "
         "SIDESLIP ANGLE, measured in the disk plane from the edgewise "
         "direction: 0&deg; is flight straight ahead, and 90&deg; is pure "
-        "sideward flight. Like every angle in these fields, it does not fix "
-        "the scale of a velocity -- it splits the KNOWN component above into "
-        "this one."),
+        "sideward flight."),
     ("lateral", True): (
         "Lateral (in-plane, sideways) Flow:",
         "The sideways component of the flight velocity, V<sub>y</sub>. The "
@@ -921,8 +820,7 @@ _SLOT_LABELS = {
         "&mu;<sub>y</sub> = V<sub>y</sub>/(&Omega;R), and J<sub>y</sub> = "
         "V<sub>y</sub>/(nD).\n\n"
         "&psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>z</sub>) is the "
-        "SIDESLIP ANGLE, measured in the disk plane. It splits the KNOWN "
-        "in-plane component above into this one, and never sets its scale."),
+        "SIDESLIP ANGLE, measured in the disk plane."),
     ("axial", True): (
         "Axial (along-shaft) Flow:",
         "The horizontal component of the flight velocity, V<sub>x</sub>: the "
@@ -931,54 +829,39 @@ _SLOT_LABELS = {
         "form V<sub>x,total</sub> = V<sub>x</sub> + v<sub>i</sub>.\n\n"
         "THIS IS THE PROPELLER'S ADVANCE RATIO. The default unit J<sub>x</sub> "
         "is the classic one of the propeller charts, J<sub>x</sub> = V/(nD), "
-        "built from the AXIAL airspeed -- the same J<sub>x</sub> that "
-        "propulsive efficiency uses, since thrust acts along the shaft.\n\n"
+        "built from the AXIAL airspeed.\n\n"
         "Units offered: J<sub>x</sub>, &mu;<sub>x</sub> = J<sub>x</sub>/&pi; = "
-        "V<sub>x</sub>/(&Omega;R) (the same number in the rotor vocabulary, "
-        "also written &lambda;<sub>x</sub>), and the dimensional speed "
-        "V<sub>x</sub> [m/s].\n\n"
-        "No angle is offered here, on purpose: an angle only splits the known "
-        "component into the other one, and on a propeller the known component "
-        "is this one. The angle lives in the cross-flow field above, measured "
-        "from the shaft (&alpha;<sub>disk</sub>)."),
+        "V<sub>x</sub>/(&Omega;R), and V<sub>x</sub> [m/s]. The angle lives in "
+        "the cross-flow field above, measured from the shaft "
+        "(&alpha;<sub>disk</sub>)."),
 }
 
 
 def slot_label(slot: str, is_propeller: bool = False) -> tuple:
-    """`(row label, tooltip)` for one of the three input slots.
-
-    Single source for Run Case and Run Batch, which between them lay out
-    three pairs of these fields."""
     return _SLOT_LABELS[(slot, bool(is_propeller))]
 
 
 # =============================================================================
 # Reading order of the operating point
 # =============================================================================
-#: First the component that carries the letter x, the mode's PRIMARY one (a
-#: helicopter's advance or a propeller's airspeed), then the secondary one,
-#: then the angle. The keys are the ENGINE's; what changes between modes is
-#: which one is the primary.
 _PRIMARY_ROTOR = (
-    "mu_x", "J_x", "Vx",                          # x = in-plane (advance)
-    "Vy", "mu_y", "J_y", "sideslip_deg",          # y = in-plane (lateral)
-    "mu_z", "J_z", "Vz", "lambda_z",              # z = shaft (climb/descent)
+    "mu_x", "J_x", "Vx",
+    "Vy", "mu_y", "J_y", "sideslip_deg",
+    "mu_z", "J_z", "Vz", "lambda_z",
     "alpha_rotor_deg", "alpha_disk_deg",
     "collective_deg", "rpm",
 )
 
 _PRIMARY_PROPELLER = (
-    "mu_z", "J_z", "Vz", "lambda_z",              # x = shaft (airspeed)
-    "mu_x", "J_x", "Vx",                          # z = in-plane (cross-flow)
-    "Vy", "mu_y", "J_y", "sideslip_deg",          # y = in-plane (lateral)
+    "mu_z", "J_z", "Vz", "lambda_z",
+    "mu_x", "J_x", "Vx",
+    "Vy", "mu_y", "J_y", "sideslip_deg",
     "alpha_disk_deg", "alpha_rotor_deg",
     "collective_deg", "rpm",
 )
 
 
 def primary_order(is_propeller: bool = False) -> tuple:
-    """The flight-condition columns, in reading order, without the angle the
-    mode does not use."""
     order = _PRIMARY_PROPELLER if is_propeller else _PRIMARY_ROTOR
     return tuple(c for c in order if is_visible(c, is_propeller))
 
@@ -988,19 +871,7 @@ def primary_order(is_propeller: bool = False) -> tuple:
 # =============================================================================
 
 def condition_label(values: dict, is_propeller: bool = False) -> str:
-    """Readable name for a condition, from its `{variable: value}` dict.
-
-    ``{"mu_x": 0.1, "alpha_deg": -10}`` -> ``"μ_x=0.1, α_rotor=-10°"``. This
-    is what appears in the condition combo, in the label column of the
-    results table and in the report, where the raw
-    ``mu_x=0_alpha_deg=-10`` would be a field name rather than a quantity.
-
-    The letters are the MODE's: a propeller case named "μ_x=0.4" for its
-    cross-flow would name the cross-flow as if it were the advance ratio.
-
-    Order follows `values`, which is the order of the axes the user chose.
-    An unknown variable falls back to its own name, so a new axis never
-    leaves a condition unnamed."""
+    """Readable name for a condition from its ``{variable: value}`` mapping."""
     parts = []
     for key, value in values.items():
         q = QUANTITIES.get(key)
