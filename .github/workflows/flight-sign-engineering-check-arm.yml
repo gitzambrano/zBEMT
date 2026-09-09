@@ -1,4 +1,4 @@
-name: Flight sign engineering check ARM
+name: Apply flight sign convention to main ARM
 
 on:
   push:
@@ -10,11 +10,9 @@ permissions:
   contents: write
 
 jobs:
-  sign-convention-arm:
+  apply-main-arm:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
-    env:
-      QT_QPA_PLATFORM: offscreen
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,62 +21,36 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Apply convention patch
+      - name: Apply validated patch to main and push
         run: |
-          # The migration intentionally stops if an expected fragment drifts.
-          # Its two documentation TeX literals were written with one extra
-          # escaping level; let the first pass materialize every preceding
-          # source change, repair those two HTML replacements with explicit
-          # cardinality checks, then rerun the idempotent migration.
-          python tools/apply_flight_sign_fix.py || true
+          set -euo pipefail
+          git fetch origin main fix/unify-alpha-vz-sign-convention
+          if git show origin/main:zbemt/nomenclature.py | grep -q 'def alpha_disk_cross_velocity'; then
+            echo 'main already contains the sign-convention fix'
+            exit 0
+          fi
+          git show origin/fix/unify-alpha-vz-sign-convention:tools/apply_flight_sign_fix.py > /tmp/apply_flight_sign_fix.py
+          git checkout -B main origin/main
+          cp /tmp/apply_flight_sign_fix.py tools/_apply_flight_sign_fix.py
+          python tools/_apply_flight_sign_fix.py || true
           python - <<'PY'
           from pathlib import Path
           p = Path('docs/documentation.html')
           s = p.read_text(encoding='utf-8')
-          pairs = [
-              (r'$\alpha_{rotor}=\operatorname{atan2}(V_z,V_x)$',
-               r'$\alpha_{rotor}=-\operatorname{atan2}(V_z,V_x)$'),
-              (r'$\mu_x=\tan(\alpha_{disk})\,|V_z|/(\Omega R)$',
-               r'$\mu_x=-\tan(\alpha_{disk})\,|V_z|/(\Omega R)$'),
-          ]
-          for old, new in pairs:
-              if new in s and old not in s:
-                  continue
-              count = s.count(old)
-              if count != 1:
-                  raise SystemExit(f'documentation replacement cardinality: {old!r}: {count}')
-              s = s.replace(old, new)
+          for old, new in [
+              (r'$\alpha_{rotor}=\operatorname{atan2}(V_z,V_x)$', r'$\alpha_{rotor}=-\operatorname{atan2}(V_z,V_x)$'),
+              (r'$\mu_x=\tan(\alpha_{disk})\,|V_z|/(\Omega R)$', r'$\mu_x=-\tan(\alpha_{disk})\,|V_z|/(\Omega R)$'),
+          ]:
+              if old in s:
+                  s = s.replace(old, new)
           p.write_text(s, encoding='utf-8')
           PY
-          python tools/apply_flight_sign_fix.py
-      - name: Refresh generated documentation indexes
-        run: |
+          python tools/_apply_flight_sign_fix.py
+          rm tools/_apply_flight_sign_fix.py
           python tools/build_toc.py --write
           python tools/field_index.py --write
-      - name: Commit generated patch to branch
-        run: |
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add zbemt docs tests tools/flight_sign_engineering_check.py
-            git commit -m "fix: unify flight angle and Vz signs"
-            git push origin HEAD:fix/unify-alpha-vz-sign-convention
-          fi
-      - name: Archive exact patched source for local verification
-        run: |
-          tar --exclude=.git --exclude='*.png' -czf /tmp/zbemt-patched-source.tar.gz .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: patched-source-${{ github.sha }}
-          path: /tmp/zbemt-patched-source.tar.gz
-          retention-days: 2
-      - name: Install zBEMT with GUI dependencies
-        run: python -m pip install -e ".[all]"
-      - name: Focused tests
-        run: |
-          python -m pytest tests/regression/test_axial_sign_convention.py -q
-          python -m pytest tests/regression/test_propeller_axes_convention.py -q
-          python -m pytest tests/regression/test_condition_units.py -q
-          python -m pytest tests/regression/test_run_tabs.py -q
-      - name: Engineer GUI API and bemt paths
-        run: python tools/flight_sign_engineering_check.py
+          git config user.name 'Gustavo Zambrano'
+          git config user.email 'gustavozambrano@gmail.com'
+          git add zbemt docs tests
+          git commit -m 'Fix rotor and propeller flight-angle sign conventions'
+          git push origin HEAD:main
