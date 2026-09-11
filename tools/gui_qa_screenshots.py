@@ -205,8 +205,9 @@ def _capture_tools(rec: Recorder, window, *, state_name: str, sizes) -> None:
 
 
 def _wait_for_worker(worker, timeout_ms: int = 90000) -> None:
-    from PyQt6.QtCore import QEventLoop, QTimer
+    from PyQt6.QtCore import QCoreApplication, QEventLoop, QThread, QTimer
 
+    thread = worker.thread()
     loop = QEventLoop()
     finished = {"done": False, "error": None}
 
@@ -225,6 +226,19 @@ def _wait_for_worker(worker, timeout_ms: int = 90000) -> None:
     loop.exec()
     if not finished["done"]:
         raise RuntimeError("GUI worker did not finish before QA timeout")
+
+    # ``worker.finished`` / ``worker.failed`` only schedules ``thread.quit()``
+    # in ``launch_worker``.  The signal does not guarantee that the QThread's
+    # event loop has actually stopped.  The QA process used to reach Python/Qt
+    # teardown with a live worker thread and could segfault after writing every
+    # screenshot.  Join the real thread before allowing teardown to continue.
+    if isinstance(thread, QThread) and thread is not QThread.currentThread():
+        if thread.isRunning():
+            thread.quit()
+        if not thread.wait(timeout_ms):
+            raise RuntimeError("GUI worker QThread did not stop before QA timeout")
+        QCoreApplication.processEvents()
+
     if finished["error"]:
         raise RuntimeError(f"GUI worker failed: {finished['error']}")
 
