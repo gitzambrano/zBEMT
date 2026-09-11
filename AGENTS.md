@@ -30,11 +30,9 @@ not replacements for the requirements.
    are exempt.
 4. Keep the implementation, tests, requirements, and user documentation
    synchronized when behavior changes.
-5. Run focused tests while editing. Run the complete suite once after the
-   requested change is complete.
-6. Inspect the final diff. Verify generated files and snapshots rather than
-   accepting them blindly.
-7. Do not report work as complete while a required test fails or the requested
+5. Run the tests that are relevant to the change. Run the complete suite when
+   the change has broad impact or a repository-wide result is required.
+6. Do not report work as complete while a required test fails or the requested
    implementation is partial.
 
 Before editing `bemt.py`, read its module docstring and keep its `BEMTConfig`
@@ -54,8 +52,8 @@ rationale is necessary to prevent a future error.
 Avoid duplicate sources of truth. Reference the canonical requirement, module,
 registry, or generated source instead of copying its data into another file.
 
-Verify subagent work yourself with the diff and real tests. A subagent summary
-is not evidence of correctness.
+Treat a subagent summary as a pointer to its work, not as evidence of
+correctness. Base correctness claims on repository artifacts and test results.
 
 ## Commands
 
@@ -132,6 +130,7 @@ dataclass default in `models.py`.
 
 ## Subagents
 
-Delegate mechanical work with a clear pattern, such as repetitive edits,
-boilerplate, translation passes, and routine test execution. Keep architectural
-judgment, physics decisions, and changes to `bemt.py` under direct review.
+Delegate only sizeable work that is genuinely independent and parallelizable.
+Do not delegate work that can be completed directly in a few tool calls. Keep
+architectural judgment, physics decisions, and changes to `bemt.py` under
+direct control. Prefer one subagent when one is sufficient.
