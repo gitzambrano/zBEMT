@@ -250,7 +250,7 @@ def _c2(claim: Claim, context: ExecutionContext, started: str) -> CheckResult:
         *_REFERENCE_GEOMETRY, "--airfoil-stall-model", "linear",
         "--set", "airfoil.alpha0_deg=0", "--set", "airfoil.cd0=0.01",
         "--set", "airfoil.k=0", "--set", "config.reverse_flow_model=simple_flip",
-        "--prandtl-loss-mode", "both", "--set", "config.use_compressibility=false",
+        "--prandtl-loss-mode", "off", "--set", "config.use_compressibility=false",
         "--set", "config.Ne=60", "--set", "config.Npsi=32",
     ))
     ct = float(row["CT"])
@@ -377,10 +377,12 @@ def _c6_or_c7(claim: Claim, context: ExecutionContext, started: str) -> CheckRes
     expected_on_ch = 3.0 * sigma * cd0 * mu * finite_span / 8.0
     if claim.claim_id == "BEMT-C6":
         off_error = abs(float(off["CHp"]) / expected_off_ch - 1.0)
-        on_error = abs((float(on["CHp"]) + float(on["CHr"])) / expected_on_ch - 1.0)
+        # Public CHp is the complete profile H-force. CHr is a subset
+        # diagnostic already included in CHp, so adding it here double-counts it.
+        on_error = abs(float(on["CHp"]) / expected_on_ch - 1.0)
         torque_change = abs(float(on["CPi"]) - float(off["CPi"]))
         passed = off_error <= 0.03 and on_error <= 0.03 and torque_change <= 1e-9
-        measured = {"CH_off": off["CHp"], "CH_on": float(on["CHp"]) + float(on["CHr"]), "off_error": off_error, "on_error": on_error, "induced_power_change": torque_change}
+        measured = {"CH_off": off["CHp"], "CH_on": float(on["CHp"]), "off_error": off_error, "on_error": on_error, "induced_power_change": torque_change}
         expected = {"CH_off_closed_form": expected_off_ch, "CH_on_closed_form": expected_on_ch, "induced_power_change": 0.0}
         tolerance = "both force errors <= 3% and induced-power change <= 1e-9"
     else:
