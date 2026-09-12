@@ -2520,6 +2520,10 @@ class GeometryDesignerWindow(QWidget):
         finally:
             self._refreshing_from_project = False
 
+    def _refresh_from_project(self):
+        """Compatibility entry point used by tool workflows and QA tools."""
+        self._on_project_changed()
+
     def _update_saved_count_label(self):
         project = self.state.project
         count = len(project.saved_cases) if project is not None else 0

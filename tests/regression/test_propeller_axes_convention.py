@@ -341,7 +341,8 @@ class TestFactorialInPropellerConvention(unittest.TestCase):
             self.project, [{"variable": "alpha_disk", "values": [0.0, 10.0]}],
             fixed={"Vz": 60.0, "rpm": 1200.0, "collective_deg": 8.0})
         self.assertAlmostEqual(cond[0].mu_x, 0.0, places=12)
-        self.assertGreater(cond[1].mu_x, 0.0)
+        # Positive disk angle produces negative cross-flow in vehicle axes.
+        self.assertLess(cond[1].mu_x, 0.0)
         self.assertAlmostEqual(cond[0].Vz, 60.0, places=9)
         self.assertAlmostEqual(cond[1].Vz, 60.0, places=9)
         self.assertIn("α_disk=0°", cond[0].name)

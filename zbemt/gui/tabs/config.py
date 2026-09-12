@@ -49,7 +49,7 @@ class ConfigMotorTab(QWidget):
         "coleman": ("local", "global"),
         "coleman_feingold": ("global",),
         "drees": ("local", "global"),
-        "pitt_peters": ("steady",),
+        "pitt_peters": ("steady", "unsteady"),
     }
 
     dirty_changed = pyqtSignal(bool)   # asterisk for "not saved to disk", same mechanism as geometry_tab.py/airfoil.py
@@ -334,6 +334,7 @@ class ConfigMotorTab(QWidget):
             coupling = inflow_field_model[len("pitt_peters_"):]
         else:
             family, coupling = inflow_field_model.rsplit("_", 1)
+
 
         choices = self._AVAILABLE_COUPLINGS.get(family)
         if choices is None or coupling not in choices:

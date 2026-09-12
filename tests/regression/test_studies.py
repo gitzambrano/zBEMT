@@ -91,9 +91,9 @@ class TestSweeps(unittest.TestCase):
         project = _make_project()
         results = studies.run_alpha_sweep(project, [-10.0, 0.0, 10.0], mu_x=0.15, rpm=600.0)
         self.assertEqual(len(results), 3)
-        # alpha>0 (climb) must give Vz>0 in the internally solved condition;
+        # alpha>0 (climb) gives negative rotor-axis Vz under EN-13;
         # indirect check via metadata attached to maps.
-        self.assertGreater(results[-1].maps.get("Vz", results[-1].maps.get("lambda_z", 0) * 1), 0.0)
+        self.assertLess(results[-1].maps.get("Vz", results[-1].maps.get("lambda_z", 0) * 1), 0.0)
 
 
 class TestRunBatch(unittest.TestCase):
@@ -425,7 +425,7 @@ class TestRunFactorialBatch(unittest.TestCase):
         results = studies.run_factorial_batch(project, axes, fixed={"alpha_deg": 10.0, "rpm": 600})
         self.assertNotAlmostEqual(results[0].summary["Vz"], results[1].summary["Vz"], places=6)
         for r in results:
-            expected_vv = np.tan(np.deg2rad(10.0)) * r.summary["mu_x"] * (600 * 2 * np.pi / 60) * project.geometry.radius_m
+            expected_vv = -np.tan(np.deg2rad(10.0)) * r.summary["mu_x"] * (600 * 2 * np.pi / 60) * project.geometry.radius_m
             self.assertAlmostEqual(r.summary["Vz"], expected_vv, places=4)
 
     def test_mu_or_J_as_axis_and_fixed_at_once_raises(self):
@@ -869,7 +869,7 @@ class TestPlanformMetricsInComparison(unittest.TestCase):
             trapz = np.trapezoid
         else:                                   # pragma: no cover
             trapz = np.trapz
-        integral = float(trapz(c, r))
+        integral = geometry.reference_planform_integral(geom)
         self.assertAlmostEqual(metrics["aspect_ratio"], 1.0 / integral, places=9)
         self.assertAlmostEqual(metrics["solidity"], 3 * integral / np.pi, places=9)
 

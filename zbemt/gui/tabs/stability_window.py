@@ -232,7 +232,7 @@ class StabilityWindow(QWidget):
             "Solves just the trim point so it can be judged before paying "
             "for the full derivative sweep.")
         self.btn_trim.clicked.connect(self._run_trim_only)
-        rt_layout.addWidget(self.btn_trim)
+        rt_layout.addWidget(self.btn_trim, 0, Qt.AlignmentFlag.AlignLeft)
         self.trim_result = QTextEdit()
         self.trim_result.setReadOnly(True)
         rt_layout.addWidget(self.trim_result, 1)

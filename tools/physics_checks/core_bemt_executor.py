@@ -562,7 +562,11 @@ def _h1(claim: Claim, context: ExecutionContext, started: str) -> CheckResult:
 def _h2(claim: Claim, context: ExecutionContext, started: str) -> CheckResult:
     row, command, artifact = _clean_case(context, "angle-identity", "--rpm", "400", "--collective", "8", "--v-inplane", "20", "--v-axial", "3")
     expected_rotor = -math.degrees(math.atan2(float(row["Vz"]), float(row["Vx"])))
-    expected_disk = 90.0 + expected_rotor
+    # EN-14: disk angle is measured from the propeller axis. In the
+    # nomenclature helper the first argument is the cross-flow component
+    # and the second is the along-axis component.
+    expected_disk = math.degrees(math.atan2(-float(row["Vx"]),
+                                            abs(float(row["Vz"]))))
     rotor_error = abs(float(row["alpha_rotor_deg"]) - expected_rotor)
     disk_error = abs(float(row["alpha_disk_deg"]) - expected_disk)
     return _result(

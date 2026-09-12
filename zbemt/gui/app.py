@@ -177,7 +177,16 @@ class FlowIndicatorBar(QWidget):
             "QPushButton::menu-indicator { width: 0; border: none; }")
         self._tools_launcher = ToolsLauncher(self.state, self)
         self._tools_launcher.tool_requested.connect(self.tools_requested.emit)
-        self.btn_tools.clicked.connect(self._tools_launcher.show)
+        tools_menu = QMenu(self.btn_tools)
+        for label, key in (
+                ("Geometry Designer", "geometry_designer"),
+                ("Transient Simulation", "transient_simulation"),
+                ("Design Optimization", "design_optimization"),
+                ("Stability Derivatives", "stability_derivatives")):
+            action = tools_menu.addAction(label)
+            action.triggered.connect(lambda _checked=False, key=key:
+                                     self.tools_requested.emit(key))
+        self.btn_tools.setMenu(tools_menu)
         layout.addWidget(self.btn_tools)
 
         # Global access to the documentation: explicit text, without the

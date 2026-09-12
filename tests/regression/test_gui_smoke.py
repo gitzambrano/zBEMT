@@ -739,13 +739,13 @@ class TestInflowCouplingComboRemoved(unittest.TestCase):
             tab.cfg_inflow_family.setCurrentText(family)
             self.assertEqual(tab._inflow_field_model_from_widgets(), expected)
 
-    def test_loading_legacy_global_field_model_falls_back_to_local(self):
+    def test_loading_global_field_model_preserves_global_coupling(self):
         state = self.gui.AppState()
         tab = self.gui.ConfigMotorTab(state)
         with helpers.patch_message_box_everywhere("QMessageBox"):
             tab._set_inflow_widgets_from_field_model("drees_global")
         self.assertEqual(tab.cfg_inflow_family.currentText(), "drees")
-        self.assertEqual(tab._inflow_field_model_from_widgets(), "drees_local")
+        self.assertEqual(tab._inflow_field_model_from_widgets(), "drees_global")
 
 
     def test_source_combo_has_four_consolidated_options(self):
