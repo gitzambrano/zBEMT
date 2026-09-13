@@ -124,7 +124,7 @@ class TestGeometryDialogSolidityAspectRatio(GuiE2ETestCase):
         # rounding to 4 decimal places by the spinbox introduces a tiny
         # residual error -- the ratio is preserved, not identical bit by bit.
         self.assertAlmostEqual(ratio_before, ratio_after, places=3)
-        area = 0.5 * (dlg.chord_a.value() + dlg.chord_b.value()) * (1 - dlg.root_cutout.value())
+        area = 0.5 * (dlg.chord_a.value() + dlg.chord_b.value())
         self.assertAlmostEqual(dlg.solidity.value(), 2 * area / math.pi, places=4)
 
 

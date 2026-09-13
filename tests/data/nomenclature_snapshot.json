@@ -1790,11 +1790,11 @@
       ],
       "alpha_disk_deg": [
         "&alpha;<sub>disk</sub>",
-        "DISK angle of attack [deg]: angle between the free stream and the SHAFT, &alpha;<sub>disk</sub> = 90 - &alpha;<sub>rotor</sub>. This is THE angle of propeller mode -- 0 in straight cruise (so a 2 deg misalignment reads '2'), and POSITIVE when the disk is tilted nose-up, i.e. the flow arrives from below. Its rotor-mode counterpart is &alpha;<sub>rotor</sub>, measured from the disk plane; each mode shows only its own"
+        "DISK angle of attack [deg]: angle between the free stream and the SHAFT. In propeller vehicle axes, &alpha;<sub>disk</sub> = atan2(-V<sub>z</sub>, |V<sub>x</sub>|). This is THE angle of propeller mode -- 0 in straight cruise, POSITIVE when the flow arrives from below, and NEGATIVE when it arrives from above. Its rotor-mode counterpart is &alpha;<sub>rotor</sub>, measured from the disk plane; each mode shows only its own"
       ],
       "alpha_rotor_deg": [
         "&alpha;<sub>rotor</sub>",
-        "ROTOR angle of attack [deg]: angle between the free stream and the DISK PLANE, &alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>). This is THE angle of rotor mode -- 0 in a helicopter's level forward flight, and POSITIVE when the flow arrives from below the disk. Its propeller-mode counterpart is &alpha;<sub>disk</sub>, measured from the shaft; the two are complementary and each mode shows only its own"
+        "ROTOR angle of attack [deg]: angle between the free stream and the DISK PLANE, &alpha;<sub>rotor</sub> = -atan2(V<sub>z</sub>, V<sub>x</sub>). This is THE angle of rotor mode -- 0 in a helicopter's level forward flight, and POSITIVE when the flow arrives from below the disk. Its propeller-mode counterpart is &alpha;<sub>disk</sub>, measured from the shaft; the two are complementary and each mode shows only its own"
       ],
       "beta_0_deg": [
         "&beta;<sub>0</sub>",
@@ -2336,11 +2336,11 @@
       ],
       "alpha_disk_deg": [
         "&alpha;<sub>disk</sub>",
-        "DISK angle of attack [deg]: angle between the free stream and the SHAFT, &alpha;<sub>disk</sub> = 90 - &alpha;<sub>rotor</sub>. This is THE angle of propeller mode -- 0 in straight cruise (so a 2 deg misalignment reads '2'), and POSITIVE when the disk is tilted nose-up, i.e. the flow arrives from below. Its rotor-mode counterpart is &alpha;<sub>rotor</sub>, measured from the disk plane; each mode shows only its own"
+        "DISK angle of attack [deg]: angle between the free stream and the SHAFT. In propeller vehicle axes, &alpha;<sub>disk</sub> = atan2(-V<sub>z</sub>, |V<sub>x</sub>|). This is THE angle of propeller mode -- 0 in straight cruise, POSITIVE when the flow arrives from below, and NEGATIVE when it arrives from above. Its rotor-mode counterpart is &alpha;<sub>rotor</sub>, measured from the disk plane; each mode shows only its own"
       ],
       "alpha_rotor_deg": [
         "&alpha;<sub>rotor</sub>",
-        "ROTOR angle of attack [deg]: angle between the free stream and the DISK PLANE, &alpha;<sub>rotor</sub> = atan2(V<sub>z</sub>, V<sub>x</sub>). This is THE angle of rotor mode -- 0 in a helicopter's level forward flight, and POSITIVE when the flow arrives from below the disk. Its propeller-mode counterpart is &alpha;<sub>disk</sub>, measured from the shaft; the two are complementary and each mode shows only its own"
+        "ROTOR angle of attack [deg]: angle between the free stream and the DISK PLANE, &alpha;<sub>rotor</sub> = -atan2(V<sub>z</sub>, V<sub>x</sub>). This is THE angle of rotor mode -- 0 in a helicopter's level forward flight, and POSITIVE when the flow arrives from below the disk. Its propeller-mode counterpart is &alpha;<sub>disk</sub>, measured from the shaft; the two are complementary and each mode shows only its own"
       ],
       "beta_0_deg": [
         "&beta;<sub>0</sub>",

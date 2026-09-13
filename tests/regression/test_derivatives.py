@@ -563,7 +563,7 @@ class TestDampingSummary(unittest.TestCase):
                       < float(project.geometry.chord_norm[0]) else 0.0)
             # Distinguish the two variants by their ROOT chord value.
             marker = float(project.geometry.chord_norm[0])
-            stiff = -2.0 if marker < 0.11 else -4.0
+            stiff = -2.0 if marker < 0.10 else -4.0
             # CROSS TERMS ON PURPOSE. With a separable toy -- thrust
             # from w alone, moment from q alone -- perturbing w and q in
             # the same pair of solves gives the right answer by

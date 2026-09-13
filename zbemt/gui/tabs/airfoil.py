@@ -1032,15 +1032,18 @@ class AirfoilTab(QWidget):
     #: the Import CSV button tooltip and through the adjacent help button.
     _CSV_IMPORT_TOOLTIP = (
         "Import one or more airfoil polar slices from one CSV file.\n\n"
-        "Required columns are alpha_deg, Cl, and Cd. Common aliases are "
-        "accepted without regard to case. The pitching-moment coefficient "
-        "Cm is optional. If Cm is present, zBEMT stores it in the project and "
-        "writes it on export. The current BEMT force and performance solution "
-        "does not use the pitching-moment coefficient.\n\n"
+        "Required columns are alpha_deg, Cl, and Cd. Accepted column aliases "
+        "include aoa, r/R, Re, and M without regard to case. The pitching-moment "
+        "coefficient Cm is optional. If Cm is present, zBEMT stores it in the "
+        "project and writes it on export. The current BEMT force and performance "
+        "solution does not use the pitching-moment coefficient.\n\n"
+        "Format contract:\n"
+        "- ONE LINE = ONE ANGLE OF ATTACK.\n"
+        "- ONE BLOCK = ONE COMBINATION of station, reynolds, or mach parameters.\n\n"
         "Use r_norm to put several radial polar stations of the same airfoil "
         "in one file. Do not import one file for each radial station. Repeat "
         "the r_norm value on every angle-of-attack row that belongs to that "
-        "station. Reynolds and Mach work the same way and can appear in the "
+        "station. reynolds and mach work the same way and can appear in the "
         "same file.\n\n"
         "Example:\n"
         "    r_norm,alpha_deg,Cl,Cd,Cm\n"
@@ -1051,7 +1054,7 @@ class AirfoilTab(QWidget):
         "Use the Radial Sections control when the blade uses different airfoil "
         "definitions or different profile geometries along the span. A radial "
         "polar table for one airfoil does not require separate Airfoil Sections.\n\n"
-        "Without r_norm, Reynolds, or Mach, the CSV defines one polar for the "
+        "Without r_norm, reynolds, or mach, the CSV defines one polar for the "
         "whole blade. Export CSV writes a compatible template."
     )
 

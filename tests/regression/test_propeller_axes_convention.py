@@ -425,7 +425,7 @@ class TestCommandLineParity(unittest.TestCase):
         with contextlib.redirect_stderr(stderr_out):
             code = cli.main(argv)              # ...and execution rejects
         self.assertEqual(code, 2)
-        self.assertIn("same angle written two ways", stderr_out.getvalue())
+        self.assertIn("alternative flight-angle definitions", stderr_out.getvalue())
 
     def test_every_new_flag_is_RunOptions_field(self):
         """`cli.RunOptions` is generated from the parser: a Python script

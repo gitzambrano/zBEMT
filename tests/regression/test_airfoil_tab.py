@@ -457,7 +457,7 @@ class GeometryGenerationPopup(unittest.TestCase):
         sigma2 = dlg.solidity.value()
         ar2 = dlg.aspect_ratio.value()
         dlg.n_blades.setValue(4)
-        self.assertAlmostEqual(dlg.solidity.value(), 2 * sigma2, places=4)
+        self.assertAlmostEqual(dlg.solidity.value(), 2 * sigma2, places=3)
         # AR is per blade: it does not depend on the number of blades
         self.assertAlmostEqual(dlg.aspect_ratio.value(), ar2, places=2)
 

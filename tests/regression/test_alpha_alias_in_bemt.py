@@ -88,7 +88,7 @@ class TestTheAngleIsAccepted(unittest.TestCase):
                  "alpha_disk_deg": 6.0}])
             case = api.open_project(path).saved_cases[0]
         omega_r = RPM * 2.0 * math.pi / 60.0 * RADIUS
-        expected = math.tan(math.radians(6.0)) * 40.0 / omega_r
+        expected = -math.tan(math.radians(6.0)) * 40.0 / omega_r
         self.assertAlmostEqual(case.mu_x, expected, places=9)
 
     def test_it_reaches_a_batch_and_a_maneuver_too(self):

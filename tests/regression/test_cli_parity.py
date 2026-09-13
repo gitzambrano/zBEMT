@@ -40,7 +40,8 @@ class TestGeometryFlags(unittest.TestCase):
                                   "--save-as", path])
             project = api.open_project(path)
             self.assertAlmostEqual(project.geometry.radius_m, 0.9)
-            self.assertAlmostEqual(project.geometry.chord_norm[0], 0.1)
+            expected_root = 0.1 + (0.05 - 0.1) * project.geometry.root_cutout_norm
+            self.assertAlmostEqual(project.geometry.chord_norm[0], expected_root)
             self.assertAlmostEqual(project.geometry.chord_norm[-1], 0.05, places=6)
 
     def test_geom_preset_custom_points(self):

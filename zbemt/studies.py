@@ -1193,7 +1193,8 @@ def _blade_planform_metrics(geometry: RotorGeometryDef) -> dict:
     """Return reference blade aspect ratio and rotor solidity."""
     integral = geometry_gen.reference_planform_integral(geometry)
     aspect = 1.0 / integral if integral > 1e-9 else float("nan")
-    return {"aspect_ratio": float(aspect),
+    return {"blade_planform_integral": float(integral),
+            "aspect_ratio": float(aspect),
             "solidity": float(geometry.n_blades * integral / np.pi)}
 
 
