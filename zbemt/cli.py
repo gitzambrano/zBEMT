@@ -1531,9 +1531,10 @@ def main(argv=None, options=None) -> int:
     # used to pass and resolve Vz from a still-zero mu_x: Vz=0, a silent
     # hover condition instead of the requested cruise.
     if args.alpha_disk_deg is not None and args.alpha_rotor_deg is not None:
-        print("cli.py: error: --alpha-disk-deg and --alpha-rotor-deg are the "
-              "same angle written two ways (two alternate definitions): with "
-              "both, neither velocity component sets the scale. Give one angle "
+        print("cli.py: error: --alpha-disk-deg and --alpha-rotor-deg are "
+              "alternative flight-angle definitions referenced to different "
+              "vehicle axes; with both, neither velocity component sets the scale. "
+              "Give one angle "
               "plus a dimensional or non-dimensional component "
               "(--vz/--jz/--muz for the axial one, --mux/--jx for the in-plane).",
               file=sys.stderr)

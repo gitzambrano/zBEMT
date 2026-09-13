@@ -270,9 +270,10 @@ _QUANTITIES: tuple = (
            "the manual (Section 2.4.2)")),
 
     # --- the two angles: one per mode, each measured from its own reference -
-     # They are the SAME angle (alpha_rotor + alpha_disk = 90). Showing both
-     # would invite reading one as if it were the other, so each mode shows
-     # only the one that is zero at its vehicle's normal condition.
+    # These are alternative flight-angle definitions for different vehicle
+    # conventions: alpha_rotor is referenced to the rotor disk plane, while
+    # alpha_disk is referenced to the propeller shaft. Each mode exposes only
+    # the definition appropriate to its vehicle axes.
     _q("alpha_rotor_deg", "axial", r"\alpha_{rotor}", unit="deg", name_unit="°",
        propeller_visible=False,
        rotor_description=(
