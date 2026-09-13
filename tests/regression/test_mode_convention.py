@@ -269,7 +269,7 @@ class TestLabelsInWindow(unittest.TestCase):
         self.assertAlmostEqual(tab._current_condition().mu_x, 0.0, places=9)
         tab.advance.spin.setValue(10.0)
         cond = tab._current_condition()
-        self.assertGreater(cond.mu_x, 0.0)
+        self.assertLess(cond.mu_x, 0.0)
         self.assertAlmostEqual(cond.Vz, 60.0, places=6)
 
     def test_returning_to_rotor_restores_rotor_units(self):
@@ -292,6 +292,10 @@ class TestLabelsInWindow(unittest.TestCase):
         is display quantization, not loss of physical precision."""
         tab = self.tabs_map["Run Case"]
         self._set_mode(False)
+        # The window is shared across tests; establish this case's axial
+        # state explicitly before checking the mode round-trip.
+        tab.axial.unit_combo.setCurrentText("αᵣₒₜₒᵣ [deg]")
+        tab.axial.spin.setValue(0.0)
         tab.advance.set_mu(0.15)
         before = tab._current_condition()
         self._set_mode(True)

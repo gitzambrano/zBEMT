@@ -65,6 +65,7 @@
     "tests/regression/test_physics_validation.py",
     "tests/regression/test_pitt_peters_inflow.py",
     "tests/regression/test_pitt_peters_reporting.py",
+    "tests/regression/test_planform_reference_metric.py",
     "tests/regression/test_plot_scaling.py",
     "tests/regression/test_plots.py",
     "tests/regression/test_plots_interactive.py",

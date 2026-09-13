@@ -1532,7 +1532,7 @@ def main(argv=None, options=None) -> int:
     # hover condition instead of the requested cruise.
     if args.alpha_disk_deg is not None and args.alpha_rotor_deg is not None:
         print("cli.py: error: --alpha-disk-deg and --alpha-rotor-deg are the "
-              "two alternate angle definitions: with "
+              "same angle written two ways (two alternate definitions): with "
               "both, neither velocity component sets the scale. Give one angle "
               "plus a dimensional or non-dimensional component "
               "(--vz/--jz/--muz for the axial one, --mux/--jx for the in-plane).",

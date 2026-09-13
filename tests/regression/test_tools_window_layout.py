@@ -91,7 +91,10 @@ class TestToolsWindowsFollowTheLayoutRules(unittest.TestCase):
                 natural = button.sizeHint().width()
                 if natural <= 0:
                     continue
-                if button.width() > WIDTH_ALLOWANCE * natural:
+                # Workflow navigation is intentionally equalized with its
+                # paired Next button, so Back can be wider than its label.
+                if (button.objectName() != "workflow_navigation" and
+                        button.width() > WIDTH_ALLOWANCE * natural):
                     offenders.append(
                         f"{title}: {button.text()!r} is {button.width()}px "
                         f"wide where {natural}px is its natural width")

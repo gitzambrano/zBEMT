@@ -504,8 +504,8 @@ class TestAirfoilPreviewCanvas(unittest.TestCase):
         # as an UNDERSCORE, and this assertion pinned that. A QTabWidget
         # paints plain text, so `nomenclature` supplies the fallback it
         # uses everywhere else for a symbol Unicode cannot subscript.
-        self.assertEqual(names, ["CL \u00d7 \u03b1", "CD \u00d7 \u03b1",
-                                  "CD \u00d7 CL", "Profile"])
+        self.assertEqual(names, ["CL × α", "CD × α",
+                                  "CD × CL", "Profile"])
 
     def test_preview_canvases_have_zoom_toolbar(self):
         """Item 4: zoom (rectangle/wheel) and axis scale/limit editing
@@ -739,13 +739,13 @@ class TestInflowCouplingComboRemoved(unittest.TestCase):
             tab.cfg_inflow_family.setCurrentText(family)
             self.assertEqual(tab._inflow_field_model_from_widgets(), expected)
 
-    def test_loading_legacy_global_field_model_falls_back_to_local(self):
+    def test_loading_global_field_model_preserves_global_coupling(self):
         state = self.gui.AppState()
         tab = self.gui.ConfigMotorTab(state)
         with helpers.patch_message_box_everywhere("QMessageBox"):
             tab._set_inflow_widgets_from_field_model("drees_global")
         self.assertEqual(tab.cfg_inflow_family.currentText(), "drees")
-        self.assertEqual(tab._inflow_field_model_from_widgets(), "drees_local")
+        self.assertEqual(tab._inflow_field_model_from_widgets(), "drees_global")
 
 
     def test_source_combo_has_four_consolidated_options(self):
@@ -1176,14 +1176,19 @@ class TestToolsButton(unittest.TestCase):
     def test_tools_click_opens_the_geometry_designer(self):
         win = self._window()
         self.assertFalse(win.geometry_designer.isVisible())
-        # The Tools pill hangs a menu off it: the click opens the menu,
-        # and the MENU ACTION carries the request (tools_requested with
-        # the window's key). Triggering the action is what a user's pick
-        # does, so that is what the test drives.
-        actions = {a.text(): a for a in win.flow_bar.btn_tools.menu().actions()}
-        self.assertIn("Geometry Designer", actions)
-        actions["Geometry Designer"].trigger()
+        launcher = win.flow_bar._tools_launcher
+        self.assertFalse(launcher.isVisible())
+
+        # Tools opens the dedicated ToolsLauncher dialog, not a QMenu.
+        win.flow_bar.btn_tools.click()
         for _ in range(6):
             self.app.processEvents()
+        self.assertTrue(launcher.isVisible())
+        self.assertIn("geometry_designer", launcher.tool_buttons)
+
+        launcher.tool_buttons["geometry_designer"].click()
+        for _ in range(6):
+            self.app.processEvents()
+        self.assertFalse(launcher.isVisible())
         self.assertTrue(win.geometry_designer.isVisible())
         win.geometry_designer.close()

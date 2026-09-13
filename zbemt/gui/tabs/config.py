@@ -335,6 +335,7 @@ class ConfigMotorTab(QWidget):
         else:
             family, coupling = inflow_field_model.rsplit("_", 1)
 
+
         choices = self._AVAILABLE_COUPLINGS.get(family)
         if choices is None or coupling not in choices:
             # Do not silently reinterpret a project. Unknown/inapplicable
@@ -466,7 +467,7 @@ class ConfigMotorTab(QWidget):
         self.cfg_stagnation_patience.setToolTip('"stagnation_patience" — number of iterations without improvement before exiting due to stagnation')
         self.cfg_stagnation_min_frac = QDoubleSpinBox(); self.cfg_stagnation_min_frac.setRange(0.0, 1.0); self.cfg_stagnation_min_frac.setDecimals(4)
         self.cfg_stagnation_min_frac.setSingleStep(0.01)
-        self.cfg_stagnation_min_frac.setToolTip('"stagnation_min_frac" — minimum improvement in element fraction per iteration to not count as stagnation')
+        self.cfg_stagnation_min_frac.setToolTip('"stagnation_min_frac" — minimum improvement per iteration to not count as stagnation')
         form.addRow("Early exit fraction [-]:", self.cfg_early_exit_fraction)
         form.addRow("Stagnation patience [iter]:", self.cfg_stagnation_patience)
         form.addRow("Minimum improvement per iteration [-]:", self.cfg_stagnation_min_frac)

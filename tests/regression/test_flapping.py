@@ -706,7 +706,10 @@ class TestTheHubRateForcingMatchesItsClosedForm(unittest.TestCase):
                                           stall_model="linear"),
                        config=dict(Ne=16, Npsi=36, solver="newton",
                                    max_iter=300,
-                                   inflow_field_model="glauert_global",
+                                   # Glauert has no distinct global harmonic
+                                   # coupling in the current field-model set;
+                                   # name the model this test actually executes.
+                                   inflow_field_model="glauert_local",
                                    prandtl_loss_mode="off",
                                    use_rotational_augmentation=False,
                                    use_radial_flow_correction=False,

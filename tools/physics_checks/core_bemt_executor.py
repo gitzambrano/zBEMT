@@ -377,10 +377,12 @@ def _c6_or_c7(claim: Claim, context: ExecutionContext, started: str) -> CheckRes
     expected_on_ch = 3.0 * sigma * cd0 * mu * finite_span / 8.0
     if claim.claim_id == "BEMT-C6":
         off_error = abs(float(off["CHp"]) / expected_off_ch - 1.0)
-        on_error = abs((float(on["CHp"]) + float(on["CHr"])) / expected_on_ch - 1.0)
+        # Public CHp is the complete profile H-force. CHr is a subset
+        # diagnostic already included in CHp, so adding it here double-counts it.
+        on_error = abs(float(on["CHp"]) / expected_on_ch - 1.0)
         torque_change = abs(float(on["CPi"]) - float(off["CPi"]))
         passed = off_error <= 0.03 and on_error <= 0.03 and torque_change <= 1e-9
-        measured = {"CH_off": off["CHp"], "CH_on": float(on["CHp"]) + float(on["CHr"]), "off_error": off_error, "on_error": on_error, "induced_power_change": torque_change}
+        measured = {"CH_off": off["CHp"], "CH_on": float(on["CHp"]), "off_error": off_error, "on_error": on_error, "induced_power_change": torque_change}
         expected = {"CH_off_closed_form": expected_off_ch, "CH_on_closed_form": expected_on_ch, "induced_power_change": 0.0}
         tolerance = "both force errors <= 3% and induced-power change <= 1e-9"
     else:
@@ -562,7 +564,11 @@ def _h1(claim: Claim, context: ExecutionContext, started: str) -> CheckResult:
 def _h2(claim: Claim, context: ExecutionContext, started: str) -> CheckResult:
     row, command, artifact = _clean_case(context, "angle-identity", "--rpm", "400", "--collective", "8", "--v-inplane", "20", "--v-axial", "3")
     expected_rotor = -math.degrees(math.atan2(float(row["Vz"]), float(row["Vx"])))
-    expected_disk = 90.0 + expected_rotor
+    # EN-14: disk angle is measured from the propeller axis. In the
+    # nomenclature helper the first argument is the cross-flow component
+    # and the second is the along-axis component.
+    expected_disk = math.degrees(math.atan2(-float(row["Vx"]),
+                                            abs(float(row["Vz"]))))
     rotor_error = abs(float(row["alpha_rotor_deg"]) - expected_rotor)
     disk_error = abs(float(row["alpha_disk_deg"]) - expected_disk)
     return _result(

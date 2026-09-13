@@ -128,13 +128,19 @@ class ToolWorkflowHeader(QFrame):
             row.addWidget(button)
             self._step_buttons.append(button)
         row.addStretch(1)
+        outer.addLayout(row)
+
+        navigation = QHBoxLayout()
         self.back_button = QPushButton("Back")
         self.next_button = QPushButton("Next")
+        self.back_button.setObjectName("workflow_navigation")
+        self.next_button.setObjectName("workflow_navigation")
         self.back_button.clicked.connect(self._back)
         self.next_button.clicked.connect(self._next)
-        row.addWidget(self.back_button)
-        row.addWidget(self.next_button)
-        outer.addLayout(row)
+        navigation.addStretch(1)
+        navigation.addWidget(self.back_button)
+        navigation.addWidget(self.next_button)
+        outer.addLayout(navigation)
 
         self.guidance = QLabel()
         self.guidance.setWordWrap(True)
@@ -152,6 +158,11 @@ class ToolWorkflowHeader(QFrame):
         self.tabs.tabBar().setVisible(False)
         self.tabs.currentChanged.connect(self._sync)
         self._sync(self.tabs.currentIndex())
+
+    def showEvent(self, event):
+        from .common import equalize_same_row_buttons
+        super().showEvent(event)
+        equalize_same_row_buttons(self)
 
     def _sync(self, index: int):
         if not self.steps:
