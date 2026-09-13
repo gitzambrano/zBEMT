@@ -2831,6 +2831,12 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
 
         residual_deg = _coeff_delta_deg(new_coeffs, _vector_coeffs(state))
         outer_history.append(residual_deg)
+        if residual_deg < tol_deg:
+            # The field and target above were evaluated at the CURRENT
+            # state. It is already certified, so do not relax once more
+            # to a successor whose residual has never been evaluated.
+            break
+
         state = state + relax * (_coeffs_vector(new_coeffs) - state)
         beta_ang, _unused_rate = _reconstruct(_vector_coeffs(state), psi_nodes)
         motion, _rn, psi_nodes, _RN, _PSI = build_motion_grid(
@@ -2838,8 +2844,44 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
             beta_psi=beta_ang,
             zeta_rate_psi=zeta_rate_grid,
         )
-        if residual_deg < tol_deg:
-            break
+
+    if not rigid and iterations >= max_iter and residual_deg >= tol_deg:
+        # Exhaustion is different from convergence: the last configured
+        # relaxation update above must still count. Certify that final
+        # relaxed state explicitly, without applying another update, so
+        # the reported residual/flag describe the state we actually return.
+        if should_cancel is not None and should_cancel():
+            raise SolveCancelled()
+        maps = solve_bemt(rotor, airfoil, cfg, mu_x, Vz,
+                          should_cancel=should_cancel, motion=motion)
+        m_beta = _flap_moment(maps, rotor, e_dim)
+        if p_rate != 0.0 or q_rate != 0.0:
+            m_beta = m_beta + 2.0 * inertia * omega * (
+                p_rate * np.cos(psi_nodes) - q_rate * np.sin(psi_nodes))
+        coeffs_flap, _new_angle, _new_rate = solve_blade_motion(
+            m_beta, psi_nodes, nu_beta_sq, inertia, omega,
+            n_harm, damping=d_beta, freedom="flap",
+            hinge_offset_norm=e_norm)
+        new_coeffs = coeffs_flap
+
+        if lag_on:
+            m_zeta = _lag_moment(maps, rotor, e_dim)
+            damping_ratio = dynamics.lag_damping_nms_per_rad / max(
+                lag_inertia * omega, 1e-12)
+            coeffs_lag, _za, _zr = solve_blade_motion(
+                m_zeta, psi_nodes, nu_zeta_sq, lag_inertia, omega,
+                n_harm, damping=damping_ratio, freedom="lag",
+                hinge_offset_norm=e_norm)
+
+        residual_deg = _coeff_delta_deg(
+            new_coeffs, _vector_coeffs(state))
+        # Keep the historical contract that the history length equals
+        # the configured outer iteration count; its final entry now
+        # certifies the final returned state instead of its predecessor.
+        if outer_history:
+            outer_history[-1] = residual_deg
+        else:
+            outer_history.append(residual_deg)
 
     if not rigid and coeffs_flap is not None:
         # Consistency pass: rebuild the FULL motion (angles AND rates)
