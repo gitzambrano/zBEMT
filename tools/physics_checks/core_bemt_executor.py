@@ -250,7 +250,7 @@ def _c2(claim: Claim, context: ExecutionContext, started: str) -> CheckResult:
         *_REFERENCE_GEOMETRY, "--airfoil-stall-model", "linear",
         "--set", "airfoil.alpha0_deg=0", "--set", "airfoil.cd0=0.01",
         "--set", "airfoil.k=0", "--set", "config.reverse_flow_model=simple_flip",
-        "--prandtl-loss-mode", "off", "--set", "config.use_compressibility=false",
+        "--prandtl-loss-mode", "both", "--set", "config.use_compressibility=false",
         "--set", "config.Ne=60", "--set", "config.Npsi=32",
     ))
     ct = float(row["CT"])
