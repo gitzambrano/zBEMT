@@ -128,9 +128,42 @@ nomenclature change intentionally changes the user-facing snapshot, regenerate
 Run `python tools/check_project_configs.py` after changing a project file or a
 dataclass default in `models.py`.
 
+## Continuous integration and test constraints
+
+The GitHub Actions workflow runs three distinct jobs on Ubuntu runners. Each job
+enforces specific architectural boundaries. Design tests and tools so that they
+remain deterministic and functional across these environments.
+
+1. Do not import Qt in engine or CLI modules. The `engine` matrix runs on Python
+   3.10, 3.11, and 3.12 without `PyQt6` installed. If any solver, model, study,
+   or CLI utility imports Qt directly or transitively, that job fails.
+2. Account for offscreen Qt and platform font metrics. The `gui` job runs with
+   `QT_QPA_PLATFORM=offscreen` on headless Linux. System font dimensions and
+   baseline alignments vary across operating systems. Therefore, do not write
+   tests that rely on single-pixel vertical layout assertions. Use cluster
+   tolerances when sorting widgets into rows.
+3. Silence modal dialogs in automated test cases. A GUI test must never open an
+   unpatched modal message box. Use `patch_message_box_everywhere` from
+   `tests/helpers.py` to prevent tests from blocking the headless runner.
+4. Set realistic solver tolerances. Floating-point reductions run with single-thread
+   settings in CI to preserve determinism. However, spatial discretization noise
+   floors on 48-node to 60-node radial grids limit numerical precision. Do not
+   assert tolerances tighter than the discretization error.
+5. Account for control quantization in the user interface. Spinboxes round
+   values to their configured decimal precision. Test assertions that compare
+   reconstructed parameters to continuous models must allow for this quantization.
+6. Keep standalone scripts runnable without arguments. The CI workflow exercises
+   tools such as `gui_qa_screenshots.py`, `gui_tools_used_screenshots.py`, and
+   `field_inventory.py` without flags. Every script under `tools/` must exit with
+   returncode 0 unattended.
+7. Package all offline help assets. The `installation` job builds a wheel and
+   validates the package in an isolated directory. The embedded help documentation
+   cannot link to external internet resources.
+
 ## Subagents
 
 Delegate only sizeable work that is genuinely independent and parallelizable.
 Do not delegate work that can be completed directly in a few tool calls. Keep
 architectural judgment, physics decisions, and changes to `bemt.py` under
 direct control. Prefer one subagent when one is sufficient.
+

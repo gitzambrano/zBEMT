@@ -113,7 +113,26 @@ def collect_screen_order() -> dict:
                 parent = widget.parentWidget() or tab
                 anchor = parent.mapTo(tab, parent.rect().topLeft())
                 positions[field_name] = (1, anchor.y(), anchor.x())
-        ordered = sorted(positions.items(), key=lambda kv: kv[1])
+        # Widgets on the same row can have 1-2 px baseline differences
+        # depending on platform fonts (e.g. QDoubleSpinBox vs QComboBox).
+        # Cluster y coordinates within 5 px to preserve left-to-right order.
+        snapped: dict[str, tuple[int, int, int]] = {}
+        for vis in (0, 1):
+            items = [(k, y, x) for k, (v, y, x) in positions.items() if v == vis]
+            if not items:
+                continue
+            ys = sorted({y for _, y, _ in items})
+            clusters: list[list[int]] = []
+            for y in ys:
+                if not clusters or y - clusters[-1][-1] > 5:
+                    clusters.append([y])
+                else:
+                    clusters[-1].append(y)
+            y_map = {y: cluster[0] for cluster in clusters for y in cluster}
+            for k, y, x in items:
+                snapped[k] = (vis, y_map[y], x)
+
+        ordered = sorted(snapped.items(), key=lambda kv: kv[1])
         order[tab_name] = [(name, label_map[name]) for name, _ in ordered]
     return order
 

@@ -98,3 +98,6 @@ venv.bak/
 /zbemt/docs/
 !/projects/test13/
 !/projects/test14/
+/artifacts/
+/scratch/
+

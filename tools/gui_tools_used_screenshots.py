@@ -176,8 +176,7 @@ def _transient(rec: Recorder, window, project) -> None:
     from tests import helpers
     from zbemt.models import FlightCondition, ManeuverDefinition, ManeuverPoint
 
-    # The maneuver path explicitly requires unsteady Pitt-Peters inflow.
-    project.config["inflow_field_model"] = "pitt_peters_unsteady"
+    # The maneuver runner automatically uses unsteady Pitt-Peters inflow.
     project.config["max_iter"] = 60
     project.saved_cases = [
         FlightCondition(name="start", mu_x=0.02, collective_deg=8.0,
@@ -261,4 +260,5 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import os
+    os._exit(main())
