@@ -78,14 +78,14 @@ def _plain(text: str) -> str:
 def _synchronize_requirements() -> None:
     """Ensure the durable requirements for the guided Tools are explicit."""
     document = REQUIREMENTS_PATH.read_text(encoding="utf-8")
-    if "**PR-14 — Guided engineering Tools.**" not in document:
-        marker = "\n---\n\n## 3. Architectural Requirements"
+    if "**PR-14" not in document:
+        marker = "\n## 3. Architectural Requirements"
         position = document.find(marker)
         if position < 0:
             raise RuntimeError("could not locate the end of Product Requirements")
         document = document[:position] + "\n" + PR14 + document[position:]
     if "**DC-12**" not in document:
-        marker = "\n### 3.6 GUI tab behaviour"
+        marker = "\n### 3.6 GUI"
         position = document.find(marker)
         if position < 0:
             raise RuntimeError("could not locate the end of Documentation requirements")

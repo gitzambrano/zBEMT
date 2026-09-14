@@ -61,6 +61,7 @@ correctness. Base correctness claims on repository artifacts and test results.
 pip install -e ".[all]"
 
 python tests/run_all_tests.py
+python tests/smoke_test.py
 python tests/run_all_tests.py -k airfoil
 python tests/run_all_tests.py --list
 
@@ -159,6 +160,11 @@ remain deterministic and functional across these environments.
 7. Package all offline help assets. The `installation` job builds a wheel and
    validates the package in an isolated directory. The embedded help documentation
    cannot link to external internet resources.
+8. Manage cloud and documentation commits without full pipeline overhead. Direct
+   edits made on GitHub or in documentation prose do not require the complete
+   25-minute test matrix. Include `[skip ci]` in the commit message to skip the
+   workflow when changing documentation, markdown, or text assets. Reserve
+   complete CI runs for solver physics, engine logic, and GUI changes.
 
 ## Subagents
 
