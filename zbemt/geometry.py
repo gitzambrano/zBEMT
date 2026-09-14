@@ -263,7 +263,7 @@ def edit_point(geom: RotorGeometryDef, index: int, chord_norm: float | None = No
 
 
 # =============================================================================
-# Blade dynamics conversions (SC-11)
+# Blade dynamics conversions (SC-14)
 # =============================================================================
 # The formulas of the rigid-blade flap and lag model live HERE, once, so
 # that the validation, the GUI's live preview panel and the engine cannot

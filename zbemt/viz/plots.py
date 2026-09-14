@@ -1446,7 +1446,7 @@ def _sweep_panels(results_list) -> list:
 _AXIS_TO_SUMMARY_KEY = {
     "mu_x": "mu_x",
     "alpha_deg": "alpha_rotor_deg",
-    # The lateral slot (SC-15). Its four spellings each have a summary
+    # The lateral slot (SC-9). Its four spellings each have a summary
     # column of their own, so the identity is what maps them.
     "Vy": "Vy",
     "mu_y": "mu_y",
@@ -2765,7 +2765,7 @@ def plot_eigenvalues(eigenvalues, *, ax=None, fname=None):
 
 
 # =============================================================================
-# 12. BLADE DYNAMICS PLOTS (SC-11)
+# 12. BLADE DYNAMICS PLOTS (SC-14)
 # =============================================================================
 
 def _beta_angle_history(maps: dict) -> "np.ndarray | None":
@@ -2944,7 +2944,7 @@ def plot_dynamic_stall_history(maps: dict, r_norm: float = 0.75,
 
 
 def plot_maneuver_history(history: "pd.DataFrame", fname=None):
-    """Four stacked panels against time for one maneuver (SC-12): loads,
+    """Four stacked panels against time for one maneuver (SC-15): loads,
     the three inflow states, the commanded controls, and the marched
     interval actually integrated per sample."""
     import pandas as _pd

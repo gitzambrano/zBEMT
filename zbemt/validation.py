@@ -170,7 +170,7 @@ def validate_config(config: dict, airfoil_def: AirfoilDef,
 
     ``inflow_path`` selects which execution path the config serves:
     ``"case"``/``"batch"`` (isolated operating points) or ``"maneuver"``
-    (SC-12). The unsteady Pitt-Peters model is an ERROR on the case and
+    (SC-15). The unsteady Pitt-Peters model is an ERROR on the case and
     batch paths -- those resolve algebraic equilibria -- and it is the
     REQUIRED value on the maneuver path, where the inflow state actually
     marches."""
@@ -248,7 +248,7 @@ def validate_config(config: dict, airfoil_def: AirfoilDef,
             "the consistent choice; keep the current one only if you are deliberately "
             "comparing reverse-flow treatments."))
 
-    # --- pitt_peters_unsteady is path-scoped (SC-12) ------------------------
+    # --- pitt_peters_unsteady is path-scoped (SC-15) ------------------------
     # On the case/batch paths the solver resolves algebraic equilibria, so
     # the unsteady variant cannot run there (`bemt.solve_bemt` raises). On
     # the maneuver path it is exactly the model that runs -- and the
@@ -266,7 +266,7 @@ def validate_config(config: dict, airfoil_def: AirfoilDef,
             "case/batch path does not assemble. Run it as a maneuver "
             "(Transient window / --maneuver), or use 'pitt_peters_steady'."))
 
-    # --- time march cost warning (SC-12) ------------------------------------
+    # --- time march cost warning (SC-15) ------------------------------------
     # The 'time_march' method steps the separation state sequentially over
     # Npsi stations per revolution, so its cost is the product of mesh
     # fineness and revolution count. State the count as a number, per the
@@ -316,7 +316,7 @@ def validate_config(config: dict, airfoil_def: AirfoilDef,
     # --- dynamic stall x UNSTEADY Pitt-Peters outside maneuvers ----------
     # The unsteady inflow march carries only its 3 scalar states; Oye's
     # separation state rides along ONLY on the maneuver path, where
-    # `march_dynamic_stall` threads it between samples (SC-12). On the
+    # `march_dynamic_stall` threads it between samples (SC-15). On the
     # case/batch paths the unsteady variant cannot run at all, so the
     # combination is simply rejected there.
     if (inflow_field_model == "pitt_peters_unsteady"
@@ -437,7 +437,7 @@ def validate_flight_condition(condition) -> list[Issue]:
 
 
 def _validate_lateral_flow(condition) -> list[Issue]:
-    """The lateral flow must be given ONCE (SC-14).
+    """The lateral flow must be given ONCE (SC-16).
 
     The disk plane has one lateral direction, and the condition offers two
     spellings for it: the velocity V_y, and the sideslip angle psi_w that
@@ -504,7 +504,7 @@ def _dynamics_omega(dynamics: BladeDynamicsDef, condition_rpm) -> float:
 def validate_blade_dynamics(dynamics: BladeDynamicsDef, geom: RotorGeometryDef,
                              *, rho: float = 1.225, cl_alpha: float = 2.0 * math.pi,
                              rpm=None) -> list[Issue]:
-    """Static checks of one blade's flap/lag dynamics (SC-11), before any
+    """Static checks of one blade's flap/lag dynamics (SC-14), before any
     solve. ``rho``/``cl_alpha`` resolve a Lock-number inertia the way the
     engine will; ``rpm`` (a flight condition's) enables the resonance
     guard EN-8, which depends on the rotation speed.
@@ -667,7 +667,7 @@ def _validate_tip_mach(condition, radius_m: float, config: dict) -> list[Issue]:
 
 
 def validate_maneuver(maneuver, config: dict) -> list[Issue]:
-    """Static checks of one prescribed trajectory (SC-12) before any
+    """Static checks of one prescribed trajectory (SC-15) before any
     march. ``config`` supplies the azimuthal mesh size for the
     dynamic-stall cost warning. Pure: nothing here runs the engine
     (AR-4)."""
@@ -759,7 +759,7 @@ def validate_project(config: dict, airfoil_def: AirfoilDef,
     condition complained.
 
     ``geometry`` (optional): the project's radial table. When given, the
-    blade-dynamics block (SC-11) is validated too, including the EN-8
+    blade-dynamics block (SC-14) is validated too, including the EN-8
     resonance guard at each condition's RPM."""
     if airfoil_sections:
         issues = validate_airfoil_sections(airfoil_sections) + validate_config(config, airfoil_sections[0])
@@ -822,7 +822,7 @@ def _validate_propeller_convention(condition, is_propeller: bool) -> list[Issue]
 
 
 # =============================================================================
-# OptimizationDefinition (SC-8 / SC-13): static findings before a run
+# OptimizationDefinition (SC-12 / SC-13): static findings before a run
 # =============================================================================
 
 #: Integrated coefficients of the results summary (the block the
@@ -1034,7 +1034,7 @@ def validate_results(summary: dict) -> list[Issue]:
             "the coupled flap solution did not reach its declared outer "
             f"tolerance: residual {residual_deg:.3g} deg, tolerance "
             f"{tolerance_deg:.3g} deg. Do not use this case for stability "
-            "derivatives or trim (SC-11)."))
+            "derivatives or trim (SC-14)."))
 
     peak = _peak_flap_deg(summary)
     if peak is not None and peak > FLAP_SMALL_ANGLE_LIMIT_DEG:

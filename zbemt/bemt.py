@@ -123,7 +123,7 @@ a map of where to find each one.
      from just 3 global degrees of freedom (nu0, nu_s, nu_c) instead of one
      lambda_i per element. See Section 6b.
 
-  e) `geometry.dynamics` -- rigid-blade flapping and lead-lag (SC-11).
+  e) `geometry.dynamics` -- rigid-blade flapping and lead-lag (SC-14).
      The blade stays rigid; it gains rigid-body freedoms about a flap
      hinge (and optionally a lag hinge) with an offset and/or root
      springs. The response is periodic in azimuth and quasi-steady,
@@ -322,7 +322,7 @@ class BEMTConfig:
     use_radial_flow_correction: bool = False
     radial_flow_max_skew_deg: float = 60.0      # clip on lambda_y to avoid spurious Cd->0
 
-    # --- 8b) Sideslip of the in-plane free stream (SC-14) ------------------------
+    # --- 8b) Sideslip of the in-plane free stream (SC-16) ------------------------
     # Rotates the in-plane velocity direction by psi_w around the shaft:
     # U_T = Omega*r + V_inf*sin(psi - psi_w), and the radial component
     # carries cos(psi - psi_w). 0 deg reproduces every result computed
@@ -1726,7 +1726,7 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
     for a given lambda_i field, and also returns lambda_i_next (the
     fixed-point map of the momentum/BET equation) used by the solvers.
 
-    ``motion`` (optional): the rigid-blade flap/lag state (SC-11), as a
+    ``motion`` (optional): the rigid-blade flap/lag state (SC-14), as a
     dictionary with the arrays ``beta``, ``beta_rate`` and ``zeta_rate``
     on the same (Ne,Npsi) grid, plus the scalars ``e_hinge_dim`` (hinge
     offset in metres), ``pitch_flap_K`` (= tan(delta_3)),
@@ -1748,7 +1748,7 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
     rho, a_sound = cfg.rho, cfg.a_sound
     Vinf = mu_x * OmegaR
 
-    # Sideslip (SC-14): rotates the IN-PLANE free-stream direction; the
+    # Sideslip (SC-16): rotates the IN-PLANE free-stream direction; the
     # axial component is untouched. 0 deg keeps every legacy result.
     psi_w = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
 
@@ -1763,11 +1763,11 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
         # by the sideslip angle (U_T uses sin(psi - psi_w), U_R uses
         # cos(psi - psi_w)). Left at cos(psi) it disagreed with both as
         # soon as the sideslip was not zero -- which is exactly the
-        # condition the lateral-velocity derivative of SC-14 perturbs.
+        # condition the lateral-velocity derivative of SC-16 perturbs.
         Up = (Up + arm * motion["beta_rate"]
               + Vinf * motion["beta"] * np.cos(PSI - psi_w))
         Ut = Ut + arm * motion["zeta_rate"]
-        # Hub angular rates (SC-14): a pitching/rolling hub carries each
+        # Hub angular rates (SC-16): a pitching/rolling hub carries each
         # element out of the disk plane, at -r*(q*cos(psi) + p*sin(psi)).
         #
         # BOTH terms are negative because Up counts DOWNWARD and the
@@ -1949,7 +1949,7 @@ def element_state(lambda_i, R_NORM, PSI, R_DIM, CHORD, THETA, mu_x, lambda_z,
         Kx, Ky = _inflow_harmonics(harmonic_family, mu_x, lambda_total)
     else:
         Kx, Ky = np.zeros_like(lambda_total), np.zeros_like(lambda_total)
-    # Sideslip (SC-14): the empirical fore-aft/lateral gains Kx/Ky follow
+    # Sideslip (SC-16): the empirical fore-aft/lateral gains Kx/Ky follow
     # the WAKE skew, so their azimuthal pattern rotates with the free
     # stream -- cos(psi - psi_w)/sin(psi - psi_w). With psi_w = 0 this is
     # the unchanged legacy expression.
@@ -2167,7 +2167,7 @@ def _oye_time_march_f(f_st: np.ndarray, W: np.ndarray, CHORD: np.ndarray,
     periodic regime.
 
     ``f_init`` (optional): the separation state the march STARTS from --
-    the previous sample's final values on a maneuver (SC-12), making the
+    the previous sample's final values on a maneuver (SC-15), making the
     state continuous along the trajectory. Defaults to f_st at the last
     psi station."""
     Ne, Npsi = f_st.shape
@@ -2246,7 +2246,7 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
     momentum equation).
 
     ``f_init`` (optional): the separation state to start the time march
-    from -- the previous sample's final values on a maneuver (SC-12).
+    from -- the previous sample's final values on a maneuver (SC-15).
     Ignored by the 'frequency' method."""
     if cfg.dynamic_stall_model.lower() != "oye":
         raise ValueError(f"Unknown dynamic_stall_model: {cfg.dynamic_stall_model}")
@@ -2378,7 +2378,7 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
 
 
 # =============================================================================
-# 4h. RIGID-BLADE FLAPPING AND LEAD-LAG (harmonic balance, SC-11)
+# 4h. RIGID-BLADE FLAPPING AND LEAD-LAG (harmonic balance, SC-14)
 # =============================================================================
 #
 # The blade is rigid. It rotates about a flap hinge (and optionally a lag
@@ -2387,7 +2387,7 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
 # inside one azimuth station stays steady, only the blade motion adds
 # terms to the local flow, and there is no transient (that is what keeps
 # the model consistent with a blade-element momentum solution; a real
-# flap transient is out of scope, see SC-12's limits).
+# flap transient is out of scope, see SC-15's limits).
 #
 # Assumptions (also stated in docs/documentation.html):
 #   1. Small angles: cos(beta) ~= 1, sin(beta) ~= beta. The blade element
@@ -2588,10 +2588,10 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
                          q_rate: float = 0.0, warm_start: Optional[dict] = None,
                          should_cancel=None):
     """Solves one case WITH the blade's rigid-body flap/lag freedoms
-    (SC-11): the outer loop of Section 4h.
+    (SC-14): the outer loop of Section 4h.
 
     ``p_rate``/``q_rate`` are the HUB angular rates [rad/s] about the
-    roll and pitch axes (SC-14). They reach the aerodynamics as an
+    roll and pitch axes (SC-16). They reach the aerodynamics as an
     out-of-disk-plane velocity of every element and enter the flap
     balance as a gyroscopic forcing Mbar_gyro = 2*(q*sin(psi) +
     p*cos(psi))/Omega, added to the aerodynamic flap moment before the
@@ -2796,7 +2796,7 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
 
         m_beta = _flap_moment(maps, rotor, e_dim)
         if p_rate != 0.0 or q_rate != 0.0:
-            # Gyroscopic forcing of the hub rates (SC-14), in the same
+            # Gyroscopic forcing of the hub rates (SC-16), in the same
             # Mbar = M/(I*Omega^2) units the harmonic balance consumes:
             # Mbar_gyro = 2*(p*cos(psi) - q*sin(psi))/Omega.
             #
@@ -2815,7 +2815,7 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
         # result reported a blade sweeping through tens of degrees while
         # the aerodynamics saw beta_dot = 0, and `lag_feeds_back` was
         # inert. `tests/regression/test_flapping.py` now checks the rate itself
-        # (`SC-11`).
+        # (`SC-14`).
         coeffs_flap, _new_angle, _new_rate = solve_blade_motion(
             m_beta, psi_nodes, nu_beta_sq, inertia, omega,
             n_harm, damping=d_beta, freedom="flap", hinge_offset_norm=e_norm)
@@ -3423,7 +3423,7 @@ def _solve_pitt_peters_steady(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x, lamb
         nu[0] = float(np.sqrt(max(float(forcing_semente[0]), 0.0) / 2.0))
     forcing = lambda_i = state = None
     n_it = 0
-    # Sideslip (SC-14): the L matrix's fore-aft coupling follows the WAKE
+    # Sideslip (SC-16): the L matrix's fore-aft coupling follows the WAKE
     # skew, i.e. the free-stream direction -- not the hub's x axis. With
     # psi_w != 0 the harmonic pair (CMx->nu_c on cos(psi), CMy->nu_s on
     # sin(psi)) is rotated into wind axes before L acts and back after,
@@ -3499,7 +3499,7 @@ def _pitt_peters_rhs(nu, rotor, airfoil, cfg, mu_x, lambda_z, r_norm_nodes, psi_
 
 
 def _pitt_peters_wind_pair(cfg: BEMTConfig) -> tuple:
-    """Return the cosine and sine of the sideslip angle (SC-14)."""
+    """Return the cosine and sine of the sideslip angle (SC-16)."""
     psi_w = np.deg2rad(float(getattr(cfg, "inflow_sideslip_deg", 0.0)))
     return float(np.cos(psi_w)), float(np.sin(psi_w))
 
@@ -3562,7 +3562,7 @@ def _pitt_peters_exp_step(nu, dtau, rotor, airfoil, cfg, mu_x, lambda_z, r_norm_
     Minv_diag = 1.0 / _PP_M3
     A = -(Minv_diag[:, None] * (np.diag(V) @ Linv))   # dnu/dtau = A@nu + b (frozen)
     b = Minv_diag * forcing
-    # Sideslip (SC-14): L acts in WIND axes, exactly as in
+    # Sideslip (SC-16): L acts in WIND axes, exactly as in
     # `_solve_pitt_peters_steady`. The marched path used to skip that
     # rotation, so a nonzero sideslip made the march settle on a
     # DIFFERENT state from the algebraic equilibrium of the same
@@ -3585,7 +3585,7 @@ def steady_pitt_peters_state(rotor: Rotor, airfoil, cfg: BEMTConfig,
                               mu_x: float, Vz: float) -> "np.ndarray":
     """Solves the algebraic equilibrium of the 3-state Pitt-Peters model
     at ONE condition and returns nu = (nu0, nu_s, nu_c). This is the
-    'equilibrium' initial state of a maneuver (SC-12): the march then
+    'equilibrium' initial state of a maneuver (SC-15): the march then
     starts without an inflow start-up transient."""
     _check_rotor_rotation(rotor)
     (r_norm_nodes, psi_nodes, R_NORM, PSI, R_DIM,
@@ -3603,7 +3603,7 @@ def run_maneuver(rotor_builder, airfoil, cfg: BEMTConfig, samples: list, *,
                   march_flapping: bool = False, on_sample_done=None,
                   should_cancel=None, verbose: bool = False):
     """Marches the 3-state Pitt-Peters inflow along a PRESCRIBED
-    trajectory (SC-12). ``samples`` is a list of resolved maneuver points
+    trajectory (SC-15). ``samples`` is a list of resolved maneuver points
     -- objects carrying ``t_s``, ``mu_x``, ``Vz``, ``cyclic_c_deg``,
     ``cyclic_s_deg`` and a CONCRETE ``rpm`` -- in strictly increasing
     time order; ``rotor_builder(point)`` returns the `Rotor` for that
@@ -3826,7 +3826,7 @@ def run_sweep_unsteady_pitt_peters(rotor: Rotor, airfoil, cfg: BEMTConfig,
     collective and twist, starting from the given (or zero) inflow state.
     New code should call `run_maneuver` directly, which also supports
     per-sample rpm/collective/cyclic and the coupled marched states
-    (SC-12).
+    (SC-15).
 
     The marched states are only the 3 scalars (nu0, nu_s, nu_c); the full
     Ne x Npsi field is reconstructed algebraically per sub-step, which is
@@ -4033,7 +4033,7 @@ def solve_bemt(rotor: Rotor, airfoil, cfg: BEMTConfig, mu_x: float, Vz: float,
     changes.
 
     ``motion`` (optional): the rigid-blade flap/lag state of Section 4h
-    (SC-11), forwarded verbatim into `element_state`. ``None`` keeps the
+    (SC-14), forwarded verbatim into `element_state`. ``None`` keeps the
     rigid disk; every caller that does not pass it sees no change."""
     r_eff_root = rotor.r_root_norm_geom + cfg.integration_offset
     r_eff_tip = rotor.r_tip_norm_geom - cfg.integration_offset
@@ -4693,7 +4693,7 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         mean_iter=float(np.mean(maps["n_iter"])), elapsed_s=maps["elapsed"],
     )
 
-    # --- blade dynamics outputs (Section 4h, SC-11) ----------------------
+    # --- blade dynamics outputs (Section 4h, SC-14) ----------------------
     # Present ONLY when the run actually solved a flapping/lagging blade;
     # a rigid run reports nothing new. Sign convention (stated wherever a
     # column of these appears): beta(psi) = beta_0 + beta_1c*cos(psi) +
@@ -4717,7 +4717,7 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         out["lock_number"] = maps["lock_number"]
         out["flap_inertia_kg_m2"] = maps["flap_inertia_kg_m2"]
         # The outer-loop record exists only where an outer loop ran. The
-        # maneuver path (SC-12) solves the flap response once per sample
+        # maneuver path (SC-15) solves the flap response once per sample
         # from that sample's field, so it has no outer residual to report
         # and must not claim one. Reading these keys unconditionally made
         # `run_maneuver(march_flapping=True)` raise KeyError.
@@ -4740,7 +4740,7 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         # (`tpp_tilt_long_deg = -beta_1c_deg`). Built from `+beta_1c`,
         # the hub moment came out nose-DOWN for a rotor flapping back,
         # reversing the speed stability that this term exists to
-        # represent (`tests/regression/test_flapping.py`, SC-11).
+        # represent (`tests/regression/test_flapping.py`, SC-14).
         mx_hub = -gain * first[0]
         my_hub = -gain * first[1]
         out["Mx_hub"] = float(mx_hub)

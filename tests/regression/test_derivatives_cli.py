@@ -1,7 +1,7 @@
 """`PA-1`/`PA-3`: the stability derivatives must be reachable from the CLI.
 
 Every study the window can run has to have a command-line path, and
-SC-14 was the one feature that had none: the chapter admitted it ran
+SC-16 was the one feature that had none: the chapter admitted it ran
 "through the library today". A study that only the GUI can start cannot
 be scripted, cannot be put in a batch file, and cannot be reproduced by
 anyone who was sent the project.

@@ -1196,16 +1196,16 @@ _REQUIREMENT_GROUPS = (
     (("BEMT-C5", "MODEL-G3", "PROP-FB"), ("SC-2", "EN-4", "QR-8")),
     (("BEMT-C10",), ("SC-1", "EN-6", "QR-8")),
     (("EXT-D4",), ("SC-1", "EN-11")),
-    (("FLAP-E2",), ("SC-11", "EN-8", "QR-8")),
-    (("FLAP-E10", "FLAP-E12"), ("SC-11", "RP-3", "QR-1")),
-    (("FLAP-G5B",), ("SC-11", "PR-6", "QR-1")),
-    (("FLAP-H3B",), ("SC-11", "QR-1")),
+    (("FLAP-E2",), ("SC-14", "EN-8", "QR-8")),
+    (("FLAP-E10", "FLAP-E12"), ("SC-14", "RP-3", "QR-1")),
+    (("FLAP-G5B",), ("SC-14", "PR-6", "QR-1")),
+    (("FLAP-H3B",), ("SC-14", "QR-1")),
     (("PROP-K8",), ("PR-6", "QR-1")),
     (("REPO-PITT-WARNING",), ("QR-5",)),
-    (("DERIV-NONDIM-RATES",), ("SC-14", "QR-8")),
-    (("LAG-CORIOLIS-LIMITATION",), ("SC-11",)),
+    (("DERIV-NONDIM-RATES",), ("SC-16", "QR-8")),
+    (("LAG-CORIOLIS-LIMITATION",), ("SC-14",)),
     (("PP-LINEAR-LIMITATION", "PP-PHASE-CONVENTION", "PP-B10"), ("SC-2",)),
-    (("DERIV-A5",), ("SC-14", "EN-11")),
+    (("DERIV-A5",), ("SC-16", "EN-11")),
     (("PROP-N1",), ("SC-1", "RP-3")),
 )
 
@@ -1216,15 +1216,15 @@ def _requirement_codes(claim_id: str, domain: str) -> tuple[str, ...]:
         if claim_id in claim_ids:
             return codes
     if domain == "dynamic_stall":
-        return ("SC-12", "QR-8")
+        return ("SC-15", "QR-8")
     if domain == "pitt_peters":
-        return ("SC-2", "SC-12", "QR-8")
+        return ("SC-2", "SC-15", "QR-8")
     if domain == "flapping":
-        return ("SC-11", "QR-8")
-    if domain == "lead_lag":
-        return ("SC-11", "QR-8")
-    if domain == "stability_derivatives":
         return ("SC-14", "QR-8")
+    if domain == "lead_lag":
+        return ("SC-14", "QR-8")
+    if domain == "stability_derivatives":
+        return ("SC-16", "QR-8")
     if domain == "reporting":
         return ("RP-3", "EN-9")
     if domain == "model_effects":

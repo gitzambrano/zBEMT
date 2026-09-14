@@ -207,14 +207,14 @@ class TestSourceLedger(unittest.TestCase):
         self.assertIn("30", claims["PP-B7"].cli_route)
         self.assertEqual(
             claims["DERIV-NONDIM-RATES"].requirement_codes,
-            ("SC-14", "QR-8"),
+            ("SC-16", "QR-8"),
         )
         self.assertEqual(
             claims["LAG-CORIOLIS-LIMITATION"].requirement_codes,
-            ("SC-11",),
+            ("SC-14",),
         )
         self.assertFalse(any(
-            "SC-5" in claim.requirement_codes for claim in CLAIMS
+            "SC-20" in claim.requirement_codes for claim in CLAIMS
         ))
 
     def test_every_claim_has_claim_specific_reproduction_guidance(self):

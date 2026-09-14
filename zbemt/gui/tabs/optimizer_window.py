@@ -6,7 +6,7 @@ engine: every evaluation regenerates the geometry and solves one flight
 condition through ``api.optimize_design_multi``. Page 1 edits the study;
 page 2 runs the search and shows the Pareto front. The search itself
 runs off the main thread through `OptimizeMultiWorker` (PR-11). The
-single-objective path stays on SC-8 (`optimize_design`, CLI/library);
+single-objective path stays on SC-12 (`optimize_design`, CLI/library);
 this window is the multi-objective one.
 """
 

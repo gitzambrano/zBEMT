@@ -1,5 +1,5 @@
 """Stability and control derivatives by central finite differences
-(SC-14, Item 4).
+(SC-16, Item 4).
 
 This module owns the PERTURBATION LOGIC and nothing else: it receives a
 project and a `DerivativeRequest`, builds one perturbed
@@ -66,7 +66,7 @@ class DerivativeOutcome:
         self.trim_state = {}      # controls + loads at the trim point
         self.n_solves = 0
         self.message = ""
-        # SC-11: a derivative is only usable when EVERY solve behind it
+        # SC-14: a derivative is only usable when EVERY solve behind it
         # reached its declared flap outer tolerance. A single unconverged
         # flap solve makes the whole finite difference unreliable, so the
         # study reports the count and clears the usable flag.
@@ -103,7 +103,7 @@ def _condition_at(project: Project, request: DerivativeRequest,
             / omega_r)
     elif variable == "v":
         # Lateral speed is a component of the condition, beside the
-        # longitudinal one (SC-14): the condition carries both, and
+        # longitudinal one (SC-16): the condition carries both, and
         # `models.resolve_inplane_flow` turns the pair into the magnitude
         # and direction the engine reads. Perturbing v therefore leaves
         # the longitudinal component alone, which is what makes this a
@@ -134,7 +134,7 @@ def _condition_at(project: Project, request: DerivativeRequest,
 
 
 # =============================================================================
-# Optional vehicle model (SC-14, phase 4.3): hub derivatives -> 6-DOF A/B.
+# Optional vehicle model (SC-16, phase 4.3): hub derivatives -> 6-DOF A/B.
 # LIMITS, stated where the plan demands them: ONE rotor, NO fuselage, NO
 # tail rotor, NO engine dynamics. Gravity enters through the attitude
 # rows only; the rotor's derivatives are the sole aerodynamic content.
@@ -452,7 +452,7 @@ def compute_derivatives(project: Project, request: DerivativeRequest, *,
         outcome.message += (
             f"; {outcome.unconverged_solves} solve(s) did not reach the "
             "declared flap outer tolerance, so this matrix is not usable "
-            "for stability or trim work (SC-11)")
+            "for stability or trim work (SC-14)")
     return outcome
 
 

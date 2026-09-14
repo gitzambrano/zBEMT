@@ -519,7 +519,7 @@ class TestBatchesSavedCasesRoundTrip(unittest.TestCase):
 
 
 class TestEndpointChordGuardOnlyGuardsWhatWasAsked(unittest.TestCase):
-    """`SC-7`. A table-space chord target rescales an endpoint, so an
+    """`SC-11`. A table-space chord target rescales an endpoint, so an
     endpoint that is already zero cannot be rescaled to anything and the
     engine says so instead of dividing by it.
 
@@ -952,7 +952,7 @@ class TestTableSpaceOverrides(unittest.TestCase):
 
 
 class TestOptimizeDesignPathsAgree(unittest.TestCase):
-    """SC-8 vs SC-13 on the same single-objective study: the
+    """SC-12 vs SC-13 on the same single-objective study: the
     derivative-free search and the evolutionary search must land within
     two percent of each other, and a binding constraint must hold."""
 
@@ -1105,7 +1105,7 @@ class TestCompareValidatesVariants(unittest.TestCase):
 
 
 class TestVariantDefPayload(unittest.TestCase):
-    """SC-7a: a variant may carry its own airfoil; such results are
+    """SC-11a: a variant may carry its own airfoil; such results are
     marked non_geometry_variant so the fairness caveat can be shown."""
 
     def test_variant_with_own_airfoil_is_flagged_and_runs(self):

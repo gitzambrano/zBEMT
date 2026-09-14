@@ -185,7 +185,7 @@ class RunCaseTab(QWidget):
         form.addRow("Axial flow:", self.axial)
 
         # --- lateral component: Vy [m/s], psi_w [deg], mu_y or J_y -------
-        # The third direction of the flight velocity (SC-14). It reads with
+        # The third direction of the flight velocity (SC-16). It reads with
         # the other two, so it sits beside them and not among the
         # perturbation inputs, where its angle spelling used to live alone.
         self.lateral = LateralInput(default_value=0.0)
@@ -206,7 +206,7 @@ class RunCaseTab(QWidget):
             'Rotational speed of the rotor or propeller in revolutions per minute.<br><br>'
             'It defines Ω and the velocity scale ΩR used by the dimensionless ratios.')
 
-        # --- cyclic pitch (SC-11): the 1/rev harmonics theta_1c/theta_1s ---
+        # --- cyclic pitch (SC-14): the 1/rev harmonics theta_1c/theta_1s ---
         # A rigid blade cannot use cyclic pitch to control a flap response.
         # Therefore, the Geometry tab's flap freedom controls whether these
         # rows exist on screen.
@@ -233,20 +233,20 @@ class RunCaseTab(QWidget):
         form.addRow("Cyclic θ₁c [deg]:", self._with_unit_indent(self.cyclic_c_spin))
         form.addRow("Cyclic θ₁s [deg]:", self._with_unit_indent(self.cyclic_s_spin))
 
-        # --- perturbation inputs (SC-14): the hub rates ------------------
+        # --- perturbation inputs (SC-16): the hub rates ------------------
         # The sideslip angle used to sit here as a lone spinbox. It is a
         # component of the flight velocity, not a hub rate, so it moved up
         # into the lateral-flow row beside the other two components.
         self.p_rate_spin = QDoubleSpinBox(); self.p_rate_spin.setRange(-360, 360)
         self.p_rate_spin.setValue(0.0); self.p_rate_spin.setSingleStep(1.0)
         self.p_rate_spin.setToolTip(
-            '"p_rate_deg_s" — p, the hub ROLL rate [deg/s] (SC-14). Carries '
+            '"p_rate_deg_s" — p, the hub ROLL rate [deg/s] (SC-16). Carries '
             'every blade element out of the disk plane and forces the flap '
             'response gyroscopically.')
         self.q_rate_spin = QDoubleSpinBox(); self.q_rate_spin.setRange(-360, 360)
         self.q_rate_spin.setValue(0.0); self.q_rate_spin.setSingleStep(1.0)
         self.q_rate_spin.setToolTip(
-            '"q_rate_deg_s" — q, the hub PITCH rate [deg/s] (SC-14). Its '
+            '"q_rate_deg_s" — q, the hub PITCH rate [deg/s] (SC-16). Its '
             'hub moment is the pitch damping.')
         for spin in (self.p_rate_spin, self.q_rate_spin):
             self._size_field(spin)

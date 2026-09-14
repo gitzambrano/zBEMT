@@ -1,4 +1,4 @@
-"""Implement the Stability Derivatives window (SC-14).
+"""Implement the Stability Derivatives window (SC-16).
 
 Three pages, per plan phase 4.4: the trim point, the perturbation set,
 and the run with its matrix, bar chart, sign checks and the optional
@@ -76,7 +76,7 @@ _OUTPUT_NAMES = ("Thrust", "H", "Y", "Mx_total", "My_total", "Torque")
 #: dM_y/dp. Pairing q with M_y reads the CROSS term, which on a rotor
 #: whose flap response lags by nearly ninety degrees is the larger
 #: number and carries no information about damping -- the panel reported
-#: a pass while the damping itself was positive (SC-14).
+#: a pass while the damping itself was positive (SC-16).
 _SIGN_CHECKS = (
     ("Heave damping", "Thrust", "w", -1.0),
     ("Pitch damping", "Mx_total", "q", -1.0),

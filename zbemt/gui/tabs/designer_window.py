@@ -634,7 +634,7 @@ class GeometryDesignerWindow(QWidget):
             "project.")
         self.btn_import_project.clicked.connect(self._import_from_project)
         button_row.addWidget(self.btn_import_project, 0, 1)
-        # SC-7a: persist the whole comparison and bring one back.
+        # SC-11a: persist the whole comparison and bring one back.
         self.btn_save_comparison = QPushButton("Save comparison…")
         self.btn_save_comparison.setToolTip(
             "Stores this comparison -- every variant row as overrides, the "
@@ -761,7 +761,7 @@ class GeometryDesignerWindow(QWidget):
     # --- import from project -------------------------------------------------
 
     def _save_comparison(self):
-        """SC-7a: persists the on-screen comparison into
+        """SC-11a: persists the on-screen comparison into
         ``project.comparisons`` (and therefore inputs/comparisons.bemt
         on the next save)."""
         from zbemt.models import ComparisonDefinition, ComparisonVariantRow

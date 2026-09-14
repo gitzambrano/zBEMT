@@ -1,4 +1,4 @@
-"""Verify the stability-derivative engine inputs (SC-14, Item 4).
+"""Verify the stability-derivative engine inputs (SC-16, Item 4).
 
 Phase 4.1 physics: the sideslip angle rotates the in-plane free stream
 without disturbing anything at its inert default of zero, and the hub
@@ -463,7 +463,7 @@ class TestVehicleMatrices(unittest.TestCase):
 
 
 class TestHoverDampingIsRotationInvariant(unittest.TestCase):
-    """`SC-14`. A rotor in hover is axisymmetric about its own shaft, so
+    """`SC-16`. A rotor in hover is axisymmetric about its own shaft, so
     the two-by-two matrix that maps a hub rate to a hub tilting moment
     cannot prefer a direction. Written in a consistent pair of
     orthogonal directions it must have the rotation-invariant form
@@ -606,7 +606,7 @@ class TestDampingSummary(unittest.TestCase):
 
 
 class TestFlapConvergenceGate(unittest.TestCase):
-    """SC-11: a derivative matrix must carry the flap convergence behind it.
+    """SC-14: a derivative matrix must carry the flap convergence behind it.
 
     A finite difference built on a flap solve that missed its declared outer
     tolerance is not a derivative. The study therefore counts those solves

@@ -1,4 +1,4 @@
-"""Implement the Transient Simulation window (SC-12).
+"""Implement the Transient Simulation window (SC-15).
 
 The window prescribes a trajectory of flight conditions in time, samples
 it onto a uniform grid and marches the unsteady Pitt-Peters inflow

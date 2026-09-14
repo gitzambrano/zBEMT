@@ -117,13 +117,13 @@ one degenerate state without touching any physical condition (`PP-MASS-FLOW`).
 sample: the result builder read the blade properties of an outer flap loop
 that the maneuver path never runs. The maneuver now publishes the blade state
 it solved with, and the outer-loop record appears only where an outer loop ran
-(`DS-H4`, SC-12).
+(`DS-H4`, SC-15).
 
 ### A derivative matrix did not carry its flap convergence
 
 A finite difference built on a flap solve that missed its declared outer
 tolerance is not a derivative. The study now counts those solves and clears
-its usable flag (`DERIV-A5`, SC-11).
+its usable flag (`DERIV-A5`, SC-14).
 
 ### The Pitt-Peters validity warning was neither English nor visible
 

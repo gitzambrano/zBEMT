@@ -181,7 +181,7 @@ class TestConditionNameWithSymbol(unittest.TestCase):
         self.assertEqual([c.sideslip_deg for c in conditions], [12.5, 12.5])
 
     def test_fixed_cyclic_reaches_every_generated_condition(self):
-        """`SC-11`: the cyclic pair travels like sideslip -- a fixed value,
+        """`SC-14`: the cyclic pair travels like sideslip -- a fixed value,
         never an axis, applied to every combination."""
         from tests.helpers import make_studies_project
         project = make_studies_project()

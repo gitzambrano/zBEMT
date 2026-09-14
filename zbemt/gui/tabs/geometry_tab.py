@@ -297,7 +297,7 @@ class GeometryTab(QWidget):
     ]
 
     def _build_dynamics_box(self) -> QGroupBox:
-        """The 'Blade dynamics' group (SC-11): rigid-body flap and
+        """The 'Blade dynamics' group (SC-14): rigid-body flap and
         lead-lag freedoms. Progressive disclosure via
         `set_row_visible` only (PR-2); every label carries a rendered
         symbol (PR-4)."""

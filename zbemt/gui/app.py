@@ -503,7 +503,7 @@ class MainWindow(QMainWindow):
         _spacing(self.geometry_designer)
         _align(self.geometry_designer)
 
-        # The Transient Simulation window (SC-12) lives outside the tab
+        # The Transient Simulation window (SC-15) lives outside the tab
         # flow like the Designer and joins the same help system.
         from .tabs.transient_window import TransientWindow
         self.transient_window = TransientWindow(self.state, parent=self)
@@ -529,7 +529,7 @@ class MainWindow(QMainWindow):
         _spacing(self.optimizer_window)
         _align(self.optimizer_window)
 
-        # The Stability Derivatives window (SC-14) is the fourth tool
+        # The Stability Derivatives window (SC-16) is the fourth tool
         # window outside the tab flow.
         from .tabs.stability_window import StabilityWindow
         self.stability_window = StabilityWindow(self.state, parent=self)
@@ -674,7 +674,7 @@ class MainWindow(QMainWindow):
     }
 
     def open_transient_simulation(self):
-        """Shows the non-modal Transient Simulation window (SC-12)."""
+        """Shows the non-modal Transient Simulation window (SC-15)."""
         self.transient_window.show()
         self.transient_window.raise_()
         self.transient_window.activateWindow()
@@ -686,7 +686,7 @@ class MainWindow(QMainWindow):
         self.optimizer_window.activateWindow()
 
     def open_stability_derivatives(self):
-        """Shows the non-modal Stability Derivatives window (SC-14)."""
+        """Shows the non-modal Stability Derivatives window (SC-16)."""
         self.stability_window.show()
         self.stability_window.raise_()
         self.stability_window.activateWindow()

@@ -1,4 +1,4 @@
-"""Transient time marching over a prescribed trajectory (SC-12).
+"""Transient time marching over a prescribed trajectory (SC-15).
 
 Every physics test turns an option ON and checks it against something
 external to the code: the algebraic equilibrium the march must reach, a
@@ -203,7 +203,7 @@ if __name__ == "__main__":   # pragma: no cover
 
 
 class TestMarchedFlapResponse(unittest.TestCase):
-    """SC-12: `march_flapping` must run and must report its blade state.
+    """SC-15: `march_flapping` must run and must report its blade state.
 
     The maneuver solved the flap response and published its coefficients, but
     not the blade properties behind them. `aggregate_results` read those

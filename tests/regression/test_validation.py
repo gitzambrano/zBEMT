@@ -113,14 +113,14 @@ class TestValidateConfig(unittest.TestCase):
         self.assertEqual(levels(issues), [])
 
     def test_dynamic_stall_with_pitt_peters_unsteady_is_error(self):
-        """Narrowed by SC-12: the rejection holds on the CASE path."""
+        """Narrowed by SC-15: the rejection holds on the CASE path."""
         cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))
         a = AirfoilDef(use_dynamic_stall=True, stall_model="clip")
         issues = validation.validate_config(cfg, a)
         self.assertIn("error", levels(issues))
 
     def test_unsteady_inflow_stays_rejected_on_the_case_path(self):
-        """SC-12 narrowed the old blanket ban: the unsteady inflow is
+        """SC-15 narrowed the old blanket ban: the unsteady inflow is
         still an error for an isolated case, with the maneuver as the
         named remedy."""
         cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))
@@ -141,7 +141,7 @@ class TestValidateConfig(unittest.TestCase):
         self.assertNotIn("error", levels(ok))
 
     def test_maneuver_path_allows_dynamic_stall_with_unsteady(self):
-        """SC-12: on the maneuver path the separation state can march
+        """SC-15: on the maneuver path the separation state can march
         alongside the inflow states, so the old incompatibility no
         longer fires there."""
         cfg = asdict(BEMTConfig(inflow_field_model="pitt_peters_unsteady"))

@@ -2446,7 +2446,7 @@ FIELD_HELP: dict[str, dict] = {
         "range": "100–3000 rpm (highly design dependent)",
         "options": None
     },
-    # --- blade dynamics (SC-11) ------------------------------------------
+    # --- blade dynamics (SC-14) ------------------------------------------
     "flap_model": {
         "title": "Flap Model",
         "definition": (

@@ -1,4 +1,4 @@
-"""Blade flapping and lead-lag (Item 1 of the work plan, SC-11).
+"""Blade flapping and lead-lag (Item 1 of the work plan, SC-14).
 
 Each test pins one behavior of the rigid-blade dynamics against a
 reference external to the implementation: a published closed form
@@ -187,7 +187,7 @@ class TestFlapRelievesRetreatingSide(unittest.TestCase):
         also appears -- zero on the rigid run by construction -- and the
         outer loop converges.
 
-        Scope note (SC-11): which HALF gains depends on the solved tilt,
+        Scope note (SC-14): which HALF gains depends on the solved tilt,
         so the test pins the physical invariant (the tilt redistributes
         section incidence between the halves, and the unloaded half is
         the one the rigid run overloaded) instead of an assumed
@@ -236,7 +236,7 @@ class TestFlapRelievesRetreatingSide(unittest.TestCase):
 
 class TestForwardFlapConvergence(unittest.TestCase):
     def test_reference_rotor_converges_at_moderate_advance_ratio(self):
-        """SC-11: a declared outer tolerance must be reached before use."""
+        """SC-14: a declared outer tolerance must be reached before use."""
         project = api.open_project(os.path.join(REPO, "projects", "starter_rotor"))
         dynamics = BladeDynamicsDef(
             flap_model="offset", hinge_offset_norm=0.05,
@@ -418,7 +418,7 @@ def _flapping_project(**dyn_overrides):
 
 
 class TestTheBladeRateReachesTheAerodynamics(unittest.TestCase):
-    """`SC-11`. A flapping blade sees its own incidence change in
+    """`SC-14`. A flapping blade sees its own incidence change in
     proportion to the flap RATE: the term (r - eR)*beta_dot of U_P is
     first-order physics, not a refinement.
 
@@ -497,7 +497,7 @@ class TestTheBladeRateReachesTheAerodynamics(unittest.TestCase):
 
 
 class TestFlapbackCarriesANoseUpHubMoment(unittest.TestCase):
-    """`SC-11`/`SC-14`. The classic result, and the origin of a
+    """`SC-14`/`SC-16`. The classic result, and the origin of a
     helicopter's speed stability: put an offset-hinge rotor into forward
     flight with no cyclic and it flaps BACK -- the tip path plane tilts
     aft -- and the moment that tilt carries through the hinge is
@@ -558,7 +558,7 @@ class TestFlapbackCarriesANoseUpHubMoment(unittest.TestCase):
 
 
 class TestSideslipRotatesTheConingTerm(unittest.TestCase):
-    """`SC-14`. The sideslip angle turns the in-plane free stream, and
+    """`SC-16`. The sideslip angle turns the in-plane free stream, and
     every term built from that stream has to turn with it. Two of the
     three already did -- the tangential speed uses sin(psi - psi_w), the
     spanwise speed uses cos(psi - psi_w) -- while the coning
@@ -645,7 +645,7 @@ class TestSideslipRotatesTheConingTerm(unittest.TestCase):
 
 
 class TestTheHubRateForcingMatchesItsClosedForm(unittest.TestCase):
-    """`EN-4`/`SC-14`. A hub rate reaches the blade twice, and the two
+    """`EN-4`/`SC-16`. A hub rate reaches the blade twice, and the two
     paths have to be right SEPARATELY.
 
     The first path is aerodynamic: a pitching hub carries the element

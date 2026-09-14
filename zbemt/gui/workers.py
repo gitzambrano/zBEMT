@@ -282,7 +282,7 @@ class FnWorker(QObject):
 
 
 class DerivativeWorker(QObject):
-    """Runs ``api.compute_derivatives`` outside the GUI thread (SC-14).
+    """Runs ``api.compute_derivatives`` outside the GUI thread (SC-16).
 
     Same pattern as ``OptimizeMultiWorker``. ``progress`` carries
     ``(solves done, solves total)``, emitted after every solve.
@@ -376,7 +376,7 @@ def launch_worker(worker: BatchRunnerWorker) -> QThread:
 
 
 class ManeuverWorker(QObject):
-    """Runs one prescribed transient (SC-12) off the main thread, on the
+    """Runs one prescribed transient (SC-15) off the main thread, on the
     same pattern as `BatchRunnerWorker` (PR-11).
 
     Signals:

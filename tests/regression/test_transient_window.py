@@ -1,4 +1,4 @@
-"""The Transient Simulation window (`SC-12`).
+"""The Transient Simulation window (`SC-15`).
 
 It shipped with no test file at all, which is how nine group boxes went
 without help for a whole release and how the point table kept its own

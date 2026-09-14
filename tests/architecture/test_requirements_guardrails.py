@@ -395,7 +395,7 @@ class TestDocumentationStatesTheTruth(unittest.TestCase):
 class TestGeneratorParamsRoundTripOnDisk(unittest.TestCase):
     """ESCAPE CLOSED: the analytic families were reachable in the GUI but
     nothing proved their parameters survive a save/open cycle -- the
-    exact promise of `generator_params` (SC-10)."""
+    exact promise of `generator_params` (SC-5)."""
 
     def test_parsec_params_survive_save_and_open(self):
         from dataclasses import replace as dc_replace
@@ -414,14 +414,14 @@ class TestGeneratorParamsRoundTripOnDisk(unittest.TestCase):
 
 
 class TestScopeCodesCoverTheDesignTools(unittest.TestCase):
-    """ESCAPE CLOSED: `SC-5` used to ban every unsteady model outright,
+    """ESCAPE CLOSED: `SC-20` used to ban every unsteady model outright,
     so Items 1 to 4 of the work plan could not land without breaking a
     requirement. The requirement was rewritten deliberately: the ban now
     covers free-wake, prescribed-wake, vortex-lattice and CFD inflow only,
-    and the new scope codes carry what was added (SC-11 rigid-blade flap
-    and lead-lag, SC-12 transient time marching over prescribed flight
+    and the new scope codes carry what was added (SC-14 rigid-blade flap
+    and lead-lag, SC-15 transient time marching over prescribed flight
     conditions, SC-13 multi-objective optimization with a Pareto front in
-    a dedicated window, SC-14 stability and control derivatives by finite
+    a dedicated window, SC-16 stability and control derivatives by finite
     differences about a trim point). EN-8 guards the resonant denominator
     of a harmonic-balance response; EN-9 requires a time-marched state to
     report whether its transient settled.
@@ -445,22 +445,22 @@ class TestScopeCodesCoverTheDesignTools(unittest.TestCase):
         return text[start:nxt if nxt > start else len(text)]
 
     def test_sc5_no_longer_bans_the_unsteady_inflow_models(self):
-        sc5 = self._sc_bullet("SC-5")
+        sc5 = self._sc_bullet("SC-20")
         self.assertNotIn("Pitt-Peters unsteady", sc5,
-                         "SC-5 must not ban the unsteady Pitt-Peters "
-                         "inflow model anymore: SC-12 scopes it.")
+                         "SC-20 must not ban the unsteady Pitt-Peters "
+                         "inflow model anymore: SC-15 scopes it.")
         for kept in ("Free-wake", "vortex-lattice"):
             self.assertIn(kept, sc5,
-                          f"the narrowed SC-5 must keep banning {kept}")
+                          f"the narrowed SC-20 must keep banning {kept}")
 
     def test_new_codes_exist_in_the_document(self):
         text = self._requirements_text()
-        for code in ("SC-11", "SC-12", "SC-13", "SC-14", "EN-8", "EN-9"):
+        for code in ("SC-14", "SC-15", "SC-13", "SC-16", "EN-8", "EN-9"):
             self.assertIn(f"**{code}**", text,
                           f"{code} is missing from the requirements document")
 
     def test_every_new_code_is_cited_outside_the_requirements(self):
-        codes = ("SC-11", "SC-12", "SC-13", "SC-14", "EN-8", "EN-9")
+        codes = ("SC-14", "SC-15", "SC-13", "SC-16", "EN-8", "EN-9")
         roots = [os.path.join(REPO, "zbemt"), os.path.join(REPO, "tests")]
         bodies = {}
         for root in roots:

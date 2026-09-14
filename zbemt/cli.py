@@ -254,8 +254,8 @@ def _build_parser() -> argparse.ArgumentParser:
              "case bisects one control and costs roughly ten times a direct "
              "solve. With the default none, every variant runs the same controls.")
 
-    # --- Transient maneuvers (SC-12) -------------------------------------
-    maneuver_group = p.add_argument_group("Transient maneuver (SC-12)")
+    # --- Transient maneuvers (SC-15) -------------------------------------
+    maneuver_group = p.add_argument_group("Transient maneuver (SC-15)")
     maneuver_group.add_argument(
         "--maneuver", nargs="?", const="", default=None, metavar="NAME",
         help="March one saved trajectory and exit (no batch is run). NAME "
@@ -278,8 +278,8 @@ def _build_parser() -> argparse.ArgumentParser:
     # NOTE: --rpm already exists below (ad hoc condition speed). --compare
     # reuses it when the project has no saved cases; see _run_compare.
 
-    # --- Stability derivatives (SC-14) -----------------------------------
-    derivative_group = p.add_argument_group("Stability derivatives (SC-14)")
+    # --- Stability derivatives (SC-16) -----------------------------------
+    derivative_group = p.add_argument_group("Stability derivatives (SC-16)")
     derivative_group.add_argument(
         "--derivatives", nargs="?", const="", default=None, metavar="NAME",
         help="Run a saved stability-derivative study. NAME selects an entry "
@@ -365,7 +365,7 @@ def _build_parser() -> argparse.ArgumentParser:
                                    "--alpha-disk-deg. Alternative to --v-axial. "
                                    "Rotor mode only; a propeller reads --alpha-disk-deg. "
                                    "(--disk-alpha-deg is kept as an alias of this flag.)")
-    # The THIRD component (SC-15). The disk plane holds two directions, and
+    # The THIRD component (SC-9). The disk plane holds two directions, and
     # the in-plane group above names only one of them. This group names the
     # other, so the free stream can arrive from the side. Named by slot for
     # the same reason as the in-plane one: the letter y is lateral in both
@@ -399,7 +399,7 @@ def _build_parser() -> argparse.ArgumentParser:
                         "sine 1/rev harmonics (theta_1c theta_1s), both in "
                         "degrees. It reaches the engine through the blade-motion "
                         "path, so it takes effect on a rigid blade only as an "
-                        "azimuthal pitch; with flap freedom (SC-11) it is one "
+                        "azimuthal pitch; with flap freedom (SC-14) it is one "
                         "of the cyclic controls.")
 
     # --- Geometry (RotorGeometryDef) -- Part 3.3, geometry group ---------
@@ -431,7 +431,7 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="Point-by-point table (custom preset): r/R:chord_norm:twist_deg, "
                          "separated by comma.")
 
-    # --- Blade dynamics (RotorGeometryDef.dynamics) -- SC-11 -------------
+    # --- Blade dynamics (RotorGeometryDef.dynamics) -- SC-14 -------------
     p.add_argument("--flap-model", choices=["rigid", "offset", "spring", "offset_spring"],
                    default=None,
                    help="Choose the blade's flap freedom "
@@ -710,7 +710,7 @@ def _apply_geometry_flags(project, args) -> None:
         if args.geom_n_blades is not None:
             g.n_blades = args.geom_n_blades
 
-    # --- blade dynamics (SC-11): the three fields a user changes most ----
+    # --- blade dynamics (SC-14): the three fields a user changes most ----
     d = project.geometry.dynamics
     if args.flap_model is not None:
         d.flap_model = args.flap_model
@@ -821,7 +821,7 @@ def _apply_set_flags(project, args) -> None:
 
     The key walks NESTED dataclasses: ``geom.dynamics.flap_model=offset``
     descends ``project.geometry.dynamics`` field by field. This keeps a
-    new nested block (SC-11 and friends) reachable from the CLI without a
+    new nested block (SC-14 and friends) reachable from the CLI without a
     dedicated flag per field (PA-1/PA-3). ``config`` stays a flat
     namespace: it is a dict of BEMTConfig entries."""
     if not args.set:
@@ -1323,7 +1323,7 @@ def _run_derivatives(project, args) -> int:
 
 
 def _run_maneuver(project, args) -> int:
-    """--maneuver: march one saved trajectory (SC-12) and write the time
+    """--maneuver: march one saved trajectory (SC-15) and write the time
     history plus the transient report. A bare --maneuver runs the first
     saved entry; --maneuver-file takes a definition from a .bemt file
     outside the project; --maneuver-dt/--maneuver-substeps override the
@@ -1606,7 +1606,7 @@ def main(argv=None, options=None) -> int:
                 print(error_message, file=sys.stderr)
                 return 2
 
-        # The lateral component (SC-15). The angle spelling travels as the
+        # The lateral component (SC-9). The angle spelling travels as the
         # angle, exactly as a saved case carries it; the three velocity
         # spellings become `Vy`. Only one of the two ever leaves here
         # non-zero, which is the rule `validation` enforces.

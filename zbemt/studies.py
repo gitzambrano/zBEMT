@@ -170,7 +170,7 @@ def run_single_case(project: Project, condition: FlightCondition,
     rpm = _require_rpm(condition.rpm, f"condition {condition.name!r}")
     rotor = _to_rotor(project.geometry, collective_deg=condition.collective_deg, rpm=rpm)
     # The in-plane free stream reaches the engine as ONE magnitude and ONE
-    # direction, and the condition holds it as TWO components (SC-14). The
+    # direction, and the condition holds it as TWO components (SC-16). The
     # lateral component and the sideslip angle are the same freedom in two
     # spellings; `resolve_inplane_flow` is the only place they combine.
     mu_inplane, sideslip_deg = models.resolve_inplane_flow(
@@ -189,7 +189,7 @@ def run_single_case(project: Project, condition: FlightCondition,
     airfoil_obj = airfoils.to_blade_airfoil(
         project.airfoil_sections or [project.airfoil], radial=radial)
 
-    # Blade dynamics routing (SC-11): a flapping/lagging blade, and also
+    # Blade dynamics routing (SC-14): a flapping/lagging blade, and also
     # a rigid blade that carries cyclic pitch (which varies with azimuth,
     # so it cannot live on the twist vector), takes the Section 4h path.
     # Everything else -- every project saved before this model existed --
@@ -231,7 +231,7 @@ def run_single_case(project: Project, condition: FlightCondition,
     summary.setdefault("cyclic_c_deg", condition.cyclic_c_deg)
     summary.setdefault("cyclic_s_deg", condition.cyclic_s_deg)
     # The lateral component, in the three spellings the lateral slot offers
-    # (SC-14). `sideslip_deg` is the RESOLVED direction, so the angle a case
+    # (SC-16). `sideslip_deg` is the RESOLVED direction, so the angle a case
     # reports always agrees with the velocity it reports beside it.
     summary["sideslip_deg"] = float(sideslip_deg)
     summary["Vy"] = float(Vy)
@@ -500,7 +500,7 @@ def run_case_trimmed(project: Project, condition: FlightCondition, *,
 
 
 # =============================================================================
-# Transient maneuvers (SC-12): a prescribed trajectory in time, sampled
+# Transient maneuvers (SC-15): a prescribed trajectory in time, sampled
 # onto a uniform grid and marched by the unsteady Pitt-Peters engine.
 # Sampling and orchestration live here (AR-2); the march itself is
 # bemt.run_maneuver.
@@ -559,7 +559,7 @@ def _maneuver_samples(definition) -> list:
 
 def run_maneuver(project: Project, definition, *,
                  on_sample_done=None, should_cancel=None):
-    """Runs one prescribed transient (SC-12) over the project's geometry
+    """Runs one prescribed transient (SC-15) over the project's geometry
     and airfoil.
 
     The config is FORCED to ``inflow_field_model='pitt_peters_unsteady'``
@@ -761,7 +761,7 @@ def run_collective_sweep(project: Project, collective_deg_values: Sequence[float
 # translation to propeller letters is the interface's job.
 _INPLANE_VARIABLES = ("mu_x", "J_x", "Vx", "alpha_disk")
 _AXIAL_VARIABLES = ("alpha_deg", "Vz", "mu_z", "J_z")
-#: The lateral component of the in-plane stream (SC-14), in its four
+#: The lateral component of the in-plane stream (SC-16), in its four
 #: spellings. `sideslip_deg` is the angle one: it splits the longitudinal
 #: component, so it derives the lateral velocity instead of setting it.
 _LATERAL_VARIABLES = ("Vy", "mu_y", "J_y", "sideslip_deg")
@@ -952,7 +952,7 @@ def build_factorial_conditions(project: Project, axes: list[dict],
         if _k in lateral_fixed:
             base_lateral_kind, base_lateral_value = _k, float(lateral_fixed[_k])
             break
-    # Cyclic pitch (SC-11) travels the same way: a fixed value, never an
+    # Cyclic pitch (SC-14) travels the same way: a fixed value, never an
     # axis, applied to every combination.
     base_cyclic_c = float(fixed.get("cyclic_c_deg", 0.0))
     base_cyclic_s = float(fixed.get("cyclic_s_deg", 0.0))
@@ -1020,7 +1020,7 @@ def build_factorial_conditions(project: Project, axes: list[dict],
                 mu_x = base_mu
             Vz = _axial(mu_x * omega_R)
 
-        # The lateral component (SC-14). Its three velocity spellings set
+        # The lateral component (SC-16). Its three velocity spellings set
         # `Vy` directly; the angle spelling travels as the angle, and
         # `models.resolve_inplane_flow` splits the longitudinal component
         # with it at solve time. Only ONE of the two ever leaves here
@@ -1414,7 +1414,7 @@ def compare_geometries(project: Project,
 
     def _parts(value):
         """A variant is a RotorGeometryDef or a VariantDef wrapping it
-        with its own airfoil/dynamics (SC-7a)."""
+        with its own airfoil/dynamics (SC-11a)."""
         if isinstance(value, VariantDef):
             geom = value.geometry
             if value.dynamics is not None:
@@ -1479,7 +1479,7 @@ def compare_geometries(project: Project,
         res.summary["geometry_label"] = label
         res.condition_name = condition.name
         if variant_airfoils.get(label) is not None:
-            # SC-7a fairness: this run is no longer geometry alone.
+            # SC-11a fairness: this run is no longer geometry alone.
             res.summary["non_geometry_variant"] = True
 
     # Reference pass: the first label defines, per condition, the
@@ -1592,7 +1592,7 @@ def _evaluate_variant(project: Project, condition: FlightCondition,
                        params: dict, should_cancel=None):
     """ONE design evaluation shared by every optimizer path: regenerates
     the geometry through ``variant_geometry``, solves one flight
-    condition, returns the ``Results`` or None on failure (SC-8/SC-13
+    condition, returns the ``Results`` or None on failure (SC-12/SC-13
     route through THIS function so the two cannot drift)."""
     try:
         variant = variant_geometry(project.geometry, params)

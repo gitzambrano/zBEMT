@@ -145,18 +145,18 @@ def open_project(path: str) -> Project:
     optimizations = (load_bemt_list(OptimizationDefinition,
                                     paths["optimizations"])
                      if paths["optimizations"].exists() else [])
-    # Transients (SC-12): their ManeuverPoints carry mu_x/Vz, so the same
+    # Transients (SC-15): their ManeuverPoints carry mu_x/Vz, so the same
     # mode rotation applies as for batches and saved cases.
     maneuvers = (load_bemt_list(ManeuverDefinition, paths["maneuvers"],
                                   is_propeller)
                  if paths["maneuvers"].exists() else [])
-    # Stability derivatives (SC-14): their embedded condition carries axis
+    # Stability derivatives (SC-16): their embedded condition carries axis
     # letters, same rotation.
     from .models import DerivativeRequest
     derivatives = (load_bemt_list(DerivativeRequest, paths["derivatives"],
                                    is_propeller)
                     if paths["derivatives"].exists() else [])
-    # Persisted comparisons (SC-7a): override rows carry no axis
+    # Persisted comparisons (SC-11a): override rows carry no axis
     # quantities; the embedded conditions do, so the rotation applies.
     from .models import ComparisonDefinition
     comparisons = (load_bemt_list(ComparisonDefinition,
@@ -290,11 +290,11 @@ def save_project(project: Project) -> None:
     # carries axis letters, so the same mode rotation applies).
     save_bemt_list(project.optimizations, paths["optimizations"],
                    is_propeller)
-    # Transients (SC-12): ManeuverPoints carry mu_x/Vz, same rotation.
+    # Transients (SC-15): ManeuverPoints carry mu_x/Vz, same rotation.
     save_bemt_list(project.maneuvers, paths["maneuvers"], is_propeller)
-    # Stability derivatives (SC-14): embedded condition, same rotation.
+    # Stability derivatives (SC-16): embedded condition, same rotation.
     save_bemt_list(project.derivatives, paths["derivatives"], is_propeller)
-    # Persisted comparisons (SC-7a).
+    # Persisted comparisons (SC-11a).
     save_bemt_list(project.comparisons, paths["comparisons"], is_propeller)
     # Migration cleanup: only after the (possibly migrated, see
     # `load_project`) batches are safely persisted into `batches.bemt` is
@@ -385,7 +385,7 @@ def run_case(project: Project, condition: FlightCondition,
 def run_maneuver(project: Project, definition, *,
                  on_sample_done=None,
                  should_cancel: Optional[Callable[[], bool]] = None):
-    """Runs one prescribed transient (SC-12) through
+    """Runs one prescribed transient (SC-15) through
     ``studies.run_maneuver``. Returns ``(pd.DataFrame, list[maps])``:
     one row per sample with the time, the loads, the three inflow states
     and the marched interval/sub-step count (EN-9)."""
@@ -433,7 +433,7 @@ def run_case_trimmed(project: Project, condition: FlightCondition, *,
     (collective or RPM) and solving the other by bisection until it hits
     a thrust/CT target, see ``studies.run_case_trimmed`` for the full
     semantics of ``trim_mode``/``target_kind``/``target_value`` (which
-    also covers the cyclic trim modes of SC-11, where both targets stay
+    also covers the cyclic trim modes of SC-14, where both targets stay
     unset or thrust-only)."""
     return studies.run_case_trimmed(
         project, condition, trim_mode=trim_mode, target_kind=target_kind,
@@ -547,7 +547,7 @@ def validate_optimization(project: Project,
     return validation.validate_optimization(definition, project)
 
 
-# --- Stability derivatives (SC-14) ------------------------------------------
+# --- Stability derivatives (SC-16) ------------------------------------------
 
 def compute_derivatives(project: Project, request, *, run_case=None,
                         on_progress=None,
@@ -1753,7 +1753,7 @@ _MAIN_COLUMNS = (
     "mu_z", "J_z", "Vz", "lambda_z",
     "alpha_rotor_deg", "alpha_disk_deg",
     "collective_deg", "cyclic_c_deg", "cyclic_s_deg", "rpm",
-    # SC-14 perturbation inputs: they close the condition block.
+    # SC-16 perturbation inputs: they close the condition block.
     "sideslip_deg", "Vy", "mu_y", "J_y", "p_rate_deg_s", "q_rate_deg_s",
     # --- 2. RESOLVED axial flow (the manual's triad, Section 2.6.2) --
     "lambda_i", "lambda_total", "Vi", "Vz_total",
@@ -2758,7 +2758,7 @@ def generate_report(results, path: str, *, project: Optional[Project] = None,
     if not results_list:
         raise ValueError("generate_report: no results to report.")
 
-    # Transient branch (SC-12 / RP-1): when every summary carries the
+    # Transient branch (SC-15 / RP-1): when every summary carries the
     # march time, the report IS a time history -- samples sort by time,
     # each one names itself as t=...s, and a maneuver-overview figure
     # opens the document ahead of everything else.
@@ -2868,7 +2868,7 @@ def generate_report(results, path: str, *, project: Optional[Project] = None,
                 sections.append(("Additional plots",
                                  [_embedded_figure(a) for a in sorted(extras)]))
 
-    # Transient report (SC-12): the maneuver overview OPENS the document,
+    # Transient report (SC-15): the maneuver overview OPENS the document,
     # ahead of every per-condition section.
     if is_transient and maneuver_figure is not None:
         sections.insert(0, ("Maneuver time history",

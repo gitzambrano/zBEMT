@@ -1,4 +1,4 @@
-"""The lateral component of the in-plane free stream (SC-15).
+"""The lateral component of the in-plane free stream (SC-9).
 
 The disk plane carries two directions. `FlightCondition.mu_x` gives the
 longitudinal one and `FlightCondition.Vy` the lateral one, and the engine

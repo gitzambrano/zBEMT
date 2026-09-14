@@ -47,7 +47,7 @@ class TestSaveLoadRoundtrip(unittest.TestCase):
         self.assertEqual(loaded, geom)
 
     def test_blade_dynamics_roundtrip(self):
-        """SC-11: the blade-dynamics block survives save/load as a nested
+        """SC-14: the blade-dynamics block survives save/load as a nested
         dataclass inside the geometry (PA-2)."""
         geom = RotorGeometryDef(
             r_norm=[0.2, 0.6, 1.0], chord_norm=[0.1, 0.07, 0.04],
@@ -70,7 +70,7 @@ class TestSaveLoadRoundtrip(unittest.TestCase):
         self.assertEqual(loaded.dynamics, geom.dynamics)
 
     def test_old_geometry_file_without_dynamics_loads_rigid(self):
-        """A geom.bemt saved before SC-11 has no ``dynamics`` key: it must
+        """A geom.bemt saved before SC-14 has no ``dynamics`` key: it must
         load with the default block, which is exactly a rigid blade -- the
         behavior of every project that predates flapping."""
         legacy = {
@@ -498,7 +498,7 @@ class TestOptimizationMigration(unittest.TestCase):
 
 
 class TestComparisonPersistence(unittest.TestCase):
-    """SC-7a: a comparison -- variant override rows, conditions, trim --
+    """SC-11a: a comparison -- variant override rows, conditions, trim --
     round-trips through inputs/comparisons.bemt."""
 
     def test_comparison_round_trips_through_a_bemt_file(self):

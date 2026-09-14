@@ -2110,11 +2110,11 @@
       ],
       "p_rate_deg_s": [
         "p",
-        "Hub roll rate [deg/s] (SC-14): carries every blade element out of the disk plane and forces the flap response gyroscopically"
+        "Hub roll rate [deg/s] (SC-16): carries every blade element out of the disk plane and forces the flap response gyroscopically"
       ],
       "q_rate_deg_s": [
         "q",
-        "Hub pitch rate [deg/s] (SC-14): same path as the roll rate, about the &psi;=0 axis; its hub moment is the pitch damping"
+        "Hub pitch rate [deg/s] (SC-16): same path as the roll rate, about the &psi;=0 axis; its hub moment is the pitch damping"
       ],
       "rotor_D": [
         "D",
@@ -2146,7 +2146,7 @@
       ],
       "sideslip_deg": [
         "&psi;<sub>w</sub>",
-        "Sideslip angle [deg] of the in-plane free stream (SC-14): &psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>z</sub>), the direction the stream arrives from within the disk plane. It is the ANGLE SPELLING of V<sub>y</sub>, which splits the known in-plane component into a lateral one. Zero reproduces the plain cross-flow case"
+        "Sideslip angle [deg] of the in-plane free stream (SC-16): &psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>z</sub>), the direction the stream arrives from within the disk plane. It is the ANGLE SPELLING of V<sub>y</sub>, which splits the known in-plane component into a lateral one. Zero reproduces the plain cross-flow case"
       ],
       "solver": [
         "solver",
@@ -2656,11 +2656,11 @@
       ],
       "p_rate_deg_s": [
         "p",
-        "Hub roll rate [deg/s] (SC-14): carries every blade element out of the disk plane and forces the flap response gyroscopically"
+        "Hub roll rate [deg/s] (SC-16): carries every blade element out of the disk plane and forces the flap response gyroscopically"
       ],
       "q_rate_deg_s": [
         "q",
-        "Hub pitch rate [deg/s] (SC-14): same path as the roll rate, about the &psi;=0 axis; its hub moment is the pitch damping"
+        "Hub pitch rate [deg/s] (SC-16): same path as the roll rate, about the &psi;=0 axis; its hub moment is the pitch damping"
       ],
       "rotor_D": [
         "D",
@@ -2692,7 +2692,7 @@
       ],
       "sideslip_deg": [
         "&psi;<sub>w</sub>",
-        "Sideslip angle [deg] of the in-plane free stream (SC-14): &psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>), the direction the stream arrives from within the disk plane. It is the ANGLE SPELLING of V<sub>y</sub>: it splits the known longitudinal component into a lateral one, exactly as &alpha;<sub>rotor</sub> splits it into the axial one. The engine carries it as U<sub>T</sub> = &Omega;r + V&middot;sin(&psi;&minus;&psi;<sub>w</sub>). Zero reproduces the plain edgewise case"
+        "Sideslip angle [deg] of the in-plane free stream (SC-16): &psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>), the direction the stream arrives from within the disk plane. It is the ANGLE SPELLING of V<sub>y</sub>: it splits the known longitudinal component into a lateral one, exactly as &alpha;<sub>rotor</sub> splits it into the axial one. The engine carries it as U<sub>T</sub> = &Omega;r + V&middot;sin(&psi;&minus;&psi;<sub>w</sub>). Zero reproduces the plain edgewise case"
       ],
       "solver": [
         "solver",

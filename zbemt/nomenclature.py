@@ -321,7 +321,7 @@ _QUANTITIES: tuple = (
            "plus the induced part. Its dimensional counterpart is "
            "V<sub>x,total</sub> = &lambda;<sub>total</sub>&middot;(&Omega;R)")),
 
-    # --- blade dynamics (SC-11): flap and lead-lag response -----------------
+    # --- blade dynamics (SC-14): flap and lead-lag response -----------------
     # Sign convention for the whole family: beta(psi) = beta_0 +
     # beta_1c*cos(psi) + beta_1s*sin(psi), positive up, and each
     # tip-path-plane tilt is the NEGATIVE of its first harmonic.
@@ -446,7 +446,7 @@ _QUANTITIES: tuple = (
            "cosine harmonic it forms the pair the trim solves")),
     _q("sideslip_deg", "lateral", r"\psi_w", unit="deg", name_unit="°",
        rotor_description=(
-           "Sideslip angle [deg] of the in-plane free stream (SC-14): "
+           "Sideslip angle [deg] of the in-plane free stream (SC-16): "
            "&psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>x</sub>), the "
            "direction the stream arrives from within the disk plane. It is "
            "the ANGLE SPELLING of V<sub>y</sub>: it splits the known "
@@ -456,7 +456,7 @@ _QUANTITIES: tuple = (
            "V&middot;sin(&psi;&minus;&psi;<sub>w</sub>). Zero reproduces the "
            "plain edgewise case"),
        propeller_description=(
-           "Sideslip angle [deg] of the in-plane free stream (SC-14): "
+           "Sideslip angle [deg] of the in-plane free stream (SC-16): "
            "&psi;<sub>w</sub> = atan2(V<sub>y</sub>, V<sub>z</sub>), the "
            "direction the stream arrives from within the disk plane. It is "
            "the ANGLE SPELLING of V<sub>y</sub>, which splits the known "
@@ -464,11 +464,11 @@ _QUANTITIES: tuple = (
            "cross-flow case")),
     _q("p_rate_deg_s", "invariant", r"p", unit="deg/s",
        rotor_description=(
-           "Hub roll rate [deg/s] (SC-14): carries every blade element out "
+           "Hub roll rate [deg/s] (SC-16): carries every blade element out "
            "of the disk plane and forces the flap response gyroscopically")),
     _q("q_rate_deg_s", "invariant", r"q", unit="deg/s",
        rotor_description=(
-           "Hub pitch rate [deg/s] (SC-14): same path as the roll rate, "
+           "Hub pitch rate [deg/s] (SC-16): same path as the roll rate, "
            "about the &psi;=0 axis; its hub moment is the pitch damping")),
     _q("rpm", "invariant", r"RPM", unit="rev/min",
        rotor_description=(

@@ -568,13 +568,13 @@ def uses_full_range_extension(a: "AirfoilDef") -> bool:
 
 @dataclass
 class BladeDynamicsDef:
-    """Rigid-blade flap and lead-lag freedoms. See SC-11.
+    """Rigid-blade flap and lead-lag freedoms. See SC-14.
 
     The blade stays rigid; what this block adds is its rigid-body motion
     about a flap hinge (and optionally a lag hinge) at ``hinge_offset_norm``
     (= e, a fraction of R), with optional root springs. The response is
     periodic in azimuth and quasi-steady: there is no transient here
-    (SC-12 owns transients). The physics conversions (resolved inertia,
+    (SC-15 owns transients). The physics conversions (resolved inertia,
     frequency ratios) live in ``geometry.py``; the solver lives in
     ``bemt.solve_bemt_flapping``. This class holds only editable data
     (AR-3).
@@ -629,7 +629,7 @@ class RotorGeometryDef:
     radius_m: float = 1.0
     root_cutout_norm: float = 0.15
 
-    #: Rigid-blade flap and lead-lag freedoms (SC-11). The default is a
+    #: Rigid-blade flap and lead-lag freedoms (SC-14). The default is a
     #: blade with no flap freedom, which is the behavior of every project
     #: saved before this field existed: an old ``geom.bemt`` without a
     #: ``dynamics`` key loads with exactly this default.
@@ -668,7 +668,7 @@ class FlightCondition:
     #: before these fields existed keeps its exact behavior.
     cyclic_c_deg: float = 0.0   # theta_1c, the cosine cyclic
     cyclic_s_deg: float = 0.0   # theta_1s, the sine cyclic
-    #: Perturbation inputs of the stability derivatives (SC-14): the
+    #: Perturbation inputs of the stability derivatives (SC-16): the
     #: sideslip angle rotates the in-plane free stream, and the hub
     #: angular rates roll/pitch the hub. They belong to the CONDITION,
     #: not to the configuration -- they describe the state the rotor flies,
@@ -756,7 +756,7 @@ class BatchDefinition:
 
 @dataclass
 class ManeuverPoint:
-    """One node of a prescribed trajectory (SC-12).
+    """One node of a prescribed trajectory (SC-15).
 
     The engine keys apply, so ``mu_x`` is the IN-PLANE component and
     ``Vz`` the axial one in disk axes -- exactly what a `FlightCondition`
@@ -773,7 +773,7 @@ class ManeuverPoint:
 
 @dataclass
 class ManeuverDefinition:
-    """A prescribed transient (SC-12): a sequence of flight conditions in
+    """A prescribed transient (SC-15): a sequence of flight conditions in
     time. It is not a batch -- each sample inherits the inflow state of
     the sample before it."""
     name: str = "maneuver 1"
@@ -838,7 +838,7 @@ class OptimizationDefinition:
     ``run_single_case`` on a regenerated variant geometry.
 
     ``algorithm`` selects the family: Powell / Nelder-Mead (single
-    objective, derivative-free, SC-8), differential evolution (global,
+    objective, derivative-free, SC-12), differential evolution (global,
     single objective) or NSGA-II (multi-objective Pareto front,
     SC-13)."""
     name: str = "optimization 1"
@@ -882,7 +882,7 @@ def migrate_optimization_raw(raw: dict) -> dict:
 
 @dataclass
 class DerivativeRequest:
-    """One stability-derivative study (SC-14): which states and controls
+    """One stability-derivative study (SC-16): which states and controls
     to perturb, about which trim point, and with which finite-difference
     steps. Persisted as ``inputs/derivatives.bemt``."""
     name: str = "derivatives 1"
@@ -922,7 +922,7 @@ class DerivativeRequest:
 @dataclass
 class VariantDef:
     """A comparison variant that may carry more than the planform
-    (SC-7a): besides the geometry it may bring its own single airfoil
+    (SC-11a): besides the geometry it may bring its own single airfoil
     and blade-dynamics block. When either extra is present the run is
     NOT geometry alone, and the comparison must say so beside its
     ranking."""
@@ -933,7 +933,7 @@ class VariantDef:
 
 @dataclass
 class ComparisonVariantRow:
-    """One saved variant row of a comparison (SC-7a): its label and the
+    """One saved variant row of a comparison (SC-11a): its label and the
     override cells as ``param -> value``."""
     label: str = "variant"
     overrides: dict = field(default_factory=dict)
@@ -941,7 +941,7 @@ class ComparisonVariantRow:
 
 @dataclass
 class ComparisonDefinition:
-    """A persisted geometry comparison (SC-7a,
+    """A persisted geometry comparison (SC-11a,
     ``inputs/comparisons.bemt``): the variant rows as override maps, the
     conditions they run, and the trim mode of the run. Saving makes a
     comparison re-runnable and reviewable instead of strictly session
@@ -1027,13 +1027,13 @@ class Project:
     # Design tools: named optimization studies persisted as
     # inputs/optimizations.bemt (same lifecycle as `batches`).
     optimizations: list[OptimizationDefinition] = field(default_factory=list)
-    # Transients (SC-12): named maneuvers persisted as
+    # Transients (SC-15): named maneuvers persisted as
     # inputs/maneuvers.bemt.
     maneuvers: list[ManeuverDefinition] = field(default_factory=list)
-    # Stability derivatives (SC-14): named perturbation studies persisted
+    # Stability derivatives (SC-16): named perturbation studies persisted
     # as inputs/derivatives.bemt.
     derivatives: list["DerivativeRequest"] = field(default_factory=list)
-    # Persisted geometry comparisons (SC-7a):
+    # Persisted geometry comparisons (SC-11a):
     # inputs/comparisons.bemt.
     comparisons: list["ComparisonDefinition"] = field(default_factory=list)
 

@@ -1,4 +1,4 @@
-"""Verify the Stability Derivatives window (SC-14).
+"""Verify the Stability Derivatives window (SC-16).
 
 Headless, the same way the optimizer-window tests drive theirs: real
 AppState with an in-memory project, gating per PR-2 (visible but

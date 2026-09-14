@@ -313,7 +313,7 @@ class TestConditionControlsFollowBladeFreedom(unittest.TestCase):
         return tab
 
     def test_batch_gates_the_cyclic_pair_like_run_case(self):
-        """`SC-11`: the batch offers the same cyclic pair Run Case does, and
+        """`SC-14`: the batch offers the same cyclic pair Run Case does, and
         hides it for a rigid blade, which has no flap response for the
         cyclic pitch to control (`PR-2`)."""
         rigid = self._batch_tab("rigid")
@@ -1002,8 +1002,8 @@ class TestRunCaseAlignedWithTheSummary(unittest.TestCase):
         """x first (the PRIMARY one in both modes), then z, then the
         angles. And each quantity ONCE: `mu_x`/`J_x` used to appear
         twice while the engine had two keys for the same number. The
-        cyclic harmonics sit beside the collective since SC-11 gave the
-        condition its own 1/rev pitch controls; the SC-14 lateral flow
+        cyclic harmonics sit beside the collective since SC-14 gave the
+        condition its own 1/rev pitch controls; the SC-16 lateral flow
         (its angle and its three velocity spellings) and the hub rates
         close the block."""
         from zbemt.gui.tabs.run_case import RunCaseTab
@@ -1055,7 +1055,7 @@ class TestRunCaseSavedCaseButtons(unittest.TestCase):
 
 @unittest.skipUnless(_HAS_QT, "PyQt6 not installed")
 class TestPerturbationFields(unittest.TestCase):
-    """SC-14 on the Run Case tab: sideslip and hub rates are settable
+    """SC-16 on the Run Case tab: sideslip and hub rates are settable
     fields of a saved case, not .bemt-only keys."""
 
     @classmethod

@@ -90,7 +90,7 @@ class TestConfigFlags(unittest.TestCase):
 
 class TestNestedSetWalksDataclasses(unittest.TestCase):
     """PA-1/PA-3: --set must reach fields of NESTED dataclasses (the
-    blade-dynamics block of SC-11), not only top-level ones."""
+    blade-dynamics block of SC-14), not only top-level ones."""
 
     def test_set_descends_into_geometry_dynamics(self):
         with tempfile.TemporaryDirectory() as d:

@@ -763,7 +763,7 @@ class AirfoilTab(QWidget):
         """Dynamic stall (Oye) block: the lag model plus the choice of how
         its periodic separation response is solved.
 
-        Two methods exist (SC-12 scopes time marching):
+        Two methods exist (SC-15 scopes time marching):
 
         - ``frequency`` -- solves the periodic response algebraically via
           a Fourier transfer function; the default, and cheap.
@@ -812,7 +812,7 @@ class AirfoilTab(QWidget):
         form.addRow(self.dyn_fade_start_label, self.dyn_fade_start)
         form.addRow(self.dyn_fade_end_label, self.dyn_fade_end)
 
-        # Time-march fields (SC-12) appear only for the time-march method.
+        # Time-march fields (SC-15) appear only for the time-march method.
         self.dyn_revs = QSpinBox(); self.dyn_revs.setRange(1, 100); self.dyn_revs.setValue(8)
         self.dyn_revs.setToolTip(
             '"airfoil.dynamic_stall_time_march_revolutions" — revolutions '

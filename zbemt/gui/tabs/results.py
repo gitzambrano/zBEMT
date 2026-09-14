@@ -1978,7 +1978,7 @@ class ResultsTab(QWidget):
         self.canvas_host.show_figure(
             ("sweep", self._selection_signature(), per_radius, tuple(targets)), factory)
 
-    # --- 5b) Blade dynamics (SC-11) ------------------------------------
+    # --- 5b) Blade dynamics (SC-14) ------------------------------------
 
     #: Fields the effect-of-flapping comparison can draw.
     _FLAP_EFFECT_FIELDS = ["alpha_eff", "Cl", "Cd", "Fn", "Ft"]

@@ -64,10 +64,10 @@ DESIGNER_SHOT = "designer.png"
 #: reason: a dedicated window outside the tab flow.
 OPTIMIZER_SHOT = "optimizer.png"
 
-#: The Stability Derivatives window (Tools button, SC-14).
+#: The Stability Derivatives window (Tools button, SC-16).
 STABILITY_SHOT = "stability.png"
 
-#: The Transient Simulation window (Tools button, SC-12).
+#: The Transient Simulation window (Tools button, SC-15).
 TRANSIENT_SHOT = "transient.png"
 
 

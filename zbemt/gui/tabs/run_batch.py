@@ -359,7 +359,7 @@ class RunBatchTab(QWidget):
             '"rpm"<br><br>Rotational speed for every generated case, in revolutions per minute.')
         self.fixed_rpm.setRange(1, 20000); self.fixed_rpm.setValue(600)
         self.fixed_rpm.setSingleStep(10)
-        # The lateral component (SC-14). It is a full slot like the other
+        # The lateral component (SC-16). It is a full slot like the other
         # two: an axis when the batch sweeps it, a fixed value otherwise.
         self.fixed_lateral = LateralInput(default_value=0.0)
         self.fixed_lateral.set_context_provider(self._fixed_lateral_context)
@@ -367,7 +367,7 @@ class RunBatchTab(QWidget):
             '"Vy"<br><br>Fixed lateral velocity component for every generated '
             'case.<br><br>Choose V<sub>y</sub>, &psi;<sub>w</sub>, '
             '&mu;<sub>y</sub> or J<sub>y</sub> from the unit selector.')
-        # Cyclic pitch (SC-11), the same pair Run Case offers. A rigid
+        # Cyclic pitch (SC-14), the same pair Run Case offers. A rigid
         # blade has no flap response for the cyclic to control, so both
         # rows hide unless the geometry gives the blade flap freedom.
         self.fixed_cyclic_c = QDoubleSpinBox()
@@ -1708,7 +1708,7 @@ class RunBatchTab(QWidget):
         self._refresh_queue_columns()
 
     def _refresh_cyclic_availability(self):
-        """Show the cyclic rows only when the blade can flap (`SC-11`).
+        """Show the cyclic rows only when the blade can flap (`SC-14`).
 
         A rigid blade has no flap response for the cyclic pitch to
         control, so the pair would be a control that cannot affect the

@@ -1,4 +1,4 @@
-"""The vehicle model is a SETTING, not a session (`PA-3`, `SC-14`).
+"""The vehicle model is a SETTING, not a session (`PA-3`, `SC-16`).
 
 The Stability window's rigid-body block asks for a mass, three moments
 of inertia, where the hub sits relative to the centre of gravity, and
