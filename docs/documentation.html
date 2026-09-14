@@ -1722,7 +1722,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       direction, and the induced velocity is defined by a direction to begin with.</p>
 
     <p>The mode also decides which angle is shown. A rotor offers $\alpha_{rotor}$ and a propeller offers
-      $\alpha_{disk}$, never both. They are mode-specific signed incidence representations: $\alpha_{rotor}$ is referenced to the disk plane and $\alpha_{disk}$ to the shaft. Both are positive when the free stream arrives from below; they are not treated as complementary user inputs.</p>
+      $\alpha_{disk}$, never both. They are mode-specific signed incidence representations: $\alpha_{rotor}$ is referenced to the disk plane and $\alpha_{disk}$ to the shaft. Both are positive when the free stream arrives from below. They are not treated as complementary user inputs.</p>
 
     <p>The solver uses <b>disk axes</b>, where the in-plane component is always $x$ and the axial one
       always $z$, whatever the vehicle. The vehicle convention is applied at the user-facing boundary:
@@ -2710,8 +2710,8 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <div class="eqn">$$\sigma(r)=\frac{N_b c(r)}{2\pi r}\qquad\text{(local)},\qquad
       \sigma = \frac{N_b S_b}{\pi R^2}\qquad\text{(reference rotor solidity)}$$</div>
     <p>For the rotor solidity, $S_b$ is the area of one reference blade, equivalent to $S_{ref}$.
-      The reference chord law extends from $r/R=0$ to $1$. The root cutout does not enter this area;
-      it only removes the inner region from the aerodynamic blade and the load integration.</p>
+      The reference chord law extends from $r/R=0$ to $1$. The root cutout does not enter this area.
+      It only removes the inner region from the aerodynamic blade and the load integration.</p>
 
     <p><b>Physical effect of solidity.</b> At a fixed operational lift coefficient, higher solidity
       increases total thrust capacity by providing greater blade area. However, increased blade surface area
@@ -3194,7 +3194,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       \underbrace{N_b \big(dL\cos\phi - dD\sin\phi\big)\big/dr}_{\text{blade element theory}}$$
     </div>
     <p>The left-hand side is the elementary momentum balance of <a class="xref" href="#cap-18-5"
-        title="5.7.5 From global disk to elementary ring">Section 5.7.5</a>; the right-hand side is the blade-element
+        title="5.7.5 From global disk to elementary ring">Section 5.7.5</a>. The right-hand side is the blade-element
       load of <a class="xref" href="#cap-19-4" title="5.6.4 Normal and tangential projection to disk">Section
         5.6.4</a>, projected normal to the disk.</p>
     <p>Isolating $\lambda_i$ on the left gives the map $g$ of <a class="xref" href="#sec-210-the-fixed-point-equation"
@@ -4451,7 +4451,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       <code>--airfoil-stall-model {linear,clip,enhanced,viterna}</code>.
     </p>
 
-    <h5 id="cap-3-2-2-1">8.2.2.1 <code>linear</code> — no stall at all</h5>
+    <h5 id="cap-3-2-2-1">8.2.2.1 <code>linear</code>: no stall at all</h5>
     <div class="eqn">$$C_l=C_{l_\alpha}(\alpha-\alpha_0)\,,\qquad C_d=C_{d0}+k\,C_l^2$$</div>
     <p>The lift line and the drag parabola are applied at every angle, with no upper bound on either
       coefficient, including far beyond the angle at which the real section has separated. The result is
@@ -4464,7 +4464,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       The combination of the linear option with dynamic stall is rejected by validation, because the separation function
       of section 8.3.2 is obtained by inverting a static polar that has stall in it, and the linear polar has none.</p>
 
-    <h5 id="cap-3-2-2-2">8.2.2.2 <code>clip</code> — saturated lift</h5>
+    <h5 id="cap-3-2-2-2">8.2.2.2 <code>clip</code>: saturated lift</h5>
     <div class="eqn">$$C_l = \begin{cases} C_{l,stall}^+ & \alpha>\alpha_{stall}^+ \\ C_{l,stall}^- &
       \alpha&lt;\alpha_{stall}^- \\ C_{l_\alpha}(\alpha-\alpha_0) & \text{otherwise}\end{cases}$$</div>
     <p>where $C_{l,stall}^\pm=C_{l_\alpha}(\alpha_{stall}^\pm-\alpha_0)$ is the linear line evaluated
@@ -4477,7 +4477,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
       slowly, since the slope a Newton step is built from changes abruptly there, though it rarely fails
       to converge outright.</p>
 
-    <h5 id="cap-3-2-2-3">8.2.2.3 <code>enhanced</code> — smooth post-stall decay</h5>
+    <h5 id="cap-3-2-2-3">8.2.2.3 <code>enhanced</code>: smooth post-stall decay</h5>
     <p>Lift decays smoothly past stall and drag rises smoothly towards the value of a flat plate held
       normal to the flow in total separation, $C_{d,fp}=1.9$. Both curves are anchored at the value the
       linear line reaches at the stall angle, so the transition is continuous. For the positive side,</p>
@@ -4510,7 +4510,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
         behavior.</figcaption>
     </figure>
 
-    <h5 id="cap-3-2-2-4">8.2.2.4 <code>viterna</code> — the full-range extension as the stall model</h5>
+    <h5 id="cap-3-2-2-4">8.2.2.4 <code>viterna</code>: the full-range extension as the stall model</h5>
     <p>None of the three options above is valid much beyond $\pm90^\circ$: thin-airfoil physics and its
       stall closures simply do not describe a section operating at $150^\circ$ angle of attack. Selecting
       <code>viterna</code> replaces the post-stall closure with the Viterna-Corrigan continuation, which
@@ -5454,7 +5454,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                     </tr>
                     <tr>
                       <td id="cap-3-7-5"><code>imported</code></td>
-                      <td>Coordinate file loaded from disk in <b>Selig layout</b>; Lednicer is rejected with an
+                      <td>Coordinate file loaded from disk in <b>Selig layout</b>. Lednicer layout is rejected with an
                         explanation (<a class="xref" href="#cap-3-7-6"
                           title="8.7.2 The coordinate file the importer reads">Section 8.7.2</a>)</td>
                     </tr>
@@ -5539,7 +5539,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   <code>"naca5"</code>, <code>"cst"</code>, <code>"bezier"</code>,
                   <code>"parsec"</code>, <code>"joukowski"</code>, <code>"biconvex"</code> or
                   <code>"imported"</code>.
-                  This key names the contour family; it differs from the polar-source key described in
+                  This key names the contour family. It differs from the polar-source key described in
                   <a class="xref" href="#cap-3-2-1" title="8.2.1 Polar source and linear coefficients">Section
                     8.2.1</a>, which selects where the coefficients come from rather than what the contour is.
                   <code>naca_code</code>, a string, default <code>"0012"</code>. <code>cst_upper</code> and
@@ -5552,7 +5552,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 </p>
 
                 <p><span class="cli">CLI</span>: <code>--airfoil-geometry SPEC</code> when generating a
-                  polar; it carries the same families as the dropdown, including
+                  polar. It carries the same families as the dropdown, including
                   <code>--airfoil-geometry cst:a1,a2,a3,a4</code> and
                   <code>--airfoil-geometry bezier:x1,y1;x2,y2;...</code>, plus preset nicknames such as
                   <code>naca0012</code> and <code>biconvex_t6</code>. This grammar is the command-line
@@ -5750,7 +5750,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 <p>The generated coefficients are applicable only within the profile, Reynolds, Mach and angle
                   range requested. They must be reviewed against available data when separation, transition,
                   compressibility, roughness, Reynolds sensitivity or deep stall materially affects the design. NeuralFoil needs the
-                  optional Python package of the same name; XFOIL needs its executable, looked up in four places:
+                  optional Python package of the same name. In contrast, XFOIL needs its executable, looked up in four places:
                   the <code>ZBEMT_XFOIL_BIN</code> environment variable, the path remembered from a previous
                   <i>Locate&hellip;</i> pick, the system <code>PATH</code>, and the standard install folders.
                   The
@@ -5875,7 +5875,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
 
                 <p><span class="bemt">.bemt</span>: in <code>airfoil.bemt</code>, the keys are
                   <code>xfoil_ncrit</code> (default 9.0), <code>xfoil_xtr_top</code> (default 1.0)
-                  and <code>xfoil_xtr_bot</code> (default 1.0). They reach only polar generation with XFOIL;
+                  and <code>xfoil_xtr_bot</code> (default 1.0). They reach only polar generation with XFOIL.
                   NeuralFoil ignores them.</p>
 
                 <p><span class="cli">CLI</span>: <code>--gen-xfoil --ncrit FLOAT --xtr-top FLOAT
@@ -6421,7 +6421,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                 </p>
 
                 <p><span class="cli">CLI</span>: use <code>--inflow</code> with the same supported steady values.
-                  Coleman and Drees expose Local and Global formulations; Coleman-Feingold is Global only;
+                  Coleman and Drees expose Local and Global formulations. Coleman-Feingold is Global only.
                   Glauert is the single axisymmetric reference. A value naming a time-marching variant is accepted
                   by the parser and then rejected by single-case validation, because unsteady Pitt-Peters belongs
                   to the transient path rather than to an isolated steady case.
@@ -7049,8 +7049,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       keeps after the next save is still the ratio, so no component ever has two stored values that can
                       disagree. Because the conversion needs the tip speed, a condition that gives the angle must also
                       give an <code>rpm</code>, and the project's geometry must have a radius. On opening, the application refuses
-                      a condition that gives the angle together with a nonzero ratio, or that gives both angles at once;
-                      it does not guess which of the two was meant.
+                      a condition that gives the angle together with a nonzero ratio, or that gives both angles at once.
+                      It does not guess which of the two was meant.
                     </p>
 
                     <p><span class="cli">CLI</span>: define in-plane flow using exactly one of
@@ -7337,7 +7337,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                       pitch rate</b> $q$ tilt the hub while the blade turns: every blade element then moves out of the
                       disk plane by $r\,(q\cos\psi - p\sin\psi)$, and the flap balance receives a gyroscopic forcing
                       of its own. Their first use is the stability-derivative study, where small perturbations of
-                      exactly these states are what a derivative means; a rotor with no flap freedom still shows their
+                      exactly these states are what a derivative means. A rotor with no flap freedom still shows their
                       aerodynamic effect. Both default to zero, which reproduces every result computed without them.
                       The third perturbation the derivative study uses is the lateral velocity, which is a component of
                       the flight velocity rather than a hub motion and therefore has a field of its own
@@ -8636,7 +8636,7 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           with both labels before running (a deliberate repeat measures solver noise), the cost
                           line states solves and a wall estimate timed from one real solve, a worker count spreads the
                           variants over that many processes, and <i>Save comparison…</i>/<i>Load comparison…</i>
-                          persist the whole setup into <code>inputs/comparisons.bemt</code> (SC-11a). When a run's
+                          persist the whole setup into <code>inputs/comparisons.bemt</code> (SC-10). When a run's
                           variants carry their own airfoil, its results are marked as no longer
                           geometry-only.</p>
 
@@ -9779,6 +9779,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>inputs/derivatives.bemt</code>, alongside <code>trim</code>, which
                           chooses between no trim, a thrust trim and a cyclic flapback trim.</p>
 
+                        <p><span class="cli">CLI</span>: configure trim in <code>inputs/derivatives.bemt</code> and execute with <code>--derivatives NAME</code>; options are <code>"none"</code>, <code>"thrust"</code> (governed by <code>trim_target_thrust</code>), or <code>"cyclic_flapback"</code>.</p>
+
 <h3 id="cap-stability-steps">16.2 States, controls and steps</h3>
                         <p>The perturbation set is nine quantities: longitudinal, lateral and axial speed
                           ($u$, $v$, $w$), roll and pitch rate ($p$, $q$), rotor speed $\Omega$, and the three
@@ -9860,6 +9862,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                           <code>inputs/derivatives.bemt</code>, and both are column headings of the
                           exported table.</p>
 
+                        <p><span class="cli">CLI</span>: run with <code>--derivatives NAME</code> (or export via <code>--derivatives-csv PATH</code>); both <code>Mx_total</code> and <code>My_total</code> are evaluated in the derivative matrix and moment outputs.</p>
+
 <h3 id="cap-stability-run">16.5 Reading the run: matrix, signs, eigenvalues</h3>
                         <p>The matrix lists outputs down the rows and variables across the columns. The display can switch between dimensional and non-dimensional derivatives without rerunning. Forces are divided by $\rho A(\Omega R)^2$, moments by $\rho A(\Omega R)^2 R$, speeds by $\Omega R$, and rates by $\Omega$. The bar chart compares one output across all variables. The <i>Sign checks</i> panel verifies basic expected trends: heave damping
                           must be negative, pitch damping must be negative, thrust must rise with collective. A
@@ -9884,6 +9888,8 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p><span class="bemt">.bemt</span>: the study's <code>outputs</code> list in
                           <code>inputs/derivatives.bemt</code> holds these names, and they are the
                           column headings of the exported table.</p>
+
+                        <p><span class="cli">CLI</span>: execute with <code>--derivatives NAME</code> (or <code>--derivatives-csv PATH</code>); the outputs <code>Thrust</code>, <code>H</code>, <code>Y</code>, and <code>Torque</code> form the force and torque rows of the evaluated derivative matrix.</p>
 
 <h3 id="cap-stability-vehicle">16.6 The vehicle: mass, inertia and the hub arm</h3>
                         <p><b>What these are.</b> The derivatives above belong to the rotor. Turning them
