@@ -33,15 +33,17 @@ and temporary implementation notes do not belong in this document.
   (steady and dynamic time-marching).
 - **SC-2a** — The numerical engine shall support root-finding iterative solvers:
   Newton-Raphson, fixed-point relaxation, Aitken acceleration, and bisection.
-- **SC-2b** — The aerodynamic solver shall support local physics corrections:
-  3D rotational lift augmentation, compressibility corrections, dynamic stall
-  models (including Leishman-Beddoes and Øye), tip and root Prandtl loss factors,
-  continuous reverse-flow models, and full 360-degree Viterna-Corrigan polar extension.
+- **SC-2b** — The solver shall support 3D rotational stall delay and lift augmentation corrections on rotating blade elements.
+- **SC-2c** — The solver shall support subsonic compressibility corrections on airfoil lift and drag coefficients.
+- **SC-2d** — The solver shall support semi-empirical unsteady dynamic stall models, including Leishman-Beddoes and Øye separation lag formulations.
+- **SC-2e** — The solver shall support Prandtl tip loss and root loss attenuation factors on blade circulation and momentum.
+- **SC-2f** — The solver shall support continuous reverse-flow aerodynamic modeling across zero tangential velocity ($U_T = 0$).
+- **SC-2g** — The solver shall support full 360-degree post-stall airfoil polar extension using the Viterna-Corrigan method.
 - **SC-3** — The software shall support single-point case execution, batch execution,
   and multi-variable parametric sweeps across operating conditions and geometry parameters.
-- **SC-3a** — The software shall generate self-contained HTML reports with embedded
-  vector plots, numerical summaries, and convergence statistics without requiring
-  external network resources.
+- **SC-3a** — The software shall export case, batch, and study results to self-contained
+  HTML reports (with embedded vector plots, numerical summaries, and convergence statistics)
+  and structured CSV data files.
 - **SC-3b** — The software shall provide 2D radial and azimuthal distribution plots,
   planar disk load maps, and interactive 3D rotor geometry visualization.
 - **SC-3c** — The software shall support airfoil polar data from analytical representations,
@@ -124,17 +126,31 @@ and temporary implementation notes do not belong in this document.
 - **SC-13** — The multi-objective optimization tool shall execute evolutionary genetic algorithms
   (NSGA-II) across bounded planform parameters, evaluate competing aerodynamic metrics, and
   generate Pareto-optimal trade-off frontiers.
-- **SC-14** — The stability derivative tool shall evaluate rotor hub force and moment stability
-  and control derivatives ($X_u, Z_w, M_q, L_p, Y_v$, collective, and cyclic derivatives)
-  using numerical finite-difference perturbations about a converged trim operating state.
+- **SC-14** — The stability derivative tool shall evaluate complete rotor hub force ($X, Y, Z$)
+  and moment ($L, M, N$) stability and control derivatives via numerical finite-difference
+  perturbations about a converged trim operating state. Perturbations shall cover all six
+  rigid-body velocity states and rates ($u, v, w, p, q, r$), rotational speed ($\Omega$), and
+  rotor control degrees of freedom (collective pitch $\theta_0$, longitudinal cyclic $\theta_{1c}$,
+  and lateral cyclic $\theta_{1s}$), generating the full matrix of force derivatives
+  ($X_u, X_v, X_w, X_p, X_q, X_r, X_\Omega, X_{\theta_0}, X_{\theta_{1c}}, X_{\theta_{1s}}$;
+  $Y_u, Y_v, Y_w, Y_p, Y_q, Y_r, Y_\Omega, Y_{\theta_0}, Y_{\theta_{1c}}, Y_{\theta_{1s}}$;
+  $Z_u, Z_v, Z_w, Z_p, Z_q, Z_r, Z_\Omega, Z_{\theta_0}, Z_{\theta_{1c}}, Z_{\theta_{1s}}$),
+  moment derivatives ($L_u, L_v, L_w, L_p, L_q, L_r, L_\Omega, L_{\theta_0}, L_{\theta_{1c}}, L_{\theta_{1s}}$;
+  $M_u, M_v, M_w, M_p, M_q, M_r, M_\Omega, M_{\theta_0}, M_{\theta_{1c}}, M_{\theta_{1s}}$;
+  $N_u, N_v, N_w, N_p, N_q, N_r, N_\Omega, N_{\theta_0}, N_{\theta_{1c}}, N_{\theta_{1s}}$),
+  and rotor torque and power sensitivities.
 - **SC-15** — The flight condition definition shall support a complete 3D free-stream velocity
-  vector incorporating longitudinal in-plane ($V_x$), lateral in-plane ($V_y$), and axial ($V_z$)
-  components.
+  vector in vehicle coordinates ($V_x$ longitudinal, $V_y$ lateral, $V_z$ vertical), which maps
+  to disk axes according to the active mode: in rotor mode, $V_x$ and $V_y$ are in-plane components
+  while $V_z$ is axial along the vertical shaft; in propeller mode, $V_x$ is axial airspeed along
+  the horizontal shaft while $V_y$ and $V_z$ are transverse cross-flow components perpendicular to the shaft.
 - **SC-15a** — The lateral velocity component shall accept dimensional speed ($V_y$), in-plane
   advance ratio ($\mu_y$), advance coefficient ($J_y$), or aerodynamic sideslip angle ($\beta$
   or `sideslip_deg`) as mutually exclusive equivalent specifications.
-- **SC-15b** — The lateral velocity component shall be supported across fixed flight conditions,
-  batch sweep axes, results tables, CSV export formats, and HTML reports.
+- **SC-15b** — All velocity components ($V_x, V_y, V_z$ or non-dimensional advance ratios
+  $\mu_x, \mu_y, \mu_z, J_x, J_y, J_z$ and orientation angles $\alpha, \beta$) shall be fully
+  supported across fixed flight condition inputs, parametric batch sweep axes, results summary
+  tables, CSV data exports, and HTML reports.
 - **SC-15c** — Aerodynamic sideslip angle $\beta$ (`sideslip_deg`) shall specify the azimuth
   direction of longitudinal in-plane flow bounded within $\pm 89^\circ$; pure sideward flight
   shall be specified through lateral velocity $V_y$ or advance ratio $\mu_y$.
@@ -287,18 +303,20 @@ and temporary implementation notes do not belong in this document.
   root chord at $r/R = 0$ and `tip_chord_norm` shall represent the chord at $r/R = 1$.
 - **EN-13** — In rotor mode, axial velocity $V_z$, axial inflow ratio $\lambda_z = V_z/(\Omega R)$,
   advance ratio $\mu_z$, advance coefficient $J_z$, and total axial flow shall be defined positive
-  through the disk in the induced flow direction (flow arriving from above, representing descent).
+  through the disk in the induced flow direction (free-stream flow arriving from above, as in
+  axial climb where upward vehicle motion produces downward relative wind through the rotor).
   Total axial inflow shall satisfy $\lambda_{\text{total}} = \lambda_z + \lambda_i$; positive
   $V_z$ shall reduce rotor thrust.
 - **EN-13a** — In rotor mode, rotor angle of attack $\alpha_{\text{rotor}}$ shall be measured from
   the disk plane as $\alpha_{\text{rotor}} = -\operatorname{atan2}(V_z, V_x)$, where positive
-  $\alpha_{\text{rotor}}$ corresponds to negative $V_z$ (flow arriving from below, representing climb).
+  $\alpha_{\text{rotor}}$ corresponds to negative $V_z$ (free-stream flow arriving from below the
+  disk plane, as in descent, autorotation, or flared pitch-up attitude).
 - **EN-14** — In propeller vehicle axes, axial cruise velocity $V_x$ shall be directed along the
   propeller shaft, and vertical cross-flow $V_z$ shall be defined positive when the free stream
   arrives from above. Propeller disk angle of attack $\alpha_{\text{disk}}$ shall be measured from
   the shaft axis as $\alpha_{\text{disk}} = \operatorname{atan2}(-V_z, |V_x|)$, where positive
-  $\alpha_{\text{disk}}$ corresponds to flow arriving from below. Pure axial cruise shall satisfy
-  $V_z = 0$ and $\alpha_{\text{disk}} = 0^\circ$.
+  $\alpha_{\text{disk}}$ corresponds to cross-flow arriving from below (as in aircraft pitch-up
+  attitude). Pure axial cruise shall satisfy $V_z = 0$ and $\alpha_{\text{disk}} = 0^\circ$.
 - **EN-15** — Longitudinal and lateral in-plane free-stream flow shall resolve into unified in-plane
   magnitude and wake azimuth: $\mu_{\text{inplane}} = \sqrt{V_x^2 + V_y^2} / (\Omega R)$ and
   $\psi_w = \operatorname{atan2}(V_y, V_x)$.

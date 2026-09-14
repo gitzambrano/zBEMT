@@ -106,6 +106,9 @@ def test_gui_initialization():
     for _ in range(5):
         app.processEvents()
     window.hide()
+    app.processEvents()
+    window.deleteLater()
+    app.processEvents()
 
 
 def main() -> int:
@@ -132,9 +135,11 @@ def main() -> int:
     print("=" * 60)
     print(f" Result: {passed}/{total} smoke checks passed ({duration:.2f}s)")
     print("=" * 60)
+    sys.stdout.flush()
+    sys.stderr.flush()
 
     return 0 if passed == total else 1
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    os._exit(main())
