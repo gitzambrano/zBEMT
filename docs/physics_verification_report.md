@@ -56,8 +56,13 @@ both.
    hinge because its kinematics use $z=(r-eR)\beta$. The reported
    tip-path-plane tilt had incorrectly reused that hinge angle without the
    geometric scale factor. The reported tilt now uses
-   $\beta_{TPP}\simeq(1-e)\beta_{hinge}$, while the internal hinge coordinate
-   and structural hub-moment calculation remain unchanged.
+   $\beta_{TPP}\simeq(1-e)\beta_{hinge}$.
+3. The structural hub moment used Johnson's tip-normalized formula directly
+   with the physical hinge inertia and hinge angle. Those are different modal
+   normalizations. Converting
+   $\beta_{tip}=(1-e)\beta_{hinge}$ and
+   $I_{tip}=I_{hinge}/(1-e)^2$ introduces the required $1/(1-e)$ factor.
+   The hub-moment output now applies that conversion explicitly.
 
 The same review corrected stale documentation that still listed a nonexistent
 Glauert-global model and described unsteady Pitt-Peters as unimplemented.
