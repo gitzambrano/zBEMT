@@ -276,8 +276,10 @@ class BEMTConfig:
     inflow_field_model: str = "coleman_local"
     # Valid values: glauert_local | coleman_local | coleman_global |
     # coleman_feingold_global | drees_local | drees_global |
-    # pitt_peters_steady | pitt_peters_unsteady (this last one is not solved
-    # see `run_sweep_unsteady_pitt_peters`).
+    # pitt_peters_steady | pitt_peters_unsteady. The unsteady variant is
+    # marched by `run_maneuver` (and its compatibility wrapper
+    # `run_sweep_unsteady_pitt_peters`); an isolated `solve_bemt` call
+    # remains an equilibrium solve.
 
     # --- 4) Prandtl tip/root loss --------------------------------------------
     # Replaces the old `use_prandtl_loss: bool` (docs/plano.md GUI v3,
@@ -2490,9 +2492,10 @@ def solve_blade_motion(moment_psi: np.ndarray, psi_nodes: np.ndarray,
     sine and cosine parts per harmonic into a two-by-two system. With
     zero damping the solve stays diagonal.
 
-    Raises ValueError when the denominator of a harmonic is resonant
-    (EN-8), naming the freedom, the harmonic and the configuration that
-    produced it."""
+    Raises ValueError only when the full damped harmonic operator is
+    singular or numerically near-singular (EN-8). A zero structural
+    detuning, `nu_squared == n**2`, is not singular when aerodynamic or
+    mechanical damping keeps the two-by-two system invertible."""
     if not np.isfinite(nu_squared):
         raise ValueError(
             f"solve_blade_motion: the {freedom} frequency ratio is not finite. "
@@ -2505,22 +2508,6 @@ def solve_blade_motion(moment_psi: np.ndarray, psi_nodes: np.ndarray,
             "ratio is zero because the rotor has neither a hinge offset nor "
             f"a {freedom} spring. The periodic response is undefined. Give "
             f"the {freedom} hinge an offset or add a spring.")
-    for n in range(1, n_harm + 1):
-        if abs(nu_squared - n * n) < _FLAP_RESONANCE_GUARD:
-            articulated = abs(hinge_offset_norm) < 1e-12
-            physical = (" That is the ARTICULATED rotor: with no hinge "
-                        "offset and no spring the flap frequency ratio is "
-                        "exactly 1, equal to this harmonic, so the "
-                        "periodic response has no finite solution."
-                        if (freedom == "flap" and articulated) else "")
-            raise ValueError(
-                f"resonant {freedom} denominator: |nu_{freedom[0]}^2 - "
-                f"{n}^2| = {abs(nu_squared - n * n):.2e} < "
-                f"{_FLAP_RESONANCE_GUARD:g} (nu^2 = {nu_squared:.6f}, hinge "
-                f"offset e = {hinge_offset_norm:g}). Harmonic {n} cannot be "
-                "solved by harmonic balance; returning a large number would "
-                "mean nothing." + physical + " Change the hinge offset, the "
-                "spring, or drop the harmonic count below it.")
     inertia_term = max(float(inertia) * float(Omega) ** 2, 1e-12)
     m_bar = np.asarray(moment_psi, dtype=float) / inertia_term
     m0, mc, ms = _fourier_coefficients(m_bar, psi_nodes, n_harm)
@@ -2534,8 +2521,8 @@ def solve_blade_motion(moment_psi: np.ndarray, psi_nodes: np.ndarray,
         if abs(det) < (_FLAP_RESONANCE_GUARD ** 2):
             raise ValueError(
                 f"resonant {freedom} denominator: the damped two-by-two "
-                f"system of harmonic {n} is singular (nu^2 = "
-                f"{nu_squared:.6f}, damping ratio C/(I*Omega) = "
+                f"system of harmonic {n} is singular or near-singular "
+                f"(nu^2 = {nu_squared:.6f}, dimensionless damping = "
                 f"{damping:.6f}, hinge offset e = {hinge_offset_norm:g}). "
                 "The periodic response is undefined (EN-8).")
         zc, zs = np.linalg.solve(matrix, np.array([mc[n], ms[n]]))
@@ -4706,8 +4693,14 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         first = coeffs.get(1, (0.0, 0.0))
         out["beta_1c_deg"] = float(deg(first[0]))
         out["beta_1s_deg"] = float(deg(first[1]))
-        out["tpp_tilt_long_deg"] = -out["beta_1c_deg"]
-        out["tpp_tilt_lat_deg"] = -out["beta_1s_deg"]
+        # Internally beta is the ACTUAL rotation about the offset hinge:
+        # the kinematics use z=(r-eR)*beta. The tip-path-plane angle is
+        # therefore the shaft-to-tip slope, (1-e)*beta for the small-angle
+        # model. Johnson Section 6.15 describes these two equivalent mode
+        # normalizations explicitly.
+        tpp_scale = 1.0 - float(maps.get("hinge_offset_norm", 0.0))
+        out["tpp_tilt_long_deg"] = -tpp_scale * out["beta_1c_deg"]
+        out["tpp_tilt_lat_deg"] = -tpp_scale * out["beta_1s_deg"]
         n_harm_out = max(coeffs.keys())
         for n in range(2, n_harm_out + 1):
             cn, sn = coeffs.get(n, (0.0, 0.0))
@@ -4734,13 +4727,12 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         nu_sq_minus_1 = maps.get("nu_beta_squared", 1.0) - 1.0
         i_beta = maps["flap_inertia_kg_m2"]
         gain = (rotor.Nb / 2.0) * i_beta * Omega ** 2 * nu_sq_minus_1
-        # The moment follows the TIP PATH PLANE, and the tilt of that
-        # plane is the NEGATIVE of the first harmonic -- which is what
-        # the two lines just above already say
-        # (`tpp_tilt_long_deg = -beta_1c_deg`). Built from `+beta_1c`,
-        # the hub moment came out nose-DOWN for a rotor flapping back,
-        # reversing the speed stability that this term exists to
-        # represent (`tests/regression/test_flapping.py`, SC-14).
+        # This structural moment uses the internal hinge coordinate. Do
+        # not apply the (1-e) tip-path scaling used only for the reported
+        # disk tilt above. Built from `+beta_1c`, the hub moment came out
+        # nose-DOWN for a rotor flapping back, reversing the speed
+        # stability that this term exists to represent
+        # (`tests/regression/test_flapping.py`, SC-14).
         mx_hub = -gain * first[0]
         my_hub = -gain * first[1]
         out["Mx_hub"] = float(mx_hub)
