@@ -24,7 +24,7 @@ The blade-dynamics and wake conventions were checked against Wayne Johnson, *Rot
 
 ### Flap frequency and damping
 
-For the implemented uniform rigid blade with flap-hinge offset (e) and a root spring,
+For the implemented uniform rigid blade with flap-hinge offset $e$ and a root spring,
 
 $$
 \nu_\beta^2
@@ -46,9 +46,9 @@ d_\beta
 \right].
 $$
 
-At (e=0), this reduces to (d_\beta=\gamma/8), the classical centrally hinged result.
+At $e=0$, this reduces to $d_\beta=\gamma/8$, the classical centrally hinged result.
 
-For harmonic (n), the code solves
+For harmonic $n$, the code solves
 
 $$
 \begin{bmatrix}
@@ -72,7 +72,7 @@ $$
 (\nu_\beta^2-n^2)^2+(n d_\beta)^2.
 $$
 
-Therefore (\nu_\beta=n) is not singular when damping is finite. This matters for a centrally hinged articulated rotor: its structural flap frequency is 1/rev, while aerodynamic damping keeps the periodic 1/rev response finite. Validation and the solver use the full damped operator.
+Therefore $\nu_\beta=n$ is not singular when damping is finite. This matters for a centrally hinged articulated rotor: its structural flap frequency is 1/rev, while aerodynamic damping keeps the periodic 1/rev response finite. Validation and the solver use the full damped operator.
 
 ### Hinge angle and tip-path-plane angle
 
@@ -88,7 +88,7 @@ $$
 \beta_{TPP}\simeq(1-e)\,\beta_{hinge}.
 $$
 
-The exported `beta_*` values remain the internal hinge coordinate. The exported `tpp_tilt_*` values apply the ((1-e)) scale and the project's tilt sign convention.
+The exported `beta_*` values remain the internal hinge coordinate. The exported `tpp_tilt_*` values apply the $(1-e)$ scale and the project's tilt sign convention.
 
 ### Pitch-flap coupling
 
