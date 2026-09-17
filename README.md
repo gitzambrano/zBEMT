@@ -84,7 +84,7 @@ zbemt/
 
 tests/                 Test suite (1000+ tests)
 docs/                  Physics reference + software requirements
-projects/              14 example projects (included in git)
+projects/              16 example and verification projects (included in git)
 tools/                 Repository maintenance scripts
 ```
 
@@ -96,11 +96,11 @@ tools/                 Repository maintenance scripts
 
 **Solvers:** Newton-Raphson (default, vectorized with numerical Jacobian), fixed-point iteration (Picard with relaxation), Aitken acceleration, and bisection with a bracket expanded from the physical initial estimate.
 
-**Inflow models:** Glauert local, Glauert global, Coleman local, Coleman global, Drees local, Drees global, and Pitt-Peters steady. (Note: Pitt-Peters unsteady is not implemented; dynamic time-marching is out of scope for this BEMT solver by design.)
+**Inflow models:** Glauert local; Coleman local and global; Coleman-Feingold global; Drees local and global; and Pitt-Peters steady. Unsteady Pitt-Peters is implemented on the maneuver path and is marched by the Transient Simulation tool. An isolated Run Case remains a steady equilibrium solve.
 
 **Rotational correction:** Himmelskamp/Snel rotational augmentation and radial flow correction.
 
-**Advanced options:** dynamic stall (Øye model), Prandtl tip/root loss, full-range polar extension (Viterna-Corrigan, ±180°), and compressibility effects.
+**Blade dynamics and advanced options:** periodic rigid-body flap and lead-lag, pitch-flap coupling, Øye dynamic stall, Prandtl tip/root loss, full-range polar extension (Viterna-Corrigan, ±180°), rotational/radial-flow corrections, and compressibility effects. The transient maneuver path can march Pitt-Peters inflow and Øye separation states while updating flap quasi-steadily at each sample.
 
 **Batch and sweep:** single case, parametric factorial, case-by-case definition, and saved batch templates.
 
@@ -114,7 +114,7 @@ tools/                 Repository maintenance scripts
 
 **Interactive charts:** optional Plotly dashboards in reports when the `interactive` package group is installed.
 
-Full documentation — one chapter per tab, every field with its physics, mathematics and how to set it in the GUI, in `.bemt` and from the CLI — is at **[docs/documentation.html](docs/documentation.html)** or press **F1** in the GUI.
+Start with the GitHub-native **[documentation index](docs/README.md)**. The complete in-application manual, including field-by-field physics and GUI/CLI/`.bemt` mappings, is at **[docs/documentation.html](docs/documentation.html)** or press **F1** in the GUI.
 
 ---
 
@@ -183,4 +183,4 @@ The reference project `projects/starter_rotor/` and its end-to-end test suite (`
 
 Licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later). See [LICENSE](LICENSE) for the full text. See [software_requirements.md](docs/software_requirements.md) for the high-level requirements guiding upcoming versions.
 
-The physics is validated against theory: momentum balance reproduces blade loads, figure of merit respects the hover ideal limit, and inflow converges correctly in forward flight.
+The physics evidence, known model boundaries, and the latest Wayne Johnson cross-check are recorded in **[docs/physics_verification_report.md](docs/physics_verification_report.md)**. The binding behavior requirements are in **[docs/software_requirements.md](docs/software_requirements.md)**.

@@ -2458,7 +2458,7 @@ FIELD_HELP: dict[str, dict] = {
             "azimuth and quasi-steady: each revolution repeats the previous "
             "one, and there is no transient."),
         "unit": "—",
-        "equation": r"\ddot\beta + \nu_\beta^{2}\,\beta = M_\beta(\psi)/(I_\beta\Omega^{2})",
+        "equation": r"\ddot\beta + d_\beta\dot\beta + \nu_\beta^{2}\,\beta = M_\beta(\psi)/(I_\beta\Omega^{2})",
         "effect": (
             "With any freedom other than Rigid the blade answers loading "
             "with motion: a coning angle appears in hover, the disk tilts in "
@@ -2489,10 +2489,11 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "r/R",
         "equation": r"\nu_\beta^{2} = 1 + \frac{3}{2}\,\dfrac{e}{1-e} + \dfrac{K_\beta}{I_\beta\Omega^{2}}",
         "effect": (
-            "Increasing the offset raises the flap frequency ratio away from "
-            "1, which moves the response off resonance and grows the hub "
-            "moment proportional to (ν²−1)."),
-        "range": "0 to 0.3 (articulated rotors 0.03–0.08)",
+            "Increasing the offset raises the structural flap frequency and "
+            "grows the hub-moment path proportional to (ν²−1). A value of "
+            "ν=1 is not singular by itself because aerodynamic flap damping "
+            "keeps the harmonic operator finite."),
+        "range": "0 to 0.3 (articulated rotors commonly about 0.03–0.06)",
         "options": None
     },
     "flap_spring_nm_per_rad": {
@@ -2503,9 +2504,9 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "N·m/rad",
         "equation": r"+\,\dfrac{K_\beta}{I_\beta\Omega^{2}} \text{ in } \nu_\beta^{2}",
         "effect": (
-            "Adds restoring stiffness without moving the hinge: a soft "
-            "spring already moves the first flap mode away from the "
-            "resonance at ν = 1."),
+            "Adds restoring stiffness without moving the hinge and changes "
+            "the structural detuning of each harmonic. The response also "
+            "contains aerodynamic damping."),
         "range": "0 to 1e9 N·m/rad",
         "options": None
     },
@@ -2533,13 +2534,17 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Lock Number",
         "definition": (
             "Ratio between aerodynamic and inertial response of the blade, "
-            "built from the chord at r/R = 0.75."),
+            "built from the chord at r/R = 0.75 and the actual-hinge inertia "
+            "used by zBEMT. For e > 0 this normalization differs from a "
+            "tip-normalized modal Lock number."),
         "unit": "-",
         "equation": r"\gamma = \rho\,a\,c_{ref}\,R^{4}/I_\beta",
         "effect": (
-            "Larger γ means air forces move the blade more: bigger coning, "
-            "stronger 1/rev response, and more aerodynamic damping "
-            "(γ/8 for a hinge at the shaft, growing with the offset)."),
+            "Larger γ increases the aerodynamic-to-inertial coupling and "
+            "the aerodynamic flap damping. The damping is γ/8 for a hinge "
+            "at the shaft and decreases for the implemented outboard-hinge "
+            "mode shape. If a source uses Johnson's tip-normalized mode, "
+            "convert with γ_hinge = γ_tip/(1-e)^2."),
         "range": "1 to 20 (most rotors 5–12)",
         "options": None
     },
@@ -2552,7 +2557,8 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\ddot\beta + \nu_\beta^{2}\beta = M_\beta/(I_\beta\Omega^{2})",
         "effect": (
             "Smaller inertia amplifies the response to the same moment and "
-            "raises the resonance risk when the spring term is small."),
+            "also changes the spring contribution K/(IΩ²). Harmonic "
+            "conditioning depends on both detuning and damping."),
         "range": "1e-6 to 1e6 kg·m²",
         "options": None
     },
@@ -2577,8 +2583,9 @@ FIELD_HELP: dict[str, dict] = {
         "unit": "deg",
         "equation": r"\theta_{eff} = \theta - \tan(\delta_3)\,\beta",
         "effect": (
-            "Positive values add aerodynamic damping and stabilize the flap "
-            "response; large values reduce the response to cyclic pitch."),
+            "Positive values add an aerodynamic restoring stiffness: flap-up "
+            "reduces pitch and therefore opposes the flap displacement. Large "
+            "values reduce the response to cyclic pitch."),
         "range": "−60° to +60°",
         "options": None
     },
@@ -2591,8 +2598,8 @@ FIELD_HELP: dict[str, dict] = {
         "equation": r"\beta(\psi)=\beta_0+\sum_{n=1}^{N_h}\left[\beta_{nc}\cos n\psi+\beta_{ns}\sin n\psi\right]",
         "effect": (
             "Two harmonics describe most rotors. Each extra harmonic costs "
-            "one solve per outer iteration and must stay below the "
-            "resonance guard."),
+            "one solve per outer iteration. The solver rejects only a "
+            "singular or near-singular full damped harmonic system."),
         "range": "1 to 5",
         "options": None
     },

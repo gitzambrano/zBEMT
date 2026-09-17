@@ -262,8 +262,10 @@ and temporary implementation notes do not belong in this document.
 - **EN-7** — Radial geometry tables shall validate monotonic spanwise progression, non-negative
   radius values, and equal-length coordinate columns prior to solver execution.
 - **EN-8** — Harmonic-balance dynamic solvers shall record evaluated harmonic counts and shall
-  explicitly reject resonant denominators ($\nu_\beta^2 - n^2 = 0$) rather than returning
-  unbounded finite quantities.
+  evaluate the full damped harmonic operator. A zero stiffness detuning
+  ($\nu^2-n^2=0$) shall remain solvable when aerodynamic or mechanical damping keeps the
+  operator nonsingular. The solver shall reject only a singular or numerically near-singular
+  two-by-two harmonic system rather than returning an unbounded finite quantity.
 - **EN-9** — Transient time-marching solvers shall record total simulated duration, time-step
   increments, and periodic settling metrics; unsettled transient states shall not be flagged as converged.
 - **EN-10** — Section drag formulations resolving 3D radial cross-flow shall decompose drag along
