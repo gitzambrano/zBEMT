@@ -4726,13 +4726,27 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         # alone. The totals are what a hub would actually feel.
         nu_sq_minus_1 = maps.get("nu_beta_squared", 1.0) - 1.0
         i_beta = maps["flap_inertia_kg_m2"]
-        gain = (rotor.Nb / 2.0) * i_beta * Omega ** 2 * nu_sq_minus_1
-        # This structural moment uses the internal hinge coordinate. Do
-        # not apply the (1-e) tip-path scaling used only for the reported
-        # disk tilt above. Built from `+beta_1c`, the hub moment came out
-        # nose-DOWN for a rotor flapping back, reversing the speed
-        # stability that this term exists to represent
-        # (`tests/regression/test_flapping.py`, SC-14).
+        # Johnson's hub-moment relation is written for a flap mode
+        # normalized to unit displacement at the tip. Our internal beta is
+        # instead the ACTUAL hinge rotation, with eta_h = (r/R-e). The
+        # equivalent tip-normalized coordinate is beta_tip=(1-e)*beta_h,
+        # while its generalized inertia is I_tip=I_h/(1-e)^2. Therefore
+        #
+        #   I_tip*(nu^2-1)*beta_tip
+        #       = I_h*(nu^2-1)*beta_h/(1-e).
+        #
+        # Omitting this coordinate-conversion factor under-reports the
+        # structural hub moment whenever e>0.
+        e_norm = float(maps.get("hinge_offset_norm", 0.0))
+        mode_scale = max(1.0 - e_norm, 1e-12)
+        gain = ((rotor.Nb / 2.0) * i_beta * Omega ** 2
+                * nu_sq_minus_1 / mode_scale)
+        # This structural moment starts from the internal hinge coordinate
+        # and converts its generalized inertia to Johnson's tip-normalized
+        # mode through the 1/(1-e) factor in `gain`. Built from
+        # `+beta_1c`, the hub moment came out nose-DOWN for a rotor
+        # flapping back, reversing the speed stability that this term
+        # exists to represent (`tests/regression/test_flapping.py`, SC-14).
         mx_hub = -gain * first[0]
         my_hub = -gain * first[1]
         out["Mx_hub"] = float(mx_hub)
