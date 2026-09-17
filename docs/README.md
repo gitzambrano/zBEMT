@@ -33,7 +33,7 @@ $$
 +\frac{K_\beta}{I_\beta\Omega^2}.
 $$
 
-The aerodynamic damping used by zBEMT is the exact integral for its actual-hinge coordinate,
+The scalar aerodynamic damping used by the harmonic balance is the exact integral of the implemented mean-damping approximation for the actual-hinge coordinate,
 
 $$
 d_\beta
@@ -110,6 +110,7 @@ When radial-flow drag is enabled, the section drag is resolved along the true th
 
 ## Known model boundaries
 
+- The flap harmonic balance uses a scalar mean aerodynamic damping term based on the representative chord and $U_T=\Omega r$. It does not assemble Johnson's full periodic forward-flight damping matrix.
 - The lead-lag oscillator does not include flap-lag Coriolis coupling. Do not use it as a ground-resonance or coupled flap-lag stability model.
 - Pitt-Peters is a linear finite-state inflow theory. The solver reports when local total inflow reverses over part of the disk instead of hiding that condition.
 - Transient flapping is quasi-steady at each maneuver sample. zBEMT does not integrate a structural flap state in time.
