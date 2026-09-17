@@ -3617,8 +3617,9 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       \nu_\beta^{2} = 1 + \frac{3}{2}\,\frac{e}{1-e} +
       \frac{K_\beta}{I_\beta\Omega^{2}},$</div>
     <p>where $M_\beta(\psi)$ is the moment of the normal force about the hinge and $I_\beta$
-      is the flap inertia of one blade. For the implemented actual-hinge coordinate, the exact
-      aerodynamic damping integral is</p>
+      is the flap inertia of one blade. The harmonic balance uses a scalar mean aerodynamic
+      damping model based on the representative chord and $U_T=\Omega r$. For that implemented
+      actual-hinge approximation, the integral is exact:</p>
     <div class="eqn">$d_\beta=\frac{\gamma}{2}\left[
       \frac{(1-e)^4}{4}+\frac{e(1-e)^3}{3}\right].$</div>
     <p>It reduces to $\gamma/8$ for a hinge at the shaft. The response is written as a
@@ -3728,8 +3729,9 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <div class="eqn">$d_\beta=\frac{\gamma}{2}\left[
       \frac{(1-e)^4}{4}+\frac{e(1-e)^3}{3}\right].$</div>
 
-    <p>This is the exact damping integral used by the solver for its actual-hinge coordinate.
-      It becomes $\gamma/8$ at $e=0$. The damping term is part of the harmonic operator, so
+    <p>This scalar damping term becomes $\gamma/8$ at $e=0$. It does not assemble the full
+      periodic forward-flight damping coefficients of a comprehensive rotor model. The damping
+      term is part of the harmonic operator, so
       structural tuning at $\nu_\beta=1$ does not by itself make the 1/rev response singular.
       Larger $\gamma$ increases aerodynamic-to-inertial coupling and aerodynamic damping.</p>
     <p><b>What to set.</b> Three sources give the same quantity, so choose the one that
