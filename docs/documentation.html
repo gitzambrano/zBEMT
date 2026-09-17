@@ -9858,8 +9858,13 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <p>The tilting moments computed from the pressure field alone miss a second path into
                           the hub: with a hinge offset or a root spring, the flapping blade carries structural
                           moment,
-                          $$M_{hub} = \frac{N_b}{2} I_\beta \Omega^2 (\nu_\beta^2 - 1)\,\beta_{1c/1s},$$
-                          and for a hingeless rotor that path is the larger one. The totals reported here always
+                          $M_{hub} = \frac{N_b}{2}
+                          \frac{I_{\beta,h}\Omega^2(\nu_\beta^2-1)}
+                          {1-e}\,\beta_{h,1c/1s},$
+                          where $I_{\beta,h}$ and $\beta_h$ are the physical hinge inertia and hinge
+                          angle used internally. The factor $1/(1-e)$ converts that coordinate to
+                          Johnson's tip-normalized mode. For a hingeless rotor that structural path can
+                          be larger than the thrust-tilt contribution. The totals reported here always
                           include it when flap freedom exists; a rigid blade's total is simply the aerodynamic
                           moment. These are the numbers whose derivatives make the pitch and roll damping.</p>
 
