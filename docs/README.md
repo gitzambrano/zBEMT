@@ -90,6 +90,14 @@ $$
 
 The exported `beta_*` values remain the internal hinge coordinate. The exported `tpp_tilt_*` values apply the $(1-e)$ scale and the project's tilt sign convention.
 
+The Lock-number input uses the same actual-hinge normalization as the internal inertia. If a reference gives Johnson's tip-normalized modal Lock number, use
+
+$
+\gamma_{hinge}=\frac{\gamma_{tip}}{(1-e)^2}.
+$
+
+At zero hinge offset the two definitions coincide.
+
 ### Pitch-flap coupling
 
 Positive delta-three coupling follows
