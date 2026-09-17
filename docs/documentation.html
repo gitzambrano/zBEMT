@@ -3605,7 +3605,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       bend, and the response carries no structural transient, so each revolution repeats the
       previous one. The motion adds terms to the local flow,</p>
     <div class="eqn">$U_P \mathrel{+}= (r-eR)\,\dot\beta + V_\infty\,\beta\cos\psi,
-      \qquad U_T \mathrel{+}= (r-eR)\,\dot\zeta,$</div>
+      \qquad U_T \mathrel{+}= (r-eR)\,\dot\zeta.$</div>
     <p>so a moving blade changes what every downstream aerodynamic model sees. Because the
       internal coordinate is the actual hinge rotation, the small-angle shaft-to-tip slope is
       $\beta_{TPP}\simeq(1-e)\beta$. This is the tip-normalized mode-shape conversion used
@@ -3615,7 +3615,7 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <div class="eqn">$\ddot\beta + d_\beta\,\dot\beta + \nu_\beta^{2}\,\beta =
       \frac{M_\beta(\psi)}{I_\beta\,\Omega^{2}}, \qquad
       \nu_\beta^{2} = 1 + \frac{3}{2}\,\frac{e}{1-e} +
-      \frac{K_\beta}{I_\beta\Omega^{2}},$</div>
+      \frac{K_\beta}{I_\beta\Omega^{2}}.$</div>
     <p>where $M_\beta(\psi)$ is the moment of the normal force about the hinge and $I_\beta$
       is the flap inertia of one blade. The harmonic balance uses a scalar mean aerodynamic
       damping model based on the representative chord and $U_T=\Omega r$. For that implemented
