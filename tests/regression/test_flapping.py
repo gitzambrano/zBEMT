@@ -92,34 +92,46 @@ class TestFlapAeroDampingClosedForm(unittest.TestCase):
                          expansion(0.30))
 
 
-class TestResonanceGuard(unittest.TestCase):
-    def test_articulated_first_harmonic_raises_and_names_it(self):
-        """EN-8: with e = 0, no spring and one harmonic, the denominator
-        is exactly zero. The solver must raise ValueError naming the
-        harmonic instead of returning a large number -- and the message
-        must say this is the articulated rotor's physical fact."""
+class TestHarmonicSingularityGuard(unittest.TestCase):
+    def test_aerodynamic_damping_regularizes_articulated_first_harmonic(self):
+        """EN-8: nu_beta = 1 is not singular when damping is finite.
+
+        Johnson's hover flap equation gives aerodynamic damping gamma/8
+        for the centrally hinged articulated rotor. The harmonic operator
+        must therefore remain invertible at exact structural 1/rev tuning.
+        """
         npsi = 24
         psi = np.linspace(0, 2 * np.pi * (1 - 1 / npsi), npsi)
-        moment = 50.0 * np.ones(npsi)
-        with self.assertRaises(ValueError) as ctx:
-            solve_blade_motion(moment, psi, 1.0, 0.08, 80.0, n_harm=1,
-                                freedom="flap", hinge_offset_norm=0.0)
-        message = str(ctx.exception).lower()
-        self.assertIn("resonant", message)
-        self.assertIn("harmonic 1", message)
-        self.assertIn("articulated", message)
+        moment = 50.0 * np.cos(psi)
+        coeffs, angle, rate = solve_blade_motion(
+            moment, psi, 1.0, 0.08, 80.0, n_harm=1,
+            damping=1.0, freedom="flap", hinge_offset_norm=0.0)
+        self.assertTrue(np.all(np.isfinite(angle)))
+        self.assertTrue(np.all(np.isfinite(rate)))
+        self.assertGreater(abs(coeffs[1][0]) + abs(coeffs[1][1]), 0.0)
 
-    def test_validation_reports_the_resonance_before_a_run(self):
-        """PR-6: validate_blade_dynamics flags the same configuration as
-        an error before any solve happens."""
+    def test_exact_tuning_without_damping_is_rejected(self):
+        """The undamped operator is singular when nu^2 equals n^2."""
+        npsi = 24
+        psi = np.linspace(0, 2 * np.pi * (1 - 1 / npsi), npsi)
+        moment = 50.0 * np.cos(psi)
+        with self.assertRaises(ValueError) as ctx:
+            solve_blade_motion(
+                moment, psi, 1.0, 0.08, 80.0, n_harm=1,
+                damping=0.0, freedom="flap", hinge_offset_norm=0.0)
+        message = str(ctx.exception).lower()
+        self.assertIn("harmonic 1", message)
+        self.assertIn("singular", message)
+
+    def test_validation_accepts_damped_articulated_case(self):
+        """PR-6: validation uses the same damped operator as the solver."""
         from zbemt.validation import validate_blade_dynamics
         dyn = BladeDynamicsDef(flap_model="offset", hinge_offset_norm=0.0,
                                harmonics=2)
         geom = geometry.generate_rectangular()
         issues = validate_blade_dynamics(dyn, geom, rpm=800.0)
         errors = [i.message for i in issues if i.level == "error"]
-        self.assertTrue(any("resonant" in m.lower() for m in errors),
-                        str(issues))
+        self.assertFalse(errors, str(issues))
 
 
 class TestConingInHover(unittest.TestCase):
@@ -226,6 +238,14 @@ class TestFlapRelievesRetreatingSide(unittest.TestCase):
         beta_1s = r_on.summary["beta_1s_deg"]
         self.assertGreater(abs(beta_1c) + abs(beta_1s), 0.5,
                            "forward flight must produce a 1/rev response")
+        # beta is the actual angle about the offset hinge. The disk tilt
+        # is the shaft-to-tip slope, so the small-angle mapping carries
+        # the Johnson Section 6.15 factor (1-e).
+        tpp_scale = 1.0 - dyn.hinge_offset_norm
+        self.assertAlmostEqual(
+            r_on.summary["tpp_tilt_long_deg"], -tpp_scale * beta_1c, places=10)
+        self.assertAlmostEqual(
+            r_on.summary["tpp_tilt_lat_deg"], -tpp_scale * beta_1s, places=10)
         self.assertGreater(r_on.summary["flap_outer_iterations"], 0)
         self.assertLessEqual(r_on.summary["flap_outer_residual_deg"],
                              max(10.0 * dyn.outer_tol_deg, 1e-3))
