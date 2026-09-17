@@ -3737,18 +3737,21 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p><b>What to set.</b> Three sources give the same quantity, so choose the one that
       matches the data you hold:</p>
     <ul>
-      <li><b>Lock number</b>: enter $\gamma$ directly. The inertia follows from
-        $I_\beta = \rho\,a\,c_{ref}R^{4}/\gamma$, where $a$ is the lift-curve slope of the
-        airfoil and $c_{ref}$ is the chord at $r/R=0.75$. Use this source when you have a
-        published $\gamma$ for a similar rotor, or when no mass data exists.</li>
+      <li><b>Lock number</b>: enter $\gamma$ in zBEMT's actual-hinge normalization. The
+        inertia follows from $I_{\beta,h} = \rho\,a\,c_{ref}R^{4}/\gamma_h$, where $a$ is
+        the lift-curve slope and $c_{ref}$ is the chord at $r/R=0.75$. Johnson often writes
+        the offset-hinge mode normalized to unit displacement at the tip. If a published value
+        uses that convention, then $\gamma_h=\gamma_{tip}/(1-e)^2$ before entering it here.
+        At $e=0$ the two normalizations are identical.</li>
       <li><b>Flap inertia</b>: enter $I_\beta$ in kilogram meters squared. Use this source
         when a structural model or a measurement gives the inertia itself.</li>
       <li><b>Blade mass</b>: enter the mass of one blade. The software spreads that mass
         uniformly over the flapping part, so $I_\beta = m_b(R-eR)^{2}/3$. Use this source for
         a first estimate, and only when the blade is close to uniform.</li>
     </ul>
-    <p>The three sources are equivalent. A value entered in one of them therefore fixes the
-      other two.</p>
+    <p>All three choices resolve to the same internal hinge inertia when their inputs are
+      mutually consistent. The blade-mass route is only a uniform-mass estimate, not an
+      independent structural model.</p>
     <p><span class="gui">GUI</span>: the <i>Inertia from</i> dropdown plus the field it
       reveals (<i>Lock number</i>, <i>Flap inertia</i> or <i>Blade mass</i>).</p>
     <p><span class="bemt">.bemt</span>: keys <code>inertia_source</code>,
