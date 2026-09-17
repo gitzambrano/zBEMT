@@ -2534,14 +2534,17 @@ FIELD_HELP: dict[str, dict] = {
         "title": "Lock Number",
         "definition": (
             "Ratio between aerodynamic and inertial response of the blade, "
-            "built from the chord at r/R = 0.75."),
+            "built from the chord at r/R = 0.75 and the actual-hinge inertia "
+            "used by zBEMT. For e > 0 this normalization differs from a "
+            "tip-normalized modal Lock number."),
         "unit": "-",
         "equation": r"\gamma = \rho\,a\,c_{ref}\,R^{4}/I_\beta",
         "effect": (
             "Larger γ increases the aerodynamic-to-inertial coupling and "
             "the aerodynamic flap damping. The damping is γ/8 for a hinge "
             "at the shaft and decreases for the implemented outboard-hinge "
-            "mode shape."),
+            "mode shape. If a source uses Johnson's tip-normalized mode, "
+            "convert with γ_hinge = γ_tip/(1-e)^2."),
         "range": "1 to 20 (most rotors 5–12)",
         "options": None
     },
