@@ -2580,8 +2580,8 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
     ``p_rate``/``q_rate`` are the HUB angular rates [rad/s] about the
     roll and pitch axes (SC-16). They reach the aerodynamics as an
     out-of-disk-plane velocity of every element and enter the flap
-    balance as a gyroscopic forcing Mbar_gyro = 2*(q*sin(psi) +
-    p*cos(psi))/Omega, added to the aerodynamic flap moment before the
+    balance as a gyroscopic forcing Mbar_gyro = 2*(p*cos(psi) -
+    q*sin(psi))/Omega, added to the aerodynamic flap moment before the
     harmonic balance. A rigid blade with a hub rate takes this path
     exactly like one with cyclic pitch, beta held at zero.
 
@@ -2733,12 +2733,12 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
     #   1. The fields the outer loop iterates on are solved with the
     #      blade ANGLE only (rates held at zero), so their moments carry
     #      no rate feedback.
-    #   2. The analytic flap damping d_beta =
-    #      gamma*(1/8 - e/3 + e^2/4) -- gamma/8 at e = 0, the classic
-    #      centrally hinged result (`geometry.flap_aero_damping`,
-    #      derived from exactly the term that was removed) enters the
-    #      harmonic balance as the two-by-two coupling of each harmonic,
-    #      exactly like a lag damper.
+    #   2. The analytic mean flap damping from
+    #      `geometry.flap_aero_damping` -- gamma/8 at e = 0 -- enters
+    #      the harmonic balance as the two-by-two coupling of each
+    #      harmonic, exactly like a lag damper. The helper evaluates the
+    #      full implemented hinge-offset integral rather than the former
+    #      second-order approximation.
     #   3. The map from blade angle to solved coefficients now has an
     #      O(mu) gain: plain under-relaxed fixed-point iteration
     #      converges in a few steps.
