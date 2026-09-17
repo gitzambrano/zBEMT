@@ -3620,8 +3620,8 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       is the flap inertia of one blade. The harmonic balance uses a scalar mean aerodynamic
       damping model based on the representative chord and $U_T=\Omega r$. For that implemented
       actual-hinge approximation, the integral is exact:</p>
-    <div class="eqn">$d_\beta=\frac{\gamma}{2}\left[
-      \frac{(1-e)^4}{4}+\frac{e(1-e)^3}{3}\right].$</div>
+    <div class="eqn">$$d_\beta=\frac{\gamma}{2}\left[
+      \frac{(1-e)^4}{4}+\frac{e(1-e)^3}{3}\right].$$</div>
     <p>It reduces to $\gamma/8$ for a hinge at the shaft. The response is written as a
       truncated Fourier series,
       $\beta(\psi)=\beta_0+\sum_n[\beta_{nc}\cos n\psi+\beta_{ns}\sin n\psi]$.
@@ -3726,8 +3726,8 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p>The ratio between the air force and this inertia is the Lock number
       $\gamma$. The Lock number also fixes the aerodynamic damping of the flap motion:</p>
 
-    <div class="eqn">$d_\beta=\frac{\gamma}{2}\left[
-      \frac{(1-e)^4}{4}+\frac{e(1-e)^3}{3}\right].$</div>
+    <div class="eqn">$$d_\beta=\frac{\gamma}{2}\left[
+      \frac{(1-e)^4}{4}+\frac{e(1-e)^3}{3}\right].$$</div>
 
     <p>This scalar damping term becomes $\gamma/8$ at $e=0$. It does not assemble the full
       periodic forward-flight damping coefficients of a comprehensive rotor model. The damping
