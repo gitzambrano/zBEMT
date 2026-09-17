@@ -3599,43 +3599,53 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p><b>The physics.</b> So far the blade was fixed to the hub: it rotates about the
       shaft but cannot bend upwards or swing backwards. A real blade is hinged or flexible
       enough to move. This block gives the rigid blade two rigid-body freedoms. zBEMT solves the two freedoms as one
-      periodic response around the azimuth. Flapping is an out-of-plane rotation $\beta(\psi)$ about a hinge at offset
-      $e$, and lead-lag is an in-plane rotation $\zeta(\psi)$ at the same offset. The blade itself stays rigid and does
-      not bend, and the response carries no transient, so each revolution repeats the previous one. The aerodynamics of
-      one station stays steady. Only the motion adds terms to the local flow,</p>
-    <div class="eqn">$$U_P \mathrel{+}= (r-eR)\,\dot\beta + V_\infty\,\beta\cos\psi,
-      \qquad U_T \mathrel{+}= (r-eR)\,\dot\zeta,$$</div>
-    <p>so a moving blade changes what every downstream model sees.</p>
+      periodic response around the azimuth. Flapping is the actual out-of-plane rotation
+      $\beta(\psi)$ about a hinge at offset $e$, and lead-lag is the corresponding in-plane
+      rotation $\zeta(\psi)$ at the same offset. The blade itself stays rigid and does not
+      bend, and the response carries no structural transient, so each revolution repeats the
+      previous one. The motion adds terms to the local flow,</p>
+    <div class="eqn">$U_P \mathrel{+}= (r-eR)\,\dot\beta + V_\infty\,\beta\cos\psi,
+      \qquad U_T \mathrel{+}= (r-eR)\,\dot\zeta,$</div>
+    <p>so a moving blade changes what every downstream aerodynamic model sees. Because the
+      internal coordinate is the actual hinge rotation, the small-angle shaft-to-tip slope is
+      $\beta_{TPP}\simeq(1-e)\beta$. This is the tip-normalized mode-shape conversion used
+      when zBEMT reports tip-path-plane tilt.</p>
 
     <p><b>The mathematics.</b> The flap motion obeys</p>
-    <div class="eqn">$$\ddot\beta + \nu_\beta^{2}\,\beta + d_\beta\,\dot\beta =
+    <div class="eqn">$\ddot\beta + d_\beta\,\dot\beta + \nu_\beta^{2}\,\beta =
       \frac{M_\beta(\psi)}{I_\beta\,\Omega^{2}}, \qquad
       \nu_\beta^{2} = 1 + \frac{3}{2}\,\frac{e}{1-e} +
-      \frac{K_\beta}{I_\beta\Omega^{2}},$$</div>
-    <p>where $M_\beta(\psi)$ is the moment of the normal force about the hinge, $I_\beta$ the
-      flap inertia of one blade, and $d_\beta=\gamma\left(\tfrac{1}{8}-\tfrac{e}{3}+\tfrac{e^2}{4}\right)$ the aerodynamic damping
-      that the blade's own flapping rate produces. The response is written as a truncated
-      Fourier series, $\beta(\psi)=\beta_0+\sum_n[\beta_{nc}\cos n\psi+\beta_{ns}\sin n\psi]$,
-      which turns the equation algebraic per harmonic. Because a flapping blade changes its own
-      loading, the solver exchanges the inflow solution with the blade solution until both stop
-      moving. The lag freedom follows the same scheme without the leading $1$:
+      \frac{K_\beta}{I_\beta\Omega^{2}},$</div>
+    <p>where $M_\beta(\psi)$ is the moment of the normal force about the hinge and $I_\beta$
+      is the flap inertia of one blade. For the implemented actual-hinge coordinate, the exact
+      aerodynamic damping integral is</p>
+    <div class="eqn">$d_\beta=\frac{\gamma}{2}\left[
+      \frac{(1-e)^4}{4}+\frac{e(1-e)^3}{3}\right].$</div>
+    <p>It reduces to $\gamma/8$ for a hinge at the shaft. The response is written as a
+      truncated Fourier series,
+      $\beta(\psi)=\beta_0+\sum_n[\beta_{nc}\cos n\psi+\beta_{ns}\sin n\psi]$.
+      For harmonic $n$, the damped balance is a two-by-two system whose determinant is
+      $(\nu_\beta^2-n^2)^2+(n d_\beta)^2$. Therefore $\nu_\beta=n$ is not singular when
+      damping is finite. In particular, the centrally hinged articulated rotor has
+      $\nu_\beta=1$ and a finite 1/rev periodic response because aerodynamic damping is
+      present. The solver rejects only a singular or numerically near-singular full harmonic
+      operator. Because a flapping blade changes its own loading, the solver exchanges the
+      inflow solution with the blade solution until both stop moving. The lag freedom follows
+      the same scheme without the leading $1$:
       $\nu_\zeta^{2}=\tfrac{3}{2}\,e/(1-e)+K_\zeta/(I_\zeta\Omega^{2})$.</p>
-    <p>Two limits are worth
-      remembering. First, the resonance limit: when $|\nu_\beta^2-n^2|$ falls below $10^{-3}$
-      for any kept harmonic $n$, the response of that harmonic is undefined. This is
-      exactly the plain articulated rotor, whose $\nu_\beta$ equals $1$, and the software
-      rejects it by name instead of returning a large number. Second, the sign convention of
-      every reported angle: $\beta(\psi)=\beta_0+\beta_{1c}\cos\psi+\beta_{1s}\sin\psi$ with
-      positive up, and each tip-path-plane tilt is the negative of its first harmonic. The
-      coning angle raises thrust slightly in hover and tilts the disk in edgewise flight. The
-      hinge also opens a structural path through which part of the load reaches the hub as a
-      moment.</p>
+    <p>The reported hinge coordinate uses
+      $\beta(\psi)=\beta_0+\beta_{1c}\cos\psi+\beta_{1s}\sin\psi$ with positive up.
+      The reported tip-path-plane tilts are
+      $-(1-e)\beta_{1c}$ and $-(1-e)\beta_{1s}$ in the longitudinal and lateral reporting
+      convention. The hinge also opens a structural path through which part of the load
+      reaches the hub as a moment.</p>
 
     <p><b>Configuration and valid range.</b> The hinge offset runs from $0$ to $0.3$.
-      Typical articulated rotors sit near $0.03$ to $0.08$. Lock numbers between $5$ and $12$
-      cover most rotors. Keep at least two harmonics. Each additional harmonic costs one more
-      solve per outer iteration. The defaults keep the blade fully rigid, which reproduces every result
-      computed before this block existed.</p>
+      Articulated rotors commonly use offsets of roughly $0.03$ to $0.06$. Lock numbers
+      between $5$ and $12$ cover many conventional rotors. Keep enough harmonics to converge
+      the response of the case being studied. Each additional harmonic adds work to the outer
+      iteration. The defaults keep the blade fully rigid, which reproduces results computed
+      before this block existed.</p>
 
     <h4 id="sec-bd-flap-model">7.2.1 Flap model</h4>
     <p><b>The physics.</b> The flap model decides how much freedom the blade has to move out
@@ -3675,12 +3685,12 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       $(\nu_\beta^2-1)\beta_1$. On a hingeless rotor that path dominates the hub moments.
       Therefore the offset is the most consequential value in this block.</p>
     <p><b>What to set.</b> For an articulated rotor, use the geometric distance to the
-      physical hinge, which is commonly between $0.03$ and $0.08$. For a hingeless or
-      bearingless rotor, there is no hinge to measure. Choose instead the offset that
-      reproduces the flap frequency ratio of the real flexure, which is commonly between
-      $0.10$ and $0.15$. An offset of zero together with no spring is the articulated
-      resonance. The software refuses that combination rather than returning an arbitrarily
-      large response.</p>
+      physical hinge, commonly a few percent of radius. For a hingeless or bearingless rotor,
+      there is no physical hinge to measure. If an equivalent rigid-hinge model is appropriate,
+      choose the effective offset to reproduce the measured or structurally predicted flap
+      frequency. An offset of zero with no spring gives the classical centrally hinged
+      articulated rotor, $\nu_\beta=1$. That case is valid because aerodynamic flap damping
+      keeps its periodic 1/rev response finite.</p>
     <p><span class="gui">GUI</span>: <i>Effective hinge offset</i>, shown when the model uses
       an offset.</p>
     <p><span class="bemt">.bemt</span>: key <code>hinge_offset_norm</code> inside
@@ -3698,10 +3708,10 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       full-size rotor. The same stiffness gives a different frequency ratio at a different
       RPM.</p>
     <p><b>What to set.</b> Use zero for a freely hinged rotor. Use a stiffness when the hub
-      restrains the blade elastically, or to move the first flap mode away from resonance
-      without changing the blade itself. Set this value together with the flap inertia,
-      because the two decide the frequency ratio jointly. The spring term uses whichever
-      inertia the chosen source resolves.</p>
+      restrains the blade elastically or when an equivalent root stiffness is part of the
+      model. Set this value together with the flap inertia because the two decide the
+      structural frequency ratio jointly. The spring term uses whichever inertia the chosen
+      source resolves.</p>
     <p><span class="gui">GUI</span>: <i>Flap spring</i>, shown for the spring models.</p>
     <p><span class="bemt">.bemt</span>: key <code>flap_spring_nm_per_rad</code> inside
       <code>dynamics</code> in <code>geom.bemt</code>, default $0$.</p>
@@ -3715,12 +3725,13 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
     <p>The ratio between the air force and this inertia is the Lock number
       $\gamma$. The Lock number also fixes the aerodynamic damping of the flap motion:</p>
 
-    <div class="eqn">$$d_\beta = \gamma\left(\frac{1}{8} - \frac{e}{3}
-      + \frac{e^{2}}{4}\right).$$</div>
+    <div class="eqn">$d_\beta=\frac{\gamma}{2}\left[
+      \frac{(1-e)^4}{4}+\frac{e(1-e)^3}{3}\right].$</div>
 
-    <p>This damping is what keeps the periodic response finite. Therefore a light blade
-      (a large $\gamma$) flaps more, damps more, and cones further under the same thrust. A
-      heavy blade (a small $\gamma$) barely answers. Most rotors sit between $5$ and $12$.</p>
+    <p>This is the exact damping integral used by the solver for its actual-hinge coordinate.
+      It becomes $\gamma/8$ at $e=0$. The damping term is part of the harmonic operator, so
+      structural tuning at $\nu_\beta=1$ does not by itself make the 1/rev response singular.
+      Larger $\gamma$ increases aerodynamic-to-inertial coupling and aerodynamic damping.</p>
     <p><b>What to set.</b> Three sources give the same quantity, so choose the one that
       matches the data you hold:</p>
     <ul>
@@ -3755,12 +3766,10 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       stabilizes the flap response and raises its effective frequency. A negative angle
       softens the response.</p>
     <p><b>What to set.</b> Start at $0^\circ$, which is the plain hinge with no coupling.
-      Raise the angle to calm a flap response that overshoots, or to move the flap frequency
-      away from a resonance. The cost of that stability is control authority, because every
-      degree of flapping now spends $\tan(\delta_3)$ degrees of effective collective. A large
-      angle also pushes the tip sections toward stall on the retreating side. Values within
-      $\pm45^\circ$ cover the couplings seen in practice. A teetering rotor commonly uses a
-      value between $20^\circ$ and $45^\circ$.</p>
+      Positive $\delta_3$ makes flap-up reduce pitch, so it adds a restoring aerodynamic
+      stiffness. Use a nonzero value only when the rotor geometry or an equivalent structural
+      model supplies that coupling. Confirm sensitivity when the value is not measured or
+      otherwise known.</p>
     <p><span class="gui">GUI</span>: <i>Pitch-flap coupling</i>, from $-60$ to $60$
       degrees.</p>
     <p><span class="bemt">.bemt</span>: key <code>pitch_flap_coupling_deg</code> inside
@@ -3779,10 +3788,11 @@ zbemt --project projects/starter_rotor --from-bemt-batch "mu_sweep" --report</pr
       describes the response of most designs. Each extra harmonic resolves sharper azimuthal
       detail, of the kind a highly twisted blade or a strongly skewed wake produces. Each one
       also costs one more solve per outer iteration.</p>
-    <p><b>What to set.</b> Keep $2$ unless the azimuthal loading is unusually sharp. For a strongly skewed wake
-      at high advance ratio, raise it to $3$ or $4$. Then confirm that the answer stops changing. Every kept harmonic must sit off its own resonance, because the
-      balance divides by $\nu_\beta^2-n^2$ for the $n$-th term. The software checks all of
-      them, not the first alone, and refuses a combination that resonates.</p>
+    <p><b>What to set.</b> Keep $2$ as a starting point unless the azimuthal loading is
+      unusually sharp. For a strongly skewed wake at high advance ratio, raise it to $3$ or
+      $4$, then confirm that the answer stops changing. Each harmonic is solved with the full
+      damped two-by-two operator. The solver rejects a harmonic only when that complete
+      operator is singular or numerically near-singular.</p>
 
     <p><span class="gui">GUI</span>: <i>Harmonics</i> in the Blade Dynamics group.</p>
 
@@ -6400,10 +6410,11 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                   harmonic law. In hover, all skewed-wake gradients vanish and the Global empirical variants collapse
                   to the axisymmetric solution.</p>
 
-                <p class="boxed note"><b>A note on the word "dynamic".</b> Pitt-Peters is often called a
-                  <i>dynamic inflow</i> model, and the name misleads. It describes how the inflow is distributed
-                  across the <b>disk</b>, not how it evolves in <b>time</b>. The steady form used here solves that
-                  distribution for one flight condition, with no time stepping of any kind.
+                <p class="boxed note"><b>Steady versus unsteady Pitt-Peters.</b> Pitt-Peters is a
+                  dynamic-inflow model: its finite states have both spatial structure across the disk and temporal
+                  dynamics. zBEMT exposes two execution paths. <code>pitt_peters_steady</code> solves the state
+                  equilibrium for one isolated flight condition. The Transient Simulation tool marches the same
+                  three-state system in time along a maneuver.
                 </p>
                 <p><span class="gui">GUI</span>: choose the inflow <i>Family</i> and, where the physics has a
                   meaningful alternative, its <i>Formulation</i>. Glauert offers <code>Local</code> only. Coleman
