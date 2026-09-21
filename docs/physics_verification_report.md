@@ -43,8 +43,8 @@ python tools/run_quality_checks.py --suite physics
 A later implementation audit compared the blade-dynamics and wake conventions
 directly with Wayne Johnson, *Rotorcraft Aeromechanics* (Cambridge University
 Press, 2013), especially Sections 5.2.2, 6.15, 6.18, 16.8.2, and 19.1.1. This
-audit found two defects outside the original 138-claim ledger and corrected
-both.
+audit found two implementation defects outside the original 138-claim ledger
+and corrected both. It also rechecked the structural hub-moment normalization.
 
 1. The harmonic-balance guard treated $\nu_\beta^2-n^2=0$ as singular even
    when aerodynamic flap damping was nonzero. Johnson's flap equation contains
@@ -57,12 +57,16 @@ both.
    tip-path-plane tilt had incorrectly reused that hinge angle without the
    geometric scale factor. The reported tilt now uses
    $\beta_{TPP}\simeq(1-e)\beta_{hinge}$.
-3. The structural hub moment used Johnson's tip-normalized formula directly
-   with the physical hinge inertia and hinge angle. Those are different modal
-   normalizations. Converting
-   $\beta_{tip}=(1-e)\beta_{hinge}$ and
-   $I_{tip}=I_{hinge}/(1-e)^2$ introduces the required $1/(1-e)$ factor.
-   The hub-moment output now applies that conversion explicitly.
+3. The structural hub moment was rechecked independently before merge. The
+   equation of motion uses the physical hinge angle and hinge inertia, so the
+   transmitted first-harmonic structural moment remains
+   $M_{hub}=(N_b/2)I_{\beta,h}\Omega^2(\nu_\beta^2-1)\beta_h$.
+   Rewriting the same relation against
+   $\beta_{TPP}=(1-e)\beta_h$ divides the corresponding TPP stiffness by
+   $(1-e)$; multiplying by the TPP angle cancels that coordinate factor.
+   An audit draft had applied the reciprocal factor while still multiplying
+   the hinge angle, which double-counted the coordinate change. The regression
+   suite now pins both equivalent forms.
 
 The same review corrected stale documentation that still listed a nonexistent
 Glauert-global model and described unsteady Pitt-Peters as unimplemented.
