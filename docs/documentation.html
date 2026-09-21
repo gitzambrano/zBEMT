@@ -9862,16 +9862,19 @@ r:c:t,r:c:t,...</code> gives the stations directly, each point being the radial 
                         <h3 id="cap-stability-hub">16.4 The hub-moment path through the hinge</h3>
                         <p>The tilting moments computed from the pressure field alone miss a second path into
                           the hub: with a hinge offset or a root spring, the flapping blade carries structural
-                          moment,
+                          moment. In the physical hinge coordinate used by the engine,
                           $M_{hub} = \frac{N_b}{2}
-                          \frac{I_{\beta,h}\Omega^2(\nu_\beta^2-1)}
-                          {1-e}\,\beta_{h,1c/1s},$
-                          where $I_{\beta,h}$ and $\beta_h$ are the physical hinge inertia and hinge
-                          angle used internally. The factor $1/(1-e)$ converts that coordinate to
-                          Johnson's tip-normalized mode. For a hingeless rotor that structural path can
-                          be larger than the thrust-tilt contribution. The totals reported here always
-                          include it when flap freedom exists; a rigid blade's total is simply the aerodynamic
-                          moment. These are the numbers whose derivatives make the pitch and roll damping.</p>
+                          I_{\beta,h}\Omega^2(\nu_\beta^2-1)
+                          \beta_{h,1c/1s}$.
+                          The reported tip-path-plane coordinate is
+                          $\beta_{TPP}=(1-e)\beta_h$; if the relation is rewritten against that
+                          coordinate, the corresponding stiffness is divided by $(1-e)$, so the two
+                          coordinate changes cancel in the physical moment. No extra $(1-e)$ factor is
+                          applied while the engine is using $\beta_h$. For a hingeless rotor that
+                          structural path can be larger than the thrust-tilt contribution. The totals
+                          reported here always include it when flap freedom exists; a rigid blade's total
+                          is simply the aerodynamic moment. These are the numbers whose derivatives make
+                          the pitch and roll damping.</p>
 
                                                 <p><b>The two moments this path produces.</b> <span class="gui">GUI</span>: <code>Mx_total</code> is the
                           total moment about the reference in-plane axis and <code>My_total</code> its
