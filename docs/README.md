@@ -82,21 +82,13 @@ $$
 z(r)=(r-eR)\,\beta_{hinge}.
 $$
 
-Johnson also presents the equivalent tip-normalized mode shape. In the small-angle model, the corresponding shaft-to-tip angle is
+For the implemented rigid offset-hinge geometry, the small-angle shaft-to-tip angle is
 
 $$
 \beta_{TPP}\simeq(1-e)\,\beta_{hinge}.
 $$
 
-The exported `beta_*` values remain the internal hinge coordinate. The exported `tpp_tilt_*` values apply the $(1-e)$ scale and the project's tilt sign convention.
-
-The Lock-number input uses the same actual-hinge normalization as the internal inertia. If a reference gives Johnson's tip-normalized modal Lock number, use
-
-$
-\gamma_{hinge}=\frac{\gamma_{tip}}{(1-e)^2}.
-$
-
-At zero hinge offset the two definitions coincide.
+The exported `beta_*` values remain the internal hinge coordinate. The exported `tpp_tilt_*` values apply the $(1-e)$ scale and the project's tilt sign convention. The Lock-number input is converted directly to the flap inertia used by the equation of motion through $\gamma=\rho a c_{ref}R^4/I_\beta$.
 
 ### Pitch-flap coupling
 
