@@ -2402,26 +2402,22 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
 #
 # Equation of motion in psi = Omega*t, flap:
 #
-#     beta'' + nu_beta^2 * beta = M_beta(psi) / (I_beta*Omega^2)
+#     beta'' + d_beta*beta' + nu_beta^2*beta
+#         = M_beta(psi) / (I_beta*Omega^2)
 #
 # with nu_beta^2 = 1 + (3/2)*e/(1-e) + K_beta/(I_beta*Omega^2)
-# (geometry.flap_frequency_ratio_squared). Harmonic balance: write both
-# sides as truncated Fourier series with N_h harmonics,
+# (geometry.flap_frequency_ratio_squared). Harmonic balance writes both
+# sides as truncated Fourier series with N_h harmonics. For harmonic n
+# the cosine/sine pair is solved with
 #
-#     beta(psi)   = beta_0 + sum_n [beta_nc cos(n psi) + beta_ns sin(n psi)]
-#     Mbar(psi)   = M_0    + sum_n [M_nc   cos(n psi) + M_ns   sin(n psi)]
-#     Mbar = M_beta/(I_beta*Omega^2)
+#     [nu_beta^2-n^2,   n*d_beta] [beta_nc] = [M_nc]
+#     [-n*d_beta,     nu_beta^2-n^2] [beta_ns]   [M_ns]
 #
-# Because beta'' = -n^2*(...) for each harmonic, the solution is
-# algebraic:
-#
-#     beta_0 = M_0/nu_beta^2,  beta_nc = M_nc/(nu_beta^2 - n^2), ...
-#
-# EN-8 applies: when |nu_beta^2 - n^2| < 1e-3 the denominator is declared
-# resonant and a ValueError names the resonance instead of returning a
-# large number. An articulated rotor (e = 0, no spring) gives
-# nu_beta = 1 exactly, so its first harmonic is undefined -- a physical
-# fact of the configuration, not a numerical failure.
+# EN-8 applies to the full damped operator. Its determinant is
+# (nu_beta^2-n^2)^2 + (n*d_beta)^2, so nu_beta=n is finite whenever
+# aerodynamic or mechanical damping is nonzero. A centrally hinged
+# articulated rotor therefore remains valid at its structural 1/rev
+# tuning when aerodynamic flap damping is present.
 #
 # Lag adds a damper C_zeta, which couples the sine to the cosine part of
 # each harmonic into a two-by-two solve:
@@ -2431,9 +2427,10 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
 #     zeta_0 = M_0 / nu_zeta^2
 #
 # Sign conventions used in every output of this section:
-#     beta(psi) = beta_0 + beta_1c*cos(psi) + beta_1s*sin(psi), positive UP;
-#     each tip-path-plane tilt is the NEGATIVE of its first harmonic
-#     (tpp_tilt_long_deg = -beta_1c_deg, tpp_tilt_lat_deg = -beta_1s_deg).
+#     beta(psi) = beta_0 + beta_1c*cos(psi) + beta_1s*sin(psi), positive UP.
+# beta is the actual rotation about the hinge. For an offset e, the
+# shaft-to-tip slope is (1-e)*beta, so the reported tip-path-plane tilts
+# are -(1-e) times the corresponding first harmonics.
 
 _FLAP_RESONANCE_GUARD = 1e-3
 
@@ -4726,27 +4723,20 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         # alone. The totals are what a hub would actually feel.
         nu_sq_minus_1 = maps.get("nu_beta_squared", 1.0) - 1.0
         i_beta = maps["flap_inertia_kg_m2"]
-        # Johnson's hub-moment relation is written for a flap mode
-        # normalized to unit displacement at the tip. Our internal beta is
-        # instead the ACTUAL hinge rotation, with eta_h = (r/R-e). The
-        # equivalent tip-normalized coordinate is beta_tip=(1-e)*beta_h,
-        # while its generalized inertia is I_tip=I_h/(1-e)^2. Therefore
+        # The engine's beta and I_beta are both referred to the physical
+        # flap hinge. In that coordinate the transmitted structural
+        # restoring moment is I_beta*Omega^2*(nu_beta^2-1)*beta_h per blade;
+        # summing a first harmonic over the rotor gives the Nb/2 factor.
         #
-        #   I_tip*(nu^2-1)*beta_tip
-        #       = I_h*(nu^2-1)*beta_h/(1-e).
-        #
-        # Omitting this coordinate-conversion factor under-reports the
-        # structural hub moment whenever e>0.
-        e_norm = float(maps.get("hinge_offset_norm", 0.0))
-        mode_scale = max(1.0 - e_norm, 1e-12)
+        # If the same relation is written against the reported tip-path
+        # plane coordinate beta_TPP=(1-e)*beta_h, its stiffness acquires a
+        # reciprocal 1/(1-e), which cancels when beta_TPP is substituted.
+        # Applying that reciprocal factor while still multiplying beta_h
+        # would double-count the coordinate change.
         gain = ((rotor.Nb / 2.0) * i_beta * Omega ** 2
-                * nu_sq_minus_1 / mode_scale)
-        # This structural moment starts from the internal hinge coordinate
-        # and converts its generalized inertia to Johnson's tip-normalized
-        # mode through the 1/(1-e) factor in `gain`. Built from
-        # `+beta_1c`, the hub moment came out nose-DOWN for a rotor
-        # flapping back, reversing the speed stability that this term
-        # exists to represent (`tests/regression/test_flapping.py`, SC-14).
+                * nu_sq_minus_1)
+        # Built from +beta_1c, the sign below makes aft flapback carry a
+        # nose-up hub moment in the project's reporting convention.
         mx_hub = -gain * first[0]
         my_hub = -gain * first[1]
         out["Mx_hub"] = float(mx_hub)
