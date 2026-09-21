@@ -38,10 +38,47 @@ Run the complete evidence campaign with:
 python tools/run_quality_checks.py --suite physics
 ```
 
-## Campaign result
+## 2026-09-17 Johnson cross-check
 
-The complete campaign executes 138 claims with no executor failure and no
-inconclusive result.
+A later implementation audit compared the blade-dynamics and wake conventions
+directly with Wayne Johnson, *Rotorcraft Aeromechanics* (Cambridge University
+Press, 2013), especially Sections 5.2.2, 6.15, 6.18, 16.8.2, and 19.1.1. This
+audit found two implementation defects outside the original 138-claim ledger
+and corrected both. It also rechecked the structural hub-moment normalization.
+
+1. The harmonic-balance guard treated $\nu_\beta^2-n^2=0$ as singular even
+   when aerodynamic flap damping was nonzero. Johnson's flap equation contains
+   the aerodynamic damping term explicitly. A centrally hinged articulated
+   rotor has $\nu_\beta=1$, but its 1/rev harmonic remains finite when
+   $d_\beta>0$. The solver and validation now test the determinant of the full
+   damped two-by-two harmonic operator instead of the structural detuning alone.
+2. The solver's internal flap coordinate is the actual rotation about an offset
+   hinge because its kinematics use $z=(r-eR)\beta$. The reported
+   tip-path-plane tilt had incorrectly reused that hinge angle without the
+   geometric scale factor. The reported tilt now uses
+   $\beta_{TPP}\simeq(1-e)\beta_{hinge}$.
+3. The structural hub moment was rechecked independently before merge. The
+   equation of motion uses the physical hinge angle and hinge inertia, so the
+   transmitted first-harmonic structural moment remains
+   $M_{hub}=(N_b/2)I_{\beta,h}\Omega^2(\nu_\beta^2-1)\beta_h$.
+   Rewriting the same relation against
+   $\beta_{TPP}=(1-e)\beta_h$ divides the corresponding TPP stiffness by
+   $(1-e)$; multiplying by the TPP angle cancels that coordinate factor.
+   An audit draft had applied the reciprocal factor while still multiplying
+   the hinge angle, which double-counted the coordinate change. The regression
+   suite now pins both equivalent forms.
+
+The same review corrected stale documentation that still listed a nonexistent
+Glauert-global model and described unsteady Pitt-Peters as unimplemented.
+Unsteady Pitt-Peters is implemented on the transient maneuver path. The
+documented lead-lag limitation remains: the present lead-lag oscillator omits
+flap-lag Coriolis coupling.
+
+## 2026-09-13 campaign result
+
+The table below is the snapshot of the earlier 138-claim evidence campaign. It
+predates the Johnson cross-check above. The complete campaign executed all 138
+claims with no executor failure and no inconclusive result.
 
 | Status | Claims |
 | --- | ---: |

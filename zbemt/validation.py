@@ -506,8 +506,8 @@ def validate_blade_dynamics(dynamics: BladeDynamicsDef, geom: RotorGeometryDef,
                              rpm=None) -> list[Issue]:
     """Static checks of one blade's flap/lag dynamics (SC-14), before any
     solve. ``rho``/``cl_alpha`` resolve a Lock-number inertia the way the
-    engine will; ``rpm`` (a flight condition's) enables the resonance
-    guard EN-8, which depends on the rotation speed.
+    engine will; ``rpm`` (a flight condition's) enables the harmonic
+    singularity guard EN-8, which depends on the rotation speed.
 
     Every check here mirrors what ``bemt.solve_blade_motion`` would raise
     or silently degrade into; this function exists so the user meets the
@@ -542,16 +542,6 @@ def validate_blade_dynamics(dynamics: BladeDynamicsDef, geom: RotorGeometryDef,
             f"hinge offset e = {e:g} outside the valid range "
             f"0 to {_HINGE_OFFSET_MAX} of R.")))
 
-    if uses_offset and not uses_spring and abs(e) < 1e-12:
-        # An articulated rotor: nu_beta = 1 exactly, so the first
-        # harmonic divides by zero. This is a physical fact of the
-        # configuration, not a numerical accident (EN-8).
-        issues.append(Issue("warning", prefix + (
-            "flap model 'offset' with a hinge offset of exactly zero is the "
-            "articulated rotor: its flap frequency ratio is 1, equal to the "
-            "first harmonic, and the periodic response has no finite "
-            "solution. Give the hinge an offset or add a root spring.")))
-
     inertia = float("nan")
     try:
         inertia = geometry_gen.flap_inertia_from(dynamics, geom, rho, cl_alpha)
@@ -568,21 +558,31 @@ def validate_blade_dynamics(dynamics: BladeDynamicsDef, geom: RotorGeometryDef,
             issues.append(Issue("error", prefix + (
                 "flap spring stiffness must not be negative.")))
 
-    # The resonance guard (EN-8) depends on the rotation speed, so it
-    # only fires when a condition's RPM is available.
+    # EN-8 applies to the FULL damped two-by-two harmonic operator.
+    # Johnson's flap equation contains aerodynamic damping. In particular,
+    # the centrally hinged articulated rotor has nu_beta = 1 but finite
+    # 1/rev response because d_beta = gamma/8 in hover. Checking only
+    # |nu_beta^2-n^2| would therefore reject a valid physical case.
     omega = _dynamics_omega(dynamics, rpm)
     if not rigid and math.isfinite(omega) and math.isfinite(inertia) and inertia > 0.0:
         nu2 = geometry_gen.flap_frequency_ratio_squared(
             e, max(dynamics.flap_spring_nm_per_rad, 0.0), inertia, omega)
+        if dynamics.inertia_source == "lock":
+            lock_number = float(dynamics.lock_number)
+        else:
+            chord_ref = geometry_gen.reference_chord_m(geom)
+            lock_number = (float(rho) * float(cl_alpha) * chord_ref
+                           * float(geom.radius_m) ** 4 / inertia)
+        d_beta = geometry_gen.flap_aero_damping(lock_number, e)
         for n in range(1, int(dynamics.harmonics) + 1):
-            if abs(nu2 - n * n) < _RESONANCE_GUARD:
+            det = (nu2 - n * n) ** 2 + (n * d_beta) ** 2
+            if det < _RESONANCE_GUARD ** 2:
                 issues.append(Issue("error", prefix + (
-                    f"resonant flap denominator: nu_beta^2 - {n}^2 = "
-                    f"{nu2 - n * n:.2e} falls inside the guard (+/-"
-                    f"{_RESONANCE_GUARD:g}) at this RPM. The harmonic-balance "
-                    f"response of harmonic {n} is undefined -- a physical fact "
-                    "of this hinge offset and spring, not a numerical failure "
-                    "(EN-8). Change the offset, the spring, or the RPM.")))
+                    f"near-singular flap harmonic operator at harmonic {n}: "
+                    f"det={det:.2e} is below {_RESONANCE_GUARD ** 2:.2e} "
+                    f"(nu_beta^2={nu2:.6f}, damping={d_beta:.6f}) at this "
+                    "RPM. Change the offset, spring, damping-driving blade "
+                    "properties, harmonic count, or RPM (EN-8).")))
                 break
 
     if not rigid and dynamics.lag_enabled:

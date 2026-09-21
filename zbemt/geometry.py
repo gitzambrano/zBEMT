@@ -347,9 +347,10 @@ def flap_frequency_ratio_squared(hinge_offset_norm: float, spring_nm_per_rad: fl
     """nu_beta^2 = 1 + (3/2)*e/(1-e) + K_beta/(I_beta*Omega^2), for a
     uniform blade with an offset hinge and a root spring.
 
-    The leading 1 is the rigid-blade bending mode's own restoring term.
-    With e = 0 and no spring the ratio is exactly 1, which is why an
-    articulated rotor resonates with the first harmonic (EN-8)."""
+    The leading 1 is the centrifugal flap stiffness of a centrally
+    hinged rigid blade. With e = 0 and no spring the structural frequency
+    ratio is exactly 1. That tuning is not singular when aerodynamic
+    damping keeps the full harmonic operator invertible (EN-8)."""
     spring_term = 0.0
     if inertia_kg_m2 and omega_rad_s:
         spring_term = float(spring_nm_per_rad) / (float(inertia_kg_m2) * float(omega_rad_s) ** 2)
@@ -376,7 +377,9 @@ def flap_aero_damping(lock_number: float, hinge_offset_norm: float) -> float:
 
         beta'' + nu_beta^2 * beta + d_beta * beta' = Mbar(psi)
 
-    Derived from the ``(r - e*R)*beta_dot`` term of U_P. A section moving
+    Derived from the ``(r - e*R)*beta_dot`` term of U_P for the
+    solver's mean rigid-blade damping approximation: representative chord,
+    U_T = Omega*r, and the actual hinge-angle coordinate. A section moving
     with the flap rate sees its incidence change by ``-(r - eR)*beta_dot
     / U_T``; multiplying by the lift slope and the local dynamic
     pressure, taking the moment about the hinge and dividing by the Lock

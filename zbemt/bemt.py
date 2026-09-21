@@ -276,8 +276,10 @@ class BEMTConfig:
     inflow_field_model: str = "coleman_local"
     # Valid values: glauert_local | coleman_local | coleman_global |
     # coleman_feingold_global | drees_local | drees_global |
-    # pitt_peters_steady | pitt_peters_unsteady (this last one is not solved
-    # see `run_sweep_unsteady_pitt_peters`).
+    # pitt_peters_steady | pitt_peters_unsteady. The unsteady variant is
+    # marched by `run_maneuver` (and its compatibility wrapper
+    # `run_sweep_unsteady_pitt_peters`); an isolated `solve_bemt` call
+    # remains an equilibrium solve.
 
     # --- 4) Prandtl tip/root loss --------------------------------------------
     # Replaces the old `use_prandtl_loss: bool` (docs/plano.md GUI v3,
@@ -2400,26 +2402,22 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
 #
 # Equation of motion in psi = Omega*t, flap:
 #
-#     beta'' + nu_beta^2 * beta = M_beta(psi) / (I_beta*Omega^2)
+#     beta'' + d_beta*beta' + nu_beta^2*beta
+#         = M_beta(psi) / (I_beta*Omega^2)
 #
 # with nu_beta^2 = 1 + (3/2)*e/(1-e) + K_beta/(I_beta*Omega^2)
-# (geometry.flap_frequency_ratio_squared). Harmonic balance: write both
-# sides as truncated Fourier series with N_h harmonics,
+# (geometry.flap_frequency_ratio_squared). Harmonic balance writes both
+# sides as truncated Fourier series with N_h harmonics. For harmonic n
+# the cosine/sine pair is solved with
 #
-#     beta(psi)   = beta_0 + sum_n [beta_nc cos(n psi) + beta_ns sin(n psi)]
-#     Mbar(psi)   = M_0    + sum_n [M_nc   cos(n psi) + M_ns   sin(n psi)]
-#     Mbar = M_beta/(I_beta*Omega^2)
+#     [nu_beta^2-n^2,   n*d_beta] [beta_nc] = [M_nc]
+#     [-n*d_beta,     nu_beta^2-n^2] [beta_ns]   [M_ns]
 #
-# Because beta'' = -n^2*(...) for each harmonic, the solution is
-# algebraic:
-#
-#     beta_0 = M_0/nu_beta^2,  beta_nc = M_nc/(nu_beta^2 - n^2), ...
-#
-# EN-8 applies: when |nu_beta^2 - n^2| < 1e-3 the denominator is declared
-# resonant and a ValueError names the resonance instead of returning a
-# large number. An articulated rotor (e = 0, no spring) gives
-# nu_beta = 1 exactly, so its first harmonic is undefined -- a physical
-# fact of the configuration, not a numerical failure.
+# EN-8 applies to the full damped operator. Its determinant is
+# (nu_beta^2-n^2)^2 + (n*d_beta)^2, so nu_beta=n is finite whenever
+# aerodynamic or mechanical damping is nonzero. A centrally hinged
+# articulated rotor therefore remains valid at its structural 1/rev
+# tuning when aerodynamic flap damping is present.
 #
 # Lag adds a damper C_zeta, which couples the sine to the cosine part of
 # each harmonic into a two-by-two solve:
@@ -2429,9 +2427,10 @@ def apply_dynamic_stall(maps: dict, rotor: Rotor, airfoil, cfg: BEMTConfig,
 #     zeta_0 = M_0 / nu_zeta^2
 #
 # Sign conventions used in every output of this section:
-#     beta(psi) = beta_0 + beta_1c*cos(psi) + beta_1s*sin(psi), positive UP;
-#     each tip-path-plane tilt is the NEGATIVE of its first harmonic
-#     (tpp_tilt_long_deg = -beta_1c_deg, tpp_tilt_lat_deg = -beta_1s_deg).
+#     beta(psi) = beta_0 + beta_1c*cos(psi) + beta_1s*sin(psi), positive UP.
+# beta is the actual rotation about the hinge. For an offset e, the
+# shaft-to-tip slope is (1-e)*beta, so the reported tip-path-plane tilts
+# are -(1-e) times the corresponding first harmonics.
 
 _FLAP_RESONANCE_GUARD = 1e-3
 
@@ -2490,9 +2489,10 @@ def solve_blade_motion(moment_psi: np.ndarray, psi_nodes: np.ndarray,
     sine and cosine parts per harmonic into a two-by-two system. With
     zero damping the solve stays diagonal.
 
-    Raises ValueError when the denominator of a harmonic is resonant
-    (EN-8), naming the freedom, the harmonic and the configuration that
-    produced it."""
+    Raises ValueError only when the full damped harmonic operator is
+    singular or numerically near-singular (EN-8). A zero structural
+    detuning, `nu_squared == n**2`, is not singular when aerodynamic or
+    mechanical damping keeps the two-by-two system invertible."""
     if not np.isfinite(nu_squared):
         raise ValueError(
             f"solve_blade_motion: the {freedom} frequency ratio is not finite. "
@@ -2505,22 +2505,6 @@ def solve_blade_motion(moment_psi: np.ndarray, psi_nodes: np.ndarray,
             "ratio is zero because the rotor has neither a hinge offset nor "
             f"a {freedom} spring. The periodic response is undefined. Give "
             f"the {freedom} hinge an offset or add a spring.")
-    for n in range(1, n_harm + 1):
-        if abs(nu_squared - n * n) < _FLAP_RESONANCE_GUARD:
-            articulated = abs(hinge_offset_norm) < 1e-12
-            physical = (" That is the ARTICULATED rotor: with no hinge "
-                        "offset and no spring the flap frequency ratio is "
-                        "exactly 1, equal to this harmonic, so the "
-                        "periodic response has no finite solution."
-                        if (freedom == "flap" and articulated) else "")
-            raise ValueError(
-                f"resonant {freedom} denominator: |nu_{freedom[0]}^2 - "
-                f"{n}^2| = {abs(nu_squared - n * n):.2e} < "
-                f"{_FLAP_RESONANCE_GUARD:g} (nu^2 = {nu_squared:.6f}, hinge "
-                f"offset e = {hinge_offset_norm:g}). Harmonic {n} cannot be "
-                "solved by harmonic balance; returning a large number would "
-                "mean nothing." + physical + " Change the hinge offset, the "
-                "spring, or drop the harmonic count below it.")
     inertia_term = max(float(inertia) * float(Omega) ** 2, 1e-12)
     m_bar = np.asarray(moment_psi, dtype=float) / inertia_term
     m0, mc, ms = _fourier_coefficients(m_bar, psi_nodes, n_harm)
@@ -2534,8 +2518,8 @@ def solve_blade_motion(moment_psi: np.ndarray, psi_nodes: np.ndarray,
         if abs(det) < (_FLAP_RESONANCE_GUARD ** 2):
             raise ValueError(
                 f"resonant {freedom} denominator: the damped two-by-two "
-                f"system of harmonic {n} is singular (nu^2 = "
-                f"{nu_squared:.6f}, damping ratio C/(I*Omega) = "
+                f"system of harmonic {n} is singular or near-singular "
+                f"(nu^2 = {nu_squared:.6f}, dimensionless damping = "
                 f"{damping:.6f}, hinge offset e = {hinge_offset_norm:g}). "
                 "The periodic response is undefined (EN-8).")
         zc, zs = np.linalg.solve(matrix, np.array([mc[n], ms[n]]))
@@ -2593,8 +2577,8 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
     ``p_rate``/``q_rate`` are the HUB angular rates [rad/s] about the
     roll and pitch axes (SC-16). They reach the aerodynamics as an
     out-of-disk-plane velocity of every element and enter the flap
-    balance as a gyroscopic forcing Mbar_gyro = 2*(q*sin(psi) +
-    p*cos(psi))/Omega, added to the aerodynamic flap moment before the
+    balance as a gyroscopic forcing Mbar_gyro = 2*(p*cos(psi) -
+    q*sin(psi))/Omega, added to the aerodynamic flap moment before the
     harmonic balance. A rigid blade with a hub rate takes this path
     exactly like one with cyclic pitch, beta held at zero.
 
@@ -2746,12 +2730,12 @@ def solve_bemt_flapping(rotor: "Rotor", airfoil, cfg: "BEMTConfig", mu_x: float,
     #   1. The fields the outer loop iterates on are solved with the
     #      blade ANGLE only (rates held at zero), so their moments carry
     #      no rate feedback.
-    #   2. The analytic flap damping d_beta =
-    #      gamma*(1/8 - e/3 + e^2/4) -- gamma/8 at e = 0, the classic
-    #      centrally hinged result (`geometry.flap_aero_damping`,
-    #      derived from exactly the term that was removed) enters the
-    #      harmonic balance as the two-by-two coupling of each harmonic,
-    #      exactly like a lag damper.
+    #   2. The analytic mean flap damping from
+    #      `geometry.flap_aero_damping` -- gamma/8 at e = 0 -- enters
+    #      the harmonic balance as the two-by-two coupling of each
+    #      harmonic, exactly like a lag damper. The helper evaluates the
+    #      full implemented hinge-offset integral rather than the former
+    #      second-order approximation.
     #   3. The map from blade angle to solved coefficients now has an
     #      O(mu) gain: plain under-relaxed fixed-point iteration
     #      converges in a few steps.
@@ -4706,8 +4690,14 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         first = coeffs.get(1, (0.0, 0.0))
         out["beta_1c_deg"] = float(deg(first[0]))
         out["beta_1s_deg"] = float(deg(first[1]))
-        out["tpp_tilt_long_deg"] = -out["beta_1c_deg"]
-        out["tpp_tilt_lat_deg"] = -out["beta_1s_deg"]
+        # Internally beta is the ACTUAL rotation about the offset hinge:
+        # the kinematics use z=(r-eR)*beta. The tip-path-plane angle is
+        # therefore the shaft-to-tip slope, (1-e)*beta for the small-angle
+        # model. Johnson Section 6.15 describes these two equivalent mode
+        # normalizations explicitly.
+        tpp_scale = 1.0 - float(maps.get("hinge_offset_norm", 0.0))
+        out["tpp_tilt_long_deg"] = -tpp_scale * out["beta_1c_deg"]
+        out["tpp_tilt_lat_deg"] = -tpp_scale * out["beta_1s_deg"]
         n_harm_out = max(coeffs.keys())
         for n in range(2, n_harm_out + 1):
             cn, sn = coeffs.get(n, (0.0, 0.0))
@@ -4733,14 +4723,20 @@ def aggregate_results(rotor: Rotor, cfg: BEMTConfig, maps: dict,
         # alone. The totals are what a hub would actually feel.
         nu_sq_minus_1 = maps.get("nu_beta_squared", 1.0) - 1.0
         i_beta = maps["flap_inertia_kg_m2"]
-        gain = (rotor.Nb / 2.0) * i_beta * Omega ** 2 * nu_sq_minus_1
-        # The moment follows the TIP PATH PLANE, and the tilt of that
-        # plane is the NEGATIVE of the first harmonic -- which is what
-        # the two lines just above already say
-        # (`tpp_tilt_long_deg = -beta_1c_deg`). Built from `+beta_1c`,
-        # the hub moment came out nose-DOWN for a rotor flapping back,
-        # reversing the speed stability that this term exists to
-        # represent (`tests/regression/test_flapping.py`, SC-14).
+        # The engine's beta and I_beta are both referred to the physical
+        # flap hinge. In that coordinate the transmitted structural
+        # restoring moment is I_beta*Omega^2*(nu_beta^2-1)*beta_h per blade;
+        # summing a first harmonic over the rotor gives the Nb/2 factor.
+        #
+        # If the same relation is written against the reported tip-path
+        # plane coordinate beta_TPP=(1-e)*beta_h, its stiffness acquires a
+        # reciprocal 1/(1-e), which cancels when beta_TPP is substituted.
+        # Applying that reciprocal factor while still multiplying beta_h
+        # would double-count the coordinate change.
+        gain = ((rotor.Nb / 2.0) * i_beta * Omega ** 2
+                * nu_sq_minus_1)
+        # Built from +beta_1c, the sign below makes aft flapback carry a
+        # nose-up hub moment in the project's reporting convention.
         mx_hub = -gain * first[0]
         my_hub = -gain * first[1]
         out["Mx_hub"] = float(mx_hub)
