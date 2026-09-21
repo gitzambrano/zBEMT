@@ -524,13 +524,13 @@ class TestFlapbackCarriesANoseUpHubMoment(unittest.TestCase):
     NOSE-UP. That is what makes a helicopter want to pitch up as it
     gains speed.
 
-    The hub moment follows the tip path plane. With an offset hinge the
-    engine's internal beta is the actual hinge angle, so the reported
-    longitudinal tip-path tilt is
-    ``-(1-e)*beta_1c_deg``. The structural moment uses the equivalent
-    tip-normalized generalized coordinate from Johnson. Its sign must
-    follow the tip-path tilt and its magnitude must include the matching
-    ``1/(1-e)`` coordinate-conversion factor.
+    With an offset hinge the engine's internal beta is the actual hinge
+    angle, while the reported longitudinal tip-path tilt is
+    ``-(1-e)*beta_1c_deg``. The structural hub moment uses the same
+    physical hinge coordinate and hinge inertia as the flap equation.
+    Expressing the stiffness against the tip-path-plane coordinate adds a
+    reciprocal ``1/(1-e)``, but the TPP angle itself contributes
+    ``(1-e)``; the physical moment is unchanged.
     """
 
     def _forward_flight(self, mu_x):
@@ -571,22 +571,31 @@ class TestFlapbackCarriesANoseUpHubMoment(unittest.TestCase):
         self.assertGreater(fast["tpp_tilt_long_deg"], slow["tpp_tilt_long_deg"])
         self.assertGreater(fast["Mx_hub"], slow["Mx_hub"])
 
-    def test_hub_moment_matches_johnson_tip_normalization(self):
-        """Equation 6.284 is invariant only after the coordinate change.
+    def test_hub_moment_matches_physical_hinge_coordinate(self):
+        """The restoring moment uses the same hinge coordinate as the EOM.
 
-        The engine solves the actual hinge angle beta_h with inertia I_h.
-        Johnson normalizes the offset-hinge mode to the blade tip, so
-        beta_tip=(1-e)*beta_h and I_tip=I_h/(1-e)^2. Substitution in
-        M=I_tip*Omega^2*(nu^2-1)*beta_tip gives the 1/(1-e) factor below.
+        With beta_h and I_h both referred to the physical flap hinge,
+        the first-harmonic rotor hub moment is
+        (Nb/2)*I_h*Omega^2*(nu^2-1)*(-beta_1c). No extra modal-coordinate
+        scale factor belongs in this expression.
         """
         summary = self._forward_flight(0.25)
-        e = 0.05
         omega = 2.0 * math.pi * 600.0 / 60.0
         beta_1c = math.radians(summary["beta_1c_deg"])
         expected = (2.0 / 2.0) * summary["flap_inertia_kg_m2"] * omega ** 2
-        expected *= (summary["nu_beta"] ** 2 - 1.0) / (1.0 - e)
+        expected *= (summary["nu_beta"] ** 2 - 1.0)
         expected *= -beta_1c
         self.assertAlmostEqual(summary["Mx_hub"], expected, places=9)
+
+    def test_hub_moment_is_invariant_when_written_with_tpp_coordinate(self):
+        """Changing from hinge angle to TPP angle changes stiffness too."""
+        summary = self._forward_flight(0.25)
+        e = 0.05
+        omega = 2.0 * math.pi * 600.0 / 60.0
+        beta_tpp = math.radians(summary["tpp_tilt_long_deg"])
+        k_tpp = (2.0 / 2.0) * summary["flap_inertia_kg_m2"] * omega ** 2
+        k_tpp *= (summary["nu_beta"] ** 2 - 1.0) / (1.0 - e)
+        self.assertAlmostEqual(summary["Mx_hub"], k_tpp * beta_tpp, places=9)
 
     def test_the_hub_moment_follows_the_tip_path_plane(self):
         """The same statement as a sign identity, so that it survives a
